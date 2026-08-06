@@ -1,23 +1,75 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const pathname = Astro.url.pathname;
+const isActive = (path: string) => {
+  if (path === '/' && pathname === '/') return true;
+  if (path !== '/' && pathname.startsWith(path)) return true;
+  return false;
+};
+---
+
 <!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <!-- Modern Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-gray-950 text-gray-100 font-sans min-h-screen selection:bg-indigo-500/30" style="background: #080b14;">
+    <header style="border-bottom: 1px solid rgba(99,102,241,0.15); background: rgba(8,11,20,0.85); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <img src="/favicon-32x32.png" alt="Palworld Vault" class="w-8 h-8 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+          <h1 class="text-2xl font-black tracking-tight" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Palworld Vault
+          </h1>
+        </div>
+        <nav class="flex items-center gap-4">
+          <a href="/" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Catalog</a>
+          <a href="/cards" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/cards') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Checklist</a>
+          <a href="/admin" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/admin') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Admin</a>
+        </nav>
+      </div>
+    </header>
+    <slot />
+  </body>
 </html>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
+<style is:global>
+  :root {
+    --font-inter: 'Inter', sans-serif;
+  }
+  body {
+    font-family: var(--font-inter);
+  }
+  
+  /* Custom scrollbar for a premium feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #111827;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4B5563;
+  }
 </style>
