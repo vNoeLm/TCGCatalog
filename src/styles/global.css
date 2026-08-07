@@ -1,5 +1,110 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS — Light & Dark themes
+───────────────────────────────────────────── */
+:root {
+  /* Brand accent (indigo/violet — same in both themes) */
+  --accent:       #6366f1;
+  --accent-light: #818cf8;
+  --accent-muted: rgba(99,102,241,0.15);
+  --accent-border: rgba(99,102,241,0.25);
+  --accent-glow:  rgba(99,102,241,0.35);
+
+  /* Backgrounds */
+  --bg-page:      #f4f5fa;
+  --bg-surface:   #ffffff;
+  --bg-surface-2: #eef0f8;
+  --bg-raised:    #f9f9fd;
+  --bg-input:     #f0f1f8;
+  --bg-header:    rgba(244,245,250,0.88);
+
+  /* Borders */
+  --border:       rgba(99,102,241,0.18);
+  --border-subtle:rgba(0,0,0,0.07);
+
+  /* Text */
+  --text-primary:   #181a2e;
+  --text-secondary: #4b5263;
+  --text-muted:     #8891a8;
+  --text-accent:    #4f46e5;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #c4c8e0;
+  --scrollbar-track: #eef0f8;
+
+  /* Shadows */
+  --shadow-card: 0 2px 16px rgba(80,80,130,0.10);
+  --shadow-header: 0 1px 0 rgba(99,102,241,0.12);
+}
+
+html.dark {
+  /* Backgrounds */
+  --bg-page:      #0a0d1a;
+  --bg-surface:   #12172b;
+  --bg-surface-2: #0e1224;
+  --bg-raised:    #161c30;
+  --bg-input:     #0e1220;
+  --bg-header:    rgba(10,13,26,0.88);
+
+  /* Borders */
+  --border:       rgba(99,102,241,0.2);
+  --border-subtle:rgba(255,255,255,0.06);
+
+  /* Text */
+  --text-primary:   #e8eaf6;
+  --text-secondary: #9ca3af;
+  --text-muted:     #5c6378;
+  --text-accent:    #818cf8;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #2a3050;
+  --scrollbar-track: #0e1224;
+
+  /* Shadows */
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.45);
+  --shadow-header: 0 1px 0 rgba(99,102,241,0.15);
+}
+
+/* ─────────────────────────────────────────────
+   BASE
+───────────────────────────────────────────── */
+html {
+  background: var(--bg-page);
+  transition: background 0.2s;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: background 0.2s, color 0.2s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR
+───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ─────────────────────────────────────────────
+   FORM ELEMENTS — theme-aware
+───────────────────────────────────────────── */
+input, select, textarea {
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
 /* Remove native spinner arrows on number inputs */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -11,13 +116,12 @@ input[type="number"] {
   appearance: textfield;
 }
 
-/* Remove default range appearance so our custom thumbs show */
+/* Remove default range appearance */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
 }
-
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -26,8 +130,24 @@ input[type="range"]::-webkit-slider-thumb {
   opacity: 0;
 }
 
-/* Smooth font rendering */
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ─────────────────────────────────────────────
+   UTILITY CLASSES (theme-aware)
+───────────────────────────────────────────── */
+.theme-surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+.theme-surface-2 {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+}
+.theme-text { color: var(--text-primary); }
+.theme-text-secondary { color: var(--text-secondary); }
+.theme-text-muted { color: var(--text-muted); }
+.theme-text-accent { color: var(--text-accent); }
+.theme-border { border-color: var(--border); }
+.theme-input {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
 }

@@ -333,3 +333,21 @@ export async function fetchCardOnly(cardId: string) {
   if (error) throw error;
   return data;
 }
+
+// ─── Site Settings ─────────────────────────────────────────────────
+export async function getCatalogVisibility(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'catalog_public')
+    .single();
+  if (error) return false; // default to locked on error
+  return data?.value === 'true';
+}
+
+export async function setCatalogVisibility(isPublic: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key: 'catalog_public', value: isPublic ? 'true' : 'false' });
+  if (error) throw error;
+}

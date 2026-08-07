@@ -131,8 +131,14 @@ export function CardListApp() {
   const paginatedCards = displayedCards.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedCards.length < totalCount;
 
+  const ghostBtnStyle: React.CSSProperties = {
+    padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+    background: 'var(--bg-surface-2)', color: 'var(--text-secondary)',
+    border: '1px solid var(--border-subtle)', transition: 'all 0.15s',
+  };
+
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: isWide ? "280px 1fr" : "1fr", gap: 32 }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)", display: "grid", gridTemplateColumns: isWide ? "280px 1fr" : "1fr", gap: isWide ? 32 : 20 }}>
       
       {/* Sidebar / Filters */}
       <div style={{ position: isWide ? "sticky" : "static", top: 100, alignSelf: "start" }}>
@@ -149,13 +155,17 @@ export function CardListApp() {
       </div>
 
       {/* Main Content */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
         
-        {/* Top Bar: Search & Collection Filters */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+        {/* Top Bar */}
+        <div style={{
+          display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center",
+          background: "var(--bg-surface)", border: "1px solid var(--border)",
+          borderRadius: 14, padding: "12px 16px",
+        }}>
           
           {/* Collection Tabs */}
-          <div style={{ display: 'flex', gap: 6, background: '#0c0f1e', padding: 6, borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg-surface-2)', padding: 4, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
             {(["All", "Have", "Missing"] as const).map(f => {
               const active = collectionFilter === f;
               let label = f;
@@ -168,10 +178,11 @@ export function CardListApp() {
                   key={f}
                   onClick={() => { setCollectionFilter(f); setPage(1); }}
                   style={{
-                    padding: '6px 16px', fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
-                    background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
-                    color: active ? '#a5b4fc' : '#6b7280',
-                    border: active ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                    padding: '5px 14px', fontSize: 12, fontWeight: 700, borderRadius: 7, cursor: 'pointer',
+                    background: active ? 'var(--accent-muted)' : 'transparent',
+                    color: active ? 'var(--accent-light)' : 'var(--text-muted)',
+                    border: active ? '1px solid var(--accent-border)' : '1px solid transparent',
+                    transition: 'all 0.12s',
                   }}
                 >
                   {label}
@@ -180,88 +191,78 @@ export function CardListApp() {
             })}
           </div>
 
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
           {/* Import / Export */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={handleExport}
-              style={{
-                padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
-                background: 'rgba(255,255,255,0.05)', color: '#d1d5db', border: '1px solid rgba(255,255,255,0.1)',
-                transition: 'all 0.15s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+            <button onClick={handleExport} style={ghostBtnStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.color = 'var(--accent-light)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
-              Export Data
+              ↓ Export
             </button>
-            
-            <label
-              style={{
-                padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
-                background: 'rgba(255,255,255,0.05)', color: '#d1d5db', border: '1px solid rgba(255,255,255,0.1)',
-                transition: 'all 0.15s', display: 'inline-block'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+            <label style={{ ...ghostBtnStyle, display: 'inline-block' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.color = 'var(--accent-light)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
-              Import Data
+              ↑ Import
               <input type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
             </label>
           </div>
 
           {/* Search */}
-          <div style={{ position: "relative", flex: "1 1 300px", maxWidth: 400 }}>
+          <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 380 }}>
             <svg
-              style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, pointerEvents: "none" }}
-              fill="none" viewBox="0 0 24 24" stroke="#6b7280"
+              style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
+              fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Search by name or number (e.g. bp01-001)..."
+              placeholder="Search by name or number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: "100%", boxSizing: "border-box",
-                background: "#12172a",
-                border: "1px solid rgba(99,102,241,0.2)",
-                borderRadius: 12, padding: "13px 16px 13px 44px",
-                color: "#f3f4f6", fontSize: 14, outline: "none",
+                background: "var(--bg-input)",
+                border: "1px solid var(--border)",
+                borderRadius: 10, padding: "9px 14px 9px 38px",
+                color: "var(--text-primary)", fontSize: 13, outline: "none",
                 transition: "border-color 0.2s, box-shadow 0.2s",
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "#6366f1"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.2)"; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(99,102,241,0.2)"; e.currentTarget.style.boxShadow = "none"; }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-glow)"; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
             />
           </div>
-
         </div>
 
         {/* Results Info */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px" }}>
-          <p style={{ color: "#9ca3af", fontSize: 14, margin: 0 }}>
-            Showing <strong style={{ color: "#f3f4f6" }}>{paginatedCards.length}</strong> of{" "}
-            <strong style={{ color: "#f3f4f6" }}>{totalCount}</strong> cards
+        <div style={{ padding: "0 4px" }}>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
+            Showing <strong style={{ color: "var(--text-primary)" }}>{paginatedCards.length}</strong> of{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{totalCount}</strong> cards
           </p>
         </div>
 
         {/* Grid */}
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-            <div className="animate-spin text-4xl" style={{ color: "#4f46e5" }}>⚙️</div>
+            <div className="animate-spin text-4xl" style={{ color: "var(--accent)" }}>⚙️</div>
           </div>
         ) : paginatedCards.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", background: "var(--bg-surface)", border: "1px dashed var(--border)", borderRadius: 24 }}>
             <span className="text-6xl mb-4 opacity-50">📭</span>
-            <h3 className="text-xl font-bold text-gray-400 mb-2">No cards found</h3>
-            <p className="text-sm text-gray-600 max-w-md text-center">
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 8 }}>No cards found</h3>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 320, textAlign: "center" }}>
               Try adjusting your search or filters to find what you're looking for.
             </p>
           </div>
         ) : (
           <>
             <div style={{
-              display: "grid", gap: 24,
+              display: "grid", gap: 20,
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
             }}>
               {paginatedCards.map((card) => (
@@ -275,15 +276,16 @@ export function CardListApp() {
             </div>
 
             {hasMore && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
                 <button
                   onClick={() => setPage(p => p + 1)}
-                  className="px-8 py-3 rounded-xl font-bold text-sm transition-all active:scale-95"
                   style={{
-                    background: "rgba(255,255,255,0.03)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)",
+                    padding: "10px 32px", borderRadius: 10, fontWeight: 700, fontSize: 13,
+                    background: "var(--accent-muted)", color: "var(--accent-light)",
+                    border: "1px solid var(--accent-border)", cursor: "pointer", transition: "all 0.15s",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.1)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.25)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent-muted)"; }}
                 >
                   Load More Cards
                 </button>

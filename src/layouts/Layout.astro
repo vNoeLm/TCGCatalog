@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import { Navigation } from '../components/Navigation';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 interface Props {
   title: string;
@@ -7,11 +9,6 @@ interface Props {
 
 const { title } = Astro.props;
 const pathname = Astro.url.pathname;
-const isActive = (path: string) => {
-  if (path === '/' && pathname === '/') return true;
-  if (path !== '/' && pathname.startsWith(path)) return true;
-  return false;
-};
 ---
 
 <!doctype html>
@@ -29,21 +26,30 @@ const isActive = (path: string) => {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <!-- Prevent flash of wrong theme -->
+    <script is:inline>
+      (function() {
+        var saved = localStorage.getItem('theme');
+        var dark = saved ? saved === 'dark' : true;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
   </head>
-  <body class="bg-gray-950 text-gray-100 font-sans min-h-screen selection:bg-indigo-500/30" style="background: #080b14;">
-    <header style="border-bottom: 1px solid rgba(99,102,241,0.15); background: rgba(8,11,20,0.85); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+  <body class="min-h-screen font-sans" style="background: var(--bg-page); color: var(--text-primary);">
+    <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-2">
         <div class="flex items-center gap-3">
-          <img src="/favicon-32x32.png" alt="Palworld Vault" class="w-8 h-8 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-          <h1 class="text-2xl font-black tracking-tight" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Palworld Vault
-          </h1>
+          <a href="/" class="flex items-center gap-3" style="text-decoration: none;">
+            <img src="/favicon-32x32.png" alt="Palworld Vault" class="w-8 h-8 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+            <span class="text-xl font-black tracking-tight" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+              Palworld Vault
+            </span>
+          </a>
         </div>
-        <nav class="flex items-center gap-4">
-          <a href="/" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Catalog</a>
-          <a href="/cards" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/cards') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Checklist</a>
-          <a href="/admin" class={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${isActive('/admin') ? 'text-indigo-400 bg-indigo-500/10 border border-indigo-500/20' : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border border-transparent'}`}>Admin</a>
-        </nav>
+        <div class="flex items-center gap-3">
+          <Navigation currentPath={pathname} client:load />
+          <ThemeToggle client:load />
+        </div>
       </div>
     </header>
     <slot />
@@ -56,20 +62,5 @@ const isActive = (path: string) => {
   }
   body {
     font-family: var(--font-inter);
-  }
-  
-  /* Custom scrollbar for a premium feel */
-  ::-webkit-scrollbar {
-    width: 8px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #111827;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #374151;
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #4B5563;
   }
 </style>

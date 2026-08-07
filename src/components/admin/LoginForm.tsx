@@ -18,10 +18,10 @@ export function LoginForm() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box',
-    background: '#0d1020',
-    border: '1px solid rgba(99,102,241,0.25)',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
     borderRadius: 10, padding: '12px 14px',
-    color: '#f3f4f6', fontSize: 14, outline: 'none',
+    color: 'var(--text-primary)', fontSize: 14, outline: 'none',
   };
 
   return (
@@ -31,10 +31,10 @@ export function LoginForm() {
     }}>
       <div style={{
         width: '100%', maxWidth: 400,
-        background: 'linear-gradient(160deg, #13172b 0%, #0c0f1e 100%)',
-        border: '1px solid rgba(99,102,241,0.2)',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
         borderRadius: 20, padding: 36,
-        boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+        boxShadow: 'var(--shadow-card)',
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -44,10 +44,10 @@ export function LoginForm() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 24, boxShadow: '0 0 24px rgba(99,102,241,0.5)',
           }}>🃏</div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#e5e7eb' }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>
             Admin Login
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
             Palworld Vault — Admin Panel
           </p>
         </div>

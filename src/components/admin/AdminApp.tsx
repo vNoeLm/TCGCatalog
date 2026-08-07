@@ -4,14 +4,16 @@ import { LoginForm } from './LoginForm';
 import { InventoryManager } from './InventoryManager';
 import { CardsManager } from './CardsManager';
 import { SetsManager } from './SetsManager';
+import { SettingsManager } from './SettingsManager';
 import type { Session } from '@supabase/supabase-js';
 
-type Tab = 'inventory' | 'cards' | 'sets';
+type Tab = 'inventory' | 'cards' | 'sets' | 'settings';
 
 const TAB_LABELS: Record<Tab, string> = {
   inventory: '📦 Inventory',
   cards: '🃏 Cards',
   sets: '📚 Sets',
+  settings: '⚙️ Settings',
 };
 
 export function AdminApp() {
@@ -39,7 +41,7 @@ export function AdminApp() {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <span style={{ color: '#818cf8', fontSize: 16 }}>Checking session…</span>
+        <span style={{ color: 'var(--accent-light)', fontSize: 16 }}>Checking session…</span>
       </div>
     );
   }
@@ -49,18 +51,18 @@ export function AdminApp() {
   }
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 24px 60px' }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px) 60px' }}>
       {/* Admin Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginBottom: 28, paddingBottom: 20,
-        borderBottom: '1px solid rgba(99,102,241,0.2)',
+        borderBottom: '1px solid var(--border-subtle)',
       }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#e5e7eb' }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
             Admin Panel
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280' }}>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
             Logged in as {session.user.email}
           </p>
         </div>
@@ -77,7 +79,7 @@ export function AdminApp() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 28, flexWrap: 'wrap' }}>
         {(Object.keys(TAB_LABELS) as Tab[]).map((tab) => {
           const active = activeTab === tab;
           return (
@@ -87,10 +89,12 @@ export function AdminApp() {
               style={{
                 padding: '9px 20px', fontSize: 13, fontWeight: 700,
                 borderRadius: 10, cursor: 'pointer', transition: 'all 0.12s',
-                border: active ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(255,255,255,0.08)',
-                background: active ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.03)',
-                color: active ? '#a5b4fc' : '#6b7280',
+                border: active ? '1px solid var(--accent-border)' : '1px solid var(--border-subtle)',
+                background: active ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
+                color: active ? 'var(--accent-light)' : 'var(--text-muted)',
               }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'var(--bg-surface)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'var(--bg-surface-2)'; e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
             >
               {TAB_LABELS[tab]}
             </button>
@@ -102,6 +106,7 @@ export function AdminApp() {
       {activeTab === 'inventory' && <InventoryManager />}
       {activeTab === 'cards' && <CardsManager />}
       {activeTab === 'sets' && <SetsManager />}
+      {activeTab === 'settings' && <SettingsManager />}
     </div>
   );
 }

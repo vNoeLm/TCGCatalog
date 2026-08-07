@@ -16,17 +16,17 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
   tsp: { bg:"#1a2e3f", text:"#7dd3fc", glow:"rgba(125,211,252,0.25)" },
   pr:  { bg:"#500724", text:"#fda4af", glow:"rgba(253,164,175,0.6)" },
 };
+
 const COLOR_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  red:       { bg:"rgba(239,68,68,0.1)",   border:"rgba(239,68,68,0.3)",   text:"#fca5a5" },
-  blue:      { bg:"rgba(59,130,246,0.1)",  border:"rgba(59,130,246,0.3)",  text:"#93c5fd" },
-  green:     { bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   text:"#86efac" },
-  purple:    { bg:"rgba(168,85,247,0.1)",  border:"rgba(168,85,247,0.3)",  text:"#c4b5fd" },
-  colorless: { bg:"rgba(107,114,128,0.1)", border:"rgba(107,114,128,0.3)", text:"#9ca3af" },
+  red:       { bg:"rgba(239,68,68,0.12)",   border:"rgba(239,68,68,0.35)",   text:"#ef4444" },
+  blue:      { bg:"rgba(59,130,246,0.12)",  border:"rgba(59,130,246,0.35)",  text:"#3b82f6" },
+  green:     { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#22c55e" },
+  purple:    { bg:"rgba(168,85,247,0.12)",  border:"rgba(168,85,247,0.35)",  text:"#a855f7" },
+  colorless: { bg:"var(--bg-surface-2)",    border:"var(--border)",          text:"var(--text-secondary)" },
 };
+
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
-
-// ...
 
 export function CardDetail() {
   const [data, setData] = useState<any>(null);
@@ -67,13 +67,13 @@ export function CardDetail() {
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
-      <span style={{ color:'#818cf8' }}>Loading…</span>
+      <span style={{ color:'var(--accent-light)' }}>Loading…</span>
     </div>
   );
   if (error || !data) return (
     <div style={{ maxWidth:600, margin:'80px auto', textAlign:'center' }}>
-      <p style={{ color:'#6b7280' }}>{error || 'Not found.'}</p>
-      <a href="/" style={{ color:'#818cf8' }}>← Back to catalog</a>
+      <p style={{ color:'var(--text-muted)' }}>{error || 'Not found.'}</p>
+      <BackLink />
     </div>
   );
 
@@ -82,12 +82,10 @@ export function CardDetail() {
   const colorTint = COLOR_TINTS[card.color] ?? COLOR_TINTS.colorless;
   const isAvailable = data.status === 'In Stock';
 
-  // Collect all image URLs for thumbnail strip
   const allThumbs: Array<{ url: string; label: string }> = [];
   if (card.image_path) {
     allThumbs.push({ url: getCardImageUrl(card.image_path), label: 'Cover Art' });
   }
-  
   const invImgs: any[] = (data.inventory_images ?? []).slice().sort((a: any, b: any) => a.display_order - b.display_order);
   allThumbs.push(...invImgs.map((img, i) => ({ url: getCardImageUrl(img.image_path), label: `Condition ${i+1}` })));
 
@@ -98,24 +96,21 @@ export function CardDetail() {
 
   return (
     <div style={{ maxWidth:1200, margin:'0 auto', padding:'32px 24px 80px' }}>
-      <a href="/" style={{ display:'inline-flex', alignItems:'center', gap:6, color:'#6b7280', fontSize:13, textDecoration:'none', marginBottom:32 }}>
-        ← Back to catalog
-      </a>
+      <BackLink />
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:48, alignItems:'flex-start' }}>
+      <div style={{ display:'grid', gridTemplateColumns: 'clamp(280px, 40%, 460px) 1fr', gap:48, alignItems:'flex-start' }}>
 
         {/* ── Left: image column ── */}
         <div>
-          {/* Main display */}
+          {/* Main display — always dark for visual quality */}
           <div style={{
             background:'linear-gradient(135deg, #0f172a 0%, #1a1640 50%, #0f172a 100%)',
-            border:`1px solid ${rarityStyle.text}33`,
+            border:`1px solid ${rarityStyle.text}44`,
             borderRadius:24, overflow:'hidden', position:'relative',
             padding: 24, display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 0 80px ${rarityStyle.glow}, 0 32px 80px rgba(0,0,0,0.7)`,
+            boxShadow:`0 0 60px ${rarityStyle.glow}, 0 24px 60px rgba(0,0,0,0.5)`,
             marginBottom:16,
           }}>
-            {/* Subtle grid bg */}
             <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize:'32px 32px' }} />
 
             {activeUrl ? (
@@ -123,7 +118,7 @@ export function CardDetail() {
                 style={{ position:'relative', zIndex:1, width:'100%', height:'auto', borderRadius:8, filter:`drop-shadow(0 8px 24px ${rarityStyle.glow})` }}
               />
             ) : (
-              <div style={{ position:'relative', zIndex:1, textAlign:'center', color:'#4b5563' }}>
+              <div style={{ position:'relative', zIndex:1, textAlign:'center', color:'#9ca3af' }}>
                 <div style={{ fontSize:80, fontWeight:900, background:'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                   {card.name.split(' ').map((w: string) => w[0]).join('').slice(0,2)}
                 </div>
@@ -131,7 +126,6 @@ export function CardDetail() {
               </div>
             )}
 
-            {/* Corner brackets */}
             {[['top-4 left-4', 'border-l-2 border-t-2'], ['top-4 right-4', 'border-r-2 border-t-2'], ['bottom-4 left-4', 'border-l-2 border-b-2'], ['bottom-4 right-4', 'border-r-2 border-b-2']].map(([pos, border], i) => (
               <div key={i} className={`absolute w-7 h-7 ${pos} ${border}`} style={{ borderColor:`${rarityStyle.text}55`, zIndex:2 }} />
             ))}
@@ -144,9 +138,14 @@ export function CardDetail() {
                 <button key={i} onClick={() => setActiveUrl(thumb.url)} title={thumb.label}
                   style={{
                     width:72, height:96, borderRadius:10, overflow:'hidden', padding:0, cursor:'pointer',
-                    border: activeUrl === thumb.url ? `2px solid ${rarityStyle.text}` : '2px solid rgba(255,255,255,0.1)',
+                    border: activeUrl === thumb.url ? `2px solid ${rarityStyle.text}` : '2px solid rgba(255,255,255,0.15)',
                     background:'#0d1020', flexShrink:0,
-                  }}>
+                    transition: 'border-color 0.15s, transform 0.15s',
+                    transform: activeUrl === thumb.url ? 'scale(1.05)' : 'scale(1)',
+                  }}
+                  onMouseEnter={e => { if (activeUrl !== thumb.url) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; }}
+                  onMouseLeave={e => { if (activeUrl !== thumb.url) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                >
                   <img src={thumb.url} alt={thumb.label} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                 </button>
               ))}
@@ -156,11 +155,11 @@ export function CardDetail() {
 
         {/* ── Right: info column ── */}
         <div style={{ paddingTop:8 }}>
-          <p style={{ margin:'0 0 8px', fontSize:12, color:'#6b7280', letterSpacing:'0.06em', textTransform:'uppercase', fontWeight:600 }}>
+          <p style={{ margin:'0 0 8px', fontSize:12, color:'var(--text-muted)', letterSpacing:'0.06em', textTransform:'uppercase', fontWeight:600 }}>
             {card.sets?.name} · <span style={{ fontFamily:'monospace' }}>{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
           </p>
 
-          <h1 style={{ margin:'0 0 20px', fontSize:42, fontWeight:900, color:'#f1f5f9', lineHeight:1.05 }}>
+          <h1 style={{ margin:'0 0 20px', fontSize:40, fontWeight:900, color:'var(--text-primary)', lineHeight:1.05 }}>
             {card.name}
           </h1>
 
@@ -172,21 +171,21 @@ export function CardDetail() {
             <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:colorTint.bg, color:colorTint.text, border:`1px solid ${colorTint.border}`, textTransform:'capitalize' }}>
               {card.color}
             </span>
-            <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(255,255,255,0.04)', color:'#9ca3af', border:'1px solid rgba(255,255,255,0.08)', textTransform:'capitalize' }}>
+            <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--bg-surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border-subtle)', textTransform:'capitalize' }}>
               {card.card_type}
             </span>
             {card.subtype && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(255,255,255,0.02)', color:'#d1d5db', border:'1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--bg-surface-2)', color:'var(--text-primary)', border:'1px solid var(--border)' }}>
                 {card.subtype}
               </span>
             )}
             {card.cost != null && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(99,102,241,0.1)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.25)' }}>
+              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--accent-muted)', color:'var(--accent-light)', border:'1px solid var(--accent-border)' }}>
                 Cost {card.cost}
               </span>
             )}
             {card.is_lucky && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(180,83,9,0.2)', color:'#fde68a', border:'1px solid rgba(180,83,9,0.4)' }}>
+              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(180,83,9,0.15)', color:'#d97706', border:'1px solid rgba(180,83,9,0.35)' }}>
                 ✨ Lucky Pal
               </span>
             )}
@@ -194,52 +193,49 @@ export function CardDetail() {
 
           {/* Game Stats */}
           {(card.power || card.strike || card.aptitude || card.text) && (
-            <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, padding:20, marginBottom:28 }}>
-              {/* Power / Strike Row */}
+            <div style={{ background:'var(--bg-surface-2)', border:'1px solid var(--border)', borderRadius:16, padding:20, marginBottom:28 }}>
               {(card.power || card.strike) && (
-                <div style={{ display:'flex', gap:32, marginBottom:16, paddingBottom:16, borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display:'flex', gap:32, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border-subtle)' }}>
                   {card.power && (
                     <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Power</div>
-                      <div style={{ fontSize:24, fontWeight:900, color:'#f3f4f6' }}>{card.power}</div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Power</div>
+                      <div style={{ fontSize:24, fontWeight:900, color:'var(--text-primary)' }}>{card.power}</div>
                     </div>
                   )}
                   {card.strike && (
                     <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Strike</div>
-                      <div style={{ fontSize:24, fontWeight:900, color:'#f3f4f6' }}>{card.strike}</div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Strike</div>
+                      <div style={{ fontSize:24, fontWeight:900, color:'var(--text-primary)' }}>{card.strike}</div>
                     </div>
                   )}
                 </div>
               )}
               
-              {/* Aptitude */}
               {card.aptitude && (
                 <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Aptitude</div>
-                  <div style={{ fontSize:14, color:'#d1d5db', lineHeight:1.5 }}>{card.aptitude}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Aptitude</div>
+                  <div style={{ fontSize:14, color:'var(--text-secondary)', lineHeight:1.5 }}>{card.aptitude}</div>
                 </div>
               )}
               
-              {/* Card Text */}
               {card.text && (
                 <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Effect / Text</div>
-                  <div style={{ fontSize:15, color:'#e5e7eb', lineHeight:1.6, whiteSpace:'pre-line' }}>{card.text}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Effect / Text</div>
+                  <div style={{ fontSize:15, color:'var(--text-primary)', lineHeight:1.6, whiteSpace:'pre-line' }}>{card.text}</div>
                 </div>
               )}
             </div>
           )}
 
-          <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', marginBottom:28 }} />
+          <div style={{ borderTop:'1px solid var(--border-subtle)', marginBottom:28 }} />
 
           {/* Condition + notes (Inventory only) */}
           {isInventory && (
             <div style={{ marginBottom:28 }}>
-              <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'#6b7280' }}>Condition</p>
-              <p style={{ margin:'0 0 12px', fontSize:18, color:'#e5e7eb', fontWeight:600 }}>{data.condition}</p>
+              <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-muted)' }}>Condition</p>
+              <p style={{ margin:'0 0 12px', fontSize:18, color:'var(--text-primary)', fontWeight:600 }}>{data.condition}</p>
               {data.notes && (
-                <p style={{ margin:0, fontSize:15, color:'#9ca3af', lineHeight:1.7, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 16px' }}>
+                <p style={{ margin:0, fontSize:15, color:'var(--text-secondary)', lineHeight:1.7, background:'var(--bg-surface-2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 16px' }}>
                   {data.notes}
                 </p>
               )}
@@ -250,12 +246,12 @@ export function CardDetail() {
           {isInventory && (
             <>
               <div style={{ marginBottom:32 }}>
-                <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'#6b7280' }}>Price</p>
-                <span style={{ fontSize:48, fontWeight:900, color:'#34d399', letterSpacing:'-0.02em' }}>
+                <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-muted)' }}>Price</p>
+                <span style={{ fontSize:48, fontWeight:900, color:'#10b981', letterSpacing:'-0.02em' }}>
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </span>
                 {data.is_bulk && (
-                  <span style={{ display:'block', fontSize:14, color:'#a5b4fc', marginTop:4 }}>
+                  <span style={{ display:'block', fontSize:14, color:'var(--accent-light)', marginTop:4 }}>
                     ×{data.quantity} available
                   </span>
                 )}
@@ -265,7 +261,7 @@ export function CardDetail() {
                 <span style={{
                   fontSize:13, fontWeight:700, padding:'7px 16px', borderRadius:20,
                   background: isAvailable ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
-                  color: isAvailable ? '#86efac' : '#fde68a',
+                  color: isAvailable ? '#22c55e' : '#f59e0b',
                   border:`1px solid ${isAvailable ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`,
                 }}>
                   {data.status}
@@ -279,11 +275,19 @@ export function CardDetail() {
                       color:'white', textDecoration:'none',
                       borderRadius:14, padding:'14px 32px',
                       fontSize:16, fontWeight:800,
-                      boxShadow:'0 4px 28px rgba(99,102,241,0.5)',
-                      transition:'transform 0.2s, filter 0.2s'
+                      boxShadow:'0 4px 24px rgba(99,102,241,0.4)',
+                      transition:'transform 0.15s, filter 0.15s, box-shadow 0.15s'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.1)'}
-                    onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.filter = 'brightness(1.12)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.55)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.filter = 'none';
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow = '0 4px 24px rgba(99,102,241,0.4)';
+                    }}
                   >
                     💬 Reserve on Messenger
                   </a>
@@ -294,5 +298,32 @@ export function CardDetail() {
         </div>
       </div>
     </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <a
+      href="/"
+      style={{
+        display:'inline-flex', alignItems:'center', gap:6,
+        color:'var(--text-muted)', fontSize:13, textDecoration:'none',
+        marginBottom:32, padding:'6px 12px', borderRadius:8,
+        border:'1px solid transparent',
+        transition:'color 0.15s, background 0.15s, border-color 0.15s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.color = 'var(--accent-light)';
+        e.currentTarget.style.background = 'var(--accent-muted)';
+        e.currentTarget.style.borderColor = 'var(--accent-border)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.color = 'var(--text-muted)';
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.borderColor = 'transparent';
+      }}
+    >
+      ← Back to catalog
+    </a>
   );
 }

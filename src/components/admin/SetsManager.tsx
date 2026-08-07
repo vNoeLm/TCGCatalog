@@ -37,27 +37,33 @@ export function SetsManager() {
   };
 
   const inputStyle: React.CSSProperties = {
-    background: '#0d1020', border: '1px solid rgba(99,102,241,0.2)',
-    borderRadius: 8, padding: '8px 10px', color: '#e5e7eb', fontSize: 13, outline: 'none',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
+    borderRadius: 8, padding: '8px 10px',
+    color: 'var(--text-primary)', fontSize: 13, outline: 'none',
     width: '100%', boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
   };
+
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 11, color: '#6b7280', fontWeight: 700,
+    display: 'block', fontSize: 11, color: 'var(--text-muted)', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6,
   };
+
+  const addBtnStyle: React.CSSProperties = showAddForm
+    ? { background: 'var(--bg-surface-2)', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 9, padding: '7px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }
+    : { background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: '1px solid rgba(99,102,241,0.4)', color: 'white', borderRadius: 9, padding: '7px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' };
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#e5e7eb' }}>Sets</h3>
-        <button onClick={() => setShowAddForm(v => !v)}
-          style={{
-            background: showAddForm ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.7)',
-            border: '1px solid rgba(99,102,241,0.4)',
-            color: 'white', borderRadius: 9, padding: '7px 18px',
-            fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          }}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>Sets</h3>
+        <button
+          onClick={() => setShowAddForm(v => !v)}
+          style={addBtnStyle}
+          onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = ''; }}
         >
           {showAddForm ? '✕ Cancel' : '+ Add Set'}
         </button>
@@ -66,9 +72,10 @@ export function SetsManager() {
       {/* Add Form */}
       {showAddForm && (
         <form onSubmit={handleAdd} style={{
-          background: 'linear-gradient(160deg,#13172b,#0c0f1e)',
-          border: '1px solid rgba(99,102,241,0.25)', borderRadius: 14, padding: 24, marginBottom: 24,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14,
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)', borderRadius: 14, padding: 24, marginBottom: 24,
+          boxShadow: 'var(--shadow-card)',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14,
         }}>
           <div>
             <label style={labelStyle}>Set Code * (e.g. BP01)</label>
@@ -93,10 +100,13 @@ export function SetsManager() {
           <div style={{ gridColumn: '1 / -1' }}>
             <button type="submit" disabled={saving}
               style={{
-                background: saving ? '#374151' : 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-                border: 'none', color: 'white', borderRadius: 9, padding: '10px 28px',
-                fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-              }}>
+                background: saving ? 'var(--bg-surface-2)' : 'linear-gradient(135deg,#4f46e5,#7c3aed)',
+                border: 'none', color: saving ? 'var(--text-muted)' : 'white', borderRadius: 9, padding: '10px 28px',
+                fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if (!saving) { e.currentTarget.style.filter = 'brightness(1.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = ''; }}
+            >
               {saving ? 'Saving…' : 'Add Set'}
             </button>
           </div>
@@ -105,33 +115,40 @@ export function SetsManager() {
 
       {/* Sets Table */}
       {loading ? (
-        <p style={{ color: '#818cf8' }}>Loading…</p>
+        <p style={{ color: 'var(--accent-light)' }}>Loading…</p>
       ) : sets.length === 0 ? (
-        <p style={{ color: '#6b7280', textAlign: 'center', padding: '40px 0' }}>No sets yet. Add one above.</p>
+        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No sets yet. Add one above.</p>
       ) : (
-        <div style={{
-          background: 'linear-gradient(160deg,#13172b,#0c0f1e)',
-          border: '1px solid rgba(99,102,241,0.15)', borderRadius: 14, overflow: 'hidden',
-        }}>
-          {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 140px 100px', gap: 12, padding: '10px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4b5563' }}>
-            <span>Code</span>
-            <span>Name</span>
-            <span>Release Date</span>
-            <span>Total Cards</span>
-          </div>
-          {sets.map((s, i) => (
-            <div key={s.id} style={{
-              display: 'grid', gridTemplateColumns: '100px 1fr 140px 100px', gap: 12,
-              padding: '12px 18px', alignItems: 'center',
-              borderBottom: i < sets.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-            }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#818cf8' }}>{s.code}</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#e5e7eb' }}>{s.name}</span>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>{s.release_date ?? '—'}</span>
-              <span style={{ fontSize: 12, color: '#9ca3af' }}>{s.total_cards}</span>
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
+            minWidth: 440,
+          }}>
+            {/* Table header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px 100px', gap: 12, padding: '10px 18px', borderBottom: '1px solid var(--border-subtle)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+              <span>Code</span>
+              <span>Name</span>
+              <span>Release Date</span>
+              <span>Total Cards</span>
             </div>
-          ))}
+            {sets.map((s, i) => (
+              <div key={s.id} style={{
+                display: 'grid', gridTemplateColumns: '80px 1fr 140px 100px', gap: 12,
+                padding: '12px 18px', alignItems: 'center',
+                borderBottom: i < sets.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                transition: 'background 0.12s', cursor: 'default',
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
+              >
+                <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: 'var(--accent-light)' }}>{s.code}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{s.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.release_date ?? '—'}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.total_cards}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
