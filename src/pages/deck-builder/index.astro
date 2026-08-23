@@ -1,0 +1,47 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { DeckBuilderApp } from '../../components/deck-builder/DeckBuilderApp';
+---
+
+<Layout title="Deck Builder | TCG Vault">
+  <style is:global>
+    /* Range slider styles for cross-browser support */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      pointer-events: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #6366f1;
+      border: 2px solid #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      pointer-events: auto;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #6366f1;
+      border: 2px solid #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      pointer-events: auto;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: transparent;
+    }
+    input[type="range"]::-moz-range-track {
+      height: 4px;
+      background: transparent;
+    }
+  </style>
+  <DeckBuilderApp client:load />
+</Layout>

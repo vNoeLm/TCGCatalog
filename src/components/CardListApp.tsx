@@ -1,111 +1,177 @@
-import { useState, useEffect, useMemo } from "react";
-import type { CatalogCard } from "../types";
-import { FilterSidebar, type FilterState } from "./FilterSidebar";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import type { CatalogCard, FilterState } from "../types";
+import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
+import { CardDetail } from "./CardDetail";
 import { fetchCardsCatalog } from "../lib/api";
-import { RARITIES, TYPES, SETS, COLORS } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES } from "../lib/constants";
+
+const RARITY_WEIGHTS: Record<string, number> = {
+  'Common': 1,
+  'Uncommon': 2,
+  'Rare': 3,
+  'Epic': 5,
+  'Showcase': 7,
+};
 
 const DEFAULT_FILTERS: FilterState = {
+  game: "riftbound",
   set: "",
   rarities: [],
   type: "",
-  colors: [],
+  domains: [],
+  tags: [],
   costMin: 1,
   costMax: 10,
-  isLucky: "any",
+  stockStatus: "Any",
+  foilFilter: false,
+  signedFilter: false,
+  altArtFilter: "all",
+  overnumberedFilter: "all",
 };
 
+const BREAKPOINT = 900;
+const PAGE_SIZE = 48;
+
 export function CardListApp() {
-  const BREAKPOINT = 900;
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [isWide, setIsWide] = useState(true);
+  const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
   
   // Local Collection State
   const [collection, setCollection] = useState<Set<string>>(new Set());
   const [collectionFilter, setCollectionFilter] = useState<"All" | "Have" | "Missing">("All");
+  const [sortMode, setSortMode] = useState<"Number (Asc)" | "Number (Desc)" | "Rarity (High to Low)" | "Rarity (Low to High)">("Number (Asc)");
 
-  // Supabase Data State
-  const [cards, setCards] = useState<CatalogCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 24;
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState("");
 
+  // Restore state from session storage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('tcg_collection');
-    if (saved) {
-      try { setCollection(new Set(JSON.parse(saved))); } catch (e) {}
+    const savedSearch = sessionStorage.getItem('catalogSearchQuery');
+    if (savedSearch !== null) setSearchQuery(savedSearch);
+
+    const savedGrid = sessionStorage.getItem('catalogGridSize');
+    if (savedGrid) setGridSize(savedGrid as 'small'|'normal'|'large');
+
+    const savedFilter = sessionStorage.getItem('catalogCollectionFilter');
+    if (savedFilter) setCollectionFilter(savedFilter as "All"|"Have"|"Missing");
+
+    const savedSort = sessionStorage.getItem('catalogSortMode');
+    if (savedSort) setSortMode(savedSort as any);
+
+    const savedFilters = sessionStorage.getItem('catalogFilters');
+    if (savedFilters) {
+      try {
+        setFilters(prev => ({ ...prev, ...JSON.parse(savedFilters) }));
+      } catch (e) {}
     }
     
+    setIsInitialized(true);
+  }, []);
+
+  // Save filters to session storage
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem('catalogFilters', JSON.stringify(filters));
+    }
+  }, [filters, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem('catalogSearchQuery', searchQuery);
+    }
+  }, [searchQuery, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem('catalogGridSize', gridSize);
+    }
+  }, [gridSize, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem('catalogCollectionFilter', collectionFilter);
+    }
+  }, [collectionFilter, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem('catalogSortMode', sortMode);
+    }
+  }, [sortMode, isInitialized]);
+
+  // Load collection from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("tcg_user_collection") || localStorage.getItem("tcg_collection");
+    if (saved) {
+      try {
+        setCollection(new Set(JSON.parse(saved)));
+      } catch (e) {
+        console.error("Failed to load collection", e);
+      }
+    }
+  }, []);
+
+  const toggleOwnership = (cardId: string, isFoil?: boolean) => {
+    const targetId = isFoil ? `${cardId}_foil` : cardId;
+    setCollection(prev => {
+      const next = new Set(prev);
+      if (next.has(targetId)) {
+        next.delete(targetId);
+      } else {
+        next.add(targetId);
+      }
+      const arr = Array.from(next);
+      localStorage.setItem("tcg_user_collection", JSON.stringify(arr));
+      localStorage.setItem("tcg_collection", JSON.stringify(arr));
+      return next;
+    });
+  };
+
+  useEffect(() => {
     const check = () => setIsWide(window.innerWidth >= BREAKPOINT);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const toggleOwnership = (id: string) => {
-    setCollection(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem('tcg_collection', JSON.stringify(Array.from(next)));
-      return next;
-    });
-  };
+  // Supabase Data State
+  const [cards, setCards] = useState<CatalogCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-  const handleExport = () => {
-    const data = JSON.stringify(Array.from(collection));
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tcg-collection-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (Array.isArray(data)) {
-          const next = new Set<string>(data);
-          setCollection(next);
-          localStorage.setItem('tcg_collection', JSON.stringify(Array.from(next)));
-          alert(`Successfully imported ${next.size} cards to your collection!`);
-        } else {
-          alert('Invalid backup file format.');
-        }
-      } catch (err) {
-        alert('Failed to read backup file.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
-  // Fetch all matching DB filters
+  // Initial Data Fetch
   useEffect(() => {
     let isMounted = true;
-    
-    const loadData = async () => {
+    async function loadData() {
       setLoading(true);
-      setPage(1);
+      const { data } = await fetchCardsCatalog(DEFAULT_FILTERS, '');
+      if (isMounted) {
+        setCards(data);
+        setLoading(false);
+      }
+    }
+    loadData();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Filtered Cards Fetching
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setPage(1);
+
+    const timer = setTimeout(async () => {
       const { data } = await fetchCardsCatalog(filters, searchQuery);
       if (isMounted) {
         setCards(data);
         setLoading(false);
       }
-    };
-
-    const timer = setTimeout(() => {
-      loadData();
-    }, 300);
+    }, 200);
 
     return () => {
       isMounted = false;
@@ -113,187 +179,436 @@ export function CardListApp() {
     };
   }, [filters, searchQuery]);
 
-  // Client-side collection filtering
-  const totalCards = cards.length;
-  const haveCount = useMemo(() => cards.filter(c => collection.has(c.id)).length, [cards, collection]);
-  const missingCount = totalCards - haveCount;
-
-  const displayedCards = useMemo(() => {
-    return cards.filter(card => {
-      if (collectionFilter === "Have") return collection.has(card.id);
-      if (collectionFilter === "Missing") return !collection.has(card.id);
-      return true;
-    });
-  }, [cards, collectionFilter, collection]);
-
-  // Client-side pagination
-  const totalCount = displayedCards.length;
-  const paginatedCards = displayedCards.slice(0, page * PAGE_SIZE);
-  const hasMore = paginatedCards.length < totalCount;
-
-  const ghostBtnStyle: React.CSSProperties = {
-    padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
-    background: 'var(--bg-surface-2)', color: 'var(--text-secondary)',
-    border: '1px solid var(--border-subtle)', transition: 'all 0.15s',
+  const hasFoilVariant = (card: CatalogCard) => {
+    return card.rarity === 'Common' || card.rarity === 'Uncommon';
   };
 
-  return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)", display: "grid", gridTemplateColumns: isWide ? "280px 1fr" : "1fr", gap: isWide ? 32 : 20 }}>
+  const isOvernumbered = (card: CatalogCard) => {
+    if (!card.card_number || !card.card_number.includes('/')) return false;
+    const parts = card.card_number.split('/');
+    if (parts.length < 2) return false;
+    const numMatch = parts[0].match(/\d+/);
+    const denMatch = parts[1].match(/\d+/);
+    if (numMatch && denMatch) {
+      return parseInt(numMatch[0], 10) > parseInt(denMatch[0], 10);
+    }
+    return false;
+  };
+
+  const isSigned = (card: CatalogCard) => {
+    return Boolean(
+      card.card_number?.includes('*') ||
+      card.subtype?.toLowerCase() === 'signed' ||
+      card.tags?.includes('Signed')
+    );
+  };
+
+  const isAltArt = (card: CatalogCard) => {
+    if (!card.card_number) return false;
+    const numPart = card.card_number.split('/')[0];
+    const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
+    const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
+    const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
+    return Boolean(hasSuffix || isAltSubtype || isAltTag);
+  };
+
+  const showFoilOnly = !!filters.foilFilter;
+  const showSignedOnly = !!filters.signedFilter;
+  const altArtFilter = filters.altArtFilter || 'all';
+  const overnumberedFilter = filters.overnumberedFilter || 'all';
+
+  const relevantCards = useMemo(() => {
+    let filtered = cards;
+    if (showFoilOnly) filtered = filtered.filter(hasFoilVariant);
+    if (showSignedOnly) filtered = filtered.filter(isSigned);
+    if (altArtFilter === 'only') {
+      filtered = filtered.filter(isAltArt);
+    } else if (altArtFilter === 'none') {
+      filtered = filtered.filter(c => !isAltArt(c));
+    }
+    if (overnumberedFilter === 'only') {
+      filtered = filtered.filter(isOvernumbered);
+    } else if (overnumberedFilter === 'none') {
+      filtered = filtered.filter(c => !isOvernumbered(c));
+    }
+    
+    filtered = [...filtered].sort((a, b) => {
+      if (sortMode === 'Number (Asc)') {
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Number (Desc)') {
+        return (b.card_number||'').localeCompare((a.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Rarity (High to Low)' || sortMode === 'Rarity (Low to High)') {
+        const wA = RARITY_WEIGHTS[a.rarity] || 0;
+        const wB = RARITY_WEIGHTS[b.rarity] || 0;
+        if (wA !== wB) {
+          return sortMode === 'Rarity (High to Low)' ? wB - wA : wA - wB;
+        }
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      return 0;
+    });
+    
+    return filtered;
+  }, [cards, showFoilOnly, showSignedOnly, overnumberedFilter, sortMode]);
+  
+  const relevantTotal = relevantCards.length;
+  const haveCount = useMemo(() => {
+    return relevantCards.filter(c => {
+      const isRegularOwned = collection.has(c.id);
+      const isFoilOwned = collection.has(`${c.id}_foil`);
+      if (showFoilOnly) return isFoilOwned;
+      return isRegularOwned || isFoilOwned;
+    }).length;
+  }, [relevantCards, collection, showFoilOnly]);
+
+  const missingCount = relevantTotal - haveCount;
+
+  const displayedCards = useMemo(() => {
+    return relevantCards.filter(card => {
+      const isRegularOwned = collection.has(card.id);
+      const isFoilOwned = collection.has(`${card.id}_foil`);
+      const isOwned = showFoilOnly ? isFoilOwned : (isRegularOwned || isFoilOwned);
       
-      {/* Sidebar / Filters */}
-      <div style={{ position: isWide ? "sticky" : "static", top: 100, alignSelf: "start" }}>
-        <FilterSidebar 
-          filters={filters} 
-          setFilters={setFilters} 
-          options={{
-            sets: SETS,
-            rarities: RARITIES,
-            types: TYPES,
-            colors: COLORS,
-          }}
-        />
+      if (collectionFilter === "Have") return isOwned;
+      if (collectionFilter === "Missing") return !isOwned;
+      return true;
+    });
+  }, [relevantCards, collectionFilter, collection, showFoilOnly]);
+
+  const paginatedCards = displayedCards.slice(0, page * PAGE_SIZE);
+  const hasMore = paginatedCards.length < displayedCards.length;
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const target = observerTarget.current;
+    if (!target) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && hasMore && !loading) setPage(p => p + 1);
+    }, { threshold: 0.1, rootMargin: '400px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loading]);
+
+  const handleExportCollection = () => {
+    const data = JSON.stringify(Array.from(collection), null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `my-collection-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCollection = () => {
+    try {
+      const parsed = JSON.parse(importText);
+      if (Array.isArray(parsed)) {
+        const next = new Set([...collection, ...parsed]);
+        setCollection(next);
+        const arr = Array.from(next);
+        localStorage.setItem("tcg_user_collection", JSON.stringify(arr));
+        localStorage.setItem("tcg_collection", JSON.stringify(arr));
+        setShowImportModal(false);
+        setImportText("");
+        alert(`Successfully imported ${parsed.length} entries!`);
+      }
+    } catch (e) {
+      alert("Invalid JSON format.");
+    }
+  };
+
+  const handleResetCollection = () => {
+    if (collection.size === 0) return;
+    if (window.confirm(`Are you sure you want to clear your collection? This will remove all ${collection.size} saved card entries from your browser.`)) {
+      setCollection(new Set());
+      localStorage.removeItem("tcg_user_collection");
+      localStorage.removeItem("tcg_collection");
+    }
+  };
+
+  const availableSets = useMemo(() => {
+    const setNames = new Set(SETS);
+    cards.forEach(c => {
+      if (c.set_name) setNames.add(c.set_name);
+    });
+    return Array.from(setNames);
+  }, [cards]);
+
+  return (
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
+      
+      {/* Game Selector Pills */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 24 }}>
+        <span className="text-zinc-300 font-semibold text-xs tracking-wider uppercase mr-1">
+          Game:
+        </span>
+        {GAMES.map(g => {
+          const active = (filters.game || 'riftbound') === g.id;
+          return (
+            <button
+              key={g.id}
+              onClick={() => {
+                setFilters(prev => ({ ...prev, game: g.id }));
+                setPage(1);
+              }}
+              className={`px-3.5 py-1.5 text-xs rounded-lg transition cursor-pointer border ${
+                active
+                  ? 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600 shadow-sm'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
+              }`}
+            >
+              {g.name}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Main Content */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isWide ? "320px 1fr" : "1fr", gap: isWide ? 32 : 20 }}>
         
-        {/* Top Bar */}
-        <div style={{
-          display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center",
-          background: "var(--bg-surface)", border: "1px solid var(--border)",
-          borderRadius: 14, padding: "12px 16px",
-        }}>
+        {/* Sidebar / Filters */}
+        <div style={{ position: isWide ? "sticky" : "static", top: 100, alignSelf: "start", maxHeight: isWide ? "calc(100vh - 120px)" : undefined }}>
+          <FilterSidebar 
+            filters={filters} 
+            setFilters={setFilters} 
+            options={{
+              sets: availableSets,
+              rarities: RARITIES,
+              types: TYPES,
+              domains: DOMAINS,
+              tags: TAGS,
+            }}
+          />
+        </div>
+
+        {/* Content Area */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
           
-          {/* Collection Tabs */}
-          <div style={{ display: 'flex', gap: 4, background: 'var(--bg-surface-2)', padding: 4, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-            {(["All", "Have", "Missing"] as const).map(f => {
-              const active = collectionFilter === f;
-              let label = f;
-              if (f === "Have") label = `Have (${haveCount} / ${totalCards})`;
-              if (f === "Missing") label = `Missing (${missingCount} / ${totalCards})`;
-              if (f === "All") label = `All (${totalCards})`;
-              
-              return (
+          {/* Controls Bar (Tabs & Search) */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 12,
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: 16, padding: "14px 18px", boxShadow: "var(--shadow-card)",
+          }}>
+            
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+              {/* Collection Tabs */}
+              <div style={{ display: 'flex', flex: '1 1 auto', gap: 6, background: 'var(--bg-surface-2)', padding: 4, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                {(["All", "Have", "Missing"] as const).map(f => {
+                  const active = collectionFilter === f;
+                  let label = `All (${relevantTotal})`;
+                  let activeClass = 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600 shadow-sm';
+
+                  if (f === "Have") {
+                    label = `Have (${haveCount} / ${relevantTotal})`;
+                    activeClass = 'text-zinc-50 font-semibold bg-emerald-500/15 border-emerald-500/50';
+                  } else if (f === "Missing") {
+                    label = `Missing (${missingCount} / ${relevantTotal})`;
+                    activeClass = 'text-zinc-50 font-semibold bg-rose-500/10 border-rose-500/50';
+                  }
+                  
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => { setCollectionFilter(f); setPage(1); }}
+                      className={`flex-1 py-1.5 px-3.5 text-xs rounded-lg transition border cursor-pointer ${
+                        active
+                          ? activeClass
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Grid Size Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-surface-2)', padding: 4, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', gap: 4 }}>
+                {(["small", "normal", "large"] as const).map(size => {
+                  const active = gridSize === size;
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setGridSize(size)}
+                      className={`py-1.5 px-3 text-xs rounded-lg transition cursor-pointer capitalize border ${
+                        active
+                          ? 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Collection Actions Buttons */}
+              <div style={{ display: 'flex', gap: 6 }}>
                 <button
-                  key={f}
-                  onClick={() => { setCollectionFilter(f); setPage(1); }}
-                  style={{
-                    padding: '5px 14px', fontSize: 12, fontWeight: 700, borderRadius: 7, cursor: 'pointer',
-                    background: active ? 'var(--accent-muted)' : 'transparent',
-                    color: active ? 'var(--accent-light)' : 'var(--text-muted)',
-                    border: active ? '1px solid var(--accent-border)' : '1px solid transparent',
-                    transition: 'all 0.12s',
-                  }}
+                  onClick={handleExportCollection}
+                  title="Export collection as JSON file"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-300 hover:text-zinc-100 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/80 transition cursor-pointer"
                 >
-                  {label}
+                  Export
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
-
-          {/* Import / Export */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button onClick={handleExport} style={ghostBtnStyle}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.color = 'var(--accent-light)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-            >
-              ↓ Export
-            </button>
-            <label style={{ ...ghostBtnStyle, display: 'inline-block' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.color = 'var(--accent-light)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-            >
-              ↑ Import
-              <input type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
-            </label>
-          </div>
-
-          {/* Search */}
-          <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 380 }}>
-            <svg
-              style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }}
-              fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name or number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%", boxSizing: "border-box",
-                background: "var(--bg-input)",
-                border: "1px solid var(--border)",
-                borderRadius: 10, padding: "9px 14px 9px 38px",
-                color: "var(--text-primary)", fontSize: 13, outline: "none",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--accent-glow)"; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
-            />
-          </div>
-        </div>
-
-        {/* Results Info */}
-        <div style={{ padding: "0 4px" }}>
-          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
-            Showing <strong style={{ color: "var(--text-primary)" }}>{paginatedCards.length}</strong> of{" "}
-            <strong style={{ color: "var(--text-primary)" }}>{totalCount}</strong> cards
-          </p>
-        </div>
-
-        {/* Grid */}
-        {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-            <div className="animate-spin text-4xl" style={{ color: "var(--accent)" }}>⚙️</div>
-          </div>
-        ) : paginatedCards.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", background: "var(--bg-surface)", border: "1px dashed var(--border)", borderRadius: 24 }}>
-            <span className="text-6xl mb-4 opacity-50">📭</span>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 8 }}>No cards found</h3>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 320, textAlign: "center" }}>
-              Try adjusting your search or filters to find what you're looking for.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div style={{
-              display: "grid", gap: 20,
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            }}>
-              {paginatedCards.map((card) => (
-                <CardListItem
-                  key={card.id}
-                  card={card}
-                  isOwned={collection.has(card.id)}
-                  onToggle={toggleOwnership}
-                />
-              ))}
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  title="Import collection from JSON file"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-300 hover:text-zinc-100 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/80 transition cursor-pointer"
+                >
+                  Import
+                </button>
+                {collection.size > 0 && (
+                  <button
+                    onClick={handleResetCollection}
+                    title="Clear tracked collection"
+                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer"
+                    style={{ background: 'rgba(244,63,94,0.06)' }}
+                  >
+                    Reset ({collection.size})
+                  </button>
+                )}
+              </div>
             </div>
 
-            {hasMore && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  style={{
-                    padding: "10px 32px", borderRadius: 10, fontWeight: 700, fontSize: 13,
-                    background: "var(--accent-muted)", color: "var(--accent-light)",
-                    border: "1px solid var(--accent-border)", cursor: "pointer", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.25)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent-muted)"; }}
+            {/* Search Input & Sort Bar */}
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ flex: 1, position: "relative" }}>
+                <svg
+                  style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, pointerEvents: "none" }}
+                  fill="none" viewBox="0 0 24 24" stroke="#71717a"
                 >
-                  Load More Cards
-                </button>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search catalog by name, card number, or artist..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
+                />
+              </div>
+
+              {/* Sort Selector */}
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as any)}
+                className="h-10 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-3 pr-8 text-xs font-medium text-zinc-200 outline-none cursor-pointer transition"
+                style={{
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1aa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 10px center",
+                  backgroundSize: "14px",
+                }}
+              >
+                <option value="Number (Asc)">Sort: Number (Asc)</option>
+                <option value="Number (Desc)">Sort: Number (Desc)</option>
+                <option value="Rarity (High to Low)">Sort: Rarity (High to Low)</option>
+                <option value="Rarity (Low to High)">Sort: Rarity (Low to High)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div style={{ minHeight: "40vh" }}>
+            {loading ? (
+              <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} style={{ borderRadius: 14, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
+                ))}
+              </div>
+            ) : paginatedCards.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "80px 24px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 18 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>No cards found</h3>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Try clearing filters or search term to discover cards.</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
+                {paginatedCards.map((card) => (
+                  <CardListItem
+                    key={card.id}
+                    card={card}
+                    isOwned={collection.has(card.id)}
+                    isFoilOwned={collection.has(`${card.id}_foil`)}
+                    onToggle={toggleOwnership}
+                    onClick={() => setSelectedCardId(card.id)}
+                    gridSize={gridSize}
+                  />
+                ))}
               </div>
             )}
-          </>
-        )}
+          </div>
+
+          {/* Infinite Scroll Sentinel */}
+          <div ref={observerTarget as any} style={{ display: "flex", justifyContent: "center", padding: "30px 0" }}>
+            {hasMore && !loading && (
+              <div style={{ color: "var(--accent-light)", fontSize: 13, fontWeight: 700 }}>
+                Loading more cards…
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div 
+          onClick={() => setShowImportModal(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 20 }}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 480, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 28 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>Import Collection</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' }}>Paste your collection JSON array below:</p>
+            <textarea
+              rows={6}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder='["card-id-1", "card-id-2_foil"]'
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'monospace', marginBottom: 16 }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowImportModal(false)}
+                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportCollection}
+                style={{ padding: '8px 18px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: '#ffffff', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Card Detail Modal */}
+      {selectedCardId && (
+        <div 
+          onClick={() => setSelectedCardId(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', overflowY: 'auto', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '5vh 4vw' }}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ margin: 'auto', width: '100%', maxWidth: 1400, position: 'relative', background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, boxShadow: '0 32px 80px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
+            <CardDetail cardId={selectedCardId} onClose={() => setSelectedCardId(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function getGridColumns(size: 'small'|'normal'|'large') {
+  if (size === 'small') return "repeat(auto-fill, minmax(140px, 1fr))";
+  if (size === 'large') return "repeat(auto-fill, minmax(260px, 1fr))";
+  return "repeat(auto-fill, minmax(190px, 1fr))";
 }

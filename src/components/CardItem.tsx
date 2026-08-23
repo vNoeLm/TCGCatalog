@@ -3,204 +3,242 @@ import { getCardImageUrl } from "../lib/supabase";
 
 interface CardItemProps {
   card: InventoryCard;
+  onClick: (id: string) => void;
 }
 
-const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
-  c:    { bg: "#374151", text: "#d1d5db", glow: "rgba(209,213,219,0.2)" },
-  u:    { bg: "#1e3a5f", text: "#93c5fd", glow: "rgba(147,197,253,0.3)" },
-  r:    { bg: "#1e4d2b", text: "#86efac", glow: "rgba(134,239,172,0.3)" },
-  rr:   { bg: "#3730a3", text: "#c4b5fd", glow: "rgba(196,181,253,0.4)" },
-  osr:  { bg: "#0c4a6e", text: "#7dd3fc", glow: "rgba(125,211,252,0.5)" },
-  sr:   { bg: "#7c2d12", text: "#fcd34d", glow: "rgba(252,211,77,0.4)" },
-  sp:   { bg: "#134e4a", text: "#5eead4", glow: "rgba(94,234,212,0.4)" },
-  ssp:  { bg: "#4a044e", text: "#e879f9", glow: "rgba(232,121,249,0.6)" },
-  td:   { bg: "#1c1c1c", text: "#9ca3af", glow: "rgba(156,163,175,0.2)" },
-  tsr:  { bg: "#2d1f47", text: "#c4b5fd", glow: "rgba(196,181,253,0.3)" },
-  tsp:  { bg: "#1a2e3f", text: "#7dd3fc", glow: "rgba(125,211,252,0.25)" },
-  pr:   { bg: "#500724", text: "#fda4af", glow: "rgba(253,164,175,0.6)" },
+const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
+  Common:   { bg: "rgba(39, 39, 42, 0.95)",  text: "#e4e4e7", glow: "rgba(161, 161, 170, 0.25)", border: "rgba(161, 161, 170, 0.6)" },
+  Uncommon: { bg: "rgba(12, 74, 110, 0.95)", text: "#38bdf8", glow: "rgba(56, 189, 248, 0.5)",  border: "#38bdf8" },
+  Rare:     { bg: "rgba(88, 28, 135, 0.95)", text: "#d8b4fe", glow: "rgba(168, 85, 247, 0.5)",  border: "#c084fc" },
+  Epic:     { bg: "rgba(154, 52, 18, 0.95)", text: "#fb923c", glow: "rgba(249, 115, 22, 0.5)",  border: "#fb923c" },
+  Showcase: { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
 };
 
-const COLOR_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  red:       { bg: "rgba(220,38,38,0.95)",   border: "rgba(239,68,68,1)",   text: "#fff" },
-  blue:      { bg: "rgba(37,99,235,0.95)",  border: "rgba(59,130,246,1)",  text: "#fff" },
-  green:     { bg: "rgba(22,163,74,0.95)",   border: "rgba(34,197,94,1)",   text: "#fff" },
-  purple:    { bg: "rgba(147,51,234,0.95)",  border: "rgba(168,85,247,1)",  text: "#fff" },
-  colorless: { bg: "rgba(75,85,99,0.95)", border: "rgba(107,114,128,1)", text: "#fff" },
+const DOMAIN_TINTS: Record<string, { bg: string; border: string; text: string }> = {
+  Fury:      { bg: "rgba(220,38,38,0.95)",   border: "rgba(239,68,68,1)",   text: "#fff" },
+  Calm:      { bg: "rgba(22,163,74,0.95)",   border: "rgba(34,197,94,1)",   text: "#fff" },
+  Mind:      { bg: "rgba(37,99,235,0.95)",   border: "rgba(59,130,246,1)",  text: "#fff" },
+  Body:      { bg: "rgba(249,115,22,0.95)",  border: "rgba(249,115,22,1)",  text: "#fff" },
+  Chaos:     { bg: "rgba(147,51,234,0.95)",  border: "rgba(168,85,247,1)",  text: "#fff" },
+  Order:     { bg: "rgba(234,179,8,0.95)",   border: "rgba(234,179,8,1)",   text: "#fff" },
+  Colorless: { bg: "rgba(75,85,99,0.95)",    border: "rgba(107,114,128,1)", text: "#fff" },
 };
-
 
 const TYPE_ICONS: Record<string, string> = {
-  pal: "🐾",
-  gear: "⚙️",
-  structure: "🏗️",
-  event: "⚡",
+  Unit: "🗡️",
+  Champion: "⚔️",
+  Spell: "✨",
+  Gear: "🛡️",
+  Battlefield: "🏰",
+  Legend: "👑",
+  Rune: "🔮",
+  'booster_box': "📦",
+  'booster_pack': "🃏",
+  'starter_deck': "🎴",
+  'bundle': "🎁",
 };
 
-function CardImagePlaceholder({ name }: { name: string }) {
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  return (
-    <div
-      className="w-full aspect-[3/4] flex flex-col items-center justify-center relative overflow-hidden"
-      style={{
-        background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
-        borderBottom: "1px solid rgba(99,102,241,0.2)",
-      }}
-    >
-      {/* Grid pattern */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: "linear-gradient(rgba(99,102,241,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.07) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      {/* Corner accents */}
-      <div className="absolute top-2 left-2 w-5 h-5 border-l-2 border-t-2 rounded-tl-sm" style={{ borderColor: "rgba(99,102,241,0.5)" }} />
-      <div className="absolute top-2 right-2 w-5 h-5 border-r-2 border-t-2 rounded-tr-sm" style={{ borderColor: "rgba(99,102,241,0.5)" }} />
-      <div className="absolute bottom-2 left-2 w-5 h-5 border-l-2 border-b-2 rounded-bl-sm" style={{ borderColor: "rgba(99,102,241,0.5)" }} />
-      <div className="absolute bottom-2 right-2 w-5 h-5 border-r-2 border-b-2 rounded-br-sm" style={{ borderColor: "rgba(99,102,241,0.5)" }} />
-      {/* Glow orb */}
-      <div
-        className="absolute w-32 h-32 rounded-full blur-3xl"
-        style={{ background: "rgba(99,102,241,0.15)" }}
-      />
-      {/* Initials */}
-      <span
-        className="relative z-10 text-5xl font-black select-none"
-        style={{
-          background: "linear-gradient(135deg, #818cf8, #c084fc)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}
-      >
-        {initials}
-      </span>
-      <span className="relative z-10 text-xs mt-2 font-medium" style={{ color: "rgba(165,180,252,0.5)" }}>No image</span>
-    </div>
-  );
-}
-
-export function CardItem({ card }: CardItemProps) {
-  const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#374151", text: "#d1d5db", glow: "rgba(209,213,219,0.2)" };
-  const typeIcon = TYPE_ICONS[card.card_type] ?? "🃏";
-  const colorTint = COLOR_TINTS[card.color] ?? COLOR_TINTS.colorless;
+export function CardItem({ card, onClick }: CardItemProps) {
+  const isSealed = card.product_type && card.product_type !== 'single';
+  const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
+  const typeIcon = TYPE_ICONS[card.product_type || card.card_type] ?? (isSealed ? "📦" : "🃏");
+  const domainValue = card.domain || 'Colorless';
+  const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
 
   return (
     <div
-      className="rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300 hover:-translate-y-1"
+      className="rounded-2xl overflow-hidden flex flex-col h-full group/card"
       style={{
-        background: "linear-gradient(175deg, #13172b 0%, #0c0f1e 100%)",
-        border: "1px solid rgba(99,102,241,0.15)",
-        boxShadow: `0 4px 24px rgba(0,0,0,0.4), 0 0 0 0 transparent`,
+        background: "var(--bg-surface)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
+        transition: "border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 40px rgba(0,0,0,0.6), 0 0 20px ${rarityStyle.glow}`;
-        (e.currentTarget as HTMLElement).style.borderColor = `${rarityStyle.text}44`;
+        (e.currentTarget as HTMLElement).style.boxShadow = `0 16px 40px rgba(0,0,0,0.6), 0 0 24px ${rarityStyle.glow}`;
+        (e.currentTarget as HTMLElement).style.borderColor = rarityStyle.border;
+        (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 24px rgba(0,0,0,0.4)`;
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.15)";
+        (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 12px rgba(0,0,0,0.4)`;
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
       }}
     >
-      {/* Image Area — clickable link to product page */}
-      <a href={`/card?id=${card.inventory_id}`} style={{ display: 'block', position: 'relative', textDecoration: 'none' }}>
-        {/* Image with contain so full card is visible */}
-        <div
-          className="w-full aspect-[3/4] flex items-center justify-center relative overflow-hidden"
-        >
-
+      {/* Image Area — clickable link to modal */}
+      <button onClick={() => onClick(card.inventory_id)} style={{ display: 'block', position: 'relative', cursor: 'pointer', border: 'none', background: 'transparent', padding: 0, width: '100%', textAlign: 'left' }}>
+        <div className="w-full aspect-[3/4] flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-surface-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           {card.image_path ? (
             <img src={getCardImageUrl(card.image_path)} alt={card.name}
-              style={{ position: 'relative', zIndex: 1, maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', paddingTop: 3 }}
+              style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }}
             />
           ) : (
-            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 16px' }}>
               <span className="text-5xl font-black select-none" style={{ background: 'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                {isSealed ? '📦' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
               <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: "rgba(255,255,255,0.1)", color: "#d1d5db" }}>
-                {card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
+                {isSealed ? (card.product_type || 'Sealed') : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
               </span>
             </div>
           )}
         </div>
 
-        {/* Cost Badge */}
-        {card.cost != null && (
+        {/* Top right badges: Signed / Alt Art / Overnumbered (ON) */}
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
+          {(card.card_number?.includes('*') || card.subtype?.toLowerCase() === 'signed') && (
+            <span
+              className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(147, 51, 234, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #c084fc",
+                boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              SIGNED
+            </span>
+          )}
+
+          {(() => {
+            const numPart = card.card_number?.split('/')[0] || '';
+            const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
+            const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
+            const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
+            if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
+
+            return (
+              <span
+                className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+                style={{
+                  background: "rgba(219, 39, 119, 0.95)",
+                  color: "#ffffff",
+                  border: "1.5px solid #f472b6",
+                  boxShadow: "0 0 12px rgba(236, 72, 153, 0.6)",
+                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+                }}
+              >
+                ALT ART
+              </span>
+            );
+          })()}
+
+          {(() => {
+            if (!card.card_number || !card.card_number.includes('/')) return null;
+            const parts = card.card_number.split('/');
+            if (parts.length < 2) return null;
+            const numMatch = parts[0].match(/\d+/);
+            const denMatch = parts[1].match(/\d+/);
+            if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
+
+            return (
+              <span
+                className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+                style={{
+                  background: "rgba(99, 102, 241, 0.95)",
+                  color: "#ffffff",
+                  border: "1.5px solid #818cf8",
+                  boxShadow: "0 0 12px rgba(99, 102, 241, 0.6)",
+                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+                }}
+              >
+                ON
+              </span>
+            );
+          })()}
+        </div>
+
+        {/* Top Badge: Energy for Singles or Sealed Product Badge */}
+        {!isSealed && card.energy != null && (
           <div className="absolute top-2 left-2" style={{ zIndex: 3 }}>
             <span className="flex items-center justify-center rounded-full text-sm font-black" style={{ width: 28, height: 28, background: colorTint.bg, color: colorTint.text, border: `2px solid ${colorTint.border}`, boxShadow: `0 0 12px ${colorTint.bg}` }}>
-              {card.cost}
+              {card.energy}
             </span>
           </div>
         )}
 
-        {/* Lucky Badge */}
-        {card.is_lucky && (
-          <div className="absolute top-2 right-2" style={{ zIndex: 3 }}>
-            <span className="px-2 py-1 text-xs font-bold rounded-lg" style={{ background: 'linear-gradient(90deg, #b45309, #d97706)', color: '#fef3c7', boxShadow: '0 0 10px rgba(217,119,6,0.5)' }}>
-              ✨ Lucky
+        {isSealed && (
+          <div className="absolute top-2 left-2" style={{ zIndex: 3 }}>
+            <span className="px-2.5 py-1 text-xs font-black rounded-lg uppercase tracking-wide"
+              style={{ background: 'rgba(99,102,241,0.9)', color: '#ffffff', border: '1px solid rgba(165,180,252,0.4)', boxShadow: '0 0 12px rgba(99,102,241,0.5)' }}>
+              SEALED
             </span>
           </div>
         )}
 
-        {/* Rarity badge */}
+        {/* Rarity or Condition Badge */}
         <div className="absolute bottom-2 left-2" style={{ zIndex: 3 }}>
-          <span className="px-2 py-1 text-xs font-black rounded-lg uppercase tracking-wide"
-            style={{ background: rarityStyle.bg, color: rarityStyle.text, boxShadow: `0 0 8px ${rarityStyle.glow}`, border: `1px solid ${rarityStyle.text}33` }}>
-            {card.rarity}
-          </span>
+          {isSealed ? (
+            <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-500/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5 rounded shadow-sm">
+              {card.condition}
+            </span>
+          ) : (
+            <span
+              className="font-bold text-[10px] tracking-wider uppercase px-2 py-0.5 rounded shadow-sm"
+              style={{
+                background: rarityStyle.bg,
+                color: rarityStyle.text,
+                border: `1px solid ${rarityStyle.border}`,
+                boxShadow: `0 0 10px ${rarityStyle.glow}`,
+                textShadow: `0 0 8px ${rarityStyle.glow}`,
+              }}
+            >
+              {card.rarity}
+            </span>
+          )}
         </div>
-      </a>
+      </button>
 
       {/* Info section */}
-      <div className="p-4 flex flex-col flex-grow">
-        {/* Name */}
-        <h3 className="text-base font-bold text-white leading-snug mb-2">{card.name}</h3>
+      <div className="p-3.5 flex flex-col flex-grow">
+        {/* Card Title */}
+        <h3 className="text-sm font-semibold text-zinc-100 leading-tight line-clamp-2">
+          {card.name}
+        </h3>
 
         {/* Set name */}
-        <p className="text-xs mb-1" style={{ color: "#4b5563" }}>{card.set_name}</p>
+        <p className="text-zinc-400 text-[11px] font-medium truncate mt-1 mb-2">
+          {card.set_name || 'Standard Set'}
+        </p>
 
-        {/* Number left, type right */}
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-xs font-mono" style={{ color: "#6b7280" }}>
-            {card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
+        {/* Bottom Spec Bar (Number · Type) */}
+        <div className="flex items-center text-zinc-400 font-mono text-[11px] mb-2.5">
+          <span className="truncate">
+            {isSealed ? card.condition : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
           </span>
-          <span className="text-xs capitalize" style={{ color: "#9ca3af" }}>{typeIcon} {card.card_type}</span>
+          <span className="text-zinc-500 font-bold mx-1.5 flex-shrink-0">·</span>
+          <span className="capitalize flex-shrink-0">
+            {typeIcon} {isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}
+          </span>
         </div>
 
         {/* Price + Buy */}
-        <div className="mt-auto flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="mt-auto flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
-            <span className="text-lg font-black" style={{ color: "#34d399" }}>
+            <span className="text-lg font-black text-emerald-400">
               {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}
             </span>
-            {/* Bulk quantity OR status badge */}
-            {card.is_bulk ? (
-              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, marginTop: 2, color: '#a5b4fc' }}>
-                ×{card.quantity} available
-              </span>
-            ) : (
-              <span style={{
-                display: 'block', fontSize: 10, fontWeight: 700, marginTop: 2,
-                color: card.status === 'In Stock' ? '#86efac' : card.status === 'Reserved' ? '#fde68a' : '#9ca3af',
-              }}>
-                {card.status}
-              </span>
-            )}
+            <span style={{
+              display: 'block', fontSize: 10, fontWeight: 700, marginTop: 2,
+              color: card.status === 'In Stock' ? '#86efac' : card.status === 'Reserved' ? '#fde68a' : '#71717a',
+            }}>
+              {card.status === 'In Stock' ? `${card.quantity || 1} In Stock` : card.status}
+            </span>
           </div>
-          <a
-            href={`/card?id=${card.inventory_id}`}
-            className="text-sm font-bold px-4 py-1.5 rounded-xl transition-all active:scale-95"
+          <button
+            onClick={() => onClick(card.inventory_id)}
+            className="text-xs font-medium px-4 py-1.5 rounded-md transition-all active:scale-95 text-zinc-200"
             style={{
-              background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-              color: "white", textDecoration: 'none',
-              boxShadow: "0 2px 12px rgba(99,102,241,0.4)",
+              background: "#27272a",
+              border: "1px solid rgba(255,255,255,0.1)",
+              cursor: "pointer",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(99,102,241,0.7)")}
-            onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 12px rgba(99,102,241,0.4)")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#3f3f46")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#27272a")}
           >
             View
-          </a>
+          </button>
         </div>
       </div>
     </div>

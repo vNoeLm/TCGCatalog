@@ -1,34 +1,33 @@
 import { useState, useEffect } from 'react';
+import type { CatalogCard } from '../types';
 import { fetchCardDetail, fetchCardOnly } from '../lib/api';
 import { getCardImageUrl } from '../lib/supabase';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
-  c:   { bg:"#374151", text:"#d1d5db", glow:"rgba(209,213,219,0.2)" },
-  u:   { bg:"#1e3a5f", text:"#93c5fd", glow:"rgba(147,197,253,0.3)" },
-  r:   { bg:"#1e4d2b", text:"#86efac", glow:"rgba(134,239,172,0.3)" },
-  rr:  { bg:"#3730a3", text:"#c4b5fd", glow:"rgba(196,181,253,0.4)" },
-  osr: { bg:"#0c4a6e", text:"#7dd3fc", glow:"rgba(125,211,252,0.5)" },
-  sr:  { bg:"#7c2d12", text:"#fcd34d", glow:"rgba(252,211,77,0.4)" },
-  sp:  { bg:"#134e4a", text:"#5eead4", glow:"rgba(94,234,212,0.4)" },
-  ssp: { bg:"#4a044e", text:"#e879f9", glow:"rgba(232,121,249,0.6)" },
-  td:  { bg:"#1c1c1c", text:"#9ca3af", glow:"rgba(156,163,175,0.2)" },
-  tsr: { bg:"#2d1f47", text:"#c4b5fd", glow:"rgba(196,181,253,0.3)" },
-  tsp: { bg:"#1a2e3f", text:"#7dd3fc", glow:"rgba(125,211,252,0.25)" },
-  pr:  { bg:"#500724", text:"#fda4af", glow:"rgba(253,164,175,0.6)" },
+  Common:   { bg: "rgba(31, 41, 55, 0.9)", text: "#cbd5e1", glow: "rgba(203, 213, 225, 0.2)" },
+  Uncommon: { bg: "rgba(12, 74, 110, 0.9)", text: "#38bdf8", glow: "rgba(56, 189, 248, 0.4)" },
+  Rare:     { bg: "rgba(88, 28, 135, 0.9)", text: "#d8b4fe", glow: "rgba(216, 180, 254, 0.5)" },
+  Epic:     { bg: "rgba(154, 52, 18, 0.9)", text: "#fb923c", glow: "rgba(251, 146, 60, 0.5)" },
+  Showcase: { bg: "rgba(113, 63, 18, 0.9)", text: "#fde047", glow: "rgba(253, 224, 71, 0.6)" },
 };
 
-const COLOR_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  red:       { bg:"rgba(239,68,68,0.12)",   border:"rgba(239,68,68,0.35)",   text:"#ef4444" },
-  blue:      { bg:"rgba(59,130,246,0.12)",  border:"rgba(59,130,246,0.35)",  text:"#3b82f6" },
-  green:     { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#22c55e" },
-  purple:    { bg:"rgba(168,85,247,0.12)",  border:"rgba(168,85,247,0.35)",  text:"#a855f7" },
-  colorless: { bg:"var(--bg-surface-2)",    border:"var(--border)",          text:"var(--text-secondary)" },
+const DOMAIN_TINTS: Record<string, { bg: string; border: string; text: string }> = {
+  Fury:      { bg:"rgba(239,68,68,0.12)",   border:"rgba(239,68,68,0.35)",   text:"#ef4444" },
+  Calm:      { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#22c55e" },
+  Mind:      { bg:"rgba(59,130,246,0.12)",  border:"rgba(59,130,246,0.35)",  text:"#3b82f6" },
+  Body:      { bg:"rgba(249,115,22,0.12)",  border:"rgba(249,115,22,0.35)",  text:"#f97316" },
+  Chaos:     { bg:"rgba(168,85,247,0.12)",  border:"rgba(168,85,247,0.35)",  text:"#a855f7" },
+  Order:     { bg:"rgba(234,179,8,0.12)",   border:"rgba(234,179,8,0.35)",   text:"#eab308" },
+  Colorless: { bg:"var(--bg-surface-2)",    border:"var(--border)",          text:"var(--text-secondary)" },
 };
+
+import { formatGameText } from '../lib/formatGameText';
+import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
 
-export function CardDetail() {
+export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: string, cardId?: string, onClose?: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,22 +35,26 @@ export function CardDetail() {
   const [isInventory, setIsInventory] = useState(false);
 
   useEffect(() => {
+    // If not provided via props, fallback to URL search params
     const searchParams = new URLSearchParams(window.location.search);
-    const id = searchParams.get('id');
-    const cardId = searchParams.get('card_id');
+    const resolvedInvId = inventoryId || searchParams.get('id');
+    const resolvedCardId = cardId || searchParams.get('card_id');
     
-    if (id) {
-      fetchCardDetail(id)
+    if (resolvedInvId) {
+      setLoading(true);
+      fetchCardDetail(resolvedInvId)
         .then(row => {
           setData(row);
           setIsInventory(true);
-          const first = row?.cards?.image_path || row?.inventory_images?.[0]?.image_path;
+          const rowData = row as any;
+          const first = rowData?.cards?.image_path || rowData?.inventory_images?.[0]?.image_path;
           if (first) setActiveUrl(getCardImageUrl(first));
           setLoading(false);
         })
         .catch(() => { setError('Item not found.'); setLoading(false); });
-    } else if (cardId) {
-      fetchCardOnly(cardId)
+    } else if (resolvedCardId) {
+      setLoading(true);
+      fetchCardOnly(resolvedCardId)
         .then(row => {
           setData({ cards: row, condition: null, price_huf: null, status: 'Not in Inventory', notes: null });
           setIsInventory(false);
@@ -63,7 +66,7 @@ export function CardDetail() {
     } else {
       setError('No ID provided.'); setLoading(false); 
     }
-  }, []);
+  }, [inventoryId, cardId]);
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
@@ -78,8 +81,9 @@ export function CardDetail() {
   );
 
   const card = data.cards;
-  const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.c;
-  const colorTint = COLOR_TINTS[card.color] ?? COLOR_TINTS.colorless;
+  const domainValue = card.domain || 'Colorless';
+  const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
+  const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
   const isAvailable = data.status === 'In Stock';
 
   const allThumbs: Array<{ url: string; label: string }> = [];
@@ -95,10 +99,16 @@ export function CardDetail() {
   const messengerUrl = `https://m.me/your-page?ref=${messengerMsg}`;
 
   return (
-    <div style={{ maxWidth:1200, margin:'0 auto', padding:'32px 24px 80px' }}>
-      <BackLink />
+    <div style={{ maxWidth: onClose ? '100%' : 1200, margin: '0 auto', padding: onClose ? '40px' : '32px 24px 80px' }}>
+      <style>{`
+        @keyframes foilShine {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+      <BackLink onClose={onClose} />
 
-      <div style={{ display:'grid', gridTemplateColumns: 'clamp(280px, 40%, 460px) 1fr', gap:48, alignItems:'flex-start' }}>
+      <div style={{ display:'grid', gridTemplateColumns: onClose ? 'clamp(320px, 45%, 520px) 1fr' : 'clamp(280px, 40%, 460px) 1fr', gap: onClose ? 56 : 48, alignItems:'flex-start' }}>
 
         {/* ── Left: image column ── */}
         <div>
@@ -114,9 +124,9 @@ export function CardDetail() {
             <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize:'32px 32px' }} />
 
             {activeUrl ? (
-              <img src={activeUrl} alt={card.name}
-                style={{ position:'relative', zIndex:1, width:'100%', height:'auto', borderRadius:8, filter:`drop-shadow(0 8px 24px ${rarityStyle.glow})` }}
-              />
+              <div style={{ position:'relative', zIndex:1, width:'100%', borderRadius:8, overflow:'hidden', filter:`drop-shadow(0 8px 24px ${rarityStyle.glow})` }}>
+                <img src={activeUrl} alt={card.name} style={{ width:'100%', height:'auto', display:'block' }} />
+              </div>
             ) : (
               <div style={{ position:'relative', zIndex:1, textAlign:'center', color:'#9ca3af' }}>
                 <div style={{ fontSize:80, fontWeight:900, background:'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
@@ -163,67 +173,171 @@ export function CardDetail() {
             {card.name}
           </h1>
 
-          {/* Tags */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:28 }}>
-            <span style={{ fontSize:13, fontWeight:800, padding:'5px 14px', borderRadius:20, background:rarityStyle.bg, color:rarityStyle.text, border:`1px solid ${rarityStyle.text}44`, textTransform:'uppercase' }}>
-              {card.rarity}
-            </span>
-            <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:colorTint.bg, color:colorTint.text, border:`1px solid ${colorTint.border}`, textTransform:'capitalize' }}>
-              {card.color}
-            </span>
-            <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--bg-surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border-subtle)', textTransform:'capitalize' }}>
-              {card.card_type}
-            </span>
-            {card.subtype && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--bg-surface-2)', color:'var(--text-primary)', border:'1px solid var(--border)' }}>
-                {card.subtype}
-              </span>
-            )}
-            {card.cost != null && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'var(--accent-muted)', color:'var(--accent-light)', border:'1px solid var(--accent-border)' }}>
-                Cost {card.cost}
-              </span>
-            )}
-            {card.is_lucky && (
-              <span style={{ fontSize:13, fontWeight:700, padding:'5px 14px', borderRadius:20, background:'rgba(180,83,9,0.15)', color:'#d97706', border:'1px solid rgba(180,83,9,0.35)' }}>
-                ✨ Lucky Pal
-              </span>
-            )}
+          {/* ── Meta rows ── */}
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+
+            {/* Row 1: Rarity + Lucky */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Rarity icon + label */}
+              {(() => {
+                const rarityKey = (card.rarity || '').toLowerCase();
+                const rarityIcon = RARITY_ICONS[rarityKey];
+                return (
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: rarityStyle.bg, color: rarityStyle.text, border: `1px solid ${rarityStyle.text}44`, textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 0 12px ${rarityStyle.glow}` }}>
+                    {rarityIcon && <img src={rarityIcon} alt={card.rarity} style={{ width:16, height:16, objectFit:'contain' }} />}
+                    {card.rarity}
+                  </span>
+                );
+              })()}
+
+              {/* Signed Badge */}
+              {(card.card_number?.includes('*') || card.subtype?.toLowerCase() === 'signed') && (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(147, 51, 234, 0.25)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(168, 85, 247, 0.3)' }}>
+                  Signed Edition
+                </span>
+              )}
+
+              {/* Alt Art Badge */}
+              {(() => {
+                const numPart = card.card_number?.split('/')[0] || '';
+                const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
+                const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
+                const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
+                if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
+
+                return (
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(236, 72, 153, 0.25)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(236, 72, 153, 0.3)' }}>
+                    Alt Art Edition
+                  </span>
+                );
+              })()}
+
+              {/* Overnumbered Badge */}
+              {(() => {
+                if (!card.card_number || !card.card_number.includes('/')) return null;
+                const parts = card.card_number.split('/');
+                if (parts.length < 2) return null;
+                const numMatch = parts[0].match(/\d+/);
+                const denMatch = parts[1].match(/\d+/);
+                if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
+
+                return (
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(99, 102, 241, 0.3)' }}>
+                    Overnumbered Edition
+                  </span>
+                );
+              })()}
+
+            </div>
+
+            {/* Properties Grid: Domain, Type, Tags */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                
+                {/* Domain */}
+                {domainValue && domainValue !== 'Colorless' && (() => {
+                  const domainKey = domainValue.toLowerCase();
+                  const domainIcon = RUNE_ICONS[domainKey];
+                  return (
+                    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Domain</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:15, fontWeight:900, color: colorTint.text }}>
+                        {domainIcon && <img src={domainIcon} alt={domainValue} style={{ width:24, height:24, objectFit:'contain' }} />}
+                        {domainValue}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Type */}
+                {(() => {
+                  const rawType = (card.card_type || '').toLowerCase();
+                  const superType = (card.subtype || '').toLowerCase();
+                  const typeIcon = TYPE_ICONS[rawType];
+                  const superIcon = TYPE_ICONS[superType];
+                  return (
+                    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Type</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:15, fontWeight:800, color:'var(--text-primary)' }}>
+                        {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} style={{ width:24, height:24, objectFit:'contain' }} />}
+                        {card.card_type}
+                        {superType && superIcon && (
+                          <>
+                            <span style={{ color:'var(--text-muted)', margin:'0 2px' }}>·</span>
+                            <img src={superIcon} alt={superType} title={card.subtype} style={{ width:24, height:24, objectFit:'contain' }} />
+                            <span style={{ color: 'var(--accent-light)' }}>{card.subtype}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Tags */}
+              {card.tags && (() => {
+                const tagArr: string[] = Array.isArray(card.tags) ? card.tags : (card.tags?.tags || []);
+                if (!tagArr || tagArr.length === 0) return null;
+                return (
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Tags</div>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      {tagArr.map((tag: string) => (
+                        <span key={tag} style={{ fontSize:13, fontWeight:800, padding:'6px 14px', borderRadius:8, background:'var(--bg-input)', color:'var(--text-primary)', border:'1px solid var(--border-subtle)', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
-          {/* Game Stats */}
-          {(card.power || card.strike || card.aptitude || card.text) && (
-            <div style={{ background:'var(--bg-surface-2)', border:'1px solid var(--border)', borderRadius:16, padding:20, marginBottom:28 }}>
-              {(card.power || card.strike) && (
-                <div style={{ display:'flex', gap:32, marginBottom:16, paddingBottom:16, borderBottom:'1px solid var(--border-subtle)' }}>
-                  {card.power && (
-                    <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Power</div>
-                      <div style={{ fontSize:24, fontWeight:900, color:'var(--text-primary)' }}>{card.power}</div>
-                    </div>
-                  )}
-                  {card.strike && (
-                    <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Strike</div>
-                      <div style={{ fontSize:24, fontWeight:900, color:'var(--text-primary)' }}>{card.strike}</div>
-                    </div>
-                  )}
+          {/* Numerical Stats Grid */}
+          {(card.energy != null || card.might != null) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12, marginBottom: 24 }}>
+              {card.energy != null && (
+                <div style={{ background: colorTint.bg, border: `1px solid ${colorTint.border}`, borderRadius: 12, padding: '12px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: colorTint.text, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Energy</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: colorTint.text, textShadow: `0 0 16px ${colorTint.text}44` }}>{card.energy}</div>
                 </div>
               )}
               
-              {card.aptitude && (
-                <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Aptitude</div>
-                  <div style={{ fontSize:14, color:'var(--text-secondary)', lineHeight:1.5 }}>{card.aptitude}</div>
+              {card.might != null && (
+                <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Might</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#f59e0b', textShadow: '0 0 16px rgba(245,158,11,0.4)' }}>{card.might}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Text Abilities */}
+          {(card.text || card.ability) && (
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px', marginBottom: 28 }}>
+              
+              {card.ability && (
+                <div style={{ marginBottom: card.text ? 24 : 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--accent-light)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>Ability</div>
+                  <div style={{ fontSize: 16, color: 'var(--text-primary)', lineHeight: 2.1, whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
                 </div>
               )}
               
               {card.text && (
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>Effect / Text</div>
-                  <div style={{ fontSize:15, color:'var(--text-primary)', lineHeight:1.6, whiteSpace:'pre-line' }}>{card.text}</div>
+                <div style={{ marginTop: card.ability ? 16 : 0, paddingTop: card.ability ? 16 : 0, borderTop: card.ability ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Flavor Text</div>
+                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.8, whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
               )}
+            </div>
+          )}
+
+          {card.artist && (
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ margin:0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                Artist: {card.artist}
+              </p>
             </div>
           )}
 
@@ -250,11 +364,7 @@ export function CardDetail() {
                 <span style={{ fontSize:48, fontWeight:900, color:'#10b981', letterSpacing:'-0.02em' }}>
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </span>
-                {data.is_bulk && (
-                  <span style={{ display:'block', fontSize:14, color:'var(--accent-light)', marginTop:4 }}>
-                    ×{data.quantity} available
-                  </span>
-                )}
+
               </div>
 
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
@@ -264,7 +374,7 @@ export function CardDetail() {
                   color: isAvailable ? '#22c55e' : '#f59e0b',
                   border:`1px solid ${isAvailable ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`,
                 }}>
-                  {data.status}
+                  {data.status === 'In Stock' ? `${data.quantity || 1} In Stock` : data.status}
                 </span>
                 {isAvailable && (
                   <a
@@ -292,8 +402,15 @@ export function CardDetail() {
                     💬 Reserve on Messenger
                   </a>
                 )}
+                <PriceChartingButton card={card} isFoil={data.is_foil} />
               </div>
             </>
+          )}
+
+          {!isInventory && (
+            <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', marginTop: 16 }}>
+              <PriceChartingButton card={card} />
+            </div>
           )}
         </div>
       </div>
@@ -301,21 +418,83 @@ export function CardDetail() {
   );
 }
 
-function BackLink() {
+function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boolean }) {
+  const url = `https://www.cardmarket.com/en/Riftbound/Products/Search?searchString=${encodeURIComponent(card.name)}`;
+  
   return (
     <a
-      href="/"
+      href={url} target="_blank" rel="noopener noreferrer"
+      style={{
+        display:'inline-flex', alignItems:'center', gap:8,
+        background:'var(--bg-surface-2)',
+        color:'var(--text-primary)', textDecoration:'none',
+        borderRadius:14, padding:'14px 24px',
+        fontSize:15, fontWeight:700,
+        border:'1px solid var(--border-subtle)',
+        transition:'all 0.15s'
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'var(--bg-surface-3)';
+        e.currentTarget.style.borderColor = 'var(--accent-border)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'var(--bg-surface-2)';
+        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+      }}
+    >
+      📈 Check on Cardmarket
+    </a>
+  );
+}
+
+function BackLink({ onClose }: { onClose?: () => void }) {
+  if (onClose) {
+    return (
+      <button
+        onClick={(e) => { e.preventDefault(); onClose(); }}
+        style={{
+          position: 'absolute', top: 24, right: 24, zIndex: 10,
+          width: 44, height: 44, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+          color: 'var(--text-secondary)', cursor: 'pointer',
+          transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface-2)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'scale(1)'; }}
+        title="Close (Esc)"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        if (window.history.length > 1) {
+          e.preventDefault();
+          window.history.back();
+        } else {
+          window.location.href = "/";
+        }
+      }}
       style={{
         display:'inline-flex', alignItems:'center', gap:6,
         color:'var(--text-muted)', fontSize:13, textDecoration:'none',
         marginBottom:32, padding:'6px 12px', borderRadius:8,
         border:'1px solid transparent',
+        background:'transparent',
+        cursor:'pointer',
         transition:'color 0.15s, background 0.15s, border-color 0.15s',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.color = 'var(--accent-light)';
-        e.currentTarget.style.background = 'var(--accent-muted)';
-        e.currentTarget.style.borderColor = 'var(--accent-border)';
+        e.currentTarget.style.color = '#ffffff';
+        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
       }}
       onMouseLeave={e => {
         e.currentTarget.style.color = 'var(--text-muted)';
@@ -324,6 +503,6 @@ function BackLink() {
       }}
     >
       ← Back to catalog
-    </a>
+    </button>
   );
 }

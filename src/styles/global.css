@@ -39,31 +39,38 @@
 }
 
 html.dark {
-  /* Backgrounds */
-  --bg-page:      #0a0d1a;
-  --bg-surface:   #12172b;
-  --bg-surface-2: #0e1224;
-  --bg-raised:    #161c30;
-  --bg-input:     #0e1220;
-  --bg-header:    rgba(10,13,26,0.88);
+  /* Backgrounds — Obsidian & Slate (zinc scale) */
+  --bg-page:      #09090b;
+  --bg-surface:   #111118;
+  --bg-surface-2: #18181b;
+  --bg-raised:    #27272a;
+  --bg-input:     #18181b;
+  --bg-header:    rgba(9,9,11,0.88);
 
-  /* Borders */
-  --border:       rgba(99,102,241,0.2);
-  --border-subtle:rgba(255,255,255,0.06);
+  /* Borders — white-alpha, no blue tint */
+  --border:       rgba(255,255,255,0.08);
+  --border-subtle:rgba(255,255,255,0.05);
 
-  /* Text */
-  --text-primary:   #e8eaf6;
-  --text-secondary: #9ca3af;
-  --text-muted:     #5c6378;
-  --text-accent:    #818cf8;
+  /* Text — 4-tier zinc scale */
+  --text-primary:     #f4f4f5; /* Tier 1: zinc-100 */
+  --text-secondary:   #d4d4d8; /* Tier 2: zinc-300 */
+  --text-tertiary:    #a1a1aa; /* Tier 3: zinc-400 */
+  --text-muted:       #71717a; /* Tier 4: zinc-500 */
+  --text-placeholder: #71717a; /* zinc-500 */
+  --text-accent:      #818cf8;
+
+  /* Neutral active/accent fallbacks in dark mode */
+  --accent-muted: rgba(255, 255, 255, 0.08);
+  --accent-border: rgba(255, 255, 255, 0.15);
+  --accent-glow:  rgba(255, 255, 255, 0.1);
 
   /* Scrollbar */
-  --scrollbar-thumb: #2a3050;
-  --scrollbar-track: #0e1224;
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-track: #18181b;
 
   /* Shadows */
-  --shadow-card: 0 8px 32px rgba(0,0,0,0.45);
-  --shadow-header: 0 1px 0 rgba(99,102,241,0.15);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.5);
+  --shadow-header: 0 1px 0 rgba(0,0,0,0.3);
 }
 
 /* ─────────────────────────────────────────────
@@ -85,10 +92,48 @@ body {
 /* ─────────────────────────────────────────────
    SCROLLBAR
 ───────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--scrollbar-track); }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(0, 0, 0, 0.12);
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  margin: 4px 0;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
 
 /* ─────────────────────────────────────────────
    FORM ELEMENTS — theme-aware
@@ -130,6 +175,11 @@ input[type="range"]::-webkit-slider-thumb {
   opacity: 0;
 }
 
+input::placeholder, textarea::placeholder {
+  color: var(--text-placeholder, #71717a) !important;
+  opacity: 1;
+}
+
 /* ─────────────────────────────────────────────
    UTILITY CLASSES (theme-aware)
 ───────────────────────────────────────────── */
@@ -143,6 +193,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .theme-text { color: var(--text-primary); }
 .theme-text-secondary { color: var(--text-secondary); }
+.theme-text-tertiary { color: var(--text-tertiary); }
 .theme-text-muted { color: var(--text-muted); }
 .theme-text-accent { color: var(--text-accent); }
 .theme-border { border-color: var(--border); }

@@ -8,6 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export function getCardImageUrl(imagePath?: string | null): string {
   if (!imagePath) return '';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
   const { data } = supabase.storage.from('card-images').getPublicUrl(imagePath);
   return data.publicUrl;
 }
