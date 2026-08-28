@@ -81,9 +81,11 @@ export interface FilterState {
   costMax: number;
   stockStatus: string;
   foilFilter?: boolean;
-  signedFilter?: boolean;
+  signedFilter?: 'all' | 'only' | 'none';
   altArtFilter?: 'all' | 'only' | 'none';
   overnumberedFilter?: 'all' | 'only' | 'none';
+  spFilter?: 'all' | 'only' | 'none';
+  baseSetFilter?: 'all' | 'only';
 }
 
 export interface UserProfile {

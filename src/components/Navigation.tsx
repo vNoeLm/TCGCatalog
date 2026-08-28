@@ -4,6 +4,8 @@ import { getCatalogVisibility } from '../lib/api';
 import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
+import { LanguageSelector } from './LanguageSelector';
+import { getLanguage, t, type Language } from '../lib/i18n';
 
 interface NavigationProps {
   currentPath: string;
@@ -15,6 +17,8 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lang, setLang] = useState<Language>('en');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -32,7 +36,16 @@ export function Navigation({ currentPath }: NavigationProps) {
   };
 
   useEffect(() => {
+    setLang(getLanguage());
     checkAuthAndVisibility();
+
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -58,6 +71,7 @@ export function Navigation({ currentPath }: NavigationProps) {
 
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener('tcg-lang-change', handleLangChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -73,31 +87,11 @@ export function Navigation({ currentPath }: NavigationProps) {
     return (
       <a
         href={href}
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          padding: '6px 14px',
-          borderRadius: 8,
-          textDecoration: 'none',
-          transition: 'all 0.15s',
-          background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-          color: active ? '#ffffff' : '#d4d4d8',
-          border: active ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
-        }}
-        onMouseEnter={(e) => {
-          if (!active) {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-            e.currentTarget.style.color = '#f4f4f5';
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!active) {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#d4d4d8';
-            e.currentTarget.style.borderColor = 'transparent';
-          }
-        }}
+        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer border whitespace-nowrap ${
+          active
+            ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
+            : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-zinc-900 hover:border-zinc-800'
+        }`}
       >
         {label}
       </a>
@@ -106,142 +100,75 @@ export function Navigation({ currentPath }: NavigationProps) {
 
   return (
     <>
-      <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <NavLink href="/" label="Catalog" />
-        <NavLink href="/deck-builder" label="Deck Builder" />
+      {/* Desktop Navigation (>= 640px) */}
+      <nav className="hidden sm:flex items-center gap-2">
+        <NavLink href="/" label={t('catalog', lang)} />
 
         {loading ? (
-          <div style={{ width: 70, height: 32, borderRadius: 8, background: 'var(--bg-surface-2)', opacity: 0.5 }} />
+          <div className="w-16 h-7 rounded-lg bg-zinc-900 animate-pulse" />
         ) : showStore ? (
-          <NavLink href="/store" label="Store" />
+          <NavLink href="/store" label={t('store', lang)} />
         ) : null}
 
+        {/* Language Selector */}
+        <LanguageSelector />
+
         {/* Auth Section */}
-        <div style={{ marginLeft: 8, position: 'relative' }} ref={dropdownRef}>
+        <div className="relative" ref={dropdownRef}>
           {loading ? (
-            <div style={{ width: 80, height: 32, borderRadius: 8, background: 'var(--bg-surface-2)', opacity: 0.5 }} />
+            <div className="w-20 h-7 rounded-lg bg-zinc-900 animate-pulse" />
           ) : userProfile ? (
             <div>
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 10px 4px 6px',
-                  borderRadius: 20,
-                  background: 'var(--bg-surface-2)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-bold transition cursor-pointer shadow-sm"
               >
                 {userProfile.avatar_url ? (
                   <img
                     src={userProfile.avatar_url}
                     alt={userProfile.display_name || 'User'}
-                    style={{ width: 24, height: 24, borderRadius: '50%' }}
+                    className="w-6 h-6 rounded-full object-cover border border-zinc-700"
                   />
                 ) : (
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 11,
-                      fontWeight: 900,
-                    }}
-                  >
+                  <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center text-[11px] font-black">
                     {(userProfile.display_name || userProfile.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span>{userProfile.display_name || 'Account'}</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                <span>{userProfile.display_name || t('account', lang)}</span>
+                <svg className="w-3 h-3 text-zinc-400 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M3 5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
 
               {/* User Dropdown Menu */}
               {dropdownOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    right: 0,
-                    width: 200,
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 14,
-                    boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
-                    padding: '6px',
-                    zIndex: 100,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                  }}
-                >
-                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{userProfile.display_name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userProfile.email}</div>
+                <div className="absolute top-[calc(100%+8px)] right-0 w-52 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="p-2 border-b border-zinc-800/80 mb-1">
+                    <div className="text-xs font-bold text-zinc-100 truncate">{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-[11px] font-mono text-zinc-400 truncate">{userProfile.email}</div>
                   </div>
 
                   <a
                     href="/profile"
                     onClick={() => setDropdownOpen(false)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      textDecoration: 'none',
-                      transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-2)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white hover:bg-zinc-800 transition"
                   >
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    My Profile
+                    {t('my_profile', lang)}
                   </a>
 
                   {userProfile.is_admin && (
                     <a
                       href="/admin"
                       onClick={() => setDropdownOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        padding: '8px 10px',
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: 'var(--accent-light)',
-                        textDecoration: 'none',
-                        transition: 'background 0.12s',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--accent-muted)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white hover:bg-zinc-800 transition"
                     >
-                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      Store Dashboard
+                      {t('store_dashboard', lang)}
                     </a>
                   )}
 
@@ -251,30 +178,12 @@ export function Navigation({ currentPath }: NavigationProps) {
                       await signOut();
                       window.location.reload();
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: '#f87171',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      width: '100%',
-                      marginTop: 4,
-                      borderTop: '1px solid var(--border-subtle)',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer text-left border-t border-zinc-800/80 mt-1 pt-1.5"
                   >
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    Sign Out
+                    {t('sign_out', lang)}
                   </button>
                 </div>
               )}
@@ -282,29 +191,160 @@ export function Navigation({ currentPath }: NavigationProps) {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px',
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.1)')}
-              onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition cursor-pointer shadow-sm whitespace-nowrap"
             >
-              Sign In
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span>{t('sign_in', lang)}</span>
             </button>
           )}
         </div>
       </nav>
+
+      {/* Mobile Hamburger Button (< 640px) */}
+      <div className="flex sm:hidden items-center">
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(prev => !prev)}
+          className="h-9 px-2.5 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 hover:text-white hover:bg-zinc-800 transition cursor-pointer shadow-sm active:scale-95"
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? (
+            <svg className="w-5 h-5 text-zinc-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-zinc-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Menu Dropdown / Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          onClick={() => setMobileMenuOpen(false)}
+          style={{ position: 'fixed', inset: 0, top: 58, zIndex: 120, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          className="animate-in fade-in duration-150 sm:hidden"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-zinc-950 border-b border-zinc-800 p-4 shadow-2xl flex flex-col gap-3.5 animate-in slide-in-from-top-2 duration-150"
+          >
+            {/* User Profile (Clickable container to open Profile page) / Sign In Section */}
+            {userProfile ? (
+              <a
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-xl flex items-center justify-between transition cursor-pointer group shadow-sm"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {userProfile.avatar_url ? (
+                    <img
+                      src={userProfile.avatar_url}
+                      alt={userProfile.display_name || 'User'}
+                      className="w-8 h-8 rounded-full object-cover border border-zinc-700 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center text-xs font-black shrink-0">
+                      {(userProfile.display_name || userProfile.email || 'U')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-zinc-100 group-hover:text-white truncate">{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-[11px] font-mono text-zinc-400 truncate">{userProfile.email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-zinc-400 group-hover:text-zinc-200 shrink-0 pl-2">
+                  <span className="text-[11px] font-semibold">{t('my_profile', lang)}</span>
+                  <span className="text-xs">→</span>
+                </div>
+              </a>
+            ) : (
+              <button
+                onClick={() => { setMobileMenuOpen(false); setShowAuthModal(true); }}
+                className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition cursor-pointer"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>{t('sign_in', lang)}</span>
+              </button>
+            )}
+
+            {/* Navigation Links */}
+            <div className="flex flex-col gap-1">
+              <a
+                href="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                  isActive('/')
+                    ? 'bg-zinc-800 border-zinc-600 text-white'
+                    : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
+                }`}
+              >
+                <span>{t('catalog', lang)}</span>
+                <span className="text-zinc-500">→</span>
+              </a>
+
+              {showStore && (
+                <a
+                  href="/store"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                    isActive('/store')
+                      ? 'bg-zinc-800 border-zinc-600 text-white'
+                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
+                  }`}
+                >
+                  <span>{t('store', lang)}</span>
+                  <span className="text-zinc-500">→</span>
+                </a>
+              )}
+
+              {userProfile?.is_admin && (
+                <a
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                    isActive('/admin')
+                      ? 'bg-zinc-800 border-zinc-600 text-white'
+                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
+                  }`}
+                >
+                  <span>{t('store_dashboard', lang)}</span>
+                  <span className="text-zinc-500">→</span>
+                </a>
+              )}
+            </div>
+
+            {/* Footer: Language Selector & Sign Out */}
+            <div className="flex items-center justify-between pt-2.5 border-t border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-zinc-400">Language:</span>
+                <LanguageSelector />
+              </div>
+
+              {userProfile && (
+                <button
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    await signOut();
+                    window.location.reload();
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:text-rose-300 bg-rose-950/30 border border-rose-800/40 transition cursor-pointer"
+                >
+                  {t('sign_out', lang)}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAuthModal && (
         <AuthModal

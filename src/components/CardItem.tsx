@@ -66,18 +66,20 @@ export function CardItem({ card, onClick }: CardItemProps) {
       }}
     >
       {/* Image Area — clickable link to modal */}
-      <button onClick={() => onClick(card.inventory_id)} style={{ display: 'block', position: 'relative', cursor: 'pointer', border: 'none', background: 'transparent', padding: 0, width: '100%', textAlign: 'left' }}>
-        <div className="w-full aspect-[3/4] flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-surface-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <button onClick={() => onClick(card.inventory_id)} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left [container-type:inline-size]">
+        <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5">
           {card.image_path ? (
-            <img src={getCardImageUrl(card.image_path)} alt={card.name}
-              style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }}
+            <img
+              src={getCardImageUrl(card.image_path)}
+              alt={card.name}
+              className="w-full h-full object-cover relative z-[1]"
             />
           ) : (
-            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 16px' }}>
-              <span className="text-5xl font-black select-none" style={{ background: 'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <div className="relative z-[1] text-center px-4">
+              <span className="text-5xl font-black select-none text-zinc-100">
                 {isSealed ? '📦' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
-              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: "rgba(255,255,255,0.1)", color: "#d1d5db" }}>
+              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
                 {isSealed ? (card.product_type || 'Sealed') : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
               </span>
             </div>
@@ -86,20 +88,34 @@ export function CardItem({ card, onClick }: CardItemProps) {
 
         {/* Top right badges: Signed / Alt Art / Overnumbered (ON) */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
-          {(card.card_number?.includes('*') || card.subtype?.toLowerCase() === 'signed') && (
-            <span
-              className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
-              style={{
-                background: "rgba(147, 51, 234, 0.95)",
-                color: "#ffffff",
-                border: "1.5px solid #c084fc",
-                boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
-                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
-              }}
-            >
-              SIGNED
-            </span>
-          )}
+          {(() => {
+            const num = (card.card_number || '').toUpperCase();
+            const sub = (card.subtype || '').toLowerCase().trim();
+            const tags = Array.isArray(card.tags) ? card.tags.map((t: string) => String(t).toLowerCase().trim()) : [];
+            const isSigned = Boolean(
+              num.includes('*') ||
+              num.includes('★') ||
+              num.includes('STAR') ||
+              sub === 'signed' ||
+              tags.includes('signed') ||
+              tags.includes('star')
+            );
+            if (!isSigned) return null;
+            return (
+              <span
+                className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+                style={{
+                  background: "rgba(147, 51, 234, 0.95)",
+                  color: "#ffffff",
+                  border: "1.5px solid #c084fc",
+                  boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
+                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+                }}
+              >
+                SIGNED
+              </span>
+            );
+          })()}
 
           {(() => {
             const numPart = card.card_number?.split('/')[0] || '';
@@ -151,8 +167,27 @@ export function CardItem({ card, onClick }: CardItemProps) {
 
         {/* Top Badge: Energy for Singles or Sealed Product Badge */}
         {!isSealed && card.energy != null && (
-          <div className="absolute top-2 left-2" style={{ zIndex: 3 }}>
-            <span className="flex items-center justify-center rounded-full text-sm font-black" style={{ width: 28, height: 28, background: colorTint.bg, color: colorTint.text, border: `2px solid ${colorTint.border}`, boxShadow: `0 0 12px ${colorTint.bg}` }}>
+          <div
+            className="absolute"
+            style={{
+              top: '3.4cqi',
+              left: '3.2cqi',
+              width: '13.8cqi',
+              height: '13.8cqi',
+              zIndex: 3,
+            }}
+          >
+            <span
+              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md"
+              style={{
+                background: colorTint.bg,
+                color: colorTint.text,
+                border: `clamp(1.5px, 0.7cqi, 3px) solid ${colorTint.border}`,
+                boxShadow: `0 0 clamp(6px, 2.5cqi, 16px) ${colorTint.bg}`,
+                fontSize: 'clamp(10px, 7.2cqi, 28px)',
+                lineHeight: 1,
+              }}
+            >
               {card.energy}
             </span>
           </div>
@@ -198,16 +233,16 @@ export function CardItem({ card, onClick }: CardItemProps) {
         </h3>
 
         {/* Set name */}
-        <p className="text-zinc-400 text-[11px] font-medium truncate mt-1 mb-2">
-          {card.set_name || 'Standard Set'}
+        <p className="text-zinc-300 text-[11px] font-medium truncate mt-1 mb-1.5">
+          {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
 
         {/* Bottom Spec Bar (Number · Type) */}
-        <div className="flex items-center text-zinc-400 font-mono text-[11px] mb-2.5">
+        <div className="flex items-center text-zinc-300 font-mono text-[11px] mb-2.5">
           <span className="truncate">
-            {isSealed ? card.condition : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
+            {isSealed ? card.condition : (card.card_number?.includes('-') || !card.set_code ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
           </span>
-          <span className="text-zinc-500 font-bold mx-1.5 flex-shrink-0">·</span>
+          <span className="text-zinc-400 font-bold mx-1.5 flex-shrink-0">·</span>
           <span className="capitalize flex-shrink-0">
             {typeIcon} {isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}
           </span>

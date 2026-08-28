@@ -47,41 +47,35 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
                   user.user_metadata?.role === 'admin' ||
                   user.email === 'vnoel05@gmail.com';
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  if (error || !data) {
-    // Fallback if profiles table row is not yet created
-    return {
-      id: user.id,
-      email: user.email || null,
-      display_name: (user.user_metadata?.full_name || user.user_metadata?.name || splitEmail(user.email || 'User')),
-      avatar_url: (user.user_metadata?.avatar_url || user.user_metadata?.picture || null),
-      is_admin: isAdmin,
-    };
-  }
-
   return {
-    ...data,
-    is_admin: (data.is_admin === true) || isAdmin,
-  } as UserProfile;
+    id: user.id,
+    email: user.email || null,
+    display_name: (user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || splitEmail(user.email || 'User')),
+    avatar_url: (user.user_metadata?.avatar_url || user.user_metadata?.picture || null),
+    is_admin: isAdmin,
+  };
 }
 
 export async function updateProfile(updates: Partial<UserProfile>) {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', user.id)
-    .select()
-    .single();
+  const authData: Record<string, any> = {};
+  if (updates.display_name !== undefined) {
+    authData.display_name = updates.display_name;
+    authData.full_name = updates.display_name;
+    authData.name = updates.display_name;
+  }
+  if (updates.avatar_url !== undefined) {
+    authData.avatar_url = updates.avatar_url;
+  }
 
-  return { data, error };
+  // Update Supabase Auth user metadata
+  const { data: authResult, error: authError } = await supabase.auth.updateUser({
+    data: authData,
+  });
+
+  return { data: authResult, error: authError };
 }
 
 // ─── Cloud Saved Decks ──────────────────────────────────────────────
@@ -137,18 +131,6 @@ export async function deleteSavedDeck(id: string) {
 // ─── User Orders ──────────────────────────────────────────────────
 
 export async function fetchUserOrders() {
-  const user = await getCurrentUser();
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching user orders:', error);
-    return [];
-  }
-  return data || [];
+  // Orders table is not currently provisioned in database
+  return [];
 }

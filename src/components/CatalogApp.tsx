@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardItem } from "./CardItem";
 import { CardDetail } from "./CardDetail";
-import { fetchInventory, getCatalogVisibility } from "../lib/api";
+import { fetchInventory, getCatalogVisibility, getSealedVisibility } from "../lib/api";
 import { getCurrentProfile } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES } from "../lib/constants";
 import type { InventoryCard, FilterState } from "../types";
 
 const DEFAULT_FILTERS: FilterState = {
-  category: "sealed",
+  category: "singles",
   game: "riftbound",
   set: "",
   rarities: [],
@@ -20,6 +20,12 @@ const DEFAULT_FILTERS: FilterState = {
   costMin: 1,
   costMax: 10,
   stockStatus: "Any",
+  foilFilter: false,
+  signedFilter: 'all',
+  altArtFilter: 'all',
+  overnumberedFilter: 'all',
+  spFilter: 'all',
+  baseSetFilter: 'all',
 };
 
 export function CatalogApp() {
@@ -31,7 +37,7 @@ export function CatalogApp() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
 
-  // Restore state from session storage on mount
+  // Restore state from session storage & localStorage on mount
   useEffect(() => {
     const savedSearch = sessionStorage.getItem('inventorySearchQuery');
     if (savedSearch !== null) setSearchQuery(savedSearch);
@@ -39,21 +45,38 @@ export function CatalogApp() {
     const savedGrid = sessionStorage.getItem('inventoryGridSize');
     if (savedGrid) setGridSize(savedGrid as 'small'|'normal'|'large');
 
+    const savedGame = localStorage.getItem('tcg_active_game');
     const savedFilters = sessionStorage.getItem('inventoryFilters');
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
-        if (parsed.category === 'all') parsed.category = 'sealed';
+        if (savedGame) parsed.game = savedGame;
         setFilters(prev => ({ ...prev, ...parsed }));
       } catch (e) {}
+    } else if (savedGame) {
+      setFilters(prev => ({ ...prev, game: savedGame }));
     }
     
     setIsInitialized(true);
+
+    const handleGameChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ game: string }>;
+      if (customEvent.detail?.game) {
+        setFilters(prev => ({ ...prev, game: customEvent.detail.game, set: '' }));
+        setPage(1);
+      }
+    };
+    window.addEventListener('tcg-game-change', handleGameChange);
+
+    return () => {
+      window.removeEventListener('tcg-game-change', handleGameChange);
+    };
   }, []);
 
-  // Visibility gate
+  // Visibility gate & Sealed setting
   const [accessChecked, setAccessChecked] = useState(false);
   const [canAccess, setCanAccess] = useState(false);
+  const [isSealedEnabled, setIsSealedEnabled] = useState(false);
 
   // Supabase Data State
   const [cards, setCards] = useState<InventoryCard[]>([]);
@@ -67,10 +90,15 @@ export function CatalogApp() {
   useEffect(() => {
     Promise.all([
       getCatalogVisibility(),
+      getSealedVisibility(),
       getCurrentProfile(),
-    ]).then(([isPublic, profile]) => {
+    ]).then(([isPublic, sealedEnabled, profile]) => {
       const isAdmin = !!profile?.is_admin;
       setCanAccess(isPublic || isAdmin);
+      setIsSealedEnabled(sealedEnabled);
+      if (!sealedEnabled && filters.category === 'sealed') {
+        setFilters(prev => ({ ...prev, category: 'singles' }));
+      }
       setAccessChecked(true);
     });
   }, []);
@@ -179,58 +207,35 @@ export function CatalogApp() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px" }}>
       
-      {/* Top Header: Category Switcher & Game Pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
-        
-        {/* Category Tabs */}
-        <div style={{ display: 'flex', gap: 6, background: 'var(--bg-surface)', padding: 5, borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
-          {CATEGORIES.map(cat => {
-            const active = (filters.category || 'all') === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setFilters(prev => ({ ...prev, category: cat.id as any }))}
-                className={`flex items-center gap-2 px-4 py-2 text-xs rounded-xl transition cursor-pointer border ${
-                  active
-                    ? 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600 shadow-sm'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
-                }`}
-              >
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
+      {/* Top Header: Category Switcher (if Sealed Products is enabled in store settings) */}
+      {isSealedEnabled && (
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+          <div className="flex gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-xl">
+            {CATEGORIES.map(cat => {
+              const active = (filters.category || 'singles') === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setFilters(prev => ({ ...prev, category: cat.id as any }))}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-lg transition cursor-pointer border ${
+                    active
+                      ? 'text-white font-bold bg-zinc-800 border-zinc-600 shadow-sm'
+                      : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
+                  }`}
+                >
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        {/* Game Filter Pills */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <span className="text-zinc-300 font-semibold text-xs tracking-wider uppercase mr-1">
-            Game:
-          </span>
-          {GAMES.map(g => {
-            const active = (filters.game || 'all') === g.id;
-            return (
-              <button
-                key={g.id}
-                onClick={() => setFilters(prev => ({ ...prev, game: g.id }))}
-                className={`px-3 py-1.5 text-xs rounded-lg transition cursor-pointer border ${
-                  active
-                    ? 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600 shadow-sm'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
-                }`}
-              >
-                {g.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* Main Content Layout */}
-      <div style={{ display: "grid", gridTemplateColumns: isWide ? "320px 1fr" : "1fr", gap: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isWide ? "264px 1fr" : "1fr", gap: isWide ? 24 : 16 }}>
         {isWide ? (
           <>
-            <aside style={{ position: "sticky", top: 100, alignSelf: "start", maxHeight: "calc(100vh - 120px)" }}>
+            <aside style={{ position: "sticky", top: 88, alignSelf: "start" }}>
               {sidebar}
             </aside>
             <main style={{ minWidth: 0 }}>
@@ -261,8 +266,8 @@ export function CatalogApp() {
                           onClick={() => setGridSize(s)}
                           className={`h-full px-3 text-xs rounded-lg transition cursor-pointer capitalize border ${
                             active
-                              ? 'text-zinc-50 font-semibold bg-zinc-800 border-zinc-600'
-                              : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 font-medium'
+                              ? 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-sm'
+                              : 'bg-zinc-900 border-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-800 font-semibold'
                           }`}
                         >
                           {s}
@@ -271,7 +276,7 @@ export function CatalogApp() {
                     })}
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-zinc-400 font-medium">
+                <p className="mt-2 text-xs text-zinc-300 font-semibold">
                   {totalCount} {totalCount === 1 ? "item" : "items"} available in store
                 </p>
               </div>
@@ -423,17 +428,20 @@ function getGridCols(size: 'small'|'normal'|'large') {
 
 function ComingSoonScreen() {
   return (
-    <div style={{ maxWidth: 520, margin: '80px auto', padding: '48px 32px', textAlign: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 24, boxShadow: 'var(--shadow-card)' }}>
-      <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-light)', marginBottom: 20 }}>
-        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div className="max-w-lg mx-auto my-20 p-8 sm:p-10 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+      <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-zinc-300 mb-4">
+        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       </div>
-      <h2 style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 10px' }}>Store in Maintenance</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6, margin: '0 0 24px' }}>
+      <h2 className="text-2xl font-black text-zinc-100 mb-2">Store in Maintenance</h2>
+      <p className="text-zinc-400 text-sm leading-relaxed mb-6">
         The store is currently being stocked with new inventory. Please check back soon or browse our Card Catalog!
       </p>
-      <a href="/" style={{ display: 'inline-block', padding: '12px 24px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', borderRadius: 12, fontSize: 14, fontWeight: 800, textDecoration: 'none', boxShadow: '0 4px 16px rgba(99,102,241,0.4)' }}>
+      <a
+        href="/"
+        className="inline-block px-6 py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm transition shadow-md"
+      >
         Explore Card Catalog
       </a>
     </div>

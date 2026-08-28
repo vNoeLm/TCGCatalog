@@ -1,46 +1,42 @@
-# Astro Starter Kit: Basics
+# TCG Vault
+
+A modern, high-performance Trading Card Game (TCG) collection manager, deck builder, catalog, and store platform built with **Astro 5**, **React 19**, **Tailwind CSS**, and **Supabase**.
+
+---
+
+## 📖 Documentation & Architecture Guide
+
+For a complete map of where every component, constant, style, API query, translation, and page is located—as well as step-by-step guides on how to manually customize anything—refer to:
+
+👉 **[DOCUMENTATION.md](./DOCUMENTATION.md)**
+
+---
+
+## 🚀 Quick Start
 
 ```sh
-npm create astro@latest -- --template basics
+# Install dependencies
+npm install
+
+# Start local development server (http://localhost:4321)
+npm run dev
+
+# Or start in background mode
+astro dev --background
+
+# Build for production
+npm run build
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+---
 
-## 🚀 Project Structure
+## 🧭 Key Directories
 
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
-
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `src/components/CardListApp.tsx` — Main collection tracker, search bar, sort & export/import controls.
+- `src/components/FilterSidebar.tsx` — Sets, types, domains, rarities, card variants (Base Set, Foil, SP, Signed, Alt Art, Overnumbered).
+- `src/components/deck-builder/` — Full interactive deck builder with text serializer.
+- `src/components/profile/ProfileApp.tsx` — User profile, name editor, and order tracking.
+- `src/components/admin/AdminDashboard.tsx` — Store inventory, product manager, and order status.
+- `src/lib/constants.ts` — Game definitions, sets, types, rarities, domains, and tags.
+- `src/lib/i18n.ts` — English (`EN`) and Hungarian (`HU`) translations.
+- `src/lib/api.ts` & `src/lib/auth.ts` — Supabase database and authentication helpers.

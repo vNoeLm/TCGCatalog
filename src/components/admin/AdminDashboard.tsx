@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { fetchCardsCatalog, clearApiCache } from '../../lib/api';
+import { fetchCardsCatalog, clearApiCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
-import { GAMES, SEALED_PRODUCT_TYPES, SETS } from '../../lib/constants';
+import { GAMES, SEALED_PRODUCT_TYPES } from '../../lib/constants';
 import type { CatalogCard, UserProfile } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
 
@@ -46,7 +46,9 @@ export function AdminDashboard() {
 
   // Settings State
   const [isStorePublic, setIsStorePublic] = useState(false);
+  const [isSealedEnabled, setIsSealedEnabled] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingSealed, setSavingSealed] = useState(false);
 
   // ─── 1. Auth Check ──────────────────────────────────────────────
   useEffect(() => {
@@ -91,7 +93,7 @@ export function AdminDashboard() {
       .select(`
         id, condition, is_foil, price_huf, status, notes, is_bulk, quantity, created_at, updated_at,
         cards (
-          id, card_number, name, rarity, card_type, image_path, domain, game, product_type,
+          id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
           sets ( id, name, code )
         )
       `)
@@ -99,19 +101,19 @@ export function AdminDashboard() {
 
     if (!error && data) {
       setInventoryList(data);
+    } else if (error) {
+      console.error('Error fetching inventory in dashboard:', error);
     }
     setLoadingInventory(false);
   };
 
   const loadSettings = async () => {
-    const { data } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'catalog_public')
-      .single();
-    if (data) {
-      setIsStorePublic(data.value === 'true');
-    }
+    const [isPub, isSealed] = await Promise.all([
+      getCatalogVisibility(),
+      getSealedVisibility(),
+    ]);
+    setIsStorePublic(isPub);
+    setIsSealedEnabled(isSealed);
   };
 
   useEffect(() => {
@@ -172,22 +174,19 @@ export function AdminDashboard() {
 
         if (setRow) targetSetId = setRow.id;
 
-        // 2. Insert or find product in cards/products table
+        // 2. Insert product in cards table
         const { data: newProd, error: prodErr } = await supabase
           .from('cards')
           .insert({
             name: sealedProductName.trim(),
             game: selectedGame,
             set_id: targetSetId,
-            product_type: sealedType.toLowerCase().replace(/\s+/g, '_'),
+            subtype: sealedType,
             card_type: 'Sealed',
             rarity: 'Sealed',
             card_number: 'SEALED',
             image_path: sealedImagePath.trim() || null,
-            metadata: {
-              sealed_type: sealedType,
-              set_name: sealedSetName,
-            },
+            tags: [sealedType, sealedSetName],
           })
           .select()
           .single();
@@ -210,7 +209,7 @@ export function AdminDashboard() {
       }
 
       clearApiCache();
-      loadInventory();
+      await loadInventory();
 
       // Reset fields
       setSelectedCard(null);
@@ -262,21 +261,38 @@ export function AdminDashboard() {
     if (!error) {
       setInventoryList(prev => prev.filter(item => item.id !== id));
       clearApiCache();
+    } else {
+      alert(`Error deleting listing: ${error.message}`);
     }
   };
 
   const handleToggleStoreVisibility = async () => {
     setSavingSettings(true);
     const nextVal = !isStorePublic;
-    const { error } = await supabase
-      .from('settings')
-      .upsert({ key: 'catalog_public', value: nextVal ? 'true' : 'false' });
-
-    if (!error) {
+    try {
+      await setCatalogVisibility(nextVal);
       setIsStorePublic(nextVal);
       clearApiCache();
+    } catch (e: any) {
+      alert(`Error updating store visibility: ${e.message}`);
     }
     setSavingSettings(false);
+  };
+
+  const handleToggleSealedVisibility = async () => {
+    setSavingSealed(true);
+    const nextVal = !isSealedEnabled;
+    try {
+      await setSealedVisibility(nextVal);
+      setIsSealedEnabled(nextVal);
+      if (!nextVal && addItemCategory === 'sealed') {
+        setAddItemCategory('single');
+      }
+      clearApiCache();
+    } catch (e: any) {
+      alert(`Error updating sealed products setting: ${e.message}`);
+    }
+    setSavingSealed(false);
   };
 
   // ─── Filtered Inventory & Catalog Results ────────────────────────
@@ -314,32 +330,28 @@ export function AdminDashboard() {
 
   if (checkingAuth) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <span style={{ color: 'var(--accent-light)', fontSize: 16, fontWeight: 700 }}>Checking authorization…</span>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <span className="text-zinc-300 font-bold text-base animate-pulse">Checking authorization…</span>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div style={{ maxWidth: 500, margin: '80px auto', padding: '40px 24px', textAlign: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2">
+      <div className="max-w-md mx-auto my-20 p-8 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+        <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center mb-4">
+          <svg className="w-7 h-7 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>Store Admin Access</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
-          Please sign in to access the store management dashboard.
+        <h2 className="text-2xl font-black text-zinc-100 mb-2">Store Admin Access</h2>
+        <p className="text-zinc-400 text-sm mb-6">
+          Please sign in with administrator credentials to manage inventory and store settings.
         </p>
         <button
           onClick={() => setShowAuthModal(true)}
-          style={{
-            padding: '12px 28px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-          }}
+          className="px-6 py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
         >
           Sign In
         </button>
@@ -350,24 +362,20 @@ export function AdminDashboard() {
 
   if (!profile.is_admin) {
     return (
-      <div style={{ maxWidth: 500, margin: '80px auto', padding: '40px 24px', textAlign: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2">
+      <div className="max-w-md mx-auto my-20 p-8 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+        <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/30 inline-flex items-center justify-center mb-4">
+          <svg className="w-7 h-7 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
           </svg>
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>Access Denied</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
-          You do not have administrator permissions to access the store dashboard.
+        <h2 className="text-2xl font-black text-zinc-100 mb-2">Access Denied</h2>
+        <p className="text-zinc-400 text-sm mb-6">
+          Your account does not have administrator permissions to access the store management dashboard.
         </p>
         <a
           href="/"
-          style={{
-            display: 'inline-block',
-            padding: '12px 28px', background: 'var(--bg-surface-2)',
-            color: 'var(--text-primary)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 10, fontSize: 14, fontWeight: 800,
-          }}
+          className="inline-block px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold border border-zinc-700 rounded-xl text-sm transition"
         >
           Back to Catalog
         </a>
@@ -376,33 +384,31 @@ export function AdminDashboard() {
   }
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-7">
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h1 className="text-2xl sm:text-3xl font-black text-zinc-100 flex items-center gap-3">
             <span>🛒</span> Store Dashboard
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>
-            Manage singles, sealed products, inventory prices, and multi-game catalog
+          <p className="text-zinc-400 text-sm mt-1">
+            Manage singles, sealed products, inventory pricing, and store visibility
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-surface)', padding: '8px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: isStorePublic ? '#22c55e' : '#eab308', boxShadow: isStorePublic ? '0 0 8px #22c55e' : '0 0 8px #eab308' }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl">
+          <div className={`w-2.5 h-2.5 rounded-full ${isStorePublic ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`} />
+          <span className="text-xs font-bold text-zinc-200">
             Store is {isStorePublic ? 'Public' : 'in Maintenance'}
           </span>
           <button
             onClick={handleToggleStoreVisibility}
             disabled={savingSettings}
-            style={{
-              fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 6,
-              background: isStorePublic ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)',
-              color: isStorePublic ? '#f87171' : '#4ade80',
-              border: isStorePublic ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(34,197,94,0.4)',
-              cursor: 'pointer',
-            }}
+            className={`text-xs font-bold px-2.5 py-1 rounded-md transition cursor-pointer border ${
+              isStorePublic
+                ? 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+            }`}
           >
             {savingSettings ? 'Saving…' : isStorePublic ? 'Make Private' : 'Make Public'}
           </button>
@@ -410,58 +416,52 @@ export function AdminDashboard() {
       </div>
 
       {/* Stats Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Listings</span>
-          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-primary)', marginTop: 4 }}>{totalItemsCount}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Listings</span>
+          <div className="text-2xl sm:text-3xl font-black text-zinc-100 mt-1">{totalItemsCount}</div>
         </div>
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>In Stock Items</span>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#4ade80', marginTop: 4 }}>{inStockCount}</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">In Stock Items</span>
+          <div className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">{inStockCount}</div>
         </div>
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Inventory Value</span>
-          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--accent-light)', marginTop: 4 }}>
-            {totalValueHuf.toLocaleString()} <span style={{ fontSize: 14, fontWeight: 600 }}>HUF</span>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active Inventory Value</span>
+          <div className="text-2xl sm:text-3xl font-black text-zinc-100 mt-1">
+            {totalValueHuf.toLocaleString()} <span className="text-sm font-semibold text-zinc-400">HUF</span>
           </div>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+      <div className="flex gap-2 border-b border-zinc-800 mb-6 pb-2">
         <button
           onClick={() => setActiveTab('inventory')}
-          style={{
-            padding: '10px 18px', fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            background: 'transparent', border: 'none',
-            color: activeTab === 'inventory' ? 'var(--accent-light)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'inventory' ? '2px solid var(--accent)' : '2px solid transparent',
-            transition: 'all 0.15s',
-          }}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border ${
+            activeTab === 'inventory'
+              ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
+              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
         >
           📦 Active Inventory ({filteredInventory.length})
         </button>
         <button
           onClick={() => setActiveTab('add')}
-          style={{
-            padding: '10px 18px', fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            background: 'transparent', border: 'none',
-            color: activeTab === 'add' ? 'var(--accent-light)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'add' ? '2px solid var(--accent)' : '2px solid transparent',
-            transition: 'all 0.15s',
-          }}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border ${
+            activeTab === 'add'
+              ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
+              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
         >
           ➕ Add to Store (Singles / Sealed)
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          style={{
-            padding: '10px 18px', fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            background: 'transparent', border: 'none',
-            color: activeTab === 'settings' ? 'var(--accent-light)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'settings' ? '2px solid var(--accent)' : '2px solid transparent',
-            transition: 'all 0.15s',
-          }}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border ${
+            activeTab === 'settings'
+              ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
+              : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
         >
           ⚙️ Store Settings
         </button>
@@ -470,28 +470,29 @@ export function AdminDashboard() {
       {/* TAB 1: INVENTORY TABLE */}
       {activeTab === 'inventory' && (
         <div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <input
-              type="text"
-              placeholder="Filter by product name, set, or game..."
-              value={inventorySearch}
-              onChange={(e) => setInventorySearch(e.target.value)}
-              style={{
-                width: '100%', maxWidth: 360, padding: '10px 16px', borderRadius: 10,
-                background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
-              }}
-            />
-            <div style={{ display: 'flex', gap: 6 }}>
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-5">
+            <div className="relative w-full max-w-sm">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Filter by name, set, or game..."
+                value={inventorySearch}
+                onChange={(e) => setInventorySearch(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
+              />
+            </div>
+            <div className="flex gap-1.5">
               {['All', 'In Stock', 'Reserved', 'Sold'].map(st => (
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  style={{
-                    padding: '6px 12px', fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
-                    background: statusFilter === st ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
-                    color: statusFilter === st ? 'var(--accent-light)' : 'var(--text-secondary)',
-                    border: statusFilter === st ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                  }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border ${
+                    statusFilter === st
+                      ? 'bg-zinc-800 border-zinc-600 text-white'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                  }`}
                 >
                   {st}
                 </button>
@@ -500,115 +501,112 @@ export function AdminDashboard() {
           </div>
 
           {loadingInventory ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--accent-light)', fontSize: 14 }}>Loading inventory items…</div>
+            <div className="text-center py-16 text-zinc-400 text-sm font-semibold">Loading inventory items…</div>
           ) : filteredInventory.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 15, margin: '0 0 16px' }}>No items match the current inventory filter.</p>
+            <div className="text-center py-16 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl">
+              <p className="text-zinc-400 text-base mb-4 font-medium">No items match the current inventory filter.</p>
               <button
                 onClick={() => setActiveTab('add')}
-                style={{ padding: '8px 16px', background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', color: 'var(--accent-light)', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 + Add your first item
               </button>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+            <div className="overflow-x-auto bg-zinc-900 border border-zinc-800 rounded-xl shadow-sm">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface-2)' }}>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>ITEM</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>TYPE / GAME</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>CONDITION</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>PRICE (HUF)</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>QTY</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800 }}>STATUS</th>
-                    <th style={{ padding: '14px 16px', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'right' }}>ACTIONS</th>
+                  <tr className="border-b border-zinc-800 bg-zinc-950/60">
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">ITEM</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">TYPE / GAME</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">CONDITION</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">PRICE (HUF)</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">QTY</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px]">STATUS</th>
+                    <th className="py-3.5 px-4 text-zinc-400 font-bold uppercase tracking-wider text-[11px] text-right">ACTIONS</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-zinc-800">
                   {filteredInventory.map((item) => {
                     const card = item.cards;
-                    const isSealed = card?.product_type && card?.product_type !== 'single';
+                    const isSealed = card?.card_type === 'Sealed' || card?.rarity === 'Sealed';
                     return (
-                      <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <tr key={item.id} className="hover:bg-zinc-800/40 transition">
+                        <td className="py-3 px-4 flex items-center gap-3">
                           {card?.image_path ? (
                             <img
                               src={`https://xtyfzkqubmzrsvduvzcl.supabase.co/storage/v1/object/public/card-images/${card.image_path}`}
                               alt={card.name}
-                              style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 4, background: '#1e293b' }}
+                              className="w-9 h-12 object-cover rounded bg-zinc-950 border border-zinc-800 flex-shrink-0"
                             />
                           ) : (
-                            <div style={{ width: 36, height: 50, borderRadius: 4, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                            <div className="w-9 h-12 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-center text-lg flex-shrink-0">
                               {isSealed ? '📦' : '🃏'}
                             </div>
                           )}
-                          <div>
-                            <span style={{ fontWeight: 800, color: 'var(--text-primary)', display: 'block' }}>{card?.name || 'Unknown'}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          <div className="min-w-0">
+                            <span className="font-bold text-zinc-100 block truncate">{card?.name || 'Unknown Item'}</span>
+                            <span className="text-[11px] text-zinc-400 block font-mono">
                               {card?.sets?.name || 'Standard Set'} {card?.card_number ? `• ${card.card_number}` : ''}
                             </span>
                           </div>
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontWeight: 700, color: isSealed ? '#818cf8' : 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                            {isSealed ? (card?.product_type?.replace('_', ' ') || 'Sealed') : 'Single Card'}
+                        <td className="py-3 px-4">
+                          <span className={`font-semibold text-xs capitalize ${isSealed ? 'text-indigo-400' : 'text-zinc-300'}`}>
+                            {isSealed ? (card?.subtype || 'Sealed Product') : 'Single Card'}
                           </span>
-                          <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          <span className="block text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
                             {card?.game || 'riftbound'}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.condition}</span>
+                        <td className="py-3 px-4">
+                          <span className="font-semibold text-zinc-200 text-xs">{item.condition}</span>
                           {item.is_foil && (
-                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 900, padding: '2px 6px', borderRadius: 4, background: 'rgba(234,179,8,0.2)', color: '#fde047', border: '1px solid rgba(234,179,8,0.4)' }}>
+                            <span className="ml-2 text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                               FOIL
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
+                        <td className="py-3 px-4">
                           <input
                             type="number"
+                            step="1"
+                            min="0"
                             defaultValue={item.price_huf || ''}
                             onBlur={(e) => {
                               const val = parseFloat(e.target.value);
                               if (!isNaN(val) && val !== item.price_huf) handleUpdatePrice(item.id, val);
                             }}
-                            style={{
-                              width: 90, padding: '4px 8px', borderRadius: 6,
-                              background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--accent-light)', fontWeight: 800, fontSize: 13,
-                            }}
+                            className="w-24 bg-zinc-950 border border-zinc-700 rounded-md px-2 py-1 text-zinc-100 font-mono font-bold text-xs outline-none focus:border-zinc-500"
                           />
                         </td>
-                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        <td className="py-3 px-4 font-bold text-zinc-200 text-xs">
                           {item.quantity || 1}
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
+                        <td className="py-3 px-4">
                           <select
                             value={item.status}
                             onChange={(e) => handleUpdateStatus(item.id, e.target.value)}
-                            style={{
-                              padding: '4px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800,
-                              background: item.status === 'In Stock' ? 'rgba(34,197,94,0.15)' : item.status === 'Reserved' ? 'rgba(234,179,8,0.15)' : 'rgba(239,68,68,0.15)',
-                              color: item.status === 'In Stock' ? '#4ade80' : item.status === 'Reserved' ? '#fde047' : '#f87171',
-                              border: '1px solid var(--border)', outline: 'none', cursor: 'pointer',
-                            }}
+                            className={`px-2 py-1 rounded-md text-xs font-bold border outline-none cursor-pointer ${
+                              item.status === 'In Stock'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : item.status === 'Reserved'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                : 'bg-red-500/10 border-red-500/30 text-red-300'
+                            }`}
                           >
-                            <option value="In Stock">In Stock</option>
-                            <option value="Reserved">Reserved</option>
-                            <option value="Sold">Sold</option>
+                            <option value="In Stock" className="bg-zinc-900 text-emerald-400">In Stock</option>
+                            <option value="Reserved" className="bg-zinc-900 text-amber-400">Reserved</option>
+                            <option value="Sold" className="bg-zinc-900 text-red-400">Sold</option>
                           </select>
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => handleDeleteItem(item.id, card?.name || 'item')}
-                            style={{
-                              padding: '5px 10px', fontSize: 12, fontWeight: 700, borderRadius: 6,
-                              background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)',
-                              cursor: 'pointer',
-                            }}
+                            title="Remove listing from store"
+                            className="px-2.5 py-1 text-xs font-bold rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 hover:border-red-500/50 transition cursor-pointer inline-flex items-center gap-1"
                           >
-                            Delete
+                            <span>🗑️</span> Remove
                           </button>
                         </td>
                       </tr>
@@ -623,85 +621,79 @@ export function AdminDashboard() {
 
       {/* TAB 2: ADD PRODUCT TO STORE */}
       {activeTab === 'add' && (
-        <div style={{ maxWidth: 800, margin: '0 auto', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 20px' }}>Add Item to Store Inventory</h2>
+        <div className="max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8">
+          <h2 className="text-xl font-black text-zinc-100 mb-5">Add Item to Store Inventory</h2>
 
-          {/* Category Toggle: Single Card vs Sealed Product */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
-            <button
-              type="button"
-              onClick={() => setAddItemCategory('single')}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '12px 16px', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-                background: addItemCategory === 'single' ? 'var(--accent)' : 'var(--bg-surface-2)',
-                color: addItemCategory === 'single' ? '#ffffff' : 'var(--text-secondary)',
-                border: addItemCategory === 'single' ? 'none' : '1px solid var(--border)',
-              }}
-            >
-              <span>🃏</span> Single Card
-            </button>
-            <button
-              type="button"
-              onClick={() => setAddItemCategory('sealed')}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '12px 16px', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-                background: addItemCategory === 'sealed' ? 'var(--accent)' : 'var(--bg-surface-2)',
-                color: addItemCategory === 'sealed' ? '#ffffff' : 'var(--text-secondary)',
-                border: addItemCategory === 'sealed' ? 'none' : '1px solid var(--border)',
-              }}
-            >
-              <span>📦</span> Sealed Product (Booster Box / Pack)
-            </button>
-          </div>
+          {/* Category Toggle: Single Card vs Sealed Product (Only shown if Sealed Products is enabled in Settings) */}
+          {isSealedEnabled && (
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setAddItemCategory('single')}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition cursor-pointer border ${
+                  addItemCategory === 'single'
+                    ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                <span>🃏</span> Single Card
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddItemCategory('sealed')}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition cursor-pointer border ${
+                  addItemCategory === 'sealed'
+                    ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                <span>📦</span> Sealed Product
+              </button>
+            </div>
+          )}
 
           {feedback && (
-            <div style={{
-              padding: '12px 16px', borderRadius: 10, fontSize: 14, fontWeight: 700, marginBottom: 20,
-              background: feedback.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-              color: feedback.type === 'success' ? '#4ade80' : '#f87171',
-              border: feedback.type === 'success' ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(239,68,68,0.4)',
-            }}>
+            <div className={`p-3.5 rounded-xl text-sm font-semibold mb-5 border ${
+              feedback.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-red-500/10 border-red-500/30 text-red-300'
+            }`}>
               {feedback.message}
             </div>
           )}
 
           {/* Game Selector */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          <div className="mb-5">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
               Select Game
             </label>
             <select
               value={selectedGame}
               onChange={(e) => setSelectedGame(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+              className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-zinc-100 outline-none focus:border-zinc-600 transition"
             >
               {GAMES.filter(g => g.id !== 'all').map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id} className="bg-zinc-900 text-zinc-100">{g.name}</option>
               ))}
             </select>
           </div>
 
           {/* SINGLES MODE: Search Card Picker */}
           {addItemCategory === 'single' && (
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                 Search & Select Card
               </label>
               <input
                 type="text"
-                placeholder="Search catalog by card name or number..."
+                placeholder="Type card name or collector number..."
                 value={searchCatalogQuery}
                 onChange={(e) => setSearchCatalogQuery(e.target.value)}
-                style={{
-                  width: '100%', boxSizing: 'border-box', padding: '12px 16px', borderRadius: 10,
-                  background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, outline: 'none',
-                }}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
               />
 
               {searchResults.length > 0 && !selectedCard && (
-                <div style={{ marginTop: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', maxHeight: 280, overflowY: 'auto' }}>
+                <div className="mt-2 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden max-h-64 overflow-y-auto divide-y divide-zinc-800/60 shadow-xl">
                   {searchResults.map((c) => (
                     <div
                       key={c.id}
@@ -709,40 +701,35 @@ export function AdminDashboard() {
                         setSelectedCard(c);
                         setSearchCatalogQuery(c.name);
                       }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                        cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      className="flex items-center gap-3 p-3 cursor-pointer hover:bg-zinc-900 transition"
                     >
-                      <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>{c.name}</span>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>({c.card_number})</span>
-                      <span style={{ fontSize: 11, color: 'var(--accent-light)', marginLeft: 'auto', fontWeight: 700 }}>{c.set_name} • {c.rarity}</span>
+                      <span className="font-bold text-zinc-100 text-sm">{c.name}</span>
+                      <span className="text-xs font-mono text-zinc-400">({c.card_number})</span>
+                      <span className="text-xs font-semibold text-zinc-300 ml-auto">{c.set_name} • {c.rarity}</span>
                     </div>
                   ))}
                 </div>
               )}
 
               {selectedCard && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, padding: 14, background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', borderRadius: 12 }}>
+                <div className="flex items-center gap-3.5 mt-3 p-3.5 bg-zinc-950 border border-zinc-700 rounded-xl">
                   {selectedCard.image_path && (
                     <img
                       src={`https://xtyfzkqubmzrsvduvzcl.supabase.co/storage/v1/object/public/card-images/${selectedCard.image_path}`}
                       alt={selectedCard.name}
-                      style={{ width: 44, height: 60, objectFit: 'cover', borderRadius: 6 }}
+                      className="w-10 h-14 object-cover rounded bg-zinc-900 border border-zinc-800 flex-shrink-0"
                     />
                   )}
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent-light)' }}>{selectedCard.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <div className="text-sm font-black text-zinc-100">{selectedCard.name}</div>
+                    <div className="text-xs font-mono text-zinc-400">
                       {selectedCard.set_name} • {selectedCard.card_number} • {selectedCard.rarity}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedCard(null)}
-                    style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}
+                    className="ml-auto text-zinc-400 hover:text-white text-base cursor-pointer p-1"
                   >
                     ✕
                   </button>
@@ -753,9 +740,9 @@ export function AdminDashboard() {
 
           {/* SEALED MODE: Product Name, Type & Set */}
           {addItemCategory === 'sealed' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+            <div className="flex flex-col gap-4 mb-6">
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                   Product Name *
                 </label>
                 <input
@@ -764,28 +751,28 @@ export function AdminDashboard() {
                   value={sealedProductName}
                   onChange={(e) => setSealedProductName(e.target.value)}
                   required
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                     Sealed Product Type
                   </label>
                   <select
                     value={sealedType}
                     onChange={(e) => setSealedType(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition"
                   >
                     {SEALED_PRODUCT_TYPES.map(st => (
-                      <option key={st} value={st}>{st}</option>
+                      <option key={st} value={st} className="bg-zinc-900 text-zinc-100">{st}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                     Set / Series
                   </label>
                   <input
@@ -793,7 +780,7 @@ export function AdminDashboard() {
                     placeholder="e.g. Origins"
                     value={sealedSetName}
                     onChange={(e) => setSealedSetName(e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
                   />
                 </div>
               </div>
@@ -801,57 +788,57 @@ export function AdminDashboard() {
           )}
 
           {/* Form Details */}
-          <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <form onSubmit={handleAddProduct} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                   Condition
                 </label>
                 {addItemCategory === 'single' ? (
                   <select
                     value={condition}
                     onChange={(e) => setCondition(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition"
                   >
-                    <option value="Mint">Mint</option>
-                    <option value="Near Mint">Near Mint (NM)</option>
-                    <option value="Lightly Played">Lightly Played (LP)</option>
-                    <option value="Moderately Played">Moderately Played (MP)</option>
-                    <option value="Heavily Played">Heavily Played (HP)</option>
-                    <option value="Damaged">Damaged (DMG)</option>
+                    <option value="Mint" className="bg-zinc-900 text-zinc-100">Mint</option>
+                    <option value="Near Mint" className="bg-zinc-900 text-zinc-100">Near Mint (NM)</option>
+                    <option value="Lightly Played" className="bg-zinc-900 text-zinc-100">Lightly Played (LP)</option>
+                    <option value="Moderately Played" className="bg-zinc-900 text-zinc-100">Moderately Played (MP)</option>
+                    <option value="Heavily Played" className="bg-zinc-900 text-zinc-100">Heavily Played (HP)</option>
+                    <option value="Damaged" className="bg-zinc-900 text-zinc-100">Damaged (DMG)</option>
                   </select>
                 ) : (
                   <select
                     value={sealedCondition}
                     onChange={(e) => setSealedCondition(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition"
                   >
-                    <option value="Factory Sealed">Factory Sealed (Brand New)</option>
-                    <option value="Mint Box">Mint Box (Undamaged)</option>
-                    <option value="Dented Box">Dented Box / Minor Flaw</option>
-                    <option value="Loose Packs">Loose Packs</option>
+                    <option value="Factory Sealed" className="bg-zinc-900 text-zinc-100">Factory Sealed (Brand New)</option>
+                    <option value="Mint Box" className="bg-zinc-900 text-zinc-100">Mint Box (Undamaged)</option>
+                    <option value="Dented Box" className="bg-zinc-900 text-zinc-100">Dented Box / Minor Flaw</option>
+                    <option value="Loose Packs" className="bg-zinc-900 text-zinc-100">Loose Packs</option>
                   </select>
                 )}
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                   Price (HUF) *
                 </label>
                 <input
                   type="number"
-                  placeholder="e.g. 4500"
+                  placeholder="e.g. 99999"
                   value={priceHuf}
                   onChange={(e) => setPriceHuf(e.target.value)}
                   required
                   min="0"
-                  step="50"
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                  step="1"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2 text-sm text-zinc-100 font-mono placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                   Quantity in Stock
                 </label>
                 <input
@@ -859,36 +846,37 @@ export function AdminDashboard() {
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                   min="1"
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                  step="1"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2 text-sm text-zinc-100 font-mono outline-none focus:border-zinc-600 transition"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                   Status
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14 }}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition"
                 >
-                  <option value="In Stock">In Stock</option>
-                  <option value="Reserved">Reserved</option>
-                  <option value="Sold">Sold</option>
+                  <option value="In Stock" className="bg-zinc-900 text-emerald-400">In Stock</option>
+                  <option value="Reserved" className="bg-zinc-900 text-amber-400">Reserved</option>
+                  <option value="Sold" className="bg-zinc-900 text-red-400">Sold</option>
                 </select>
               </div>
             </div>
 
             {/* Singles Foil Toggle */}
             {addItemCategory === 'single' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <label className="flex items-center gap-2.5 cursor-pointer py-1">
                 <input
                   type="checkbox"
                   checked={isFoil}
                   onChange={(e) => setIsFoil(e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                  className="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-zinc-100 focus:ring-0 cursor-pointer"
                 />
-                <span style={{ fontSize: 14, fontWeight: 800, color: isFoil ? '#fde047' : 'var(--text-primary)' }}>
+                <span className={`text-xs font-bold ${isFoil ? 'text-amber-300' : 'text-zinc-300'}`}>
                   ✨ Foil / Holographic Version
                 </span>
               </label>
@@ -896,28 +884,26 @@ export function AdminDashboard() {
 
             {/* Notes */}
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                 Listing Notes / Details (Optional)
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. English edition, factory shrink wrapped, flawless condition"
+                placeholder="e.g. English edition, flawless corners, pack fresh"
                 rows={3}
-                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13 }}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
               />
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{
-                marginTop: 10, padding: '14px 20px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 900,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-              }}
+              className={`mt-2 py-3 px-5 rounded-xl text-sm font-black transition cursor-pointer border ${
+                isSubmitting
+                  ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed'
+                  : 'bg-zinc-100 hover:bg-white text-zinc-950 border-zinc-200 shadow-md'
+              }`}
             >
               {isSubmitting ? 'Adding Item…' : addItemCategory === 'single' ? 'Add Single Card to Store' : 'Add Sealed Product to Store'}
             </button>
@@ -927,34 +913,53 @@ export function AdminDashboard() {
 
       {/* TAB 3: SETTINGS */}
       {activeTab === 'settings' && (
-        <div style={{ maxWidth: 640, margin: '0 auto', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 32 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 20px' }}>Store & Catalog Configuration</h2>
+        <div className="max-w-xl mx-auto bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8">
+          <h2 className="text-xl font-black text-zinc-100 mb-5">Store & Catalog Configuration</h2>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', background: 'var(--bg-surface-2)', borderRadius: 14, border: '1px solid var(--border)', marginBottom: 20 }}>
+          <div className="flex items-center justify-between p-4 bg-zinc-950 border border-zinc-800 rounded-xl mb-4">
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Public Store Visibility</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              <div className="text-sm font-bold text-zinc-100">Public Store Visibility</div>
+              <div className="text-xs text-zinc-400 mt-0.5">
                 When disabled, only logged-in administrators can view and browse the store.
               </div>
             </div>
             <button
               onClick={handleToggleStoreVisibility}
               disabled={savingSettings}
-              style={{
-                padding: '8px 18px', fontSize: 13, fontWeight: 800, borderRadius: 8, cursor: 'pointer',
-                background: isStorePublic ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.18)',
-                color: isStorePublic ? '#4ade80' : '#f87171',
-                border: isStorePublic ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(239,68,68,0.4)',
-              }}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer border ${
+                isStorePublic
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20'
+              }`}
             >
               {savingSettings ? 'Saving…' : isStorePublic ? '✓ Public' : '🔒 Private'}
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', background: 'var(--bg-surface-2)', borderRadius: 14, border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between p-4 bg-zinc-950 border border-zinc-800 rounded-xl mb-4">
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Clear System Cache</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              <div className="text-sm font-bold text-zinc-100">Enable Sealed Products</div>
+              <div className="text-xs text-zinc-400 mt-0.5">
+                Show or hide Sealed Products (Booster Boxes, Packs, Bundles) across the store and inventory.
+              </div>
+            </div>
+            <button
+              onClick={handleToggleSealedVisibility}
+              disabled={savingSealed}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer border ${
+                isSealedEnabled
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {savingSealed ? 'Saving…' : isSealedEnabled ? '✓ Enabled' : '✕ Disabled'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-zinc-950 border border-zinc-800 rounded-xl">
+            <div>
+              <div className="text-sm font-bold text-zinc-100">Clear System Cache</div>
+              <div className="text-xs text-zinc-400 mt-0.5">
                 Force refresh in-memory and browser caches for the card catalog and store.
               </div>
             </div>
@@ -963,10 +968,7 @@ export function AdminDashboard() {
                 clearApiCache();
                 alert('Cache purged successfully!');
               }}
-              style={{
-                padding: '8px 18px', fontSize: 13, fontWeight: 800, borderRadius: 8, cursor: 'pointer',
-                background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)',
-              }}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition cursor-pointer"
             >
               Purge Cache
             </button>

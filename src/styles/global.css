@@ -3,74 +3,42 @@
 /* ─────────────────────────────────────────────
    DESIGN TOKENS — Light & Dark themes
 ───────────────────────────────────────────── */
-:root {
-  /* Brand accent (indigo/violet — same in both themes) */
-  --accent:       #6366f1;
-  --accent-light: #818cf8;
-  --accent-muted: rgba(99,102,241,0.15);
-  --accent-border: rgba(99,102,241,0.25);
-  --accent-glow:  rgba(99,102,241,0.35);
-
-  /* Backgrounds */
-  --bg-page:      #f4f5fa;
-  --bg-surface:   #ffffff;
-  --bg-surface-2: #eef0f8;
-  --bg-raised:    #f9f9fd;
-  --bg-input:     #f0f1f8;
-  --bg-header:    rgba(244,245,250,0.88);
-
-  /* Borders */
-  --border:       rgba(99,102,241,0.18);
-  --border-subtle:rgba(0,0,0,0.07);
-
-  /* Text */
-  --text-primary:   #181a2e;
-  --text-secondary: #4b5263;
-  --text-muted:     #8891a8;
-  --text-accent:    #4f46e5;
-
-  /* Scrollbar */
-  --scrollbar-thumb: #c4c8e0;
-  --scrollbar-track: #eef0f8;
-
-  /* Shadows */
-  --shadow-card: 0 2px 16px rgba(80,80,130,0.10);
-  --shadow-header: 0 1px 0 rgba(99,102,241,0.12);
-}
-
-html.dark {
+:root, html.dark {
   /* Backgrounds — Obsidian & Slate (zinc scale) */
-  --bg-page:      #09090b;
-  --bg-surface:   #111118;
-  --bg-surface-2: #18181b;
-  --bg-raised:    #27272a;
-  --bg-input:     #18181b;
-  --bg-header:    rgba(9,9,11,0.88);
+  --bg-page:      #09090b; /* zinc-950 */
+  --bg-surface:   #18181b; /* zinc-900 */
+  --bg-surface-2: #27272a; /* zinc-800 */
+  --bg-raised:    #27272a; /* zinc-800 */
+  --bg-input:     #09090b; /* zinc-950 */
+  --bg-header:    rgba(9, 9, 11, 0.92);
 
-  /* Borders — white-alpha, no blue tint */
-  --border:       rgba(255,255,255,0.08);
-  --border-subtle:rgba(255,255,255,0.05);
+  /* Borders — white-alpha and zinc-800 */
+  --border:       #27272a; /* zinc-800 */
+  --border-subtle:rgba(255, 255, 255, 0.06);
+  --border-hover: #3f3f46; /* zinc-700 */
 
-  /* Text — 4-tier zinc scale */
+  /* Text — Strict 4-tier zinc scale */
   --text-primary:     #f4f4f5; /* Tier 1: zinc-100 */
   --text-secondary:   #d4d4d8; /* Tier 2: zinc-300 */
   --text-tertiary:    #a1a1aa; /* Tier 3: zinc-400 */
   --text-muted:       #71717a; /* Tier 4: zinc-500 */
   --text-placeholder: #71717a; /* zinc-500 */
-  --text-accent:      #818cf8;
+  --text-accent:      #f4f4f5;
 
-  /* Neutral active/accent fallbacks in dark mode */
+  /* Neutral active/accent tokens */
+  --accent:       #f4f4f5;
+  --accent-light: #d4d4d8;
   --accent-muted: rgba(255, 255, 255, 0.08);
-  --accent-border: rgba(255, 255, 255, 0.15);
-  --accent-glow:  rgba(255, 255, 255, 0.1);
+  --accent-border:rgba(255, 255, 255, 0.15);
+  --accent-glow:  rgba(255, 255, 255, 0.08);
 
   /* Scrollbar */
   --scrollbar-thumb: #3f3f46;
   --scrollbar-track: #18181b;
 
   /* Shadows */
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.5);
-  --shadow-header: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-header: 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ─────────────────────────────────────────────

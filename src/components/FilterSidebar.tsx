@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FilterState } from "../types";
-import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES, GAMES } from "../lib/constants";
+import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES } from "../lib/constants";
+import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface FilterSidebarProps {
   filters: FilterState;
@@ -15,61 +16,25 @@ interface FilterSidebarProps {
   };
 }
 
-const DOMAIN_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string }> = {
-  Fury:       { dot: "#ef4444", activeBg: "rgba(239,68,68,0.18)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.1)" },
-  Calm:       { dot: "#22c55e", activeBg: "rgba(34,197,94,0.18)",   border: "rgba(34,197,94,0.7)", text: "#86efac", hoverBg: "rgba(34,197,94,0.1)" },
-  Mind:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.18)",  border: "rgba(59,130,246,0.7)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.1)" },
-  Body:       { dot: "#f97316", activeBg: "rgba(249,115,22,0.18)",  border: "rgba(249,115,22,0.7)", text: "#fdba74", hoverBg: "rgba(249,115,22,0.1)" },
-  Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.18)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.1)" },
-  Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.18)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.1)" },
-  Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.16)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.08)" },
+const DOMAIN_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string; hoverBorder: string }> = {
+  Fury:       { dot: "#ef4444", activeBg: "rgba(239,68,68,0.22)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.12)",   hoverBorder: "rgba(239,68,68,0.45)" },
+  Calm:       { dot: "#22c55e", activeBg: "rgba(34,197,94,0.22)",   border: "rgba(34,197,94,0.7)", text: "#86efac", hoverBg: "rgba(34,197,94,0.12)",   hoverBorder: "rgba(34,197,94,0.45)" },
+  Mind:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.22)",  border: "rgba(59,130,246,0.7)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.12)",  hoverBorder: "rgba(59,130,246,0.45)" },
+  Body:       { dot: "#f97316", activeBg: "rgba(249,115,22,0.22)",  border: "rgba(249,115,22,0.7)", text: "#fdba74", hoverBg: "rgba(249,115,22,0.12)",  hoverBorder: "rgba(249,115,22,0.45)" },
+  Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
+  Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
+  Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.18)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.1)",  hoverBorder: "rgba(203,213,225,0.35)" },
 };
 
-const RARITY_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string }> = {
-  Common:   { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.18)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.1)" },
-  Uncommon: { dot: "#22c55e", activeBg: "rgba(34,197,94,0.18)",   border: "rgba(34,197,94,0.7)",   text: "#86efac", hoverBg: "rgba(34,197,94,0.1)" },
-  Rare:     { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.18)",  border: "rgba(56,189,248,0.7)",  text: "#7dd3fc", hoverBg: "rgba(56,189,248,0.1)" },
-  Epic:     { dot: "#c084fc", activeBg: "rgba(192,132,252,0.18)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.1)" },
-  Showcase: { dot: "#fbbf24", activeBg: "rgba(251,191,36,0.18)",  border: "rgba(251,191,36,0.7)",  text: "#fde68a", hoverBg: "rgba(251,191,36,0.1)" },
+const RARITY_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string; hoverBorder: string }> = {
+  Common:   { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
+  Uncommon: { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.22)",  border: "rgba(56,189,248,0.7)",  text: "#7dd3fc", hoverBg: "rgba(56,189,248,0.12)",  hoverBorder: "rgba(56,189,248,0.45)" },
+  Rare:     { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
+  Epic:     { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
+  Showcase: { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
 };
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "#d4d4d8", /* text-zinc-300 */
-  marginBottom: 8,
-};
-
-const sectionStyle: React.CSSProperties = {
-  borderBottom: "1px solid rgba(255,255,255,0.05)",
-  paddingBottom: 16,
-  marginBottom: 16,
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  background: "#18181b",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 8,
-  padding: "8px 28px 8px 12px",
-  color: "#e4e4e7",
-  fontSize: 12,
-  fontWeight: 500,
-  outline: "none",
-  cursor: "pointer",
-  appearance: "none",
-  WebkitAppearance: "none",
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1aa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 10px center",
-  backgroundSize: "14px",
-  transition: "border-color 0.15s, background-color 0.15s",
-};
-
-function SectionHeader({ label, badge, collapsible, open, onToggle }: {
+function SectionHeader({ label, badge, collapsible = true, open, onToggle }: {
   label: string;
   badge?: number;
   collapsible?: boolean;
@@ -79,28 +44,21 @@ function SectionHeader({ label, badge, collapsible, open, onToggle }: {
   return (
     <div
       onClick={collapsible ? onToggle : undefined}
-      style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: open === false ? 0 : 8,
-        cursor: collapsible ? "pointer" : "default",
-        userSelect: "none",
-        padding: collapsible ? "2px 0" : undefined,
-      }}
+      className="flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-zinc-100 hover:text-white cursor-pointer select-none transition group"
     >
-      <span className="text-zinc-300 font-semibold tracking-wider text-xs uppercase" style={{ display: "block" }}>
+      <span className="flex items-center gap-1.5">
         {label}
         {badge != null && badge > 0 && (
-          <span style={{ marginLeft: 6, color: "#fafafa", textTransform: "none", letterSpacing: 0, fontWeight: 700 }}>
-            ({badge})
+          <span className="text-[10px] px-1.5 py-0.2 bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-full font-bold">
+            {badge}
           </span>
         )}
       </span>
       {collapsible && (
         <svg
-          width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="#a1a1aa" strokeWidth={2.5} strokeLinecap="round"
-          className="text-zinc-400"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+          width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
+          className={`text-zinc-300 group-hover:text-white transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
         >
           <path d="M19 9l-7 7-7-7" />
         </svg>
@@ -110,9 +68,29 @@ function SectionHeader({ label, badge, collapsible, open, onToggle }: {
 }
 
 export function FilterSidebar({ filters, setFilters, options }: FilterSidebarProps) {
-  const [rarityOpen, setRarityOpen] = useState(true);
+  const [lang, setLang] = useState<Language>('en');
+  // Default OPEN: Set, Type, Domain. Default COLLAPSED: Card Variant, Rarity, Tags, Energy Cost
+  const [setOpen, setSetOpen] = useState(true);
+  const [typeOpen, setTypeOpen] = useState(true);
+  const [domainOpen, setDomainOpen] = useState(true);
+  const [variantsOpen, setVariantsOpen] = useState(false);
+  const [rarityOpen, setRarityOpen] = useState(false);
+  const [sealedOpen, setSealedOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
-  const [sealedOpen, setSealedOpen] = useState(true);
+  const [costOpen, setCostOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+
+  useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
+  }, []);
 
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
@@ -151,6 +129,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   };
 
   const reset = () => {
+    setTagSearch("");
     setFilters({
       category: filters.category || 'sealed',
       game: filters.game || 'riftbound',
@@ -164,10 +143,23 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       costMax: 10,
       stockStatus: "Any",
       foilFilter: false,
-      signedFilter: false,
+      signedFilter: 'all',
       altArtFilter: 'all',
       overnumberedFilter: 'all',
+      spFilter: 'all',
+      baseSetFilter: 'all',
     });
+  };
+
+  const cycleSigned = () => {
+    const current = filters.signedFilter || 'all';
+    if (current === 'all') {
+      set("signedFilter", 'only');
+    } else if (current === 'only') {
+      set("signedFilter", 'none');
+    } else {
+      set("signedFilter", 'all');
+    }
   };
 
   const cycleOvernumbered = () => {
@@ -192,6 +184,22 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     }
   };
 
+  const cycleSp = () => {
+    const current = filters.spFilter || 'all';
+    if (current === 'all') {
+      set("spFilter", 'only');
+    } else if (current === 'only') {
+      set("spFilter", 'none');
+    } else {
+      set("spFilter", 'all');
+    }
+  };
+
+  const toggleBaseSet = () => {
+    const current = filters.baseSetFilter || 'all';
+    set("baseSetFilter", current === 'only' ? 'all' : 'only');
+  };
+
   const handleCostMin = (v: string) => {
     const n = Math.max(1, Math.min(10, parseInt(v) || 1));
     set("costMin", n);
@@ -201,614 +209,454 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     set("costMax", n);
   };
 
-  const numInput: React.CSSProperties = {
-    width: "100%",
-    background: "var(--bg-surface-2)",
-    border: "1px solid var(--border)",
-    borderRadius: 8,
-    padding: "8px 10px",
-    color: "var(--text-primary)",
-    fontSize: 13,
-    fontWeight: 700,
-    outline: "none",
-    textAlign: "center",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s, box-shadow 0.15s",
-  };
-
-  const typeBtn = (val: string) => {
-    const active = filters.type === val;
-    return (
-      <button
-        key={val || "all"}
-        onClick={() => set("type", val)}
-        style={{
-          padding: "7px 9px", fontSize: 12, fontWeight: 500, borderRadius: 8,
-          background: active ? "var(--bg-raised)" : "var(--bg-surface-2)",
-          color: active ? "#fafafa" : "#d4d4d8",
-          border: active ? "1px solid rgba(255,255,255,0.25)" : "1px solid rgba(255,255,255,0.08)",
-          cursor: "pointer", transition: "all 0.15s ease",
-        }}
-        onMouseEnter={e => {
-          if (!active) {
-            e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-            e.currentTarget.style.color = "#f4f4f5";
-          }
-        }}
-        onMouseLeave={e => {
-          if (!active) {
-            e.currentTarget.style.background = "var(--bg-surface-2)";
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-            e.currentTarget.style.color = "#d4d4d8";
-          }
-        }}
-      >
-        {val || "All"}
-      </button>
-    );
-  };
-
   const overnumbered = filters.overnumberedFilter || 'all';
   const altArt = filters.altArtFilter || 'all';
+  const signed = filters.signedFilter || 'all';
+  const sp = filters.spFilter || 'all';
+  const baseSet = filters.baseSetFilter || 'all';
+
+  const variantBadgeCount = (filters.foilFilter ? 1 : 0) + 
+    (signed !== 'all' ? 1 : 0) + 
+    (altArt !== 'all' ? 1 : 0) + 
+    (overnumbered !== 'all' ? 1 : 0) +
+    (sp !== 'all' ? 1 : 0) +
+    (baseSet !== 'all' ? 1 : 0);
+
+  const costActiveCount = (filters.costMin > 1 || filters.costMax < 10) ? 1 : 0;
+
+  const filteredTags = (options.tags || []).filter(t => 
+    !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase())
+  );
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 16,
-        boxShadow: "var(--shadow-card)",
-        overflow: "hidden",
-        maxHeight: "calc(100vh - 120px)",
-        height: "100%",
-      }}
-    >
+    <div className="w-full bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-3 space-y-2.5 shadow-lg">
       {/* Pinned header */}
-      <div style={{
-        flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: "var(--bg-surface)",
-      }}>
-        <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", gap: 7 }}>
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" strokeWidth={2.5}>
+      <div className="flex items-center justify-between pb-2 border-b border-white/5">
+        <span className="text-zinc-100 font-bold text-xs flex items-center gap-1.5 uppercase tracking-wider">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="text-zinc-300">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          Filters
+          {t('filters', lang)}
         </span>
         <button
           onClick={reset}
-          className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer"
-          style={{ background: 'rgba(244,63,94,0.06)' }}
+          className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-800/40 text-[11px] px-2 py-0.5 rounded font-medium transition cursor-pointer"
         >
-          Reset
+          {t('reset', lang)}
         </button>
       </div>
 
-      {/* Scrollable body */}
-      <div
-        className="custom-scrollbar"
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "16px 18px 20px",
-          overscrollBehavior: "contain",
-        }}
-      >
-
-        {/* Set */}
-        <div style={sectionStyle}>
-          <label style={labelStyle}>Set</label>
-          <select
-            value={filters.set}
-            onChange={(e) => set("set", e.target.value)}
-            style={selectStyle}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
-          >
-            <option value="">All Sets</option>
-            {options.sets.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        {/* RIFTBOUND SPECIFIC: Foil, Signed, Alt Art & 3-State Overnumbered Cycle */}
-        {!isSealedCategory && isRiftbound && (
-          <div style={sectionStyle}>
-            <label style={labelStyle}>Card Variant</label>
-            
-            {/* Foil Toggle */}
-            <button
-              onClick={() => set("foilFilter", !filters.foilFilter)}
+      {/* 1. SET SECTION (Default OPEN) */}
+      <div className="border-b border-white/5 pb-2">
+        <SectionHeader
+          label={t('set', lang)}
+          badge={filters.set ? 1 : 0}
+          open={setOpen}
+          onToggle={() => setSetOpen(o => !o)}
+        />
+        {setOpen && (
+          <div className="mt-1">
+            <select
+              value={filters.set}
+              onChange={(e) => set("set", e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 outline-none cursor-pointer appearance-none transition focus:border-zinc-600 font-medium"
               style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 8,
-                background: filters.foilFilter ? "rgba(234, 179, 8, 0.18)" : "var(--bg-surface-2)",
-                border: filters.foilFilter ? "1px solid rgba(234, 179, 8, 0.5)" : "1px solid rgba(255,255,255,0.08)",
-                color: filters.foilFilter ? "#fafafa" : "#d4d4d8",
-                fontSize: 13, fontWeight: 500,
-                transition: "all 0.15s ease",
-                boxShadow: filters.foilFilter ? "0 0 10px rgba(234, 179, 8, 0.2)" : "none",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                if (!filters.foilFilter) {
-                  e.currentTarget.style.background = "rgba(234, 179, 8, 0.1)";
-                  e.currentTarget.style.borderColor = "rgba(234, 179, 8, 0.35)";
-                  e.currentTarget.style.color = "#f4f4f5";
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                if (!filters.foilFilter) {
-                  e.currentTarget.style.background = "var(--bg-surface-2)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "#d4d4d8";
-                }
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23d4d4d8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 8px center",
+                backgroundSize: "12px",
               }}
             >
-              <span>Foils Only</span>
-              <span style={{
-                fontSize: 11, fontWeight: 800,
-                padding: "2px 7px", borderRadius: 5,
-                background: filters.foilFilter ? "#facc15" : "rgba(255,255,255,0.08)",
-                color: filters.foilFilter ? "#000000" : "#d4d4d8",
-              }}>
-                {filters.foilFilter ? "ON" : "OFF"}
-              </span>
-            </button>
-
-            {/* Signed Cards Toggle */}
-            <button
-              onClick={() => set("signedFilter", !filters.signedFilter)}
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 8,
-                background: filters.signedFilter ? "rgba(168, 85, 247, 0.2)" : "var(--bg-surface-2)",
-                border: filters.signedFilter ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(255,255,255,0.08)",
-                color: filters.signedFilter ? "#fafafa" : "#d4d4d8",
-                fontSize: 13, fontWeight: 500,
-                transition: "all 0.15s ease",
-                boxShadow: filters.signedFilter ? "0 0 10px rgba(168, 85, 247, 0.25)" : "none",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                if (!filters.signedFilter) {
-                  e.currentTarget.style.background = "rgba(168, 85, 247, 0.1)";
-                  e.currentTarget.style.borderColor = "rgba(168, 85, 247, 0.4)";
-                  e.currentTarget.style.color = "#f4f4f5";
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                if (!filters.signedFilter) {
-                  e.currentTarget.style.background = "var(--bg-surface-2)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "#d4d4d8";
-                }
-              }}
-            >
-              <span>Signed Cards</span>
-              <span style={{
-                fontSize: 11, fontWeight: 800,
-                padding: "2px 7px", borderRadius: 5,
-                background: filters.signedFilter ? "#c084fc" : "rgba(255,255,255,0.08)",
-                color: filters.signedFilter ? "#000000" : "#d4d4d8",
-              }}>
-                {filters.signedFilter ? "ON" : "OFF"}
-              </span>
-            </button>
-
-            {/* 3-State Alt Arts Cycle Button */}
-            <button
-              onClick={cycleAltArt}
-              title="Click to cycle: Only Alt Arts → Exclude Alt Arts → All Cards"
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 12px", borderRadius: 8, cursor: "pointer", marginBottom: 8,
-                background:
-                  altArt === 'only'
-                    ? "rgba(236, 72, 153, 0.2)"
-                    : altArt === 'none'
-                    ? "rgba(239, 68, 68, 0.15)"
-                    : "var(--bg-surface-2)",
-                border:
-                  altArt === 'only'
-                    ? "1px solid rgba(236, 72, 153, 0.6)"
-                    : altArt === 'none'
-                    ? "1px solid rgba(239, 68, 68, 0.4)"
-                    : "1px solid rgba(255,255,255,0.08)",
-                color:
-                  altArt === 'only'
-                    ? "#fafafa"
-                    : altArt === 'none'
-                    ? "#f87171"
-                    : "#d4d4d8",
-                fontSize: 13, fontWeight: 500,
-                transition: "all 0.15s ease",
-                boxShadow:
-                  altArt === 'only'
-                    ? "0 0 10px rgba(236, 72, 153, 0.25)"
-                    : altArt === 'none'
-                    ? "0 0 10px rgba(239, 68, 68, 0.15)"
-                    : "none",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                if (altArt === 'all') {
-                  e.currentTarget.style.background = "rgba(236, 72, 153, 0.1)";
-                  e.currentTarget.style.borderColor = "rgba(236, 72, 153, 0.4)";
-                  e.currentTarget.style.color = "#f4f4f5";
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                if (altArt === 'all') {
-                  e.currentTarget.style.background = "var(--bg-surface-2)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "#d4d4d8";
-                }
-              }}
-            >
-              <span>
-                {altArt === 'only' ? 'Only Alt Arts' : altArt === 'none' ? 'Exclude Alt Arts' : 'Alt Arts'}
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: 800,
-                padding: "2px 7px", borderRadius: 5,
-                background:
-                  altArt === 'only'
-                    ? "#ec4899"
-                    : altArt === 'none'
-                    ? "#ef4444"
-                    : "rgba(255,255,255,0.08)",
-                color: "#ffffff",
-              }}>
-                {altArt === 'only' ? 'ONLY' : altArt === 'none' ? 'EXCLUDE' : 'ALL'}
-              </span>
-            </button>
-
-            {/* 3-State Overnumbered Cycle Button */}
-            <button
-              onClick={cycleOvernumbered}
-              title="Click to cycle: Only Overnumbered → Exclude Overnumbered → All Cards"
-              style={{
-                width: "100%",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "8px 12px", borderRadius: 8, cursor: "pointer",
-                background:
-                  overnumbered === 'only'
-                    ? "rgba(168, 85, 247, 0.2)"
-                    : overnumbered === 'none'
-                    ? "rgba(239, 68, 68, 0.15)"
-                    : "var(--bg-surface-2)",
-                border:
-                  overnumbered === 'only'
-                    ? "1px solid rgba(168, 85, 247, 0.6)"
-                    : overnumbered === 'none'
-                    ? "1px solid rgba(239, 68, 68, 0.4)"
-                    : "1px solid rgba(255,255,255,0.08)",
-                color:
-                  overnumbered === 'only'
-                    ? "#fafafa"
-                    : overnumbered === 'none'
-                    ? "#f87171"
-                    : "#d4d4d8",
-                fontSize: 13, fontWeight: 500,
-                transition: "all 0.15s ease",
-                boxShadow:
-                  overnumbered === 'only'
-                    ? "0 0 10px rgba(168, 85, 247, 0.25)"
-                    : overnumbered === 'none'
-                    ? "0 0 10px rgba(239, 68, 68, 0.15)"
-                    : "none",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-1px)";
-                if (overnumbered === 'all') {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-                  e.currentTarget.style.color = "#f4f4f5";
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                if (overnumbered === 'all') {
-                  e.currentTarget.style.background = "var(--bg-surface-2)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "#d4d4d8";
-                }
-              }}
-            >
-              <span>
-                {overnumbered === 'only' ? 'Only Overnumbered' : overnumbered === 'none' ? 'Exclude Overnumbered' : 'Overnumbered'}
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: 800,
-                padding: "2px 7px", borderRadius: 5,
-                background:
-                  overnumbered === 'only'
-                    ? "#a855f7"
-                    : overnumbered === 'none'
-                    ? "#ef4444"
-                    : "rgba(255,255,255,0.08)",
-                color: "#ffffff",
-              }}>
-                {overnumbered === 'only' ? 'ONLY' : overnumbered === 'none' ? 'EXCLUDE' : 'ALL'}
-              </span>
-            </button>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginTop: 4, textAlign: "center" }}>
-              (Click to cycle: Only → Exclude → All)
-            </div>
+              <option value="">{t('all_sets', lang)}</option>
+              {options.sets.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
         )}
+      </div>
 
-        {/* SEALED PRODUCT FILTERS */}
-        {isSealedCategory && (
-          <div style={sectionStyle}>
-            <SectionHeader
-              label="Product Type" badge={filters.sealedTypes?.length || 0}
-              collapsible open={sealedOpen} onToggle={() => setSealedOpen(o => !o)}
-            />
-            {sealedOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-                {SEALED_PRODUCT_TYPES.map((st) => {
-                  const active = (filters.sealedTypes || []).includes(st);
-                  return (
-                    <label
-                      key={st}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 11px", borderRadius: 8, cursor: "pointer",
-                        background: active ? "rgba(16, 185, 129, 0.16)" : "var(--bg-surface-2)",
-                        border: active ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(255,255,255,0.08)",
-                        transition: "all 0.15s ease",
-                        boxShadow: active ? "0 0 10px rgba(16, 185, 129, 0.2)" : "none",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.transform = "translateX(2px)";
-                        if (!active) {
-                          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)";
-                          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
-                        if (!active) {
-                          (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)";
-                          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-                        }
-                      }}
-                    >
-                      <div
-                        onClick={() => toggleSealedType(st)}
-                        style={{
-                          width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                          border: active ? "2px solid #10b981" : "2px solid rgba(255,255,255,0.15)",
-                          background: active ? "#10b981" : "transparent",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          transition: "all 0.12s",
-                        }}
-                      >
-                        {active && (
-                          <svg width="10" height="10" viewBox="0 0 10 8" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-                            <path d="M1 4l2.5 2.5L9 1"/>
-                          </svg>
-                        )}
-                      </div>
-                      <input type="checkbox" checked={active} onChange={() => toggleSealedType(st)} style={{ display: "none" }} readOnly />
-                      <span style={{ fontSize: 13, fontWeight: 500, color: active ? "#fafafa" : "#d4d4d8", transition: "color 0.12s" }}>
-                        {st}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SINGLES: RARITY */}
-        {!isSealedCategory && (
-          <div style={sectionStyle}>
-            <SectionHeader
-              label="Rarity" badge={filters.rarities.length}
-              collapsible open={rarityOpen} onToggle={() => setRarityOpen(o => !o)}
-            />
-            {rarityOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
-                {(isPokemon ? POKEMON_RARITIES : options.rarities).map((r) => {
-                  const active = filters.rarities.includes(r);
-                  const rs = RARITY_STYLES[r] ?? { dot: "var(--accent)", activeBg: "var(--accent-muted)", border: "var(--accent-border)", text: "var(--accent-light)", hoverBg: "rgba(255,255,255,0.06)" };
-                  return (
-                    <label key={r} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "7px 10px", borderRadius: 8, cursor: "pointer",
-                      background: active ? rs.activeBg : "var(--bg-surface-2)",
-                      border: active ? `1px solid ${rs.border}` : "1px solid rgba(255,255,255,0.08)",
-                      transition: "all 0.15s ease",
-                      boxShadow: active ? `0 0 10px ${rs.border}` : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translateX(2px)";
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)";
-                        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.background = "var(--bg-surface-2)";
-                        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-                      }
-                    }}
-                    >
-                      <div onClick={() => toggleRarity(r)} style={{
-                        width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                        border: active ? `2px solid ${rs.dot}` : "2px solid rgba(255,255,255,0.15)",
-                        background: active ? rs.dot : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.12s",
-                      }}>
-                        {active && (
-                          <svg width="10" height="10" viewBox="0 0 10 8" fill="none" stroke={r === 'Common' || r === 'Showcase' ? "#000" : "white"} strokeWidth="2.2" strokeLinecap="round">
-                            <path d="M1 4l2.5 2.5L9 1"/>
-                          </svg>
-                        )}
-                      </div>
-                      <input type="checkbox" checked={active} onChange={() => toggleRarity(r)} style={{ display: "none" }} readOnly />
-                      <span style={{ fontSize: 13, fontWeight: 500, color: active ? "#fafafa" : "#d4d4d8", transition: "color 0.12s" }}>
-                        {r}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SINGLES: TYPE */}
-        {!isSealedCategory && (
-          <div style={sectionStyle}>
-            <label style={labelStyle}>Type</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {["", ...options.types].map(typeBtn)}
-            </div>
-          </div>
-        )}
-
-        {/* SINGLES: DOMAIN / ENERGY TYPE */}
-        {!isSealedCategory && (
-          <div style={sectionStyle}>
-            <label style={labelStyle}>
-              {isPokemon ? "Energy Type" : "Domain"}
-              {filters.domains.length > 0 && <span style={{ marginLeft: 6, color: "#fafafa", textTransform: "none", letterSpacing: 0 }}>({filters.domains.length})</span>}
-            </label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {(isPokemon ? POKEMON_TYPES : options.domains).map((d) => {
-                const active = filters.domains.includes(d);
-                const ds = DOMAIN_STYLES[d] ?? DOMAIN_STYLES.Colorless;
+      {/* 2. TYPE SECTION (Default OPEN) - Symmetrical 2-Column Grid */}
+      {!isSealedCategory && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label={t('type', lang)}
+            badge={filters.type ? 1 : 0}
+            open={typeOpen}
+            onToggle={() => setTypeOpen(o => !o)}
+          />
+          {typeOpen && (
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              {["", ...options.types].map((val) => {
+                const active = filters.type === val;
                 return (
-                  <button key={d} onClick={() => toggleDomain(d)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "7px 10px", borderRadius: 8, textAlign: "left",
-                      border: active ? `1px solid ${ds.border}` : "1px solid rgba(255,255,255,0.08)",
-                      background: active ? ds.activeBg : "var(--bg-surface-2)",
-                      color: active ? "#fafafa" : "#d4d4d8",
-                      cursor: "pointer", fontSize: 13, fontWeight: 500,
-                      textTransform: "capitalize", transition: "all 0.15s ease",
-                      boxShadow: active ? `0 0 10px ${ds.border}` : "none",
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = "translateX(2px)";
-                      if (!active) {
-                        e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-                        e.currentTarget.style.color = "#f4f4f5";
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = "translateX(0)";
-                      if (!active) {
-                        e.currentTarget.style.background = "var(--bg-surface-2)";
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                        e.currentTarget.style.color = "#d4d4d8";
-                      }
-                    }}
+                  <button
+                    key={val || "all"}
+                    onClick={() => set("type", val)}
+                    className={`w-full py-1.5 px-1.5 min-h-[32px] text-xs rounded-md border text-center transition cursor-pointer font-medium leading-tight flex items-center justify-center ${
+                      active
+                        ? "bg-zinc-800 border-zinc-500 text-white font-bold shadow-sm"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50"
+                    }`}
                   >
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: ds.dot, flexShrink: 0 }} />
-                    {d}
-                    {active && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 900, color: ds.text }}>✓</span>}
+                    {val || t('all', lang)}
                   </button>
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
-        {/* SINGLES: TAGS */}
-        {!isSealedCategory && options.tags && options.tags.length > 0 && (
-          <div style={sectionStyle}>
-            <SectionHeader
-              label="Tags" badge={filters.tags.length}
-              collapsible open={tagsOpen} onToggle={() => setTagsOpen(o => !o)}
-            />
-            {tagsOpen && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                {options.tags.map((t) => {
-                  const active = filters.tags.includes(t);
-                  return (
-                    <button key={t} onClick={() => toggleTag(t)} style={{
-                      padding: "6px 11px", fontSize: 12, fontWeight: 500, borderRadius: 7,
-                      background: active ? "var(--accent-muted)" : "var(--bg-surface-2)",
-                      color: active ? "#fafafa" : "#d4d4d8",
-                      border: active ? "1px solid var(--accent-border)" : "1px solid rgba(255,255,255,0.08)",
-                      cursor: "pointer", transition: "all 0.15s ease",
+      {/* 3. DOMAIN SECTION (Default OPEN) - Balanced 3-Column Micro Grid */}
+      {!isSealedCategory && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label={isPokemon ? t('energy_type', lang) : t('domain', lang)}
+            badge={filters.domains.length}
+            open={domainOpen}
+            onToggle={() => setDomainOpen(o => !o)}
+          />
+          {domainOpen && (
+            <div className="grid grid-cols-3 gap-1 mt-1">
+              {(isPokemon ? POKEMON_TYPES : options.domains).map((d, index, arr) => {
+                const active = filters.domains.includes(d);
+                const isLastOdd = index === arr.length - 1 && arr.length % 3 === 1;
+                const ds = DOMAIN_STYLES[d] ?? {
+                  ...DOMAIN_STYLES.Colorless,
+                  hoverBg: "rgba(255,255,255,0.08)",
+                  hoverBorder: "rgba(255,255,255,0.25)"
+                };
+                return (
+                  <button
+                    key={d}
+                    onClick={() => toggleDomain(d)}
+                    style={{
+                      background: active ? ds.activeBg : undefined,
+                      borderColor: active ? ds.border : undefined,
+                      color: active ? ds.text : undefined,
+                      boxShadow: active ? `0 0 8px ${ds.activeBg}` : undefined,
                     }}
+                    className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded text-[11px] font-medium cursor-pointer border transition capitalize ${
+                      isLastOdd ? 'col-span-3' : ''
+                    } ${
+                      active
+                        ? 'font-bold'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700'
+                    }`}
                     onMouseEnter={e => {
                       if (!active) {
-                        e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-                        e.currentTarget.style.color = "#f4f4f5";
-                        e.currentTarget.style.transform = "translateY(-1px)";
+                        e.currentTarget.style.background = ds.hoverBg;
+                        e.currentTarget.style.borderColor = ds.hoverBorder;
+                        e.currentTarget.style.color = ds.text;
                       }
                     }}
                     onMouseLeave={e => {
                       if (!active) {
-                        e.currentTarget.style.background = "var(--bg-surface-2)";
-                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                        e.currentTarget.style.color = "#d4d4d8";
-                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.background = '';
+                        e.currentTarget.style.borderColor = '';
+                        e.currentTarget.style.color = '';
                       }
                     }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ds.dot }} />
+                    <span className="truncate">{d}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. CARD VARIANT SECTION (Default COLLAPSED) - 2x2 Grid */}
+      {!isSealedCategory && isRiftbound && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label={t('card_variant', lang)}
+            badge={variantBadgeCount}
+            open={variantsOpen}
+            onToggle={() => setVariantsOpen(o => !o)}
+          />
+          {variantsOpen && (
+            <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+              {/* Base Set Only Toggle (Full width) */}
+              <button
+                onClick={toggleBaseSet}
+                title="Show only core base set cards (1 to max set number, excluding promos, alt arts, signatures, overnumbered, tokens, and SP cards)"
+                className={`col-span-2 text-xs py-1.5 px-2.5 rounded-md border text-center font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  baseSet === 'only'
+                    ? "bg-emerald-500/20 border-emerald-500/80 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                <span>{baseSet === 'only' ? `✓ ${t('base_set_only', lang)}: ON` : t('base_set_only', lang)}</span>
+              </button>
+
+              {/* Foil Toggle */}
+              <button
+                onClick={() => set("foilFilter", !filters.foilFilter)}
+                className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
+                  filters.foilFilter
+                    ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                {filters.foilFilter ? "Foil: ON" : t('foil_only', lang)}
+              </button>
+
+              {/* SP 3-State Cycle */}
+              <button
+                onClick={cycleSp}
+                title="Click to cycle: Only SP Cards → Exclude SP Cards → All Cards"
+                className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
+                  sp === 'only'
+                    ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.25)]"
+                    : sp === 'none'
+                    ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                {sp === 'only' ? "SP: ONLY" : sp === 'none' ? "SP: NO" : t('sp_cards', lang)}
+              </button>
+
+              {/* Signed 3-State Cycle */}
+              <button
+                onClick={cycleSigned}
+                title="Click to cycle: Only Signed → Exclude Signed → All Cards"
+                className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
+                  signed === 'only'
+                    ? "bg-purple-500/20 border-purple-500/80 text-purple-200 font-semibold shadow-[0_0_8px_rgba(168,85,247,0.25)]"
+                    : signed === 'none'
+                    ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                {signed === 'only' ? "Signed: ONLY" : signed === 'none' ? "Signed: NO" : t('signed_cards', lang)}
+              </button>
+
+              {/* Alt Art 3-State Cycle */}
+              <button
+                onClick={cycleAltArt}
+                title="Click to cycle: Only Alt Arts → Exclude Alt Arts → All Cards"
+                className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
+                  altArt === 'only'
+                    ? "bg-pink-500/20 border-pink-500/80 text-pink-200 font-semibold shadow-[0_0_8px_rgba(236,72,153,0.25)]"
+                    : altArt === 'none'
+                    ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                {altArt === 'only' ? "Alt Art: ONLY" : altArt === 'none' ? "Alt Art: NO" : t('alt_art', lang)}
+              </button>
+
+              {/* Overnumbered 3-State Cycle */}
+              <button
+                onClick={cycleOvernumbered}
+                title="Click to cycle: Only Overnumbered → Exclude Overnumbered → All Cards"
+                className={`col-span-2 text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
+                  overnumbered === 'only'
+                    ? "bg-violet-500/20 border-violet-500/80 text-violet-200 font-semibold shadow-[0_0_8px_rgba(139,92,246,0.25)]"
+                    : overnumbered === 'none'
+                    ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                }`}
+              >
+                {overnumbered === 'only' ? "Overnum: ONLY" : overnumbered === 'none' ? "Overnum: NO" : t('overnumbered', lang)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. RARITY SECTION (Default COLLAPSED) - 2-Column Compact Grid */}
+      {!isSealedCategory && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label={t('rarity', lang)}
+            badge={filters.rarities.length}
+            open={rarityOpen}
+            onToggle={() => setRarityOpen(o => !o)}
+          />
+          {rarityOpen && (
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              {(isPokemon ? POKEMON_RARITIES : options.rarities).map((r) => {
+                const active = filters.rarities.includes(r);
+                const rs = RARITY_STYLES[r] ?? { 
+                  dot: "var(--accent)", activeBg: "var(--accent-muted)", border: "var(--accent-border)", 
+                  text: "var(--accent-light)", hoverBg: "rgba(255,255,255,0.1)", hoverBorder: "rgba(255,255,255,0.3)" 
+                };
+                return (
+                  <button
+                    key={r}
+                    onClick={() => toggleRarity(r)}
+                    style={{
+                      background: active ? rs.activeBg : undefined,
+                      borderColor: active ? rs.border : undefined,
+                      color: active ? rs.text : undefined,
+                      boxShadow: active ? `0 0 8px ${rs.activeBg}` : undefined,
+                    }}
+                    className={`flex items-center gap-1.5 py-1 px-2 rounded text-xs font-medium cursor-pointer border transition text-left ${
+                      active
+                        ? 'font-semibold'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700'
+                    }`}
+                    onMouseEnter={e => {
+                      if (!active) {
+                        e.currentTarget.style.background = rs.hoverBg;
+                        e.currentTarget.style.borderColor = rs.hoverBorder;
+                        e.currentTarget.style.color = rs.text;
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!active) {
+                        e.currentTarget.style.background = '';
+                        e.currentTarget.style.borderColor = '';
+                        e.currentTarget.style.color = '';
+                      }
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs.dot }} />
+                    <span className="truncate">{r}</span>
+                    {active && <span className="ml-auto text-[10px] font-bold">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. SEALED PRODUCT TYPE (Default COLLAPSED) */}
+      {isSealedCategory && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label="Product Type"
+            badge={filters.sealedTypes?.length || 0}
+            open={sealedOpen}
+            onToggle={() => setSealedOpen(o => !o)}
+          />
+          {sealedOpen && (
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              {SEALED_PRODUCT_TYPES.map((st) => {
+                const active = (filters.sealedTypes || []).includes(st);
+                return (
+                  <button
+                    key={st}
+                    onClick={() => toggleSealedType(st)}
+                    className={`flex items-center justify-between py-1 px-2 rounded text-xs font-medium cursor-pointer border transition text-left ${
+                      active
+                        ? "bg-emerald-500/20 border-emerald-500/80 text-emerald-200 font-semibold shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    }`}
+                  >
+                    <span className="truncate">{st}</span>
+                    {active && <span className="text-[10px] font-bold">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 7. TAGS SECTION (Default COLLAPSED) */}
+      {!isSealedCategory && options.tags && options.tags.length > 0 && (
+        <div className="border-b border-white/5 pb-2">
+          <SectionHeader
+            label="Tags"
+            badge={filters.tags.length}
+            open={tagsOpen}
+            onToggle={() => setTagsOpen(o => !o)}
+          />
+          {tagsOpen && (
+            <div className="mt-1.5">
+              {/* Search Bar for Tags */}
+              <div className="relative mb-1.5">
+                <svg
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-zinc-400"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search tags..."
+                  value={tagSearch}
+                  onChange={(e) => setTagSearch(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-md pl-7 pr-6 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-600"
+                />
+                {tagSearch && (
+                  <button
+                    onClick={() => setTagSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Tags List */}
+              <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                {filteredTags.map((t) => {
+                  const active = filters.tags.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => toggleTag(t)}
+                      className={`px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer font-medium ${
+                        active
+                          ? "bg-zinc-800 border-zinc-500 text-white font-bold shadow-sm"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700"
+                      }`}
                     >
                       {t}
                     </button>
                   );
                 })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SINGLES: ENERGY COST */}
-        {!isSealedCategory && !isPokemon && (
-          <div style={{ ...sectionStyle, borderBottom: "none", marginBottom: 0 }}>
-            <label style={labelStyle}>Energy Cost</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>Min</div>
-                <input
-                  type="number" min={1} max={10} value={filters.costMin}
-                  onChange={(e) => handleCostMin(e.target.value)}
-                  style={numInput}
-                  onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent-glow)"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
-                />
-              </div>
-              <div style={{ color: "var(--text-muted)", fontWeight: 700, marginTop: 14 }}>–</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>Max</div>
-                <input
-                  type="number" min={1} max={10} value={filters.costMax}
-                  onChange={(e) => handleCostMax(e.target.value)}
-                  style={numInput}
-                  onFocus={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent-glow)"; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
-                />
+                {filteredTags.length === 0 && (
+                  <div className="text-[11px] text-zinc-400 py-1">
+                    No tags matching "{tagSearch}"
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
-      </div>
+      {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
+      {!isSealedCategory && !isPokemon && (
+        <div>
+          <SectionHeader
+            label="Energy Cost"
+            badge={costActiveCount}
+            open={costOpen}
+            onToggle={() => setCostOpen(o => !o)}
+          />
+          {costOpen && (
+            <div className="mt-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs">
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Min</span>
+                  <input
+                    type="number" min={1} max={10} value={filters.costMin}
+                    onChange={(e) => handleCostMin(e.target.value)}
+                    className="w-full bg-transparent text-zinc-100 font-bold text-center outline-none"
+                  />
+                </div>
+                <span className="text-zinc-600 font-bold">–</span>
+                <div className="flex-1 flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs">
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Max</span>
+                  <input
+                    type="number" min={1} max={10} value={filters.costMax}
+                    onChange={(e) => handleCostMax(e.target.value)}
+                    className="w-full bg-transparent text-zinc-100 font-bold text-center outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

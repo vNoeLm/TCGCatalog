@@ -3,10 +3,13 @@ import { getCardImageUrl } from "../lib/supabase";
 
 interface CardListItemProps {
   card: CatalogCard;
+  count?: number;
+  foilCount?: number;
   isOwned?: boolean;
   isFoilOwned?: boolean;
   isCollected?: boolean;
   isFoilCollected?: boolean;
+  onUpdateCount?: (id: string, isFoil: boolean, delta: number) => void;
   onToggle?: (id: string, isFoil?: boolean) => void;
   onToggleCollected?: (e: React.MouseEvent) => void;
   onToggleFoilCollected?: (e: React.MouseEvent) => void;
@@ -36,28 +39,35 @@ export function CardListItem(props: CardListItemProps) {
   const { card, onClick, gridSize = 'normal' } = props;
   const isSmall = gridSize === 'small';
 
-  const owned = Boolean(props.isOwned ?? props.isCollected);
-  const foilOwned = Boolean(props.isFoilOwned ?? props.isFoilCollected);
-  const isAnyOwned = owned || foilOwned;
-
-  const handleToggleNormal = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (props.onToggle) props.onToggle(card.id, false);
-    else if (props.onToggleCollected) props.onToggleCollected(e);
-  };
-
-  const handleToggleFoil = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (props.onToggle) props.onToggle(card.id, true);
-    else if (props.onToggleFoilCollected) props.onToggleFoilCollected(e);
-  };
+  const normalQty = typeof props.count === 'number' ? props.count : (props.isOwned ?? props.isCollected ? 1 : 0);
+  const foilQty = typeof props.foilCount === 'number' ? props.foilCount : (props.isFoilOwned ?? props.isFoilCollected ? 1 : 0);
+  const totalQty = normalQty + foilQty;
+  const isAnyOwned = totalQty > 0;
 
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
   const showFoilToggle = card.rarity === 'Common' || card.rarity === 'Uncommon';
   const domainValue = card.domain || 'Colorless';
   const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
+
+  const handleUpdateNormal = (e: React.MouseEvent, delta: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (props.onUpdateCount) {
+      props.onUpdateCount(card.id, false, delta);
+    } else if (props.onToggle) {
+      props.onToggle(card.id, false);
+    }
+  };
+
+  const handleUpdateFoil = (e: React.MouseEvent, delta: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (props.onUpdateCount) {
+      props.onUpdateCount(card.id, true, delta);
+    } else if (props.onToggle) {
+      props.onToggle(card.id, true);
+    }
+  };
 
   return (
     <div
@@ -83,34 +93,55 @@ export function CardListItem(props: CardListItemProps) {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
       }}
     >
-      <button onClick={() => onClick(card.id)} style={{ display: 'block', position: 'relative', cursor: 'pointer', border: 'none', background: 'transparent', padding: 0, width: '100%', textAlign: 'left' }} className="group">
+      <button onClick={() => onClick(card.id)} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left group [container-type:inline-size]">
         <div
-          className="w-full aspect-[3/4] flex items-center justify-center relative overflow-hidden"
-          style={{ background: 'var(--bg-surface-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+          className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5"
         >
           {card.image_path ? (
-            <img src={getCardImageUrl(card.image_path)} alt={card.name}
+            <img
+              src={getCardImageUrl(card.image_path)}
+              alt={card.name}
+              className="w-full h-full object-cover relative z-[1]"
               style={{
-                position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain', padding: '6px',
                 filter: isAnyOwned ? 'none' : 'grayscale(40%) brightness(0.75)',
                 transition: 'filter 0.2s',
               }}
             />
           ) : (
-            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-              <span className="text-5xl font-black select-none" style={{ background: 'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <div className="relative z-[1] text-center px-4">
+              <span className="text-5xl font-black select-none text-zinc-100">
                 {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
-              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-secondary)" }}>
+              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
                 {card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
               </span>
             </div>
           )}
         </div>
 
+        {/* Energy Cost Badge */}
         {card.energy != null && (
-          <div className="absolute top-2 left-2" style={{ zIndex: 3 }}>
-            <span className="flex items-center justify-center rounded-full text-base font-black" style={{ width: 32, height: 32, background: colorTint.bg, color: colorTint.text, border: `2px solid ${colorTint.border}`, boxShadow: `0 0 16px ${colorTint.bg}` }}>
+          <div
+            className="absolute"
+            style={{
+              top: '3.4cqi',
+              left: '3.2cqi',
+              width: '13.8cqi',
+              height: '13.8cqi',
+              zIndex: 3,
+            }}
+          >
+            <span
+              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md"
+              style={{
+                background: colorTint.bg,
+                color: colorTint.text,
+                border: `clamp(1.5px, 0.7cqi, 3px) solid ${colorTint.border}`,
+                boxShadow: `0 0 clamp(6px, 2.5cqi, 16px) ${colorTint.bg}`,
+                fontSize: 'clamp(10px, 7.2cqi, 28px)',
+                lineHeight: 1,
+              }}
+            >
               {card.energy}
             </span>
           </div>
@@ -118,20 +149,34 @@ export function CardListItem(props: CardListItemProps) {
 
         {/* Top right badges: Signed / Alt Art / Overnumbered (ON) */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
-          {(card.card_number?.includes('*') || card.subtype?.toLowerCase() === 'signed') && (
-            <span
-              className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
-              style={{
-                background: "rgba(147, 51, 234, 0.95)",
-                color: "#ffffff",
-                border: "1.5px solid #c084fc",
-                boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
-                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
-              }}
-            >
-              SIGNED
-            </span>
-          )}
+          {(() => {
+            const num = (card.card_number || '').toUpperCase();
+            const sub = (card.subtype || '').toLowerCase().trim();
+            const tags = Array.isArray(card.tags) ? card.tags.map((t: string) => String(t).toLowerCase().trim()) : [];
+            const isSigned = Boolean(
+              num.includes('*') ||
+              num.includes('★') ||
+              num.includes('STAR') ||
+              sub === 'signed' ||
+              tags.includes('signed') ||
+              tags.includes('star')
+            );
+            if (!isSigned) return null;
+            return (
+              <span
+                className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+                style={{
+                  background: "rgba(147, 51, 234, 0.95)",
+                  color: "#ffffff",
+                  border: "1.5px solid #c084fc",
+                  boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
+                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+                }}
+              >
+                SIGNED
+              </span>
+            );
+          })()}
 
           {(() => {
             const numPart = card.card_number?.split('/')[0] || '';
@@ -205,88 +250,96 @@ export function CardListItem(props: CardListItemProps) {
         </h3>
 
         {/* Set / Promo Line */}
-        <p className="text-zinc-400 text-[11px] font-medium truncate mt-1 mb-2">
-          {card.set_name}
+        <p className="text-zinc-300 text-[11px] font-medium truncate mt-1 mb-1.5">
+          {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
 
         {/* Bottom Spec Bar (Number · Type) */}
-        <div className="flex items-center text-zinc-400 font-mono text-[11px] mb-2.5">
+        <div className="flex items-center text-zinc-300 font-mono text-[11px] mb-2.5">
           <span className="truncate">
-            {card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
+            {card.card_number?.includes('-') || !card.set_code ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
           </span>
-          <span className="text-zinc-500 font-bold mx-1.5 flex-shrink-0">·</span>
+          <span className="text-zinc-400 font-bold mx-1.5 flex-shrink-0">·</span>
           <span className="capitalize flex-shrink-0">
             {card.card_type}
           </span>
         </div>
 
-        {/* Action Toggle */}
+        {/* Action Steppers */}
         <div 
           className={`mt-auto ${isSmall ? 'pt-2' : 'pt-2.5'} flex ${isSmall && showFoilToggle ? 'flex-col gap-1.5' : 'gap-2'}`} 
           style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
         >
-          <button
-            onClick={handleToggleNormal}
-            className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-md transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5`}
-            style={{
-              background: owned ? "rgba(16, 185, 129, 0.16)" : "#27272a",
-              color: owned ? "#34d399" : "#e4e4e7",
-              border: owned ? "1px solid #10b981" : "1px solid rgba(255,255,255,0.1)",
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              if (owned) {
-                e.currentTarget.style.background = "rgba(16, 185, 129, 0.26)";
-              } else {
-                e.currentTarget.style.background = "#3f3f46";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (owned) {
-                e.currentTarget.style.background = "rgba(16, 185, 129, 0.16)";
-              } else {
-                e.currentTarget.style.background = "#27272a";
-              }
-            }}
-          >
-            {owned ? (
-              <><span style={{ color: '#34d399', fontSize: 13, fontWeight: 900 }}>✓</span> {showFoilToggle ? 'Normal' : (isSmall ? 'Owned' : 'In Collection')}</>
-            ) : (
-              <><span style={{ fontSize: 13, opacity: 0.8 }}>+</span> {showFoilToggle ? 'Normal' : 'Add'}</>
-            )}
-          </button>
-
-          {showFoilToggle && (
+          {/* Normal Copy Control */}
+          {normalQty === 0 ? (
             <button
-              onClick={handleToggleFoil}
-              className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-md transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5`}
-              style={{
-                background: foilOwned ? "rgba(245, 158, 11, 0.18)" : "#27272a",
-                color: foilOwned ? "#fbbf24" : "#e4e4e7",
-                border: foilOwned ? "1px solid #f59e0b" : "1px solid rgba(255,255,255,0.1)",
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                if (foilOwned) {
-                  e.currentTarget.style.background = "rgba(245, 158, 11, 0.28)";
-                } else {
-                  e.currentTarget.style.background = "#3f3f46";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (foilOwned) {
-                  e.currentTarget.style.background = "rgba(245, 158, 11, 0.18)";
-                } else {
-                  e.currentTarget.style.background = "#27272a";
-                }
-              }}
+              onClick={(e) => handleUpdateNormal(e, 1)}
+              className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
+              title="Add normal copy to collection"
             >
-              {foilOwned ? (
-                <><span style={{ color: '#fbbf24', fontSize: 13, fontWeight: 900 }}>✓</span> Foil</>
-              ) : (
-                <><span style={{ fontSize: 13, opacity: 0.8 }}>+</span> Foil</>
-              )}
+              <span className="text-sm font-black opacity-70">+</span>
+              <span>{showFoilToggle ? 'Normal' : (isSmall ? 'Add' : 'Add to Vault')}</span>
             </button>
+          ) : (
+            <div 
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              className={`flex-1 flex items-center justify-between bg-emerald-950/30 border border-emerald-500/50 rounded-lg p-0.5 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+            >
+              <button
+                onClick={(e) => handleUpdateNormal(e, -1)}
+                title="Decrease quantity (-1)"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+              >
+                −
+              </button>
+              <span className="text-xs font-black px-1 text-white font-mono select-none">
+                {normalQty}
+              </span>
+              <button
+                onClick={(e) => handleUpdateNormal(e, 1)}
+                title="Increase quantity (+1)"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+              >
+                +
+              </button>
+            </div>
+          )}
+
+          {/* Foil Copy Control */}
+          {showFoilToggle && (
+            foilQty === 0 ? (
+              <button
+                onClick={(e) => handleUpdateFoil(e, 1)}
+                className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
+                title="Add foil copy to collection"
+              >
+                <span className="text-sm font-black opacity-70">+</span>
+                <span>Foil</span>
+              </button>
+            ) : (
+              <div 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                className={`flex-1 flex items-center justify-between bg-amber-950/30 border border-amber-500/50 rounded-lg p-0.5 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+              >
+                <button
+                  onClick={(e) => handleUpdateFoil(e, -1)}
+                  title="Decrease foil quantity (-1)"
+                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                >
+                  −
+                </button>
+                <span className="text-xs font-black px-1 text-amber-200 font-mono select-none">
+                  {foilQty}
+                </span>
+                <button
+                  onClick={(e) => handleUpdateFoil(e, 1)}
+                  title="Increase foil quantity (+1)"
+                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                >
+                  +
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>

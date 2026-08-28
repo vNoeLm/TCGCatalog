@@ -4,6 +4,7 @@ import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../.
 import { getCatalogVisibility } from '../../lib/api';
 import type { UserProfile, Order } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
+import { getLanguage, t, type Language } from '../../lib/i18n';
 
 export function ProfileApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -13,16 +14,29 @@ export function ProfileApp() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isStorePublic, setIsStorePublic] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [lang, setLang] = useState<Language>('en');
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // Orders State
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderStatusFilter, setOrderStatusFilter] = useState('All');
 
-  // Saved Decks State
-  const [savedDecks, setSavedDecks] = useState<any[]>([]);
-
   useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+
     async function loadData() {
       const [p, isPub] = await Promise.all([
         getCurrentProfile(),
@@ -37,15 +51,6 @@ export function ProfileApp() {
       }
       setLoading(false);
       setLoadingOrders(false);
-
-      // Load locally saved decks
-      try {
-        const savedD = localStorage.getItem('tcg_saved_decks');
-        if (savedD) {
-          const parsedD = JSON.parse(savedD);
-          if (Array.isArray(parsedD)) setSavedDecks(parsedD);
-        }
-      } catch (e) {}
     }
 
     loadData();
@@ -54,10 +59,7 @@ export function ProfileApp() {
       if (session) {
         getCurrentProfile().then(p => {
           setProfile(p);
-          if (p) {
-            setDisplayName(p.display_name || '');
-            fetchUserOrders().then(o => setOrders(o as Order[]));
-          }
+          setDisplayName(p?.display_name || '');
         });
       } else {
         setProfile(null);
@@ -65,20 +67,34 @@ export function ProfileApp() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('tcg-lang-change', handleLangChange);
+    };
   }, []);
 
   const handleSaveProfile = async () => {
     if (!profile) return;
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      showToast('Display name cannot be empty');
+      return;
+    }
     setSaving(true);
     try {
-      const { error } = await updateProfile({ display_name: displayName.trim() });
-      if (!error) {
-        setProfile(prev => prev ? { ...prev, display_name: displayName.trim() } : null);
+      const { error } = await updateProfile({ display_name: trimmed });
+      if (error) {
+        showToast(`Failed to update: ${error.message}`);
+      } else {
+        setProfile(prev => prev ? { ...prev, display_name: trimmed } : null);
         setIsEditing(false);
+        showToast('Profile name updated successfully!');
       }
-    } catch (e) {}
-    setSaving(false);
+    } catch (e: any) {
+      showToast(`Error: ${e?.message || 'Failed to update profile'}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -93,32 +109,28 @@ export function ProfileApp() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <span style={{ color: 'var(--accent-light)', fontSize: 16, fontWeight: 700 }}>Loading profile…</span>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <span className="text-zinc-300 font-bold text-base animate-pulse">Loading profile…</span>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div style={{ maxWidth: 500, margin: '80px auto', padding: '40px 24px', textAlign: 'center', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2">
+      <div className="max-w-md mx-auto my-20 p-8 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
+        <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center mb-4">
+          <svg className="w-7 h-7 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>User Account</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
+        <h2 className="text-2xl font-black text-zinc-100 mb-2">User Account</h2>
+        <p className="text-zinc-400 text-sm mb-6">
           Sign in or create an account to view your order history and manage your profile.
         </p>
         <button
           onClick={() => setShowAuthModal(true)}
-          style={{
-            padding: '12px 28px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-          }}
+          className="px-6 py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
         >
           Sign In / Register
         </button>
@@ -127,137 +139,133 @@ export function ProfileApp() {
     );
   }
 
-  const getStatusBadgeStyle = (st: string) => {
-    switch (st) {
-      case 'Delivered':
-        return { bg: 'rgba(34,197,94,0.15)', text: '#4ade80', border: 'rgba(34,197,94,0.4)' };
-      case 'Shipped':
-        return { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.4)' };
-      case 'Processing':
-        return { bg: 'rgba(234,179,8,0.15)', text: '#fde047', border: 'rgba(234,179,8,0.4)' };
-      case 'Cancelled':
-        return { bg: 'rgba(239,68,68,0.15)', text: '#f87171', border: 'rgba(239,68,68,0.4)' };
-      default: // Pending
-        return { bg: 'rgba(148,163,184,0.15)', text: '#cbd5e1', border: 'rgba(148,163,184,0.4)' };
-    }
-  };
-
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
       {/* Account Info Header */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '24px 28px', marginBottom: 32, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-7 mb-8 flex flex-wrap items-center justify-between gap-5 shadow-sm">
+        <div className="flex items-center gap-4 sm:gap-5">
           {profile.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt={profile.display_name || 'User'}
-              style={{ width: 64, height: 64, borderRadius: '50%', border: '2px solid var(--accent)' }}
+              className="w-16 h-16 rounded-full object-cover border border-zinc-700"
             />
           ) : (
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#ffffff' }}>
+            <div className="w-16 h-16 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-2xl font-black text-zinc-100">
               {(profile.display_name || profile.email || 'U')[0].toUpperCase()}
             </div>
           )}
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="flex items-center gap-2.5">
               {isEditing ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="flex flex-wrap gap-2 items-center">
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 800 }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveProfile();
+                      if (e.key === 'Escape') {
+                        setIsEditing(false);
+                        setDisplayName(profile.display_name || '');
+                      }
+                    }}
+                    autoFocus
+                    placeholder="Enter display name"
+                    className="px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-700 text-zinc-100 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                   <button
                     onClick={handleSaveProfile}
-                    disabled={saving}
-                    style={{ padding: '6px 12px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                    disabled={saving || !displayName.trim()}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50"
                   >
-                    {saving ? 'Saving…' : 'Save'}
+                    {saving ? t('saving', lang) : t('save', lang)}
                   </button>
                   <button
-                    onClick={() => setIsEditing(false)}
-                    style={{ padding: '6px 10px', background: 'transparent', color: 'var(--text-muted)', border: 'none', fontSize: 12, cursor: 'pointer' }}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setDisplayName(profile.display_name || '');
+                    }}
+                    className="px-2.5 py-1.5 text-zinc-400 hover:text-zinc-200 text-xs font-semibold cursor-pointer rounded-xl hover:bg-zinc-800 transition"
                   >
-                    Cancel
+                    {t('cancel', lang)}
                   </button>
                 </div>
               ) : (
-                <>
-                  <h1 style={{ fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-black text-zinc-100">
                     {profile.display_name || 'Valued Collector'}
                   </h1>
                   <button
-                    onClick={() => setIsEditing(true)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-light)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    onClick={() => {
+                      setDisplayName(profile.display_name || '');
+                      setIsEditing(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-600 text-zinc-200 hover:text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                    title="Edit display name"
                   >
-                    Edit
+                    <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <span>{t('edit', lang)}</span>
                   </button>
-                </>
+                </div>
               )}
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+            <div className="text-xs sm:text-sm font-mono text-zinc-400 mt-1">
               {profile.email}
             </div>
             {profile.is_admin && (
-              <span style={{ display: 'inline-block', marginTop: 6, fontSize: 11, fontWeight: 900, padding: '2px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.2)', color: 'var(--accent-light)', border: '1px solid var(--accent-border)' }}>
-                ⭐ Store Admin
+              <span className="inline-block mt-2 text-[11px] font-black px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
+                Store Admin
               </span>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="flex items-center gap-2.5">
           {profile.is_admin && (
             <a
               href="/admin"
-              style={{
-                padding: '9px 16px', background: 'var(--accent-muted)', border: '1px solid var(--accent-border)',
-                color: 'var(--accent-light)', borderRadius: 10, fontSize: 13, fontWeight: 800, textDecoration: 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-              }}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              🛒 Store Dashboard
+              {t('store_dashboard', lang)}
             </a>
           )}
           <button
             onClick={handleSignOut}
-            style={{
-              padding: '9px 16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-              color: '#f87171', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer',
-            }}
+            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer border border-zinc-700 hover:border-zinc-600"
           >
-            Sign Out
+            {t('sign_out', lang)}
           </button>
         </div>
       </div>
 
-      {/* Orders Section Header */}
+      {/* Orders Section */}
       {(isStorePublic || profile.is_admin) && (
-        <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
+        <div className="mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>📦</span> My Orders & Purchases
+              <h2 className="text-lg sm:text-xl font-black text-zinc-100 flex items-center gap-2">
+                <span>{t('order_history', lang)}</span>
               </h2>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
                 Track the fulfillment and shipping status of your orders
               </p>
             </div>
 
             {/* Status Filter Pills */}
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="flex gap-1.5">
               {['All', 'Pending', 'Processing', 'Shipped', 'Delivered'].map(st => (
                 <button
                   key={st}
                   onClick={() => setOrderStatusFilter(st)}
-                  style={{
-                    padding: '5px 12px', fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
-                    background: orderStatusFilter === st ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
-                    color: orderStatusFilter === st ? 'var(--accent-light)' : 'var(--text-secondary)',
-                    border: orderStatusFilter === st ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                  }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border ${
+                    orderStatusFilter === st
+                      ? 'bg-zinc-800 border-zinc-600 text-white font-bold'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                  }`}
                 >
                   {st}
                 </button>
@@ -267,72 +275,75 @@ export function ProfileApp() {
 
           {/* Orders List */}
           {loadingOrders ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--accent-light)', fontSize: 14 }}>
+            <div className="text-center py-14 text-zinc-400 text-sm font-semibold">
               Loading your orders…
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '48px 24px', textAlign: 'center', marginBottom: 36 }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-surface-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 12 }}>
-                🛒
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-10 text-center">
+              <div className="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-sm mb-3">
+                <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
-                No orders found
+              <h3 className="text-base font-bold text-zinc-200 mb-1">
+                {t('no_orders', lang)}
               </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 20px' }}>
+              <p className="text-zinc-400 text-xs sm:text-sm mb-5 max-w-sm mx-auto">
                 {orderStatusFilter === 'All'
                   ? 'You have not placed any orders yet. Browse our store to find rare cards and singles.'
                   : `You have no orders with status "${orderStatusFilter}".`}
               </p>
               <a
                 href="/store"
-                style={{
-                  display: 'inline-block', padding: '10px 20px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  color: '#ffffff', textDecoration: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800,
-                  boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
-                }}
+                className="inline-block px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-xs transition shadow-md"
               >
                 Browse Store
               </a>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 36 }}>
+            <div className="flex flex-col gap-4">
               {filteredOrders.map(order => {
-                const badge = getStatusBadgeStyle(order.status);
+                const isDelivered = order.status === 'Delivered';
+                const isShipped = order.status === 'Shipped';
+                const isProcessing = order.status === 'Processing';
+                const isCancelled = order.status === 'Cancelled';
+
                 return (
                   <div
                     key={order.id}
-                    style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 16,
-                      padding: '20px 24px',
-                      boxShadow: 'var(--shadow-card)',
-                    }}
+                    className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-sm"
                   >
                     {/* Order Header */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14, marginBottom: 14 }}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3.5 mb-3.5">
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-primary)' }}>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm sm:text-base font-black text-zinc-100">
                             Order #{order.order_number}
                           </span>
                           <span
-                            style={{
-                              fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6,
-                              background: badge.bg, color: badge.text, border: `1px solid ${badge.border}`,
-                            }}
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
+                              isDelivered
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : isShipped
+                                ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                                : isProcessing
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                : isCancelled
+                                ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                                : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+                            }`}
                           >
                             {order.status}
                           </span>
                         </div>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        <span className="text-xs text-zinc-500 mt-0.5 block">
                           Placed on {new Date(order.created_at).toLocaleDateString()}
                         </span>
                       </div>
 
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: 700 }}>Total</span>
-                        <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--accent-light)' }}>
+                      <div className="text-right">
+                        <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Total</span>
+                        <span className="text-base font-black text-zinc-100 font-mono">
                           {order.total_price_huf?.toLocaleString() || 0} HUF
                         </span>
                       </div>
@@ -340,35 +351,39 @@ export function ProfileApp() {
 
                     {/* Tracking Info if available */}
                     {order.tracking_number && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-surface-2)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
-                        <span>🚚 Tracking Number:</span>
-                        <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{order.tracking_number}</span>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-400 mb-3.5">
+                        <span className="font-semibold text-zinc-300">Tracking Number:</span>
+                        <span className="font-mono font-bold text-zinc-200">{order.tracking_number}</span>
                       </div>
                     )}
 
                     {/* Items List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div className="flex flex-col gap-2.5">
                       {(order.items || []).map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div key={idx} className="flex items-center gap-3">
                           {item.image_path ? (
                             <img
                               src={`https://xtyfzkqubmzrsvduvzcl.supabase.co/storage/v1/object/public/card-images/${item.image_path}`}
                               alt={item.card_name}
-                              style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 4, background: '#1e293b' }}
+                              className="w-9 h-12 object-cover rounded bg-zinc-950 border border-zinc-800 flex-shrink-0"
                             />
                           ) : (
-                            <div style={{ width: 36, height: 50, borderRadius: 4, background: 'var(--bg-surface-2)' }} />
+                            <div className="w-9 h-12 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-center text-xs text-zinc-500 flex-shrink-0">
+                              <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
                           )}
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs sm:text-sm font-bold text-zinc-100 truncate">
                               {item.card_name}
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            <div className="text-[11px] text-zinc-400">
                               {item.condition} {item.is_foil ? '• Foil' : ''} {item.set_name ? `• ${item.set_name}` : ''}
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-xs font-mono font-bold text-zinc-200">
                               {item.quantity} × {item.price_huf?.toLocaleString()} HUF
                             </div>
                           </div>
@@ -380,53 +395,14 @@ export function ProfileApp() {
               })}
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* Saved Decks Section (Secondary / Generic) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>
-          Saved Decks ({savedDecks.length})
-        </h2>
-        <a
-          href="/deck-builder"
-          style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent-light)', textDecoration: 'none' }}
-        >
-          + Open Deck Builder
-        </a>
-      </div>
-
-      {savedDecks.length === 0 ? (
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 20px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px' }}>No saved decks on this device.</p>
-          <a
-            href="/deck-builder"
-            style={{ padding: '6px 14px', background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', color: 'var(--accent-light)', borderRadius: 8, fontSize: 12, fontWeight: 800, textDecoration: 'none' }}
-          >
-            Create a deck
-          </a>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-          {savedDecks.map((deck, idx) => (
-            <div
-              key={deck.id || idx}
-              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)' }}>{deck.name || 'Untitled Deck'}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                Format: {deck.format || 'Standard'}
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                <a
-                  href={`/deck-builder`}
-                  style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent-light)', textDecoration: 'none' }}
-                >
-                  Edit in Deck Builder →
-                </a>
-              </div>
-            </div>
-          ))}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 border border-zinc-700 text-zinc-100 px-4 py-3 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4">
+          <span className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

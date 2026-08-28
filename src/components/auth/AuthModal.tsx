@@ -73,55 +73,29 @@ export function AuthModal({
   };
 
   const content = (
-    <div
-      style={{
-        width: '100%',
-        maxWidth: 420,
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 20,
-        boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-        padding: '32px 28px',
-        position: 'relative',
-        boxSizing: 'border-box',
-      }}
-    >
+    <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 relative">
       {/* Close button if modal */}
       {!isStandalone && onClose && (
         <button
           onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: 18,
-            right: 18,
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
-            fontSize: 20,
-            cursor: 'pointer',
-            padding: 4,
-            lineHeight: 1,
-            borderRadius: 6,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          className="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg p-1.5 rounded-lg transition cursor-pointer"
         >
           ✕
         </button>
       )}
 
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 14, background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', marginBottom: 12 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 mb-3">
+          <svg className="w-6 h-6 text-zinc-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+        <h2 className="text-xl sm:text-2xl font-black text-zinc-100 mb-1">
           {mode === 'signin' ? 'Welcome Back' : 'Create an Account'}
         </h2>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+        <p className="text-xs sm:text-sm text-zinc-400">
           {mode === 'signin'
             ? 'Sign in to access your order history and account'
             : 'Join Riftbound Vault to manage orders and saved decks'}
@@ -130,43 +104,21 @@ export function AuthModal({
 
       {/* Error & Success Messages */}
       {errorMsg && (
-        <div
-          style={{
-            padding: '10px 14px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: 8,
-            color: '#f87171',
-            fontSize: 13,
-            fontWeight: 600,
-            marginBottom: 16,
-          }}
-        >
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs font-semibold mb-4">
           {errorMsg}
         </div>
       )}
       {successMsg && (
-        <div
-          style={{
-            padding: '10px 14px',
-            background: 'rgba(34, 197, 94, 0.15)',
-            border: '1px solid rgba(34, 197, 94, 0.4)',
-            borderRadius: 8,
-            color: '#4ade80',
-            fontSize: 13,
-            fontWeight: 600,
-            marginBottom: 16,
-          }}
-        >
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold mb-4">
           {successMsg}
         </div>
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         {mode === 'signup' && (
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
               Display Name
             </label>
             <input
@@ -174,23 +126,13 @@ export function AuthModal({
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="e.g. MasterRifter"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                background: 'var(--bg-surface-2)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-                fontSize: 14,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
             />
           </div>
         )}
 
         <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
             Email Address
           </label>
           <input
@@ -199,22 +141,12 @@ export function AuthModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: 8,
-              background: 'var(--bg-surface-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
             Password
           </label>
           <input
@@ -224,46 +156,25 @@ export function AuthModal({
             placeholder="••••••••"
             required
             minLength={6}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: 8,
-              background: 'var(--bg-surface-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          style={{
-            marginTop: 6,
-            width: '100%',
-            padding: '12px 16px',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            border: 'none',
-            borderRadius: 10,
-            color: '#ffffff',
-            fontSize: 14,
-            fontWeight: 800,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.1)')}
-          onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+          className={`mt-2 w-full py-3 px-4 rounded-xl text-sm font-black transition cursor-pointer shadow-md border ${
+            loading
+              ? 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed'
+              : 'bg-zinc-100 hover:bg-white text-zinc-950 border-zinc-200'
+          }`}
         >
           {loading ? 'Please wait…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
 
       {/* Switch Mode */}
-      <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-secondary)' }}>
+      <div className="text-center mt-5 text-xs text-zinc-400">
         {mode === 'signin' ? (
           <>
             Don't have an account?{' '}
@@ -274,7 +185,7 @@ export function AuthModal({
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--accent-light)', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+              className="text-zinc-200 hover:text-white font-bold underline cursor-pointer ml-1"
             >
               Sign Up
             </button>
@@ -289,7 +200,7 @@ export function AuthModal({
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--accent-light)', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+              className="text-zinc-200 hover:text-white font-bold underline cursor-pointer ml-1"
             >
               Sign In
             </button>
@@ -306,21 +217,9 @@ export function AuthModal({
   const modalMarkup = (
     <div
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.85)',
-        backdropFilter: 'blur(8px)',
-        padding: '24px 16px',
-        boxSizing: 'border-box',
-        overflowY: 'auto',
-      }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto"
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, display: 'flex', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md flex justify-center">
         {content}
       </div>
     </div>

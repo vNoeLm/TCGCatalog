@@ -33,6 +33,50 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [error, setError] = useState('');
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isInventory, setIsInventory] = useState(false);
+  const [collection, setCollection] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const loadCollection = () => {
+      const saved = localStorage.getItem("tcg_user_collection") || localStorage.getItem("tcg_collection");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const dict: Record<string, number> = {};
+            parsed.forEach((id: string) => { if (typeof id === 'string') dict[id] = 1; });
+            setCollection(dict);
+          } else if (parsed && typeof parsed === 'object') {
+            setCollection(parsed);
+          }
+        } catch (e) {}
+      }
+    };
+    loadCollection();
+
+    const handleColChange = (e: Event) => {
+      const custom = e as CustomEvent<{ collection: Record<string, number> }>;
+      if (custom.detail?.collection) setCollection(custom.detail.collection);
+    };
+    window.addEventListener('tcg-collection-change', handleColChange);
+    return () => window.removeEventListener('tcg-collection-change', handleColChange);
+  }, []);
+
+  const handleUpdateCount = (targetCardId: string, isFoil: boolean, delta: number) => {
+    if (!targetCardId) return;
+    const targetKey = isFoil ? `${targetCardId}_foil` : targetCardId;
+    const next = { ...collection };
+    const current = next[targetKey] || 0;
+    const updated = current + delta;
+    if (updated <= 0) {
+      delete next[targetKey];
+    } else {
+      next[targetKey] = updated;
+    }
+    setCollection(next);
+    localStorage.setItem("tcg_user_collection", JSON.stringify(next));
+    localStorage.setItem("tcg_collection", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+  };
 
   useEffect(() => {
     // If not provided via props, fallback to URL search params
@@ -191,11 +235,25 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               })()}
 
               {/* Signed Badge */}
-              {(card.card_number?.includes('*') || card.subtype?.toLowerCase() === 'signed') && (
-                <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(147, 51, 234, 0.25)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(168, 85, 247, 0.3)' }}>
-                  Signed Edition
-                </span>
-              )}
+              {(() => {
+                const num = (card.card_number || '').toUpperCase();
+                const sub = (card.subtype || '').toLowerCase().trim();
+                const tags = Array.isArray(card.tags) ? card.tags.map((t: string) => String(t).toLowerCase().trim()) : [];
+                const isSigned = Boolean(
+                  num.includes('*') ||
+                  num.includes('★') ||
+                  num.includes('STAR') ||
+                  sub === 'signed' ||
+                  tags.includes('signed') ||
+                  tags.includes('star')
+                );
+                if (!isSigned) return null;
+                return (
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(147, 51, 234, 0.25)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(168, 85, 247, 0.3)' }}>
+                    Signed Edition
+                  </span>
+                );
+              })()}
 
               {/* Alt Art Badge */}
               {(() => {
@@ -334,12 +392,90 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           )}
 
           {card.artist && (
-            <div style={{ marginBottom: 28 }}>
+            <div style={{ marginBottom: 20 }}>
               <p style={{ margin:0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 Artist: {card.artist}
               </p>
             </div>
           )}
+
+          {/* Collection Tracking Section */}
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px', marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>📦</span> My Collection Tracker
+              </div>
+              {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
+                <span style={{ fontSize: 11, fontWeight: 900, padding: '2px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.4)' }}>
+                  ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} Total Copies
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {/* Normal Copy Stepper */}
+              <div style={{ flex: 1, minWidth: 140, background: 'var(--bg-surface)', border: (collection[card.id] > 0) ? '1px solid rgba(16,185,129,0.5)' : '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.2s' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Normal
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Regular Copy</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => handleUpdateCount(card.id, false, -1)}
+                    disabled={!(collection[card.id] > 0)}
+                    style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: (collection[card.id] > 0) ? 'pointer' : 'not-allowed', opacity: (collection[card.id] > 0) ? 1 : 0.3, fontWeight: 900, fontSize: 14 }}
+                    title="Decrease count (-1)"
+                  >
+                    −
+                  </button>
+                  <span style={{ minWidth: 22, textAlign: 'center', fontSize: 15, fontWeight: 900, color: (collection[card.id] > 0) ? '#34d399' : 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    {collection[card.id] || 0}
+                  </span>
+                  <button
+                    onClick={() => handleUpdateCount(card.id, false, 1)}
+                    style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 900, fontSize: 14 }}
+                    title="Increase count (+1)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Foil Copy Stepper (for common/uncommon) */}
+              {(card.rarity === 'Common' || card.rarity === 'Uncommon') && (
+                <div style={{ flex: 1, minWidth: 140, background: 'var(--bg-surface)', border: (collection[`${card.id}_foil`] > 0) ? '1px solid rgba(245,158,11,0.5)' : '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.2s' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24' }}>
+                      ★ Foil
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Foil Finish</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={() => handleUpdateCount(card.id, true, -1)}
+                      disabled={!(collection[`${card.id}_foil`] > 0)}
+                      style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: (collection[`${card.id}_foil`] > 0) ? 'pointer' : 'not-allowed', opacity: (collection[`${card.id}_foil`] > 0) ? 1 : 0.3, fontWeight: 900, fontSize: 14 }}
+                      title="Decrease foil count (-1)"
+                    >
+                      −
+                    </button>
+                    <span style={{ minWidth: 22, textAlign: 'center', fontSize: 15, fontWeight: 900, color: (collection[`${card.id}_foil`] > 0) ? '#fbbf24' : 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      {collection[`${card.id}_foil`] || 0}
+                    </span>
+                    <button
+                      onClick={() => handleUpdateCount(card.id, true, 1)}
+                      style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 900, fontSize: 14 }}
+                      title="Increase foil count (+1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div style={{ borderTop:'1px solid var(--border-subtle)', marginBottom:28 }} />
 

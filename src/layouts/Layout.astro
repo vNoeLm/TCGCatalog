@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import { Navigation } from '../components/Navigation';
-import { ThemeToggle } from '../components/ThemeToggle';
+import { GameSelector } from '../components/GameSelector';
 
 interface Props {
   title: string;
@@ -26,29 +26,21 @@ const pathname = Astro.url.pathname;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    <!-- Prevent flash of wrong theme -->
-    <script is:inline>
-      (function() {
-        var saved = localStorage.getItem('theme');
-        var dark = saved ? saved === 'dark' : true;
-        document.documentElement.classList.toggle('dark', dark);
-      })();
-    </script>
   </head>
   <body class="min-h-screen font-sans" style="background: var(--bg-page); color: var(--text-primary);">
     <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-2">
-        <div class="flex items-center gap-3">
-          <a href="/" class="flex items-center gap-3" style="text-decoration: none;">
-            <img src="/favicon-32x32.png" alt="TCG Vault" class="w-8 h-8 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-            <span class="text-xl font-black tracking-tight" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
+        <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
+          <a href="/" class="flex items-center" style="text-decoration: none;">
+            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
               TCG Vault
             </span>
           </a>
+          <div class="h-4 sm:h-5 w-px bg-zinc-800" />
+          <GameSelector client:load />
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Navigation currentPath={pathname} client:load />
-          <ThemeToggle client:load />
         </div>
       </div>
     </header>

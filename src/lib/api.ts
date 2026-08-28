@@ -4,7 +4,7 @@ import type { FilterState, InventoryCard, CatalogCard } from '../types';
 export const PAGE_SIZE = 36;
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v20';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -102,6 +102,10 @@ export async function fetchCardsCatalog(
   if (filters.type) {
     if (filters.type === 'Champion') {
       query = query.eq('subtype', 'Champion');
+    } else if (filters.type === 'Signature Spell') {
+      query = query.eq('card_type', 'Spell').ilike('subtype', '%Signature%');
+    } else if (filters.type === 'Token') {
+      query = query.or('card_type.eq.Token,subtype.ilike.%Token%');
     } else {
       query = query.eq('card_type', filters.type);
     }
@@ -123,30 +127,33 @@ export async function fetchCardsCatalog(
     return { data: [], count: 0 };
   }
 
-  let mappedData: CatalogCard[] = (data || []).map((row: any) => ({
-    id: row.id,
-    card_number: row.card_number,
-    name: row.name,
-    rarity: row.rarity,
-    card_type: row.card_type,
-    cost: row.cost ?? (row.energy ? parseInt(row.energy, 10) : 0),
-    image_path: row.image_path,
-    subtype: row.subtype,
-    text: row.text,
-    game: row.game || 'riftbound',
-    product_type: row.product_type || 'single',
-    metadata: row.metadata || {},
-    energy: row.energy,
-    might: row.might,
-    domain: row.domain,
-    tags: row.tags,
-    ability: row.ability,
-    artist: row.artist,
-    set_id: row.sets?.id || '',
-    set_name: row.sets?.name || '',
-    set_code: row.sets?.code || '',
-    sets: row.sets || undefined,
-  }));
+  let mappedData: CatalogCard[] = (data || []).map((row: any) => {
+    const isBasicRune = row.card_type === 'Rune' && (row.subtype === 'Basic' || !row.name?.includes('Promo'));
+    return {
+      id: row.id,
+      card_number: row.card_number,
+      name: row.name,
+      rarity: row.rarity,
+      card_type: row.card_type,
+      cost: row.cost ?? (row.energy ? parseInt(row.energy, 10) : 0),
+      image_path: row.image_path,
+      subtype: row.subtype,
+      text: row.text,
+      game: row.game || 'riftbound',
+      product_type: row.product_type || 'single',
+      metadata: row.metadata || {},
+      energy: row.energy,
+      might: row.might,
+      domain: row.domain,
+      tags: row.tags,
+      ability: row.ability,
+      artist: row.artist,
+      set_id: isBasicRune ? '' : (row.sets?.id || ''),
+      set_name: isBasicRune ? '' : (row.sets?.name || ''),
+      set_code: isBasicRune ? '' : (row.sets?.code || ''),
+      sets: isBasicRune ? undefined : (row.sets || undefined),
+    };
+  });
 
   if (filters.set) {
     mappedData = mappedData.filter(card => card.set_name === filters.set);
@@ -186,6 +193,17 @@ export async function fetchInventory(
     query = query.or(`name.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`, { foreignTable: 'cards' });
   }
 
+  // Category filter (singles vs sealed products)
+  if (filters.category === 'sealed') {
+    query = query.or('card_type.eq.Sealed,rarity.eq.Sealed', { foreignTable: 'cards' });
+    if (filters.sealedTypes && filters.sealedTypes.length > 0) {
+      const typeOr = filters.sealedTypes.map(st => `subtype.ilike.%${st}%,name.ilike.%${st}%`).join(',');
+      query = query.or(typeOr, { foreignTable: 'cards' });
+    }
+  } else if (filters.category === 'singles') {
+    query = query.neq('cards.card_type', 'Sealed').neq('cards.rarity', 'Sealed');
+  }
+
   // Multi-game filter
   if (filters.game && filters.game !== 'all') {
     query = query.eq('cards.game', filters.game);
@@ -200,6 +218,10 @@ export async function fetchInventory(
   if (filters.type) {
     if (filters.type === 'Champion') {
       query = query.eq('cards.subtype', 'Champion');
+    } else if (filters.type === 'Signature Spell') {
+      query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+    } else if (filters.type === 'Token') {
+      query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
     } else {
       query = query.eq('cards.card_type', filters.type);
     }
@@ -219,14 +241,41 @@ export async function fetchInventory(
     query = query.eq('is_foil', true);
   }
 
-  if (filters.signedFilter) {
-    query = query.or('subtype.ilike.%signed%,card_number.ilike.%*%', { foreignTable: 'cards' });
+  if (filters.signedFilter === 'only') {
+    query = query.or('subtype.eq.Signed,card_number.ilike.%*%,card_number.ilike.%★%,card_number.ilike.%STAR%,tags.cs.["Star"],tags.cs.["Signed"]', { foreignTable: 'cards' });
+  } else if (filters.signedFilter === 'none') {
+    query = query
+      .not('subtype', 'eq', 'Signed')
+      .not('card_number', 'ilike', '%*%')
+      .not('card_number', 'ilike', '%★%')
+      .not('card_number', 'ilike', '%STAR%');
   }
 
   if (filters.altArtFilter === 'only') {
-    query = query.or('subtype.ilike.%alt%,subtype.ilike.%alternate%,card_number.ilike.%a/%,card_number.ilike.%b/%', { foreignTable: 'cards' });
+    query = query.or('subtype.ilike.%alt%,subtype.ilike.%alternate%,card_number.ilike.%a/%,card_number.ilike.%b/%,card_number.ilike.%-SP%', { foreignTable: 'cards' });
   } else if (filters.altArtFilter === 'none') {
-    query = query.not('subtype', 'ilike', '%alt%').not('subtype', 'ilike', '%alternate%').not('card_number', 'ilike', '%a/%').not('card_number', 'ilike', '%b/%');
+    query = query.not('subtype', 'ilike', '%alt%').not('subtype', 'ilike', '%alternate%').not('card_number', 'ilike', '%a/%').not('card_number', 'ilike', '%b/%').not('card_number', 'ilike', '%-SP%');
+  }
+
+  if (filters.spFilter === 'only') {
+    query = query.or('card_number.ilike.%-SP%,card_number.ilike.%SP/%,subtype.ilike.%SP%,tags.cs.["SP"]', { foreignTable: 'cards' });
+  } else if (filters.spFilter === 'none') {
+    query = query.not('card_number', 'ilike', '%-SP%').not('card_number', 'ilike', '%SP/%').not('subtype', 'ilike', '%SP%');
+  }
+
+  if (filters.baseSetFilter === 'only') {
+    query = query
+      .not('subtype', 'eq', 'Signed')
+      .not('card_number', 'ilike', '%*%')
+      .not('card_number', 'ilike', '%★%')
+      .not('card_number', 'ilike', '%STAR%')
+      .not('subtype', 'ilike', '%alt%')
+      .not('subtype', 'ilike', '%alternate%')
+      .not('card_number', 'ilike', '%a/%')
+      .not('card_number', 'ilike', '%b/%')
+      .not('card_number', 'ilike', '%-SP%')
+      .not('card_number', 'ilike', '%SP/%')
+      .not('cards.card_type', 'eq', 'Token');
   }
 
   if (filters.tags && filters.tags.length > 0) {
@@ -350,8 +399,8 @@ export async function getCatalogVisibility(): Promise<boolean> {
     .from('settings')
     .select('value')
     .eq('key', 'catalog_public')
-    .single();
-  if (error) return false;
+    .maybeSingle();
+  if (error || !data) return false;
   const isPublic = data?.value === 'true';
   setCached(cacheKey, isPublic);
   return isPublic;
@@ -364,3 +413,28 @@ export async function setCatalogVisibility(isPublic: boolean): Promise<void> {
   if (error) throw error;
   setCached('setting_catalog_public', isPublic);
 }
+
+export async function getSealedVisibility(): Promise<boolean> {
+  const cacheKey = 'setting_sealed_enabled';
+  const cached = getCached<boolean>(cacheKey);
+  if (cached !== null) return cached;
+
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'sealed_enabled')
+    .maybeSingle();
+  if (error || !data) return false;
+  const isEnabled = data?.value === 'true';
+  setCached(cacheKey, isEnabled);
+  return isEnabled;
+}
+
+export async function setSealedVisibility(isEnabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key: 'sealed_enabled', value: isEnabled ? 'true' : 'false' });
+  if (error) throw error;
+  setCached('setting_sealed_enabled', isEnabled);
+}
+
