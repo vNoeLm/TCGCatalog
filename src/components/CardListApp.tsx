@@ -88,6 +88,18 @@ export function CardListApp() {
     };
   }, []);
 
+  // Lock background scroll when any modal or mobile drawer is open
+  useEffect(() => {
+    const isModalOpen = showExportModal || showImportModal || showMobileFilters || Boolean(selectedCardId);
+    if (isModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [showExportModal, showImportModal, showMobileFilters, selectedCardId]);
+
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
     setLang(getLanguage());
@@ -876,98 +888,172 @@ export function CardListApp() {
           {/* Controls Bar (Search, Sort, Grid Size, Tabs & Collection Actions) */}
           <div className="flex flex-col gap-3 bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md relative z-30">
             
-            {/* Row 1: Full-Width Search Bar */}
-            <div className="w-full relative">
-              <svg
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder={t('search_placeholder', lang)}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
-              />
-            </div>
-
-            {/* Row 2: Mobile Filters Button + Sort Dropdown (50/50 on mobile, inline on desktop) */}
-            <div className="flex items-center gap-2 w-full">
-              {/* Mobile Filters Toggle Button (Shown on smaller screens / !isWide) */}
-              {!isWide && (
-                <button
-                  type="button"
-                  onClick={() => setShowMobileFilters(true)}
-                  className="flex-1 h-10 px-3 flex items-center justify-center gap-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition cursor-pointer shadow-sm active:scale-95 min-w-0"
-                >
-                  <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  <span className="truncate">{t('filters', lang)}</span>
-                  {activeFilterBadgeCount > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center shrink-0">
-                      {activeFilterBadgeCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {/* Custom Sort Dropdown */}
-              <div className={`relative ${!isWide ? 'flex-1 min-w-0' : 'w-56 ml-auto'} z-40`} ref={sortRef}>
-                <button
-                  type="button"
-                  onClick={() => setSortOpen(prev => !prev)}
-                  className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
-                >
-                  <span className="truncate">
-                    {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
-                     sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
-                     sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
-                     t('sort_rarity_low', lang)}
-                  </span>
+            {isWide ? (
+              /* Desktop Layout: Search Bar (Left) + Sort Dropdown (Right) in a single row */
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 relative min-w-0">
                   <svg
-                    className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                   </svg>
-                </button>
+                  <input
+                    type="text"
+                    placeholder={t('search_placeholder', lang)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
+                  />
+                </div>
 
-                {sortOpen && (
-                  <div className="absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    {([
-                      { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
-                      { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
-                      { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
-                      { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
-                    ] as const).map(({ mode, labelKey }) => {
-                      const isSelected = sortMode === mode;
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
-                          className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
-                            isSelected
-                              ? 'bg-zinc-800 text-white font-bold'
-                              : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
-                          }`}
-                        >
-                          <span>{t(labelKey as any, lang)}</span>
-                          {isSelected && (
-                            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Sort Dropdown on Desktop */}
+                <div className="relative w-56 shrink-0 z-40" ref={sortRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen(prev => !prev)}
+                    className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                  >
+                    <span className="truncate">
+                      {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
+                       sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
+                       sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
+                       t('sort_rarity_low', lang)}
+                    </span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {sortOpen && (
+                    <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                      {([
+                        { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
+                        { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
+                        { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
+                        { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
+                      ] as const).map(({ mode, labelKey }) => {
+                        const isSelected = sortMode === mode;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
+                            className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                              isSelected
+                                ? 'bg-zinc-800 text-white font-bold'
+                                : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                            }`}
+                          >
+                            <span>{t(labelKey as any, lang)}</span>
+                            {isSelected && (
+                              <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Mobile Layout: Row 1 = Search (100%), Row 2 = Filters (50%) + Sort (50%) */
+              <>
+                {/* Row 1: Full-Width Search Bar */}
+                <div className="w-full relative">
+                  <svg
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder={t('search_placeholder', lang)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
+                  />
+                </div>
+
+                {/* Row 2: Mobile Filters Button + Sort Dropdown (50/50) */}
+                <div className="flex items-center gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileFilters(true)}
+                    className="flex-1 h-10 px-3 flex items-center justify-center gap-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition cursor-pointer shadow-sm active:scale-95 min-w-0"
+                  >
+                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="truncate">{t('filters', lang)}</span>
+                    {activeFilterBadgeCount > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center shrink-0">
+                        {activeFilterBadgeCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="flex-1 min-w-0 relative z-40" ref={sortRef}>
+                    <button
+                      type="button"
+                      onClick={() => setSortOpen(prev => !prev)}
+                      className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                    >
+                      <span className="truncate">
+                        {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
+                         sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
+                         sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
+                         t('sort_rarity_low', lang)}
+                      </span>
+                      <svg
+                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {sortOpen && (
+                      <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {([
+                          { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
+                          { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
+                          { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
+                          { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
+                        ] as const).map(({ mode, labelKey }) => {
+                          const isSelected = sortMode === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
+                              className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                                isSelected
+                                  ? 'bg-zinc-800 text-white font-bold'
+                                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                              }`}
+                            >
+                              <span>{t(labelKey as any, lang)}</span>
+                              {isSelected && (
+                                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Row 3: Dedicated Full-Width Collection Status Tabs (All, Owned, Playset, Missing) */}
             <div className="w-full">
@@ -1194,10 +1280,11 @@ export function CardListApp() {
       {showExportModal && (
         <div 
           onClick={() => setShowExportModal(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 20 }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-7 shadow-2xl text-left"
+            style={{ touchAction: 'auto' }}
+            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-black text-zinc-100">Export Collection</h3>
@@ -1344,10 +1431,11 @@ export function CardListApp() {
       {showImportModal && (
         <div 
           onClick={() => setShowImportModal(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 20 }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-7 shadow-2xl text-left"
+            style={{ touchAction: 'auto' }}
+            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-black text-zinc-100">Import Collection</h3>
