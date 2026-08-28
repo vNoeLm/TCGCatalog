@@ -58,7 +58,7 @@ export function GameSelector() {
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 text-zinc-100 text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap"
+        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-100 text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap"
       >
         <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] shrink-0" />
         <span className="tracking-wide text-zinc-200 group-hover:text-white truncate max-w-[85px] sm:max-w-none">{currentGame.name}</span>
@@ -72,8 +72,8 @@ export function GameSelector() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/60">
+        <div className="absolute left-0 mt-1.5 w-56 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800">
             Select Game
           </div>
           {GAMES.map(g => {

@@ -128,6 +128,28 @@ export async function deleteSavedDeck(id: string) {
   return { error };
 }
 
+// ─── Cloud Collection Sync ──────────────────────────────────────────
+
+export async function saveCollectionToCloud(collection: Record<string, number>) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Must be logged in to save collection to cloud');
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      saved_collection: collection,
+      collection_updated_at: new Date().toISOString(),
+    },
+  });
+
+  return { data, error };
+}
+
+export async function loadCollectionFromCloud(): Promise<Record<string, number> | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return (user.user_metadata?.saved_collection as Record<string, number>) || null;
+}
+
 // ─── User Orders ──────────────────────────────────────────────────
 
 export async function fetchUserOrders() {

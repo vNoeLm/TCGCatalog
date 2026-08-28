@@ -70,7 +70,7 @@ export const translations = {
     view_details: 'View Details',
     close: 'Close',
 
-    // Profile
+    // Profile & Cloud
     user_account: 'User Account',
     edit: 'Edit',
     save: 'Save',
@@ -81,6 +81,10 @@ export const translations = {
     total: 'Total',
     status: 'Status',
     date: 'Date',
+    save_to_cloud: 'Save to Cloud Database',
+    saved_to_cloud: 'Collection successfully saved to your cloud account!',
+    restore_from_cloud: 'Restore from Cloud Account',
+    restored_from_cloud: 'Collection restored from cloud!',
   },
   hu: {
     // Navigation
@@ -146,7 +150,7 @@ export const translations = {
     view_details: 'Részletek megtekintése',
     close: 'Bezárás',
 
-    // Profile
+    // Profile & Cloud
     user_account: 'Felhasználói Fiók',
     edit: 'Szerkesztés',
     save: 'Mentés',
@@ -157,6 +161,10 @@ export const translations = {
     total: 'Összesen',
     status: 'Állapot',
     date: 'Dátum',
+    save_to_cloud: 'Mentés Felhőbe',
+    saved_to_cloud: 'Gyűjtemény sikeresen elmentve a felhőbe!',
+    restore_from_cloud: 'Visszaállítás Felhőből',
+    restored_from_cloud: 'Gyűjtemény sikeresen visszaállítva a felhőből!',
   },
 } as const;
 

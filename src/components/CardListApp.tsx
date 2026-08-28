@@ -7,6 +7,8 @@ import { fetchCardsCatalog } from "../lib/api";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { getLanguage, t, type Language } from "../lib/i18n";
+import { supabase } from "../lib/supabase";
+import { getCurrentUser, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -63,6 +65,10 @@ export function CardListApp() {
   const [importText, setImportText] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [savingToCloud, setSavingToCloud] = useState(false);
+  const [restoringFromCloud, setRestoringFromCloud] = useState(false);
+
   const [allCards, setAllCards] = useState<CatalogCard[]>([]);
   const [page, setPage] = useState(1);
 
@@ -70,6 +76,17 @@ export function CardListApp() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+
+  // Check auth on mount
+  useEffect(() => {
+    getCurrentUser().then(user => setCurrentUser(user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
@@ -684,6 +701,46 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  const handleSaveToCloud = async () => {
+    if (!currentUser) {
+      showToast('Please sign in to save your collection to cloud.');
+      return;
+    }
+    setSavingToCloud(true);
+    try {
+      const { error } = await saveCollectionToCloud(collection);
+      if (error) throw error;
+      showToast(`☁️ ${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
+    } catch (e: any) {
+      showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`);
+    } finally {
+      setSavingToCloud(false);
+    }
+  };
+
+  const handleRestoreFromCloud = async () => {
+    if (!currentUser) return;
+    setRestoringFromCloud(true);
+    try {
+      const cloudData = await loadCollectionFromCloud();
+      if (!cloudData || Object.keys(cloudData).length === 0) {
+        showToast('No saved collection found in your cloud account.');
+        return;
+      }
+      setCollection(cloudData);
+      localStorage.setItem("tcg_user_collection", JSON.stringify(cloudData));
+      localStorage.setItem("tcg_collection", JSON.stringify(cloudData));
+      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: cloudData } }));
+      showToast(`☁️ ${t('restored_from_cloud', lang)}`);
+      setShowImportModal(false);
+      setShowExportModal(false);
+    } catch (e: any) {
+      showToast(`Failed to restore from cloud: ${e.message || 'Unknown error'}`);
+    } finally {
+      setRestoringFromCloud(false);
+    }
+  };
+
   const handleImportCollection = () => {
     if (!importText.trim()) return;
 
@@ -817,40 +874,40 @@ export function CardListApp() {
         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
           
           {/* Controls Bar (Search, Sort, Grid Size, Tabs & Collection Actions) */}
-          <div className="flex flex-col gap-3.5 bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md relative z-30">
+          <div className="flex flex-col gap-3 bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md relative z-30">
             
-            {/* Row 1: Search Bar (Left) + Mobile Filters Button (if !isWide) + Sort Selector (Right) */}
-            <div className="flex items-center gap-2.5 w-full">
-              {/* Search Input */}
-              <div className="flex-1 relative min-w-0">
-                <svg
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder={t('search_placeholder', lang)}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
-                />
-              </div>
+            {/* Row 1: Full-Width Search Bar */}
+            <div className="w-full relative">
+              <svg
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder={t('search_placeholder', lang)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
+              />
+            </div>
 
+            {/* Row 2: Mobile Filters Button + Sort Dropdown (50/50 on mobile, inline on desktop) */}
+            <div className="flex items-center gap-2 w-full">
               {/* Mobile Filters Toggle Button (Shown on smaller screens / !isWide) */}
               {!isWide && (
                 <button
                   type="button"
                   onClick={() => setShowMobileFilters(true)}
-                  className="h-10 px-3.5 flex items-center gap-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition shrink-0 cursor-pointer shadow-sm active:scale-95"
+                  className="flex-1 h-10 px-3 flex items-center justify-center gap-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition cursor-pointer shadow-sm active:scale-95 min-w-0"
                 >
-                  <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  <span>{t('filters', lang)}</span>
+                  <span className="truncate">{t('filters', lang)}</span>
                   {activeFilterBadgeCount > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center shrink-0">
                       {activeFilterBadgeCount}
                     </span>
                   )}
@@ -858,20 +915,20 @@ export function CardListApp() {
               )}
 
               {/* Custom Sort Dropdown */}
-              <div className="relative shrink-0 z-40" ref={sortRef}>
+              <div className={`relative ${!isWide ? 'flex-1 min-w-0' : 'w-56 ml-auto'} z-40`} ref={sortRef}>
                 <button
                   type="button"
                   onClick={() => setSortOpen(prev => !prev)}
-                  className="h-10 px-3.5 flex items-center gap-2 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                  className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
                 >
-                  <span>
+                  <span className="truncate">
                     {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
                      sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
                      sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
                      t('sort_rarity_low', lang)}
                   </span>
                   <svg
-                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                    className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -879,7 +936,7 @@ export function CardListApp() {
                 </button>
 
                 {sortOpen && (
-                  <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     {([
                       { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
                       { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
@@ -900,7 +957,7 @@ export function CardListApp() {
                         >
                           <span>{t(labelKey as any, lang)}</span>
                           {isSelected && (
-                            <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           )}
@@ -912,7 +969,7 @@ export function CardListApp() {
               </div>
             </div>
 
-            {/* Row 2: Dedicated Full-Width Collection Status Tabs (All, Owned, Playset, Missing) */}
+            {/* Row 3: Dedicated Full-Width Collection Status Tabs (All, Owned, Playset, Missing) */}
             <div className="w-full">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-zinc-950/80 p-1.5 rounded-xl border border-zinc-800 w-full">
                 {(["All", "Owned", "Playset", "Missing"] as const).map(f => {
@@ -948,10 +1005,10 @@ export function CardListApp() {
               </div>
             </div>
 
-            {/* Row 3: Dedicated Grid Size Switcher (Left) + Collection Action Buttons (Right) */}
-            <div className="flex items-center justify-between gap-2.5 flex-wrap pt-2 border-t border-zinc-800/80">
-              {/* Grid Size Switcher */}
-              <div className="flex items-center bg-zinc-950/80 border border-zinc-800 rounded-xl p-1 h-9 shrink-0 gap-1">
+            {/* Row 4: Grid Size Switcher (100% on mobile) + Collection Actions (100% on mobile) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-zinc-800/80">
+              {/* Grid Size Switcher - 100% full-width on mobile */}
+              <div className="grid grid-cols-3 sm:flex items-center bg-zinc-950/80 border border-zinc-800 rounded-xl p-1 h-10 sm:h-9 shrink-0 gap-1 w-full sm:w-auto">
                 {(["small", "normal", "large"] as const).map(size => {
                   const active = gridSize === size;
                   return (
@@ -959,7 +1016,7 @@ export function CardListApp() {
                       key={size}
                       onClick={() => setGridSize(size)}
                       title={`Card display size: ${size}`}
-                      className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer capitalize font-semibold ${
+                      className={`flex items-center justify-center px-3 py-1.5 sm:py-1 text-xs rounded-lg transition cursor-pointer capitalize font-semibold ${
                         active
                           ? 'text-zinc-50 bg-zinc-800 border border-zinc-600 shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border border-transparent'
@@ -971,14 +1028,14 @@ export function CardListApp() {
                 })}
               </div>
 
-              {/* Collection Actions Buttons */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Collection Actions Buttons - 100% full-width on mobile */}
+              <div className="grid grid-cols-3 sm:flex items-center gap-1.5 w-full sm:w-auto">
                 {/* Deck Builder Button (Per Game Support) */}
                 {(!filters.game || filters.game === 'riftbound') ? (
                   <a
                     href="/deck-builder"
                     title="Open Deck Builder for Riftbound"
-                    className="flex items-center px-3.5 py-1.5 text-xs font-semibold rounded-lg text-zinc-100 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer shadow-sm whitespace-nowrap"
+                    className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-100 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer shadow-sm whitespace-nowrap"
                   >
                     {t('deck_builder', lang)}
                   </a>
@@ -986,7 +1043,7 @@ export function CardListApp() {
                   <button
                     disabled
                     title="Deck Builder is not available for this game yet"
-                    className="flex items-center px-3.5 py-1.5 text-xs font-medium rounded-lg text-zinc-500 bg-zinc-950/40 border border-zinc-800/50 opacity-50 cursor-not-allowed whitespace-nowrap"
+                    className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg text-zinc-500 bg-zinc-950/40 border border-zinc-800/50 opacity-50 cursor-not-allowed whitespace-nowrap"
                   >
                     {t('deck_builder', lang)}
                   </button>
@@ -995,7 +1052,7 @@ export function CardListApp() {
                 <button
                   onClick={() => setShowExportModal(true)}
                   title="Export or copy collection"
-                  className="flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
                 >
                   {t('export', lang)}
                 </button>
@@ -1003,7 +1060,7 @@ export function CardListApp() {
                 <button
                   onClick={() => setShowImportModal(true)}
                   title="Import collection from text list or JSON file"
-                  className="flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
                 >
                   {t('import', lang)}
                 </button>
@@ -1012,7 +1069,7 @@ export function CardListApp() {
                   <button
                     onClick={handleResetCollection}
                     title="Clear tracked collection"
-                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
+                    className="col-span-3 sm:col-span-1 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2 sm:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
                     style={{ background: 'rgba(244,63,94,0.06)' }}
                   >
                     {t('reset', lang)} ({totalOwnedCopies})
@@ -1151,11 +1208,61 @@ export function CardListApp() {
                 ✕
               </button>
             </div>
-            <p className="text-xs text-zinc-400 mb-5">
-              Copy your <span className="text-zinc-200 font-bold">{totalOwnedCopies} owned cards ({uniqueOwnedKeys.length} unique)</span> as text for sharing, or download a JSON backup file.
+            <p className="text-xs text-zinc-400 mb-4">
+              Save your <span className="text-zinc-200 font-bold">{totalOwnedCopies} owned cards ({uniqueOwnedKeys.length} unique)</span> to your cloud database account, copy formatted text for sharing, or download a backup file.
             </p>
 
-            <div className="flex flex-col gap-2.5 my-4">
+            {/* Cloud Database Save Section */}
+            <div className="mb-4 pb-4 border-b border-zinc-800">
+              {currentUser ? (
+                <button
+                  type="button"
+                  onClick={handleSaveToCloud}
+                  disabled={savingToCloud}
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group shadow-lg shadow-indigo-950/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                        <span>{t('save_to_cloud', lang)}</span>
+                        <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
+                      </div>
+                      <div className="text-xs text-indigo-200/70 mt-0.5">
+                        Save current tracked collection ({totalOwnedCopies} cards) to your account database
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
+                    {savingToCloud ? 'Saving…' : 'Save ☁️'}
+                  </span>
+                </button>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400 text-sm">
+                      ☁️
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-zinc-300 truncate">Sign in to save to database</div>
+                      <div className="text-[11px] text-zinc-500 truncate">Sync and backup your collection to your cloud account</div>
+                    </div>
+                  </div>
+                  <a
+                    href="/login"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition border border-zinc-700 shrink-0"
+                  >
+                    {t('sign_in', lang)}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2.5 mb-4">
               {/* Option 1: Copy Detailed Text List */}
               <button
                 onClick={handleCopyCollectionText}
@@ -1251,6 +1358,34 @@ export function CardListApp() {
                 ✕
               </button>
             </div>
+
+            {/* Cloud Restore Option (If Authenticated) */}
+            {currentUser && (
+              <div className="mb-4 pb-4 border-b border-zinc-800">
+                <button
+                  type="button"
+                  onClick={handleRestoreFromCloud}
+                  disabled={restoringFromCloud}
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-indigo-100">{t('restore_from_cloud', lang)}</div>
+                      <div className="text-[11px] text-indigo-200/70">Restore and sync your previously saved cloud collection</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
+                    {restoringFromCloud ? 'Restoring…' : 'Restore ☁️'}
+                  </span>
+                </button>
+              </div>
+            )}
+
             <p className="text-xs text-zinc-400 mb-4">
               Paste a collection list (text with card names/numbers or JSON array) to add to your collection:
             </p>

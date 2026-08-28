@@ -245,7 +245,7 @@ export function ProfileApp() {
       {/* Orders Section */}
       {(isStorePublic || profile.is_admin) && (
         <div className="mb-8">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg sm:text-xl font-black text-zinc-100 flex items-center gap-2">
                 <span>{t('order_history', lang)}</span>
@@ -255,13 +255,13 @@ export function ProfileApp() {
               </p>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex gap-1.5">
+            {/* Status Filter Pills - Scrollable on mobile */}
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full py-1 custom-scrollbar shrink-0">
               {['All', 'Pending', 'Processing', 'Shipped', 'Delivered'].map(st => (
                 <button
                   key={st}
                   onClick={() => setOrderStatusFilter(st)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border ${
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
                     orderStatusFilter === st
                       ? 'bg-zinc-800 border-zinc-600 text-white font-bold'
                       : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
