@@ -131,7 +131,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const reset = () => {
     setTagSearch("");
     setFilters({
-      category: filters.category || 'sealed',
+      category: filters.category || 'singles',
       game: filters.game || 'riftbound',
       set: "",
       rarities: [],

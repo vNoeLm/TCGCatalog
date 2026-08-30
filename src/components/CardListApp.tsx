@@ -19,6 +19,7 @@ const RARITY_WEIGHTS: Record<string, number> = {
 };
 
 const DEFAULT_FILTERS: FilterState = {
+  category: "singles",
   game: "riftbound",
   set: "",
   rarities: [],
