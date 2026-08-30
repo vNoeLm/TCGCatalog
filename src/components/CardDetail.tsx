@@ -143,7 +143,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const messengerUrl = `https://m.me/your-page?ref=${messengerMsg}`;
 
   return (
-    <div style={{ maxWidth: onClose ? '100%' : 1200, margin: '0 auto', padding: onClose ? '40px' : '32px 24px 80px' }}>
+    <div className={`w-full mx-auto relative ${onClose ? 'p-4 sm:p-6 lg:p-8' : 'px-4 sm:px-6 py-6 sm:py-10 max-w-6xl'}`}>
       <style>{`
         @keyframes foilShine {
           0% { background-position: 200% 0; }
@@ -152,55 +152,58 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       `}</style>
       <BackLink onClose={onClose} />
 
-      <div style={{ display:'grid', gridTemplateColumns: onClose ? 'clamp(320px, 45%, 520px) 1fr' : 'clamp(280px, 40%, 460px) 1fr', gap: onClose ? 56 : 48, alignItems:'flex-start' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[clamp(280px,38%,440px)_1fr] gap-6 sm:gap-8 lg:gap-12 items-start">
 
         {/* ── Left: image column ── */}
-        <div>
+        <div className="w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[360px] lg:max-w-none mx-auto">
           {/* Main display — always dark for visual quality */}
-          <div style={{
-            background:'linear-gradient(135deg, #0f172a 0%, #1a1640 50%, #0f172a 100%)',
-            border:`1px solid ${rarityStyle.text}44`,
-            borderRadius:24, overflow:'hidden', position:'relative',
-            padding: 24, display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 0 60px ${rarityStyle.glow}, 0 24px 60px rgba(0,0,0,0.5)`,
-            marginBottom:16,
-          }}>
-            <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize:'32px 32px' }} />
+          <div 
+            style={{
+              border: `1px solid ${rarityStyle.text}44`,
+              boxShadow: `0 0 50px ${rarityStyle.glow}, 0 20px 50px rgba(0,0,0,0.6)`
+            }}
+            className="bg-gradient-to-br from-slate-950 via-indigo-950/40 to-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden relative p-4 sm:p-6 flex items-center justify-center mb-3"
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.05)_1px,transparent_1px)] bg-[size:24px_24px]" />
 
             {activeUrl ? (
-              <div style={{ position:'relative', zIndex:1, width:'100%', borderRadius:8, overflow:'hidden', filter:`drop-shadow(0 8px 24px ${rarityStyle.glow})` }}>
-                <img src={activeUrl} alt={card.name} style={{ width:'100%', height:'auto', display:'block' }} />
+              <div 
+                style={{ filter: `drop-shadow(0 8px 24px ${rarityStyle.glow})` }}
+                className="relative z-10 w-full rounded-lg overflow-hidden"
+              >
+                <img src={activeUrl} alt={card.name} className="w-full h-auto block rounded-lg" />
               </div>
             ) : (
-              <div style={{ position:'relative', zIndex:1, textAlign:'center', color:'#9ca3af' }}>
-                <div style={{ fontSize:80, fontWeight:900, background:'linear-gradient(135deg, #818cf8, #c084fc)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+              <div className="relative z-10 text-center text-zinc-400 py-10">
+                <div className="text-6xl font-black bg-gradient-to-br from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                   {card.name.split(' ').map((w: string) => w[0]).join('').slice(0,2)}
                 </div>
-                <div style={{ fontSize:13, marginTop:8 }}>No image uploaded</div>
+                <div className="text-xs mt-2 font-medium">No image uploaded</div>
               </div>
             )}
 
-            {[['top-4 left-4', 'border-l-2 border-t-2'], ['top-4 right-4', 'border-r-2 border-t-2'], ['bottom-4 left-4', 'border-l-2 border-b-2'], ['bottom-4 right-4', 'border-r-2 border-b-2']].map(([pos, border], i) => (
-              <div key={i} className={`absolute w-7 h-7 ${pos} ${border}`} style={{ borderColor:`${rarityStyle.text}55`, zIndex:2 }} />
+            {[['top-3 left-3', 'border-l-2 border-t-2'], ['top-3 right-3', 'border-r-2 border-t-2'], ['bottom-3 left-3', 'border-l-2 border-b-2'], ['bottom-3 right-3', 'border-r-2 border-b-2']].map(([pos, border], i) => (
+              <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: `${rarityStyle.text}55`, zIndex: 2 }} />
             ))}
           </div>
 
           {/* Thumbnail strip */}
           {allThumbs.length > 0 && (
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <div className="flex gap-2 justify-center lg:justify-start flex-wrap">
               {allThumbs.map((thumb, i) => (
-                <button key={i} onClick={() => setActiveUrl(thumb.url)} title={thumb.label}
+                <button 
+                  key={i} 
+                  onClick={() => setActiveUrl(thumb.url)} 
+                  title={thumb.label}
+                  className={`w-14 h-20 sm:w-16 sm:h-22 rounded-xl overflow-hidden p-0 cursor-pointer border-2 transition-all shrink-0 ${
+                    activeUrl === thumb.url ? 'scale-105 shadow-md' : 'opacity-70 hover:opacity-100'
+                  }`}
                   style={{
-                    width:72, height:96, borderRadius:10, overflow:'hidden', padding:0, cursor:'pointer',
-                    border: activeUrl === thumb.url ? `2px solid ${rarityStyle.text}` : '2px solid rgba(255,255,255,0.15)',
-                    background:'#0d1020', flexShrink:0,
-                    transition: 'border-color 0.15s, transform 0.15s',
-                    transform: activeUrl === thumb.url ? 'scale(1.05)' : 'scale(1)',
+                    borderColor: activeUrl === thumb.url ? rarityStyle.text : 'rgba(255,255,255,0.15)',
+                    background: '#0d1020'
                   }}
-                  onMouseEnter={e => { if (activeUrl !== thumb.url) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; }}
-                  onMouseLeave={e => { if (activeUrl !== thumb.url) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
                 >
-                  <img src={thumb.url} alt={thumb.label} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  <img src={thumb.url} alt={thumb.label} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -208,27 +211,30 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         </div>
 
         {/* ── Right: info column ── */}
-        <div style={{ paddingTop:8 }}>
-          <p style={{ margin:'0 0 8px', fontSize:12, color:'var(--text-muted)', letterSpacing:'0.06em', textTransform:'uppercase', fontWeight:600 }}>
-            {card.sets?.name} · <span style={{ fontFamily:'monospace' }}>{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
+        <div className="w-full min-w-0">
+          <p className="text-[11px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1 truncate">
+            {card.sets?.name} · <span className="font-mono text-zinc-300">{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
           </p>
 
-          <h1 style={{ margin:'0 0 20px', fontSize:40, fontWeight:900, color:'var(--text-primary)', lineHeight:1.05 }}>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-zinc-100 leading-tight mb-3 sm:mb-4 tracking-tight">
             {card.name}
           </h1>
 
           {/* ── Meta rows ── */}
-          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4">
 
             {/* Row 1: Rarity + Lucky */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Rarity icon + label */}
               {(() => {
                 const rarityKey = (card.rarity || '').toLowerCase();
                 const rarityIcon = RARITY_ICONS[rarityKey];
                 return (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: rarityStyle.bg, color: rarityStyle.text, border: `1px solid ${rarityStyle.text}44`, textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 0 12px ${rarityStyle.glow}` }}>
-                    {rarityIcon && <img src={rarityIcon} alt={card.rarity} style={{ width:16, height:16, objectFit:'contain' }} />}
+                  <span 
+                    style={{ background: rarityStyle.bg, color: rarityStyle.text, borderColor: `${rarityStyle.text}44`, boxShadow: `0 0 12px ${rarityStyle.glow}` }}
+                    className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg border uppercase tracking-wider"
+                  >
+                    {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-4 h-4 object-contain" />}
                     {card.rarity}
                   </span>
                 );
@@ -249,7 +255,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 );
                 if (!isSigned) return null;
                 return (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(147, 51, 234, 0.25)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(168, 85, 247, 0.3)' }}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
                     Signed Edition
                   </span>
                 );
@@ -264,7 +270,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
 
                 return (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(236, 72, 153, 0.25)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(236, 72, 153, 0.3)' }}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
                     Alt Art Edition
                   </span>
                 );
@@ -280,27 +286,26 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
 
                 return (
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize: 12, fontWeight: 900, padding: '4px 10px', borderRadius: 8, background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 0 12px rgba(99, 102, 241, 0.3)' }}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
                     Overnumbered Edition
                   </span>
                 );
               })()}
-
             </div>
 
             {/* Properties Grid: Domain, Type, Tags */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+            <div className="flex flex-col gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 
                 {/* Domain */}
                 {domainValue && domainValue !== 'Colorless' && (() => {
                   const domainKey = domainValue.toLowerCase();
                   const domainIcon = RUNE_ICONS[domainKey];
                   return (
-                    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Domain</div>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:15, fontWeight:900, color: colorTint.text }}>
-                        {domainIcon && <img src={domainIcon} alt={domainValue} style={{ width:24, height:24, objectFit:'contain' }} />}
+                    <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
+                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Domain</div>
+                      <div className="flex items-center gap-2 text-sm font-black" style={{ color: colorTint.text }}>
+                        {domainIcon && <img src={domainIcon} alt={domainValue} className="w-5 h-5 object-contain" />}
                         {domainValue}
                       </div>
                     </div>
@@ -314,16 +319,16 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   const typeIcon = TYPE_ICONS[rawType];
                   const superIcon = TYPE_ICONS[superType];
                   return (
-                    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Type</div>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:15, fontWeight:800, color:'var(--text-primary)' }}>
-                        {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} style={{ width:24, height:24, objectFit:'contain' }} />}
-                        {card.card_type}
+                    <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
+                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Type</div>
+                      <div className="flex items-center gap-1.5 text-sm font-bold text-zinc-100 truncate">
+                        {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
+                        <span className="truncate">{card.card_type}</span>
                         {superType && superIcon && (
                           <>
-                            <span style={{ color:'var(--text-muted)', margin:'0 2px' }}>·</span>
-                            <img src={superIcon} alt={superType} title={card.subtype} style={{ width:24, height:24, objectFit:'contain' }} />
-                            <span style={{ color: 'var(--accent-light)' }}>{card.subtype}</span>
+                            <span className="text-zinc-500 mx-0.5">·</span>
+                            <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />
+                            <span className="text-indigo-300 truncate">{card.subtype}</span>
                           </>
                         )}
                       </div>
@@ -337,11 +342,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 const tagArr: string[] = Array.isArray(card.tags) ? card.tags : (card.tags?.tags || []);
                 if (!tagArr || tagArr.length === 0) return null;
                 return (
-                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Tags</div>
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Tags</div>
+                    <div className="flex gap-1.5 flex-wrap">
                       {tagArr.map((tag: string) => (
-                        <span key={tag} style={{ fontSize:13, fontWeight:800, padding:'6px 14px', borderRadius:8, background:'var(--bg-input)', color:'var(--text-primary)', border:'1px solid var(--border-subtle)', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
+                        <span key={tag} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-200 border border-zinc-700">
                           {tag}
                         </span>
                       ))}
@@ -354,18 +359,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
           {/* Numerical Stats Grid */}
           {(card.energy != null || card.might != null) && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12, marginBottom: 24 }}>
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
               {card.energy != null && (
-                <div style={{ background: colorTint.bg, border: `1px solid ${colorTint.border}`, borderRadius: 12, padding: '12px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: colorTint.text, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Energy</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: colorTint.text, textShadow: `0 0 16px ${colorTint.text}44` }}>{card.energy}</div>
+                <div 
+                  style={{ background: colorTint.bg, borderColor: colorTint.border }}
+                  className="border rounded-xl p-3 flex flex-col items-center justify-center text-center"
+                >
+                  <div className="text-[10px] font-black uppercase tracking-wider mb-0.5" style={{ color: colorTint.text }}>Energy</div>
+                  <div className="text-2xl sm:text-3xl font-black" style={{ color: colorTint.text }}>{card.energy}</div>
                 </div>
               )}
               
               {card.might != null && (
-                <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Might</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#f59e0b', textShadow: '0 0 16px rgba(245,158,11,0.4)' }}>{card.might}</div>
+                <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">Might</div>
+                  <div className="text-2xl sm:text-3xl font-black text-amber-400">{card.might}</div>
                 </div>
               )}
             </div>
@@ -373,69 +381,74 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
           {/* Text Abilities */}
           {(card.text || card.ability) && (
-            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '24px', marginBottom: 28 }}>
-              
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
               {card.ability && (
-                <div style={{ marginBottom: card.text ? 24 : 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--accent-light)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>Ability</div>
-                  <div style={{ fontSize: 16, color: 'var(--text-primary)', lineHeight: 2.1, whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
+                <div className={card.text ? "mb-4" : ""}>
+                  <div className="text-xs font-black text-indigo-300 uppercase tracking-wider pb-1.5 mb-2 border-b border-zinc-800">
+                    Ability
+                  </div>
+                  <div className="text-xs sm:text-sm text-zinc-100 leading-relaxed space-y-1" dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
                 </div>
               )}
               
               {card.text && (
-                <div style={{ marginTop: card.ability ? 16 : 0, paddingTop: card.ability ? 16 : 0, borderTop: card.ability ? '1px solid var(--border-subtle)' : 'none' }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Flavor Text</div>
-                  <div style={{ fontSize: 15, color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.8, whiteSpace: 'pre-line' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
+                <div className={card.ability ? "pt-3 border-t border-zinc-800" : ""}>
+                  <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                    Flavor Text
+                  </div>
+                  <div className="text-xs sm:text-sm text-zinc-300 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
               )}
             </div>
           )}
 
           {card.artist && (
-            <div style={{ marginBottom: 20 }}>
-              <p style={{ margin:0, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            <div className="mb-4">
+              <p className="text-xs text-zinc-400 italic">
                 Artist: {card.artist}
               </p>
             </div>
           )}
 
           {/* Collection Tracking Section */}
-          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px', marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-xs font-black text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
                 <span>📦</span> My Collection Tracker
               </div>
               {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
-                <span style={{ fontSize: 11, fontWeight: 900, padding: '2px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.4)' }}>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
                   ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} Total Copies
                 </span>
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Normal Copy Stepper */}
-              <div style={{ flex: 1, minWidth: 140, background: 'var(--bg-surface)', border: (collection[card.id] > 0) ? '1px solid rgba(16,185,129,0.5)' : '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.2s' }}>
+              <div className={`bg-zinc-950 border rounded-xl p-3 flex items-center justify-between transition-colors ${
+                (collection[card.id] > 0) ? 'border-emerald-500/50' : 'border-zinc-800'
+              }`}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
-                    Normal
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Regular Copy</div>
+                  <div className="text-xs font-bold text-zinc-100">Normal</div>
+                  <div className="text-[10px] text-zinc-400">Regular Copy</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleUpdateCount(card.id, false, -1)}
                     disabled={!(collection[card.id] > 0)}
-                    style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: (collection[card.id] > 0) ? 'pointer' : 'not-allowed', opacity: (collection[card.id] > 0) ? 1 : 0.3, fontWeight: 900, fontSize: 14 }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition"
                     title="Decrease count (-1)"
                   >
                     −
                   </button>
-                  <span style={{ minWidth: 22, textAlign: 'center', fontSize: 15, fontWeight: 900, color: (collection[card.id] > 0) ? '#34d399' : 'var(--text-muted)', fontFamily: 'monospace' }}>
+                  <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
+                    (collection[card.id] > 0) ? 'text-emerald-400' : 'text-zinc-500'
+                  }`}>
                     {collection[card.id] || 0}
                   </span>
                   <button
                     onClick={() => handleUpdateCount(card.id, false, 1)}
-                    style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 900, fontSize: 14 }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm cursor-pointer transition"
                     title="Increase count (+1)"
                   >
                     +
@@ -445,28 +458,30 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
               {/* Foil Copy Stepper (for common/uncommon) */}
               {(card.rarity === 'Common' || card.rarity === 'Uncommon') && (
-                <div style={{ flex: 1, minWidth: 140, background: 'var(--bg-surface)', border: (collection[`${card.id}_foil`] > 0) ? '1px solid rgba(245,158,11,0.5)' : '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'border-color 0.2s' }}>
+                <div className={`bg-zinc-950 border rounded-xl p-3 flex items-center justify-between transition-colors ${
+                  (collection[`${card.id}_foil`] > 0) ? 'border-amber-500/50' : 'border-zinc-800'
+                }`}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24' }}>
-                      ★ Foil
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Foil Finish</div>
+                    <div className="text-xs font-bold text-amber-400">★ Foil</div>
+                    <div className="text-[10px] text-zinc-400">Foil Finish</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleUpdateCount(card.id, true, -1)}
                       disabled={!(collection[`${card.id}_foil`] > 0)}
-                      style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: (collection[`${card.id}_foil`] > 0) ? 'pointer' : 'not-allowed', opacity: (collection[`${card.id}_foil`] > 0) ? 1 : 0.3, fontWeight: 900, fontSize: 14 }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition"
                       title="Decrease foil count (-1)"
                     >
                       −
                     </button>
-                    <span style={{ minWidth: 22, textAlign: 'center', fontSize: 15, fontWeight: 900, color: (collection[`${card.id}_foil`] > 0) ? '#fbbf24' : 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
+                      (collection[`${card.id}_foil`] > 0) ? 'text-amber-400' : 'text-zinc-500'
+                    }`}>
                       {collection[`${card.id}_foil`] || 0}
                     </span>
                     <button
                       onClick={() => handleUpdateCount(card.id, true, 1)}
-                      style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27272a', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontWeight: 900, fontSize: 14 }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm cursor-pointer transition"
                       title="Increase foil count (+1)"
                     >
                       +
@@ -477,15 +492,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           </div>
 
-          <div style={{ borderTop:'1px solid var(--border-subtle)', marginBottom:28 }} />
-
           {/* Condition + notes (Inventory only) */}
           {isInventory && (
-            <div style={{ marginBottom:28 }}>
-              <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-muted)' }}>Condition</p>
-              <p style={{ margin:'0 0 12px', fontSize:18, color:'var(--text-primary)', fontWeight:600 }}>{data.condition}</p>
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Condition</p>
+              <p className="text-base sm:text-lg text-zinc-100 font-bold mb-2">{data.condition}</p>
               {data.notes && (
-                <p style={{ margin:0, fontSize:15, color:'var(--text-secondary)', lineHeight:1.7, background:'var(--bg-surface-2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 16px' }}>
+                <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed bg-zinc-950/60 border border-zinc-800 rounded-xl p-3">
                   {data.notes}
                 </p>
               )}
@@ -494,57 +507,39 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
           {/* Price & Status + CTA (Inventory only) */}
           {isInventory && (
-            <>
-              <div style={{ marginBottom:32 }}>
-                <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-muted)' }}>Price</p>
-                <span style={{ fontSize:48, fontWeight:900, color:'#10b981', letterSpacing:'-0.02em' }}>
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
+              <div className="mb-4">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Price</p>
+                <div className="text-3xl sm:text-4xl font-black text-emerald-400">
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
-                </span>
-
+                </div>
               </div>
 
-              <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
-                <span style={{
-                  fontSize:13, fontWeight:700, padding:'7px 16px', borderRadius:20,
-                  background: isAvailable ? 'rgba(34,197,94,0.12)' : 'rgba(251,191,36,0.12)',
-                  color: isAvailable ? '#22c55e' : '#f59e0b',
-                  border:`1px solid ${isAvailable ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`,
-                }}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${
+                  isAvailable 
+                    ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40' 
+                    : 'bg-amber-950/40 text-amber-300 border-amber-500/40'
+                }`}>
                   {data.status === 'In Stock' ? `${data.quantity || 1} In Stock` : data.status}
                 </span>
                 {isAvailable && (
                   <a
-                    href={messengerUrl} target="_blank" rel="noopener noreferrer"
-                    style={{
-                      display:'inline-flex', alignItems:'center', gap:8,
-                      background:'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                      color:'white', textDecoration:'none',
-                      borderRadius:14, padding:'14px 32px',
-                      fontSize:16, fontWeight:800,
-                      boxShadow:'0 4px 24px rgba(99,102,241,0.4)',
-                      transition:'transform 0.15s, filter 0.15s, box-shadow 0.15s'
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.filter = 'brightness(1.12)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.55)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.filter = 'none';
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.boxShadow = '0 4px 24px rgba(99,102,241,0.4)';
-                    }}
+                    href={messengerUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
                   >
                     💬 Reserve on Messenger
                   </a>
                 )}
                 <PriceChartingButton card={card} isFoil={data.is_foil} />
               </div>
-            </>
+            </div>
           )}
 
           {!isInventory && (
-            <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', marginTop: 16 }}>
+            <div className="flex items-center gap-3 flex-wrap pt-2">
               <PriceChartingButton card={card} />
             </div>
           )}
@@ -560,23 +555,7 @@ function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boo
   return (
     <a
       href={url} target="_blank" rel="noopener noreferrer"
-      style={{
-        display:'inline-flex', alignItems:'center', gap:8,
-        background:'var(--bg-surface-2)',
-        color:'var(--text-primary)', textDecoration:'none',
-        borderRadius:14, padding:'14px 24px',
-        fontSize:15, fontWeight:700,
-        border:'1px solid var(--border-subtle)',
-        transition:'all 0.15s'
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background = 'var(--bg-surface-3)';
-        e.currentTarget.style.borderColor = 'var(--accent-border)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = 'var(--bg-surface-2)';
-        e.currentTarget.style.borderColor = 'var(--border-subtle)';
-      }}
+      className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-200 hover:text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition shadow-sm"
     >
       📈 Check on Cardmarket
     </a>
@@ -588,19 +567,10 @@ function BackLink({ onClose }: { onClose?: () => void }) {
     return (
       <button
         onClick={(e) => { e.preventDefault(); onClose(); }}
-        style={{
-          position: 'absolute', top: 24, right: 24, zIndex: 10,
-          width: 44, height: 44, borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
-          color: 'var(--text-secondary)', cursor: 'pointer',
-          transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-        }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface-2)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'scale(1)'; }}
+        className="absolute top-3 right-3 sm:top-5 sm:right-5 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white transition shadow-lg cursor-pointer active:scale-95"
         title="Close (Esc)"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -618,25 +588,7 @@ function BackLink({ onClose }: { onClose?: () => void }) {
           window.location.href = "/";
         }
       }}
-      style={{
-        display:'inline-flex', alignItems:'center', gap:6,
-        color:'var(--text-muted)', fontSize:13, textDecoration:'none',
-        marginBottom:32, padding:'6px 12px', borderRadius:8,
-        border:'1px solid transparent',
-        background:'transparent',
-        cursor:'pointer',
-        transition:'color 0.15s, background 0.15s, border-color 0.15s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.color = '#ffffff';
-        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.color = 'var(--text-muted)';
-        e.currentTarget.style.background = 'transparent';
-        e.currentTarget.style.borderColor = 'transparent';
-      }}
+      className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white mb-4 px-3 py-1.5 rounded-lg border border-transparent hover:border-zinc-800 bg-transparent hover:bg-zinc-900 transition cursor-pointer"
     >
       ← Back to catalog
     </button>

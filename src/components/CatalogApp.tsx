@@ -37,6 +37,17 @@ export function CatalogApp() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
 
+  // Lock background scroll when detail modal is open
+  useEffect(() => {
+    if (selectedInventoryId) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [selectedInventoryId]);
+
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
     const savedSearch = sessionStorage.getItem('inventorySearchQuery');
@@ -333,10 +344,12 @@ export function CatalogApp() {
       {selectedInventoryId && (
         <div 
           onClick={() => setSelectedInventoryId(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', overflowY: 'auto', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '5vh 4vw' }}>
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            style={{ margin: 'auto', width: '100%', maxWidth: 1400, position: 'relative', background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, boxShadow: '0 32px 80px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
+            style={{ touchAction: 'auto' }}
+            className="w-full max-w-5xl my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+          >
             <CardDetail inventoryId={selectedInventoryId} onClose={() => setSelectedInventoryId(null)} />
           </div>
         </div>
