@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl } from '../../lib/supabase';
+import { t, type Language } from '../../lib/i18n';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -10,6 +11,7 @@ interface DeckCatalogProps {
   activeZone: keyof DeckState;
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
+  lang?: Language;
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -35,7 +37,7 @@ const ZONE_TYPE_OPTIONS: Record<keyof DeckState, string[]> = {
   battlefields:['Battlefield'],
 };
 
-export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onAddCard, onPreviewCard }: DeckCatalogProps) {
+export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onAddCard, onPreviewCard, lang = 'en' }: DeckCatalogProps) {
   const [search, setSearch]             = useState('');
   const [typeFilter, setTypeFilter]     = useState<string>('All');
   const [rarityFilter, setRarityFilter] = useState<string>('All');
@@ -191,7 +193,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
       {!legendCard && (
         <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
           <span>✨</span>
-          Select your Legend first — it determines which domains you can play.
+          {t('select_legend_prompt', lang)}
         </div>
       )}
 
@@ -200,7 +202,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input
             type="text"
-            placeholder={!legendCard ? 'Search Legends…' : 'Search cards…'}
+            placeholder={!legendCard ? t('search_legends', lang) : t('search_cards', lang)}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ flex: '1 1 160px', padding: '9px 14px', borderRadius: 8, background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none', fontSize: 14 }}
@@ -216,10 +218,10 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
               display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
               transition: 'all 0.15s',
             }}
-            title={onlyOwned ? "Showing only owned cards (Click to show all cards)" : "Click to filter and show only cards in your collection"}
+            title={onlyOwned ? (lang === 'hu' ? "Csak birtokolt kártyák (Kattints az összeshez)" : "Showing only owned cards (Click to show all cards)") : (lang === 'hu' ? "Szűrés a gyűjteményedben lévő kártyákra" : "Click to filter and show only cards in your collection")}
           >
             <span style={{ fontSize: 14 }}>{onlyOwned ? '✓' : '★'}</span>
-            <span>Owned Only</span>
+            <span>{t('owned_only', lang)}</span>
             {collection.size > 0 && (
               <span style={{
                 fontSize: 11, padding: '1px 6px', borderRadius: 10,
@@ -241,7 +243,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
               display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
             }}
           >
-            Filters
+            {t('filters', lang)}
             {activeFiltersCount > 0 && (
               <span style={{ background: '#6366f1', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{activeFiltersCount}</span>
             )}
@@ -261,10 +263,10 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>★</span> Only Show Owned Cards
+                  <span>★</span> {t('only_show_owned', lang)}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {collection.size > 0 ? `${ownedInCatalogCount} matching cards owned in your collection` : 'No cards currently saved in your collection'}
+                  {collection.size > 0 ? `${ownedInCatalogCount} ${t('matching_cards_owned', lang)}` : (lang === 'hu' ? 'Nincsenek kártyák a gyűjteményedben' : 'No cards currently saved in your collection')}
                 </div>
               </div>
               <button
@@ -284,16 +286,16 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             {/* Row 1: Type (when applicable) + Rarity */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={labelStyle}>Card Type</label>
+                <label style={labelStyle}>{t('type', lang)}</label>
                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle} disabled={!showTypeFilter}>
-                  {showTypeFilter && <option value="All">All Types</option>}
+                  {showTypeFilter && <option value="All">{t('all_types', lang)}</option>}
                   {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={labelStyle}>Set</label>
+                <label style={labelStyle}>{t('set', lang)}</label>
                 <select value={setFilter} onChange={e => setSetFilter(e.target.value)} style={selectStyle}>
-                  <option value="All">All Sets</option>
+                  <option value="All">{t('all_sets', lang)}</option>
                   {availableSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
@@ -301,7 +303,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
 
             {/* Row 2: Rarity chips */}
             <div>
-              <label style={labelStyle}>Rarity</label>
+              <label style={labelStyle}>{t('rarity', lang)}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {['All', ...rarityOptions].map(r => (
                   <button
@@ -315,7 +317,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
                       transition: 'all 0.15s',
                     }}
                   >
-                    {r === 'All' ? 'All' : r}
+                    {r === 'All' ? t('all', lang) : r}
                   </button>
                 ))}
               </div>
@@ -324,7 +326,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             {/* Row 3: Domain chips (hidden for legend/rune/battlefield zones) */}
             {!['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
-                <label style={labelStyle}>Domain</label>
+                <label style={labelStyle}>{t('domain', lang)}</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                   {domainOptions.map(d => {
                     const isActive = domainFilter === d;
@@ -341,7 +343,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
                           transition: 'all 0.15s', textTransform: 'capitalize',
                         }}
                       >
-                        {d === 'All' ? 'All Domains' : d}
+                        {d === 'All' ? t('all_domains', lang) : d}
                       </button>
                     );
                   })}
@@ -351,7 +353,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
 
             {/* Row 4: Cost range */}
             <div>
-              <label style={labelStyle}>Cost Range</label>
+              <label style={labelStyle}>{t('cost_range', lang)}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input, #1e293b)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', flex: 1 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MIN</span>
@@ -376,7 +378,7 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             {activeFiltersCount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={resetFilters} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                  Reset Filters
+                  {t('reset_filters', lang)}
                 </button>
               </div>
             )}

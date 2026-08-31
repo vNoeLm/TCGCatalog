@@ -9,6 +9,7 @@ import { resolveCard } from "./deck-builder/deckSerializer";
 import { getLanguage, t, type Language } from "../lib/i18n";
 import { supabase } from "../lib/supabase";
 import { getCurrentUser, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
+import { syncUserCardInventory, bulkSyncCollectionToUserCards } from "../lib/userCards";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -39,6 +40,24 @@ const DEFAULT_FILTERS: FilterState = {
   baseSetFilter: 'all',
 };
 
+const SORT_OPTIONS = [
+  { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
+  { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
+  { mode: "Price (Low to High)", labelKey: 'sort_price_low' },
+  { mode: "Price (High to Low)", labelKey: 'sort_price_high' },
+  { mode: "Quantity (High to Low)", labelKey: 'sort_qty_high' },
+  { mode: "Quantity (Low to High)", labelKey: 'sort_qty_low' },
+  { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
+  { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
+  { mode: "Name (A to Z)", labelKey: 'sort_name_asc' },
+  { mode: "Name (Z to A)", labelKey: 'sort_name_desc' },
+] as const;
+
+function getSortLabel(mode: string, lang: Language): string {
+  const opt = SORT_OPTIONS.find(o => o.mode === mode);
+  return opt ? t(opt.labelKey as any, lang) : mode;
+}
+
 const BREAKPOINT = 1024;
 const PAGE_SIZE = 48;
 
@@ -55,7 +74,13 @@ export function CardListApp() {
   // Local Collection State (Record mapping cardId / cardId_foil to quantity)
   const [collection, setCollection] = useState<Record<string, number>>({});
   const [collectionFilter, setCollectionFilter] = useState<"All" | "Owned" | "Playset" | "Missing">("All");
-  const [sortMode, setSortMode] = useState<"Card Number (Asc)" | "Card Number (Desc)" | "Rarity (High to Low)" | "Rarity (Low to High)">("Card Number (Asc)");
+  const [sortMode, setSortMode] = useState<
+    "Card Number (Asc)" | "Card Number (Desc)" |
+    "Rarity (High to Low)" | "Rarity (Low to High)" |
+    "Price (Low to High)" | "Price (High to Low)" |
+    "Quantity (High to Low)" | "Quantity (Low to High)" |
+    "Name (A to Z)" | "Name (Z to A)"
+  >("Card Number (Asc)");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
@@ -242,6 +267,19 @@ export function CardListApp() {
       localStorage.setItem("tcg_user_collection", JSON.stringify(next));
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+
+      // Sync role-based surplus inventory to database in background
+      const regularCount = isFoil ? (next[cardId] || 0) : (updated <= 0 ? 0 : updated);
+      const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${cardId}_foil`] || 0);
+      const cardObj = cards.find(c => c.id === cardId);
+      syncUserCardInventory({
+        cardId,
+        ownedCopies: regularCount,
+        foilCopies: foilCount,
+        cardRarity: cardObj?.rarity,
+        cardMarketPriceEur: cardObj?.market_price_eur,
+      }).catch(err => console.warn('Background card sync:', err));
+
       return next;
     });
   };
@@ -250,14 +288,29 @@ export function CardListApp() {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
     setCollection(prev => {
       const next = { ...prev };
+      let newCount = 0;
       if (next[targetKey] && next[targetKey] > 0) {
         delete next[targetKey];
+        newCount = 0;
       } else {
         next[targetKey] = 1;
+        newCount = 1;
       }
       localStorage.setItem("tcg_user_collection", JSON.stringify(next));
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+
+      // Sync role-based surplus inventory to database in background
+      const regularCount = isFoil ? (next[cardId] || 0) : newCount;
+      const foilCount = isFoil ? newCount : (next[`${cardId}_foil`] || 0);
+      const cardObj = cards.find(c => c.id === cardId);
+      syncUserCardInventory({
+        cardId,
+        ownedCopies: regularCount,
+        foilCopies: foilCount,
+        cardMarketPriceEur: cardObj?.market_price_eur,
+      }).catch(err => console.warn('Background card sync:', err));
+
       return next;
     });
   };
@@ -461,6 +514,36 @@ export function CardListApp() {
     }
     
     filtered = [...filtered].sort((a, b) => {
+      if (sortMode === 'Price (Low to High)') {
+        const pA = a.market_price_eur ?? 0;
+        const pB = b.market_price_eur ?? 0;
+        if (pA !== pB) return pA - pB;
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Price (High to Low)') {
+        const pA = a.market_price_eur ?? 0;
+        const pB = b.market_price_eur ?? 0;
+        if (pA !== pB) return pB - pA;
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Quantity (High to Low)') {
+        const qA = (collection[a.id] || 0) + (collection[`${a.id}_foil`] || 0);
+        const qB = (collection[b.id] || 0) + (collection[`${b.id}_foil`] || 0);
+        if (qA !== qB) return qB - qA;
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Quantity (Low to High)') {
+        const qA = (collection[a.id] || 0) + (collection[`${a.id}_foil`] || 0);
+        const qB = (collection[b.id] || 0) + (collection[`${b.id}_foil`] || 0);
+        if (qA !== qB) return qA - qB;
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Name (A to Z)') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortMode === 'Name (Z to A)') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
       if (sortMode === 'Card Number (Asc)' || (sortMode as any) === 'Number (Asc)') {
         return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
       }
@@ -479,7 +562,7 @@ export function CardListApp() {
     });
     
     return filtered;
-  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode]);
+  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode, collection]);
   
   const relevantTotal = relevantCards.length;
   const uniqueOwnedKeys = Object.keys(collection).filter(k => (collection[k] || 0) > 0);
@@ -721,8 +804,19 @@ export function CardListApp() {
     }
     setSavingToCloud(true);
     try {
-      const { error } = await saveCollectionToCloud(collection);
-      if (error) throw error;
+      const priceMap: Record<string, number> = {};
+      cards.forEach(c => {
+        if (c.market_price_eur) priceMap[c.id] = c.market_price_eur;
+      });
+
+      const [{ error: authError }, { error: surplusError }] = await Promise.all([
+        saveCollectionToCloud(collection),
+        bulkSyncCollectionToUserCards(collection, priceMap),
+      ]);
+
+      if (authError) throw authError;
+      if (surplusError) console.warn('Surplus sync warning:', surplusError);
+
       showToast(`☁️ ${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
       showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`);
@@ -916,10 +1010,7 @@ export function CardListApp() {
                     className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
                   >
                     <span className="truncate">
-                      {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
-                       sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
-                       sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
-                       t('sort_rarity_low', lang)}
+                      {getSortLabel(sortMode, lang)}
                     </span>
                     <svg
                       className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
@@ -930,13 +1021,8 @@ export function CardListApp() {
                   </button>
 
                   {sortOpen && (
-                    <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                      {([
-                        { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
-                        { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
-                        { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
-                        { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
-                      ] as const).map(({ mode, labelKey }) => {
+                    <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                      {SORT_OPTIONS.map(({ mode, labelKey }) => {
                         const isSelected = sortMode === mode;
                         return (
                           <button
@@ -1007,10 +1093,7 @@ export function CardListApp() {
                       className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
                     >
                       <span className="truncate">
-                        {sortMode === "Card Number (Asc)" ? t('sort_number_asc', lang) :
-                         sortMode === "Card Number (Desc)" ? t('sort_number_desc', lang) :
-                         sortMode === "Rarity (High to Low)" ? t('sort_rarity_high', lang) :
-                         t('sort_rarity_low', lang)}
+                        {getSortLabel(sortMode, lang)}
                       </span>
                       <svg
                         className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
@@ -1021,13 +1104,8 @@ export function CardListApp() {
                     </button>
 
                     {sortOpen && (
-                      <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {([
-                          { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
-                          { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
-                          { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
-                          { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
-                        ] as const).map(({ mode, labelKey }) => {
+                      <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                        {SORT_OPTIONS.map(({ mode, labelKey }) => {
                           const isSelected = sortMode === mode;
                           return (
                             <button
@@ -1176,8 +1254,8 @@ export function CardListApp() {
               </div>
             ) : paginatedCards.length === 0 ? (
               <div style={{ textAlign: "center", padding: "80px 24px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 18 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>No cards found</h3>
-                <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Try clearing filters or search term to discover cards.</p>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>{lang === 'hu' ? 'Nincs találat' : 'No cards found'}</h3>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>{lang === 'hu' ? 'Próbáld meg törölni a szűrőket vagy a keresési kifejezést.' : 'Try clearing filters or search term to discover cards.'}</p>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
@@ -1203,7 +1281,7 @@ export function CardListApp() {
           <div ref={observerTarget as any} style={{ display: "flex", justifyContent: "center", padding: "30px 0" }}>
             {hasMore && !loading && (
               <div style={{ color: "var(--accent-light)", fontSize: 13, fontWeight: 700 }}>
-                Loading more cards…
+                {lang === 'hu' ? 'További kártyák betöltése…' : 'Loading more cards…'}
               </div>
             )}
           </div>
@@ -1228,17 +1306,17 @@ export function CardListApp() {
                   <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  <span className="font-extrabold text-white text-base">Filter Catalog</span>
+                  <span className="font-extrabold text-white text-base">{lang === 'hu' ? 'Katalógus Szűrése' : 'Filter Catalog'}</span>
                   {activeFilterBadgeCount > 0 && (
                     <span className="px-2 py-0.5 rounded-full bg-indigo-500 text-zinc-950 text-xs font-black">
-                      {activeFilterBadgeCount} active
+                      {lang === 'hu' ? `${activeFilterBadgeCount} aktív` : `${activeFilterBadgeCount} active`}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowMobileFilters(false)}
                   className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
-                  title="Close Filters"
+                  title={lang === 'hu' ? "Szűrők bezárása" : "Close Filters"}
                 >
                   ✕
                 </button>
@@ -1269,7 +1347,7 @@ export function CardListApp() {
                   onClick={() => setShowMobileFilters(false)}
                   className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition cursor-pointer text-center"
                 >
-                  Apply & View {relevantTotal} Cards
+                  {lang === 'hu' ? `Alkalmazás & ${relevantTotal} Kártya Megtekintése` : `Apply & View ${relevantTotal} Cards`}
                 </button>
               </div>
             </div>
@@ -1288,7 +1366,7 @@ export function CardListApp() {
             className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-zinc-100">Export Collection</h3>
+              <h3 className="text-xl font-black text-zinc-100">{t('export_collection', lang)}</h3>
               <button
                 onClick={() => setShowExportModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
@@ -1297,7 +1375,9 @@ export function CardListApp() {
               </button>
             </div>
             <p className="text-xs text-zinc-400 mb-4">
-              Save your <span className="text-zinc-200 font-bold">{totalOwnedCopies} owned cards ({uniqueOwnedKeys.length} unique)</span> to your cloud database account, copy formatted text for sharing, or download a backup file.
+              {lang === 'hu'
+                ? `Mentsd el ${totalOwnedCopies} birtokolt kártyádat (${uniqueOwnedKeys.length} egyedi) felhőfiókodba, másolj formázott szöveges listát vagy tölts le biztonsági mentést.`
+                : `Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
             </p>
 
             {/* Cloud Database Save Section */}
@@ -1321,12 +1401,12 @@ export function CardListApp() {
                         <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
                       </div>
                       <div className="text-xs text-indigo-200/70 mt-0.5">
-                        Save current tracked collection ({totalOwnedCopies} cards) to your account database
+                        {lang === 'hu' ? `Gyűjtemény mentése (${totalOwnedCopies} kártya) a fiókod adatbázisába` : `Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
                       </div>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
-                    {savingToCloud ? 'Saving…' : 'Save ☁️'}
+                    {savingToCloud ? t('saving', lang) : `${t('save', lang)} ☁️`}
                   </span>
                 </button>
               ) : (
@@ -1336,8 +1416,12 @@ export function CardListApp() {
                       ☁️
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-zinc-300 truncate">Sign in to save to database</div>
-                      <div className="text-[11px] text-zinc-500 truncate">Sync and backup your collection to your cloud account</div>
+                      <div className="text-xs font-bold text-zinc-300 truncate">
+                        {lang === 'hu' ? 'Jelentkezz be a felhőbe mentéshez' : 'Sign in to save to database'}
+                      </div>
+                      <div className="text-[11px] text-zinc-500 truncate">
+                        {lang === 'hu' ? 'Szinkronizáld és készíts biztonsági mentést a fiókodba' : 'Sync and backup your collection to your cloud account'}
+                      </div>
                     </div>
                   </div>
                   <a
@@ -1358,10 +1442,10 @@ export function CardListApp() {
               >
                 <div>
                   <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    Copy Formatted Card List
+                    {t('copy_formatted_list', lang)}
                   </div>
                   <div className="text-xs text-zinc-400 mt-0.5">
-                    Grouped by set with quantities, card numbers, names, and foil tags (e.g. 3x Jinx (OGN-030))
+                    {lang === 'hu' ? 'Szettek szerint csoportosított lista darabszámmal és fóliás jelöléssel' : 'Grouped by set with quantities, card numbers, names, and foil tags'}
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1374,10 +1458,10 @@ export function CardListApp() {
               >
                 <div>
                   <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    Copy Simple Card Names
+                    {t('copy_simple_list', lang)}
                   </div>
                   <div className="text-xs text-zinc-400 mt-0.5">
-                    Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])
+                    {lang === 'hu' ? 'Tömör lista darabszámmal (pl. 3x Jinx, Demolitionist [Foil])' : 'Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])'}
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1390,10 +1474,10 @@ export function CardListApp() {
               >
                 <div>
                   <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    Download Collection File (JSON)
+                    {t('download_json_backup', lang)}
                   </div>
                   <div className="text-xs text-zinc-400 mt-0.5">
-                    Full JSON backup file to save on your device or import on another browser
+                    {lang === 'hu' ? 'Teljes JSON mentési fájl eszközre mentéshez vagy más böngészőbe importáláshoz' : 'Full JSON backup file to save on your device or import on another browser'}
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
@@ -1406,10 +1490,10 @@ export function CardListApp() {
               >
                 <div>
                   <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    Copy Raw JSON to Clipboard
+                    {t('copy_raw_json', lang)}
                   </div>
                   <div className="text-xs text-zinc-400 mt-0.5">
-                    Array of card IDs for quick pasting into the Import modal
+                    {lang === 'hu' ? 'Kártya azonosítók tömbje importáláshoz' : 'Array of card IDs for quick pasting into the Import modal'}
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1421,7 +1505,7 @@ export function CardListApp() {
                 onClick={() => setShowExportModal(false)}
                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer"
               >
-                Close
+                {t('close', lang)}
               </button>
             </div>
           </div>
@@ -1439,7 +1523,7 @@ export function CardListApp() {
             className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-zinc-100">Import Collection</h3>
+              <h3 className="text-xl font-black text-zinc-100">{t('import_collection', lang)}</h3>
               <button
                 onClick={() => setShowImportModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
@@ -1465,7 +1549,9 @@ export function CardListApp() {
                     </div>
                     <div>
                       <div className="text-xs font-bold text-indigo-100">{t('restore_from_cloud', lang)}</div>
-                      <div className="text-[11px] text-indigo-200/70">Restore and sync your previously saved cloud collection</div>
+                      <div className="text-[11px] text-indigo-200/70">
+                        {lang === 'hu' ? 'A korábban felhőbe mentett gyűjteményed visszaállítása és szinkronizálása' : 'Restore and sync your previously saved cloud collection'}
+                      </div>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
@@ -1476,7 +1562,7 @@ export function CardListApp() {
             )}
 
             <p className="text-xs text-zinc-400 mb-4">
-              Paste a collection list (text with card names/numbers or JSON array) to add to your collection:
+              {lang === 'hu' ? 'Illeszd be a gyűjtemény listáját (szöveg kártyanevekkel/számokkal vagy JSON tömb):' : 'Paste a collection list (text with card names/numbers or JSON array) to add to your collection:'}
             </p>
             <textarea
               rows={7}
@@ -1490,13 +1576,13 @@ export function CardListApp() {
                 onClick={() => setShowImportModal(false)}
                 className="px-4 py-2 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700/80 rounded-lg text-xs font-bold transition cursor-pointer"
               >
-                Cancel
+                {t('cancel', lang)}
               </button>
               <button
                 onClick={handleImportCollection}
                 className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-lg text-xs font-black transition cursor-pointer shadow-md"
               >
-                Import Cards
+                {t('import_btn', lang)}
               </button>
             </div>
           </div>

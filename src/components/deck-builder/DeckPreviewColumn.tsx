@@ -2,6 +2,7 @@ import React from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl } from '../../lib/supabase';
+import { type Language } from '../../lib/i18n';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
@@ -10,9 +11,10 @@ interface DeckPreviewColumnProps {
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
   onRemoveCard?: (cardId: string) => void;
+  lang?: Language;
 }
 
-export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCardClick, onRemoveCard }: DeckPreviewColumnProps) {
+export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCardClick, onRemoveCard, lang = 'en' }: DeckPreviewColumnProps) {
   // Group cards by ID and count how many we have total
   const getAllCardsGrouped = () => {
     const counts = new Map<string, { card: CatalogCard; qty: number }>();
@@ -50,8 +52,8 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
     return (
       <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
         <div style={{ opacity: 0.25, fontSize: 48 }}>🃏</div>
-        <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Deck is empty</p>
-        <p style={{ margin: 0, fontSize: 12 }}>Add cards from the catalog.</p>
+        <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{lang === 'hu' ? 'A pakli üres' : 'Deck is empty'}</p>
+        <p style={{ margin: 0, fontSize: 12 }}>{lang === 'hu' ? 'Adj hozzá kártyákat a katalógusból.' : 'Add cards from the catalog.'}</p>
       </div>
     );
   }
@@ -59,8 +61,8 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Deck Preview</h2>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{previewCards.reduce((sum, item) => sum + item.qty, 0)} Total</span>
+        <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{lang === 'hu' ? 'Pakli Előnézet' : 'Deck Preview'}</h2>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{previewCards.reduce((sum, item) => sum + item.qty, 0)} {lang === 'hu' ? 'Összesen' : 'Total'}</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '16px 12px' }}>

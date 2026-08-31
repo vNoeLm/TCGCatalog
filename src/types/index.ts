@@ -8,6 +8,8 @@ export interface Game {
 
 export type ProductType = 'single' | 'booster_box' | 'booster_pack' | 'starter_deck' | 'bundle' | 'etb' | 'accessory';
 
+export type UserRole = 'user' | 'admin' | 'owner';
+
 export interface InventoryCard {
   inventory_id: string;
   condition: string;
@@ -39,7 +41,11 @@ export interface InventoryCard {
   domain?: string;
   tags?: any;
   ability?: string;
-  artist?: string;
+  market_price_eur?: number | null;
+  market_price_foil_eur?: number | null;
+  last_price_updated_at?: string | null;
+  inventory_images?: Array<{ image_path: string; display_order?: number }>;
+  inventory_image?: string | null;
 }
 
 export interface CatalogCard {
@@ -66,6 +72,9 @@ export interface CatalogCard {
   tags?: any;
   ability?: string;
   artist?: string;
+  market_price_eur?: number | null;
+  market_price_foil_eur?: number | null;
+  last_price_updated_at?: string | null;
 }
 
 export interface FilterState {
@@ -86,6 +95,9 @@ export interface FilterState {
   overnumberedFilter?: 'all' | 'only' | 'none';
   spFilter?: 'all' | 'only' | 'none';
   baseSetFilter?: 'all' | 'only';
+  page?: number;
+  pageSize?: number;
+  sort?: string;
 }
 
 export interface UserProfile {
@@ -93,8 +105,24 @@ export interface UserProfile {
   email: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  role: UserRole;
   is_admin: boolean;
+  is_owner?: boolean;
   created_at?: string;
+}
+
+export interface UserCard {
+  id: string;
+  user_id: string;
+  card_id: string;
+  owned_copies: number;
+  foil_copies: number;
+  for_sale_copies: number;
+  unit_price: number | null;
+  is_listed_in_store: boolean;
+  created_at?: string;
+  updated_at?: string;
+  cards?: CatalogCard;
 }
 
 export interface SavedDeck {

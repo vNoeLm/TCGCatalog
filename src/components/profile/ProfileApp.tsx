@@ -216,11 +216,21 @@ export function ProfileApp() {
             <div className="text-xs sm:text-sm font-mono text-zinc-400 mt-1">
               {profile.email}
             </div>
-            {profile.is_admin && (
-              <span className="inline-block mt-2 text-[11px] font-black px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
-                Store Admin
-              </span>
-            )}
+            <div className="mt-2 flex items-center gap-2">
+              {profile.is_owner || profile.role === 'owner' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                  <span>👑</span> {t('platform_owner', lang)}
+                </span>
+              ) : profile.is_admin || profile.role === 'admin' ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  <span>🛡️</span> {t('store_admin', lang)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-zinc-850 text-zinc-400 border border-zinc-800">
+                  <span>👤</span> {t('collector', lang)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -251,23 +261,29 @@ export function ProfileApp() {
                 <span>{t('order_history', lang)}</span>
               </h2>
               <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
-                Track the fulfillment and shipping status of your orders
+                {t('orders_subheading', lang)}
               </p>
             </div>
 
             {/* Status Filter Pills - Scrollable on mobile */}
             <div className="flex items-center gap-1.5 overflow-x-auto max-w-full py-1 custom-scrollbar shrink-0">
-              {['All', 'Pending', 'Processing', 'Shipped', 'Delivered'].map(st => (
+              {[
+                { key: 'All', label: t('order_all', lang) },
+                { key: 'Pending', label: t('order_pending', lang) },
+                { key: 'Processing', label: t('order_processing', lang) },
+                { key: 'Shipped', label: t('order_shipped', lang) },
+                { key: 'Delivered', label: t('order_delivered', lang) },
+              ].map(st => (
                 <button
-                  key={st}
-                  onClick={() => setOrderStatusFilter(st)}
+                  key={st.key}
+                  onClick={() => setOrderStatusFilter(st.key)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
-                    orderStatusFilter === st
+                    orderStatusFilter === st.key
                       ? 'bg-zinc-800 border-zinc-600 text-white font-bold'
                       : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
                   }`}
                 >
-                  {st}
+                  {st.label}
                 </button>
               ))}
             </div>
@@ -276,7 +292,7 @@ export function ProfileApp() {
           {/* Orders List */}
           {loadingOrders ? (
             <div className="text-center py-14 text-zinc-400 text-sm font-semibold">
-              Loading your orders…
+              {t('loading_orders', lang)}
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-10 text-center">
@@ -290,14 +306,14 @@ export function ProfileApp() {
               </h3>
               <p className="text-zinc-400 text-xs sm:text-sm mb-5 max-w-sm mx-auto">
                 {orderStatusFilter === 'All'
-                  ? 'You have not placed any orders yet. Browse our store to find rare cards and singles.'
-                  : `You have no orders with status "${orderStatusFilter}".`}
+                  ? t('no_orders_placed', lang)
+                  : t('no_orders_status', lang)}
               </p>
               <a
                 href="/store"
                 className="inline-block px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-xs transition shadow-md"
               >
-                Browse Store
+                {t('browse_store', lang)}
               </a>
             </div>
           ) : (
@@ -307,6 +323,13 @@ export function ProfileApp() {
                 const isShipped = order.status === 'Shipped';
                 const isProcessing = order.status === 'Processing';
                 const isCancelled = order.status === 'Cancelled';
+
+                const statusLabel = 
+                  order.status === 'Pending' ? t('order_pending', lang) :
+                  order.status === 'Processing' ? t('order_processing', lang) :
+                  order.status === 'Shipped' ? t('order_shipped', lang) :
+                  order.status === 'Delivered' ? t('order_delivered', lang) :
+                  order.status;
 
                 return (
                   <div
@@ -318,7 +341,7 @@ export function ProfileApp() {
                       <div>
                         <div className="flex items-center gap-2.5">
                           <span className="text-sm sm:text-base font-black text-zinc-100">
-                            Order #{order.order_number}
+                            {lang === 'hu' ? `Rendelés #${order.order_number}` : `Order #${order.order_number}`}
                           </span>
                           <span
                             className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
@@ -333,16 +356,16 @@ export function ProfileApp() {
                                 : 'bg-zinc-800 border-zinc-700 text-zinc-300'
                             }`}
                           >
-                            {order.status}
+                            {statusLabel}
                           </span>
                         </div>
                         <span className="text-xs text-zinc-500 mt-0.5 block">
-                          Placed on {new Date(order.created_at).toLocaleDateString()}
+                          {lang === 'hu' ? `Leadva: ${new Date(order.created_at).toLocaleDateString('hu-HU')}` : `Placed on ${new Date(order.created_at).toLocaleDateString()}`}
                         </span>
                       </div>
 
                       <div className="text-right">
-                        <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Total</span>
+                        <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">{t('total', lang)}</span>
                         <span className="text-base font-black text-zinc-100 font-mono">
                           {order.total_price_huf?.toLocaleString() || 0} HUF
                         </span>
@@ -352,7 +375,9 @@ export function ProfileApp() {
                     {/* Tracking Info if available */}
                     {order.tracking_number && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-400 mb-3.5">
-                        <span className="font-semibold text-zinc-300">Tracking Number:</span>
+                        <span className="font-semibold text-zinc-300">
+                          {lang === 'hu' ? 'Csomagkövetési szám:' : 'Tracking Number:'}
+                        </span>
                         <span className="font-mono font-bold text-zinc-200">{order.tracking_number}</span>
                       </div>
                     )}

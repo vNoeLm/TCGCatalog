@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import { Navigation } from '../components/Navigation';
 import { GameSelector } from '../components/GameSelector';
+import { LegalFooter } from '../components/LegalFooter';
 
 interface Props {
   title: string;
@@ -27,7 +28,7 @@ const pathname = Astro.url.pathname;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   </head>
-  <body class="min-h-screen font-sans" style="background: var(--bg-page); color: var(--text-primary);">
+  <body class="min-h-screen font-sans pb-16" style="background: var(--bg-page); color: var(--text-primary);">
     <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
@@ -45,6 +46,7 @@ const pathname = Astro.url.pathname;
       </div>
     </header>
     <slot />
+    <LegalFooter client:load />
   </body>
 </html>
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
+import { t, type Language } from '../../lib/i18n';
 
 interface DeckListProps {
   deck: DeckState;
@@ -10,9 +11,10 @@ interface DeckListProps {
   onRemoveCard: (cardId: string, zone: keyof DeckState) => void;
   activeZone: keyof DeckState;
   onSetZone: (zone: keyof DeckState) => void;
+  lang?: Language;
 }
 
-export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, activeZone, onSetZone }: DeckListProps) {
+export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, activeZone, onSetZone, lang = 'en' }: DeckListProps) {
   const [collapsedZones, setCollapsedZones] = useState<Set<keyof DeckState>>(new Set());
 
   const toggleZone = (zone: keyof DeckState, e: React.MouseEvent) => {
@@ -23,7 +25,6 @@ export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, 
     setCollapsedZones(next);
   };
 
-  
   const getCardCounts = (zoneMap: Record<string, number>) => {
     return Object.entries(zoneMap).map(([id, qty]) => {
       const card = cards.find(c => c.id === id);
@@ -42,7 +43,7 @@ export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, 
   const sbTotal = sbCards.reduce((acc, curr) => acc + curr.qty, 0);
 
   const ZoneHeader = ({ title, count, max, exact = false, zoneKey }: { title: string, count: number, max: number, exact?: boolean, zoneKey: keyof DeckState }) => {
-    const isValid = exact ? count === max || (title === 'Sideboard' && count === 0) : count <= max;
+    const isValid = exact ? count === max || (zoneKey === 'sideboard' && count === 0) : count <= max;
     const isActive = activeZone === zoneKey;
     const isCollapsed = collapsedZones.has(zoneKey);
     
@@ -69,7 +70,7 @@ export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, 
             ▼
           </button>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: isActive ? 'var(--accent-light)' : 'var(--text-primary)' }}>{title}</h3>
-          {isActive && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '2px 6px', borderRadius: 10, fontWeight: 800 }}>ACTIVE</span>}
+          {isActive && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '2px 6px', borderRadius: 10, fontWeight: 800 }}>{t('active_badge', lang)}</span>}
         </div>
         <span style={{ fontSize: 14, fontWeight: 700, color: isValid ? (isActive ? 'var(--accent-light)' : 'var(--text-muted)') : '#ef4444' }}>
           {count} / {max}
@@ -100,57 +101,57 @@ export function DeckList({ deck, cards, legendCard, championCard, onRemoveCard, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', overflowY: 'auto', paddingRight: 8 }}>
       
       {/* Legend & Champion */}
-      <ZoneHeader title="Legend Zone" count={legendCard ? 1 : 0} max={1} exact zoneKey="legend" />
+      <ZoneHeader title={t('legend_zone', lang)} count={legendCard ? 1 : 0} max={1} exact zoneKey="legend" />
       {!collapsedZones.has('legend') && (
         <>
-          {legendCard ? <CardRow card={legendCard} zone="legend" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>No Legend selected</div>}
+          {legendCard ? <CardRow card={legendCard} zone="legend" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>{t('no_legend_selected', lang)}</div>}
           
           {legendCard && (
             <div style={{ marginBottom: 12, fontSize: 11, color: 'var(--accent-light)', background: 'var(--accent-muted)', padding: '4px 8px', borderRadius: 6, alignSelf: 'flex-start' }}>
-              Allowed Domains: <strong>{legendCard.domain}</strong>
+              {t('allowed_domains', lang)}: <strong>{legendCard.domain}</strong>
             </div>
           )}
         </>
       )}
 
-      <ZoneHeader title="Chosen Champion" count={championCard ? 1 : 0} max={1} exact zoneKey="champion" />
+      <ZoneHeader title={t('chosen_champion', lang)} count={championCard ? 1 : 0} max={1} exact zoneKey="champion" />
       {!collapsedZones.has('champion') && (
-        championCard ? <CardRow card={championCard} zone="champion" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>No Champion selected</div>
+        championCard ? <CardRow card={championCard} zone="champion" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>{t('no_champion_selected', lang)}</div>
       )}
 
       {/* Main Deck */}
-      <ZoneHeader title="Main Deck" count={mainTotal} max={40} exact zoneKey="mainDeck" />
+      <ZoneHeader title={t('main_deck', lang) || 'Main Deck'} count={mainTotal} max={40} exact zoneKey="mainDeck" />
       {!collapsedZones.has('mainDeck') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {mainCards.map(c => <CardRow key={c.card.id} card={c.card} qty={c.qty} zone="mainDeck" />)}
-          {mainCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
+          {mainCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
         </div>
       )}
 
       {/* Rune Deck */}
-      <ZoneHeader title="Rune Deck" count={runeTotal} max={12} exact zoneKey="runeDeck" />
+      <ZoneHeader title={t('rune_deck', lang)} count={runeTotal} max={12} exact zoneKey="runeDeck" />
       {!collapsedZones.has('runeDeck') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {runeCards.map(c => <CardRow key={c.card.id} card={c.card} qty={c.qty} zone="runeDeck" />)}
-          {runeCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
+          {runeCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
         </div>
       )}
 
       {/* Battlefields */}
-      <ZoneHeader title="Battlefields" count={bfTotal} max={3} exact zoneKey="battlefields" />
+      <ZoneHeader title={t('battlefields', lang)} count={bfTotal} max={3} exact zoneKey="battlefields" />
       {!collapsedZones.has('battlefields') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {bfCards.map(c => <CardRow key={c.card.id} card={c.card} qty={c.qty} zone="battlefields" />)}
-          {bfCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
+          {bfCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
         </div>
       )}
 
       {/* Sideboard */}
-      <ZoneHeader title="Sideboard" count={sbTotal} max={8} exact zoneKey="sideboard" />
+      <ZoneHeader title={t('sideboard', lang)} count={sbTotal} max={8} exact zoneKey="sideboard" />
       {!collapsedZones.has('sideboard') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 24 }}>
           {sbCards.map(c => <CardRow key={c.card.id} card={c.card} qty={c.qty} zone="sideboard" />)}
-          {sbCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
+          {sbCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
         </div>
       )}
 

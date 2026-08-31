@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
-import type { CatalogCard } from '../types';
-import { fetchCardDetail, fetchCardOnly } from '../lib/api';
-import { getCardImageUrl } from '../lib/supabase';
+import { useState, useEffect, useRef } from 'react';
+import type { CatalogCard, UserProfile } from '../types';
+import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '../lib/api';
+import { getCardImageUrl, supabase } from '../lib/supabase';
+import { getCurrentProfile } from '../lib/auth';
+import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
   Common:   { bg: "rgba(31, 41, 55, 0.9)", text: "#cbd5e1", glow: "rgba(203, 213, 225, 0.2)" },
@@ -11,18 +13,10 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
   Showcase: { bg: "rgba(113, 63, 18, 0.9)", text: "#fde047", glow: "rgba(253, 224, 71, 0.6)" },
 };
 
-const DOMAIN_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  Fury:      { bg:"rgba(239,68,68,0.12)",   border:"rgba(239,68,68,0.35)",   text:"#ef4444" },
-  Calm:      { bg:"rgba(34,197,94,0.12)",   border:"rgba(34,197,94,0.35)",   text:"#22c55e" },
-  Mind:      { bg:"rgba(59,130,246,0.12)",  border:"rgba(59,130,246,0.35)",  text:"#3b82f6" },
-  Body:      { bg:"rgba(249,115,22,0.12)",  border:"rgba(249,115,22,0.35)",  text:"#f97316" },
-  Chaos:     { bg:"rgba(168,85,247,0.12)",  border:"rgba(168,85,247,0.35)",  text:"#a855f7" },
-  Order:     { bg:"rgba(234,179,8,0.12)",   border:"rgba(234,179,8,0.35)",   text:"#eab308" },
-  Colorless: { bg:"var(--bg-surface-2)",    border:"var(--border)",          text:"var(--text-secondary)" },
-};
-
 import { formatGameText } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
+import { getLanguage, t, type Language } from '../lib/i18n';
+import { syncUserCardInventory } from '../lib/userCards';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -34,8 +28,30 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isInventory, setIsInventory] = useState(false);
   const [collection, setCollection] = useState<Record<string, number>>({});
+  const [lang, setLang] = useState<Language>('en');
+
+  // Admin Quick Edit State
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [editPriceHuf, setEditPriceHuf] = useState<string>('');
+  const [editCondition, setEditCondition] = useState<string>('Near Mint');
+  const [editQuantity, setEditQuantity] = useState<number>(1);
+  const [isSavingAdmin, setIsSavingAdmin] = useState(false);
+  const [adminFeedback, setAdminFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const adminPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
 
   useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+
     const loadCollection = () => {
       const saved = localStorage.getItem("tcg_user_collection") || localStorage.getItem("tcg_collection");
       if (saved) {
@@ -58,8 +74,23 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       if (custom.detail?.collection) setCollection(custom.detail.collection);
     };
     window.addEventListener('tcg-collection-change', handleColChange);
-    return () => window.removeEventListener('tcg-collection-change', handleColChange);
+
+    getCurrentProfile().then(p => setProfile(p));
+
+    return () => {
+      window.removeEventListener('tcg-lang-change', handleLangChange);
+      window.removeEventListener('tcg-collection-change', handleColChange);
+    };
   }, []);
+
+  // Sync admin state with current card data
+  useEffect(() => {
+    if (data) {
+      setEditPriceHuf(data.price_huf ? String(data.price_huf) : '');
+      setEditCondition(data.condition || 'Near Mint');
+      setEditQuantity(data.quantity || 1);
+    }
+  }, [data]);
 
   const handleUpdateCount = (targetCardId: string, isFoil: boolean, delta: number) => {
     if (!targetCardId) return;
@@ -76,6 +107,199 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     localStorage.setItem("tcg_user_collection", JSON.stringify(next));
     localStorage.setItem("tcg_collection", JSON.stringify(next));
     window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+
+    // Sync role-based surplus inventory to database in background
+    const regularCount = isFoil ? (next[targetCardId] || 0) : (updated <= 0 ? 0 : updated);
+    const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${targetCardId}_foil`] || 0);
+    const cardObj = isInventory ? data?.cards : data;
+    syncUserCardInventory({
+      cardId: targetCardId,
+      ownedCopies: regularCount,
+      foilCopies: foilCount,
+      cardRarity: cardObj?.rarity,
+      cardMarketPriceEur: cardObj?.market_price_eur,
+    }).catch(err => console.warn('Background card sync in detail:', err));
+  };
+
+  // ── Admin Quick Edit Handlers ──
+  const handleAdminSaveDetails = async () => {
+    if (!data?.id) return;
+    setIsSavingAdmin(true);
+    setAdminFeedback(null);
+    try {
+      const numPrice = editPriceHuf ? parseFloat(editPriceHuf) : null;
+      if (numPrice !== null && (isNaN(numPrice) || numPrice < 0)) {
+        setAdminFeedback({ type: 'error', message: 'Please enter a valid price.' });
+        setIsSavingAdmin(false);
+        return;
+      }
+
+      // 1. Try updating inventory table
+      const { data: invRows, error: invErr } = await supabase
+        .from('inventory')
+        .update({
+          price_huf: numPrice,
+          condition: editCondition,
+          quantity: editQuantity > 0 ? editQuantity : 1,
+        })
+        .eq('id', data.id)
+        .select();
+
+      // 2. If not in inventory table, try user_cards surplus
+      if (!invRows || invRows.length === 0) {
+        const effectiveEur = numPrice ? Number((numPrice / 400).toFixed(2)) : null;
+        await supabase
+          .from('user_cards')
+          .update({
+            unit_price: effectiveEur,
+            for_sale_copies: editQuantity,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', data.id);
+      }
+
+      setData((prev: any) => ({
+        ...prev,
+        price_huf: numPrice,
+        condition: editCondition,
+        quantity: editQuantity,
+      }));
+
+      clearStoreCache();
+      clearApiCache();
+      window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+      setAdminFeedback({ type: 'success', message: 'Saved successfully!' });
+    } catch (err: any) {
+      console.error('Admin save error:', err);
+      setAdminFeedback({ type: 'error', message: err.message || 'Failed to save changes.' });
+    } finally {
+      setIsSavingAdmin(false);
+    }
+  };
+
+  const handleAdminUploadPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !data) return;
+
+    setIsUploadingPhoto(true);
+    setAdminFeedback(null);
+
+    try {
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+
+      const uploadRes = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errJson = await uploadRes.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to upload photo.');
+      }
+
+      const { urls } = await uploadRes.json();
+      if (urls && Array.isArray(urls) && urls.length > 0) {
+        // Ensure inventory record exists
+        let targetInvId = data.id;
+        const { data: existingInv } = await supabase
+          .from('inventory')
+          .select('id')
+          .eq('id', data.id)
+          .maybeSingle();
+
+        if (!existingInv) {
+          const cardObj = data.cards || data;
+          const { data: newInv, error: newInvErr } = await supabase
+            .from('inventory')
+            .insert({
+              card_id: cardObj.id,
+              condition: editCondition || 'Near Mint',
+              is_foil: data.is_foil || false,
+              price_huf: editPriceHuf ? parseFloat(editPriceHuf) : null,
+              quantity: editQuantity || 1,
+              status: 'In Stock',
+              notes: 'Showcase / Condition Listing',
+            })
+            .select('id')
+            .single();
+
+          if (newInvErr) throw newInvErr;
+          targetInvId = newInv.id;
+          setData((prev: any) => ({ ...prev, id: targetInvId }));
+        }
+
+        // Insert into inventory_images
+        const currentImgs = data.inventory_images || [];
+        const newImgRows = [];
+        for (let i = 0; i < urls.length; i++) {
+          const order = currentImgs.length + i + 1;
+          const { data: insRow, error: insErr } = await supabase
+            .from('inventory_images')
+            .insert({
+              inventory_id: targetInvId,
+              image_path: urls[i],
+              display_order: order,
+            })
+            .select()
+            .single();
+
+          if (!insErr && insRow) {
+            newImgRows.push(insRow);
+          } else {
+            newImgRows.push({ image_path: urls[i], display_order: order });
+          }
+        }
+
+        const updatedInvImgs = [...currentImgs, ...newImgRows];
+        setData((prev: any) => ({
+          ...prev,
+          inventory_images: updatedInvImgs,
+        }));
+
+        if (urls[0]) setActiveUrl(urls[0]);
+
+        clearStoreCache();
+        clearApiCache();
+        window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+        setAdminFeedback({ type: 'success', message: `${urls.length} photo(s) added!` });
+      }
+    } catch (err: any) {
+      console.error('Admin photo upload error:', err);
+      setAdminFeedback({ type: 'error', message: err.message || 'Failed to upload photo.' });
+    } finally {
+      setIsUploadingPhoto(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleAdminDeletePhoto = async (imagePath: string) => {
+    if (!data?.id || !imagePath) return;
+    try {
+      await supabase
+        .from('inventory_images')
+        .delete()
+        .eq('inventory_id', data.id)
+        .eq('image_path', imagePath);
+
+      const updatedImgs = (data.inventory_images || []).filter((img: any) => img.image_path !== imagePath);
+      setData((prev: any) => ({
+        ...prev,
+        inventory_images: updatedImgs,
+      }));
+
+      if (activeUrl === imagePath) {
+        const nextImg = updatedImgs[0]?.image_path || data?.cards?.image_path;
+        if (nextImg) setActiveUrl(getCardImageUrl(nextImg));
+      }
+
+      clearStoreCache();
+      clearApiCache();
+      window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+      setAdminFeedback({ type: 'success', message: 'Photo deleted.' });
+    } catch (err: any) {
+      console.error('Error deleting photo:', err);
+    }
   };
 
   useEffect(() => {
@@ -91,7 +315,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           setData(row);
           setIsInventory(true);
           const rowData = row as any;
-          const first = rowData?.cards?.image_path || rowData?.inventory_images?.[0]?.image_path;
+          const invImgs: any[] = (rowData?.inventory_images ?? []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+          const first = invImgs[0]?.image_path || rowData?.cards?.image_path;
           if (first) setActiveUrl(getCardImageUrl(first));
           setLoading(false);
         })
@@ -126,16 +351,22 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
   const card = data.cards;
   const domainValue = card.domain || 'Colorless';
+  const parsedDomains = parseDomains(card.domain);
   const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
-  const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
   const isAvailable = data.status === 'In Stock';
 
   const allThumbs: Array<{ url: string; label: string }> = [];
+  const invImgs: any[] = (data.inventory_images ?? []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+
+  // 1. Put actual physical condition photos first
+  invImgs.forEach((img, i) => {
+    allThumbs.push({ url: getCardImageUrl(img.image_path), label: `Photo #${i + 1} (Condition)` });
+  });
+
+  // 2. Put catalog cover artwork
   if (card.image_path) {
-    allThumbs.push({ url: getCardImageUrl(card.image_path), label: 'Cover Art' });
+    allThumbs.push({ url: getCardImageUrl(card.image_path), label: 'Official Art' });
   }
-  const invImgs: any[] = (data.inventory_images ?? []).slice().sort((a: any, b: any) => a.display_order - b.display_order);
-  allThumbs.push(...invImgs.map((img, i) => ({ url: getCardImageUrl(img.image_path), label: `Condition ${i+1}` })));
 
   const messengerMsg = encodeURIComponent(
     `Szia! Érdekel ez a lap: ${card.name} (${card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}) — ${card.rarity?.toUpperCase()} — ${fmt(data.price_huf)}`
@@ -178,7 +409,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 <div className="text-6xl font-black bg-gradient-to-br from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                   {card.name.split(' ').map((w: string) => w[0]).join('').slice(0,2)}
                 </div>
-                <div className="text-xs mt-2 font-medium">No image uploaded</div>
+                <div className="text-xs mt-2 font-medium">{t('no_image', lang)}</div>
               </div>
             )}
 
@@ -213,7 +444,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         {/* ── Right: info column ── */}
         <div className="w-full min-w-0">
           <p className="text-[11px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1 truncate">
-            {card.sets?.name} · <span className="font-mono text-zinc-300">{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
+            {card.sets?.name || t('base_set', lang)} · <span className="font-mono text-zinc-300">{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
           </p>
 
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-zinc-100 leading-tight mb-3 sm:mb-4 tracking-tight">
@@ -240,7 +471,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 );
               })()}
 
-              {/* Signed Badge */}
               {(() => {
                 const num = (card.card_number || '').toUpperCase();
                 const sub = (card.subtype || '').toLowerCase().trim();
@@ -256,12 +486,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!isSigned) return null;
                 return (
                   <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
-                    Signed Edition
+                    {t('signed_edition', lang)}
                   </span>
                 );
               })()}
 
-              {/* Alt Art Badge */}
               {(() => {
                 const numPart = card.card_number?.split('/')[0] || '';
                 const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
@@ -271,12 +500,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 return (
                   <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
-                    Alt Art Edition
+                    {t('alt_art_edition', lang)}
                   </span>
                 );
               })()}
 
-              {/* Overnumbered Badge */}
               {(() => {
                 if (!card.card_number || !card.card_number.includes('/')) return null;
                 const parts = card.card_number.split('/');
@@ -287,32 +515,37 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 return (
                   <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
-                    Overnumbered Edition
+                    {t('overnumbered_edition', lang)}
                   </span>
                 );
               })()}
             </div>
 
-            {/* Properties Grid: Domain, Type, Tags */}
             <div className="flex flex-col gap-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 
-                {/* Domain */}
-                {domainValue && domainValue !== 'Colorless' && (() => {
-                  const domainKey = domainValue.toLowerCase();
-                  const domainIcon = RUNE_ICONS[domainKey];
+                {card.domain && card.domain !== 'Colorless' && (() => {
                   return (
                     <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Domain</div>
-                      <div className="flex items-center gap-2 text-sm font-black" style={{ color: colorTint.text }}>
-                        {domainIcon && <img src={domainIcon} alt={domainValue} className="w-5 h-5 object-contain" />}
-                        {domainValue}
+                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                        {parsedDomains.length > 1 ? t('domains', lang) : t('domain', lang)}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-black flex-wrap">
+                        {parsedDomains.map((d, idx) => {
+                          const icon = RUNE_ICONS[d.key];
+                          return (
+                            <span key={d.key} className="inline-flex items-center gap-1.5" style={{ color: d.border }}>
+                              {icon && <img src={icon} alt={d.name} className="w-5 h-5 object-contain" />}
+                              {d.name}
+                              {idx < parsedDomains.length - 1 && <span className="text-zinc-500 font-normal">/</span>}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* Type */}
                 {(() => {
                   const rawType = (card.card_type || '').toLowerCase();
                   const superType = (card.subtype || '').toLowerCase();
@@ -320,7 +553,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   const superIcon = TYPE_ICONS[superType];
                   return (
                     <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Type</div>
+                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{t('type', lang)}</div>
                       <div className="flex items-center gap-1.5 text-sm font-bold text-zinc-100 truncate">
                         {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
                         <span className="truncate">{card.card_type}</span>
@@ -337,13 +570,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 })()}
               </div>
 
-              {/* Tags */}
               {card.tags && (() => {
                 const tagArr: string[] = Array.isArray(card.tags) ? card.tags : (card.tags?.tags || []);
                 if (!tagArr || tagArr.length === 0) return null;
                 return (
                   <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Tags</div>
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('tags', lang)}</div>
                     <div className="flex gap-1.5 flex-wrap">
                       {tagArr.map((tag: string) => (
                         <span key={tag} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-200 border border-zinc-700">
@@ -357,22 +589,36 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           </div>
 
-          {/* Numerical Stats Grid */}
           {(card.energy != null || card.might != null) && (
             <div className="grid grid-cols-2 gap-2.5 mb-4">
-              {card.energy != null && (
-                <div 
-                  style={{ background: colorTint.bg, borderColor: colorTint.border }}
-                  className="border rounded-xl p-3 flex flex-col items-center justify-center text-center"
-                >
-                  <div className="text-[10px] font-black uppercase tracking-wider mb-0.5" style={{ color: colorTint.text }}>Energy</div>
-                  <div className="text-2xl sm:text-3xl font-black" style={{ color: colorTint.text }}>{card.energy}</div>
-                </div>
-              )}
+              {card.energy != null && (() => {
+                const isMulti = parsedDomains.length > 1;
+                return (
+                  <div 
+                    style={{
+                      background: isMulti
+                        ? `linear-gradient(135deg, ${parsedDomains[0].bg} 0%, ${parsedDomains[0].bg} 50%, ${parsedDomains[1].bg} 50%, ${parsedDomains[1].bg} 100%)`
+                        : (parsedDomains[0]?.bg || 'rgba(75,85,99,0.95)'),
+                      borderColor: isMulti ? 'rgba(255,255,255,0.4)' : (parsedDomains[0]?.border || 'rgba(107,114,128,1)'),
+                      boxShadow: isMulti
+                        ? `0 0 16px ${parsedDomains[0].glow}, 0 0 16px ${parsedDomains[1].glow}`
+                        : `0 0 14px ${parsedDomains[0]?.glow || 'rgba(0,0,0,0.5)'}`,
+                    }}
+                    className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
+                      {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${t('energy', lang)}` : `${parsedDomains[0]?.name || ''} ${t('energy', lang)}`}
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      {card.energy}
+                    </div>
+                  </div>
+                );
+              })()}
               
               {card.might != null && (
                 <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">Might</div>
+                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
                   <div className="text-2xl sm:text-3xl font-black text-amber-400">{card.might}</div>
                 </div>
               )}
@@ -385,7 +631,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {card.ability && (
                 <div className={card.text ? "mb-4" : ""}>
                   <div className="text-xs font-black text-indigo-300 uppercase tracking-wider pb-1.5 mb-2 border-b border-zinc-800">
-                    Ability
+                    {t('ability', lang)}
                   </div>
                   <div className="text-xs sm:text-sm text-zinc-100 leading-relaxed space-y-1" dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
                 </div>
@@ -394,7 +640,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {card.text && (
                 <div className={card.ability ? "pt-3 border-t border-zinc-800" : ""}>
                   <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
-                    Flavor Text
+                    {t('flavor_text', lang)}
                   </div>
                   <div className="text-xs sm:text-sm text-zinc-300 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
@@ -405,97 +651,223 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {card.artist && (
             <div className="mb-4">
               <p className="text-xs text-zinc-400 italic">
-                Artist: {card.artist}
+                {t('artist', lang)}: {card.artist}
               </p>
             </div>
           )}
 
-          {/* Collection Tracking Section */}
-          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="text-xs font-black text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📦</span> My Collection Tracker
-              </div>
-              {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
-                  ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} Total Copies
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Normal Copy Stepper */}
-              <div className={`bg-zinc-950 border rounded-xl p-3 flex items-center justify-between transition-colors ${
-                (collection[card.id] > 0) ? 'border-emerald-500/50' : 'border-zinc-800'
-              }`}>
-                <div>
-                  <div className="text-xs font-bold text-zinc-100">Normal</div>
-                  <div className="text-[10px] text-zinc-400">Regular Copy</div>
+          {/* Collection Tracking Section (Catalog / Personal Collection only, hidden in Store) */}
+          {!isInventory && (
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="text-xs font-black text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📦</span> {t('my_collection_tracker', lang)}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleUpdateCount(card.id, false, -1)}
-                    disabled={!(collection[card.id] > 0)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition"
-                    title="Decrease count (-1)"
-                  >
-                    −
-                  </button>
-                  <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
-                    (collection[card.id] > 0) ? 'text-emerald-400' : 'text-zinc-500'
-                  }`}>
-                    {collection[card.id] || 0}
+                {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                    ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} {t('total_copies', lang)}
                   </span>
-                  <button
-                    onClick={() => handleUpdateCount(card.id, false, 1)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm cursor-pointer transition"
-                    title="Increase count (+1)"
-                  >
-                    +
-                  </button>
-                </div>
+                )}
               </div>
 
-              {/* Foil Copy Stepper (for common/uncommon) */}
-              {(card.rarity === 'Common' || card.rarity === 'Uncommon') && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Normal Copy Stepper */}
                 <div className={`bg-zinc-950 border rounded-xl p-3 flex items-center justify-between transition-colors ${
-                  (collection[`${card.id}_foil`] > 0) ? 'border-amber-500/50' : 'border-zinc-800'
+                  (collection[card.id] > 0) ? 'border-emerald-500/50' : 'border-zinc-800'
                 }`}>
                   <div>
-                    <div className="text-xs font-bold text-amber-400">★ Foil</div>
-                    <div className="text-[10px] text-zinc-400">Foil Finish</div>
+                    <div className="text-xs font-bold text-zinc-100">{t('normal', lang)}</div>
+                    <div className="text-[10px] text-zinc-400">{t('normal_copy', lang)}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleUpdateCount(card.id, true, -1)}
-                      disabled={!(collection[`${card.id}_foil`] > 0)}
+                      onClick={() => handleUpdateCount(card.id, false, -1)}
+                      disabled={!(collection[card.id] > 0)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition"
-                      title="Decrease foil count (-1)"
+                      title="-1"
                     >
                       −
                     </button>
                     <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
-                      (collection[`${card.id}_foil`] > 0) ? 'text-amber-400' : 'text-zinc-500'
+                      (collection[card.id] > 0) ? 'text-emerald-400' : 'text-zinc-500'
                     }`}>
-                      {collection[`${card.id}_foil`] || 0}
+                      {collection[card.id] || 0}
                     </span>
                     <button
-                      onClick={() => handleUpdateCount(card.id, true, 1)}
+                      onClick={() => handleUpdateCount(card.id, false, 1)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm cursor-pointer transition"
-                      title="Increase foil count (+1)"
+                      title="+1"
                     >
                       +
                     </button>
                   </div>
                 </div>
-              )}
+
+                {/* Foil Copy Stepper (for common/uncommon) */}
+                {(card.rarity === 'Common' || card.rarity === 'Uncommon') && (
+                  <div className={`bg-zinc-950 border rounded-xl p-3 flex items-center justify-between transition-colors ${
+                    (collection[`${card.id}_foil`] > 0) ? 'border-amber-500/50' : 'border-zinc-800'
+                  }`}>
+                    <div>
+                      <div className="text-xs font-bold text-amber-400">★ {t('foil_edition', lang)}</div>
+                      <div className="text-[10px] text-zinc-400">{t('foil_finish', lang)}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleUpdateCount(card.id, true, -1)}
+                        disabled={!(collection[`${card.id}_foil`] > 0)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 text-white font-bold text-sm cursor-pointer disabled:cursor-not-allowed transition"
+                        title="-1"
+                      >
+                        −
+                      </button>
+                      <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
+                        (collection[`${card.id}_foil`] > 0) ? 'text-amber-400' : 'text-zinc-500'
+                      }`}>
+                        {collection[`${card.id}_foil`] || 0}
+                      </span>
+                      <button
+                        onClick={() => handleUpdateCount(card.id, true, 1)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm cursor-pointer transition"
+                        title="+1"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* ── Admin & Owner Quick Edit Panel ── */}
+          {isAdmin && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-4 shadow-lg">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-500/20">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚙️</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                    Store Management (Admin & Owner)
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                  Live Edit
+                </span>
+              </div>
+
+              {adminFeedback && (
+                <div className={`mb-3 p-2.5 rounded-lg text-xs font-semibold flex items-center justify-between ${
+                  adminFeedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                }`}>
+                  <span>{adminFeedback.message}</span>
+                  <button type="button" onClick={() => setAdminFeedback(null)} className="ml-2 text-zinc-400 hover:text-white cursor-pointer">✕</button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                {/* Price input */}
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Store Price (HUF)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={editPriceHuf}
+                      onChange={(e) => setEditPriceHuf(e.target.value)}
+                      placeholder="e.g. 2500"
+                      min="0"
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono focus:border-amber-400 outline-none transition"
+                    />
+                    {editPriceHuf && !isNaN(Number(editPriceHuf)) && (
+                      <span className="absolute right-3 top-2.5 text-[10px] text-zinc-500">
+                        ≈ €{(Number(editPriceHuf) / 400).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Condition input */}
+                <div>
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Condition
+                  </label>
+                  <select
+                    value={editCondition}
+                    onChange={(e) => setEditCondition(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
+                  >
+                    <option value="Mint" className="bg-zinc-900 text-zinc-100">Mint</option>
+                    <option value="Near Mint" className="bg-zinc-900 text-zinc-100">Near Mint (NM)</option>
+                    <option value="Lightly Played" className="bg-zinc-900 text-zinc-100">Lightly Played (LP)</option>
+                    <option value="Moderately Played" className="bg-zinc-900 text-zinc-100">Moderately Played (MP)</option>
+                    <option value="Heavily Played" className="bg-zinc-900 text-zinc-100">Heavily Played (HP)</option>
+                    <option value="Damaged" className="bg-zinc-900 text-zinc-100">Damaged (DMG)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Photo Management */}
+              <div className="mb-3 pt-2 border-t border-zinc-800">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
+                    📸 Physical Condition Photos ({data?.inventory_images?.length || 0})
+                  </label>
+                  <input
+                    type="file"
+                    ref={adminPhotoInputRef}
+                    accept="image/*"
+                    multiple
+                    onChange={handleAdminUploadPhotos}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => adminPhotoInputRef.current?.click()}
+                    disabled={isUploadingPhoto}
+                    className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <span>➕</span> {isUploadingPhoto ? 'Uploading…' : 'Add Photos'}
+                  </button>
+                </div>
+
+                {data?.inventory_images && data.inventory_images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto py-1">
+                    {data.inventory_images.map((img: any, idx: number) => (
+                      <div key={idx} className="relative group shrink-0 w-12 h-16 rounded-lg overflow-hidden border border-zinc-700 bg-zinc-900 shadow">
+                        <img src={getCardImageUrl(img.image_path)} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleAdminDeletePhoto(img.image_path)}
+                          title="Delete photo"
+                          className="absolute top-0.5 right-0.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black cursor-pointer shadow opacity-80 group-hover:opacity-100 transition"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Save button */}
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleAdminSaveDetails}
+                  disabled={isSavingAdmin}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-zinc-950 font-black text-xs rounded-xl shadow-md transition transform active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingAdmin ? 'Saving…' : '💾 Save Changes'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Condition + notes (Inventory only) */}
           {isInventory && (
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Condition</p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{t('condition', lang)}</p>
               <p className="text-base sm:text-lg text-zinc-100 font-bold mb-2">{data.condition}</p>
               {data.notes && (
                 <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed bg-zinc-950/60 border border-zinc-800 rounded-xl p-3">
@@ -509,7 +881,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {isInventory && (
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
               <div className="mb-4">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Price</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{t('price', lang)}</p>
                 <div className="text-3xl sm:text-4xl font-black text-emerald-400">
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </div>
@@ -521,7 +893,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40' 
                     : 'bg-amber-950/40 text-amber-300 border-amber-500/40'
                 }`}>
-                  {data.status === 'In Stock' ? `${data.quantity || 1} In Stock` : data.status}
+                  {data.status === 'In Stock' ? `${data.quantity || 1} ${t('in_stock', lang)}` : data.status}
                 </span>
                 {isAvailable && (
                   <a
@@ -530,17 +902,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
                   >
-                    💬 Reserve on Messenger
+                    💬 {t('reserve_on_messenger', lang)}
                   </a>
                 )}
-                <PriceChartingButton card={card} isFoil={data.is_foil} />
+                <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
               </div>
             </div>
           )}
 
           {!isInventory && (
             <div className="flex items-center gap-3 flex-wrap pt-2">
-              <PriceChartingButton card={card} />
+              <PriceChartingButton card={card} lang={lang} />
             </div>
           )}
         </div>
@@ -549,7 +921,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   );
 }
 
-function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boolean }) {
+function PriceChartingButton({ card, isFoil, lang }: { card: CatalogCard, isFoil?: boolean, lang?: Language }) {
   const url = `https://www.cardmarket.com/en/Riftbound/Products/Search?searchString=${encodeURIComponent(card.name)}`;
   
   return (
@@ -557,18 +929,18 @@ function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boo
       href={url} target="_blank" rel="noopener noreferrer"
       className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-200 hover:text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition shadow-sm"
     >
-      📈 Check on Cardmarket
+      📈 {t('check_on_cardmarket', lang)}
     </a>
   );
 }
 
-function BackLink({ onClose }: { onClose?: () => void }) {
+function BackLink({ onClose, lang }: { onClose?: () => void, lang?: Language }) {
   if (onClose) {
     return (
       <button
         onClick={(e) => { e.preventDefault(); onClose(); }}
         className="absolute top-3 right-3 sm:top-5 sm:right-5 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white transition shadow-lg cursor-pointer active:scale-95"
-        title="Close (Esc)"
+        title={t('close', lang)}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -590,7 +962,7 @@ function BackLink({ onClose }: { onClose?: () => void }) {
       }}
       className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-white mb-4 px-3 py-1.5 rounded-lg border border-transparent hover:border-zinc-800 bg-transparent hover:bg-zinc-900 transition cursor-pointer"
     >
-      ← Back to catalog
+      ← {t('back_to_catalog', lang)}
     </button>
   );
 }

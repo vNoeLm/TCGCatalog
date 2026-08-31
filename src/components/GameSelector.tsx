@@ -1,12 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { GAMES } from '../lib/constants';
+import { getLanguage, t, type Language } from '../lib/i18n';
 
 export function GameSelector() {
   const [activeGame, setActiveGame] = useState('riftbound');
   const [isOpen, setIsOpen] = useState(false);
+  const [lang, setLang] = useState<Language>('en');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+
     // Read from localStorage on mount (only active games)
     const saved = localStorage.getItem('tcg_active_game');
     if (saved && GAMES.some(g => g.id === saved && g.active !== false)) {
@@ -34,6 +45,7 @@ export function GameSelector() {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
+      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-game-change', handleGameChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -74,7 +86,7 @@ export function GameSelector() {
       {isOpen && (
         <div className="absolute left-0 mt-1.5 w-56 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800">
-            Select Game
+            {t('select_game', lang)}
           </div>
           {GAMES.map(g => {
             const isSelected = g.id === activeGame;
@@ -92,7 +104,7 @@ export function GameSelector() {
                     <span>{g.name}</span>
                   </div>
                   <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
-                    Soon
+                    {t('soon', lang)}
                   </span>
                 </div>
               );

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { fetchCardsCatalog, clearApiCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility } from '../../lib/api';
+import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
+import { reconcileOwnerPlaysets } from '../../lib/userCards';
+import { getEurToHufRate, eurToHuf } from '../../lib/currency';
 import { GAMES, SEALED_PRODUCT_TYPES } from '../../lib/constants';
 import type { CatalogCard, UserProfile } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
@@ -10,11 +12,13 @@ export function AdminDashboard() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const eurHufRate = getEurToHufRate();
 
   // Store & Inventory State
   const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'settings'>('inventory');
   const [inventoryList, setInventoryList] = useState<any[]>([]);
   const [loadingInventory, setLoadingInventory] = useState(true);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -28,6 +32,10 @@ export function AdminDashboard() {
   const [selectedCard, setSelectedCard] = useState<CatalogCard | null>(null);
   const [condition, setCondition] = useState('Near Mint');
   const [isFoil, setIsFoil] = useState(false);
+  const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([]);
+  const [uploadedImagePreviews, setUploadedImagePreviews] = useState<string[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sealed Product Form State
   const [sealedProductName, setSealedProductName] = useState('');
@@ -88,23 +96,75 @@ export function AdminDashboard() {
   // ─── 3. Fetch Store Inventory & Settings ────────────────────────
   const loadInventory = async () => {
     setLoadingInventory(true);
-    const { data, error } = await supabase
-      .from('inventory')
-      .select(`
-        id, condition, is_foil, price_huf, status, notes, is_bulk, quantity, created_at, updated_at,
-        cards (
-          id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
-          sets ( id, name, code )
-        )
-      `)
-      .order('updated_at', { ascending: false });
+    try {
+      // 1. Fetch user_cards surplus store listings
+      const { data: userCardsData, error: userCardsErr } = await supabase
+        .from('user_cards')
+        .select(`
+          id,
+          owned_copies,
+          foil_copies,
+          for_sale_copies,
+          unit_price,
+          is_listed_in_store,
+          created_at,
+          updated_at,
+          cards (
+            id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
+            market_price_eur, market_price_foil_eur,
+            sets ( id, name, code )
+          )
+        `)
+        .eq('is_listed_in_store', true)
+        .gt('for_sale_copies', 0)
+        .order('updated_at', { ascending: false });
 
-    if (!error && data) {
-      setInventoryList(data);
-    } else if (error) {
-      console.error('Error fetching inventory in dashboard:', error);
+      if (userCardsErr) console.warn('Dashboard user_cards query warning:', userCardsErr);
+
+      const surplusItems = (userCardsData || []).map((row: any) => {
+        const isFoil = row.foil_copies > 0 && row.owned_copies === 0;
+        const effectiveEur = typeof row.unit_price === 'number'
+          ? row.unit_price
+          : (isFoil ? (row.cards?.market_price_foil_eur ?? row.cards?.market_price_eur) : row.cards?.market_price_eur);
+        const priceHuf = effectiveEur ? Math.round(effectiveEur * eurHufRate) : 0;
+
+        return {
+          id: row.id,
+          is_surplus: true,
+          condition: 'Near Mint',
+          is_foil: isFoil,
+          price_huf: priceHuf,
+          status: row.for_sale_copies > 0 ? 'In Stock' : 'Out of Stock',
+          notes: `Owner Playset Surplus (${row.owned_copies} owned, ${row.for_sale_copies} for sale)`,
+          is_bulk: false,
+          quantity: row.for_sale_copies,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          cards: row.cards,
+        };
+      });
+
+      // 2. Fetch legacy inventory items
+      const { data: legacyData, error: legacyErr } = await supabase
+        .from('inventory')
+        .select(`
+          id, condition, is_foil, price_huf, status, notes, is_bulk, quantity, created_at, updated_at,
+          cards (
+            id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
+            sets ( id, name, code )
+          )
+        `)
+        .order('updated_at', { ascending: false });
+
+      if (legacyErr) console.warn('Dashboard inventory query warning:', legacyErr);
+
+      const legacyItems = (legacyData || []).map((item: any) => ({ ...item, is_surplus: false }));
+      setInventoryList([...surplusItems, ...legacyItems]);
+    } catch (e) {
+      console.error('Error fetching inventory in dashboard:', e);
+    } finally {
+      setLoadingInventory(false);
     }
-    setLoadingInventory(false);
   };
 
   const loadSettings = async () => {
@@ -143,18 +203,79 @@ export function AdminDashboard() {
           return;
         }
 
-        const { error } = await supabase.from('inventory').insert({
-          card_id: selectedCard.id,
-          condition,
-          is_foil: isFoil,
-          price_huf: numPrice,
-          quantity: quantity > 0 ? quantity : 1,
-          status,
-          notes: notes.trim() || null,
-        });
+        const isShowcase = selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed';
+        if (isShowcase && uploadedImageFiles.length === 0) {
+          setFeedback({
+            type: 'error',
+            message: 'Showcase and higher rarity items require at least one photo upload of the physical card condition before listing.',
+          });
+          setIsSubmitting(false);
+          return;
+        }
 
-        if (error) throw error;
+        const { data: invRow, error: invError } = await supabase
+          .from('inventory')
+          .insert({
+            card_id: selectedCard.id,
+            condition,
+            is_foil: isFoil,
+            price_huf: numPrice,
+            quantity: quantity > 0 ? quantity : 1,
+            status,
+            notes: notes.trim() || null,
+          })
+          .select('id')
+          .single();
+
+        if (invError) throw invError;
+
+        // Upload all attached photos via backend upload endpoint
+        if (uploadedImageFiles.length > 0) {
+          setIsUploadingImages(true);
+          try {
+            const formData = new FormData();
+            uploadedImageFiles.forEach(file => formData.append('files', file));
+
+            const uploadRes = await fetch('/api/admin/upload-image', {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!uploadRes.ok) {
+              const errJson = await uploadRes.json().catch(() => ({}));
+              throw new Error(errJson.error || 'Failed to upload card images.');
+            }
+
+            const uploadData = await uploadRes.json();
+            const urls: string[] = uploadData.urls || [];
+
+            for (let i = 0; i < urls.length; i++) {
+              await supabase.from('inventory_images').insert({
+                inventory_id: invRow.id,
+                image_path: urls[i],
+                display_order: i + 1,
+              });
+            }
+          } catch (uploadErr: any) {
+            console.error('Image upload failed:', uploadErr);
+          } finally {
+            setIsUploadingImages(false);
+          }
+        }
+
+        clearStoreCache();
+        clearApiCache();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+        }
+
         setFeedback({ type: 'success', message: `Successfully added single "${selectedCard.name}" to store!` });
+        setSelectedCard(null);
+        setPriceHuf('');
+        setNotes('');
+        setUploadedImageFiles([]);
+        setUploadedImagePreviews([]);
+        await loadInventory();
 
       } else {
         // Adding a Sealed Product
@@ -227,42 +348,109 @@ export function AdminDashboard() {
 
   // ─── 5. Actions: Update / Delete Inventory Listing ─────────────
   const handleUpdateStatus = async (id: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('inventory')
-      .update({ status: newStatus })
-      .eq('id', id);
+    const item = inventoryList.find(i => i.id === id);
+    if (item?.is_surplus) {
+      const isListed = newStatus === 'In Stock';
+      const { error } = await supabase
+        .from('user_cards')
+        .update({
+          is_listed_in_store: isListed,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
 
-    if (!error) {
-      setInventoryList(prev => prev.map(item => item.id === id ? { ...item, status: newStatus } : item));
-      clearApiCache();
+      if (!error) {
+        setInventoryList(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
+        clearStoreCache();
+      }
+    } else {
+      const { error } = await supabase
+        .from('inventory')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (!error) {
+        setInventoryList(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
+        clearStoreCache();
+      }
     }
   };
 
   const handleUpdatePrice = async (id: string, newPrice: number) => {
-    const { error } = await supabase
-      .from('inventory')
-      .update({ price_huf: newPrice })
-      .eq('id', id);
+    const item = inventoryList.find(i => i.id === id);
+    if (item?.is_surplus) {
+      const priceEur = Number((newPrice / 400).toFixed(2));
+      const { error } = await supabase
+        .from('user_cards')
+        .update({
+          unit_price: priceEur,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
 
-    if (!error) {
-      setInventoryList(prev => prev.map(item => item.id === id ? { ...item, price_huf: newPrice } : item));
-      clearApiCache();
+      if (!error) {
+        setInventoryList(prev => prev.map(i => i.id === id ? { ...i, price_huf: newPrice } : i));
+        clearStoreCache();
+      }
+    } else {
+      const { error } = await supabase
+        .from('inventory')
+        .update({ price_huf: newPrice })
+        .eq('id', id);
+
+      if (!error) {
+        setInventoryList(prev => prev.map(i => i.id === id ? { ...i, price_huf: newPrice } : i));
+        clearStoreCache();
+      }
     }
   };
 
   const handleDeleteItem = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to remove "${name}" from store inventory?`)) return;
 
-    const { error } = await supabase
-      .from('inventory')
-      .delete()
-      .eq('id', id);
+    const item = inventoryList.find(i => i.id === id);
+    if (item?.is_surplus) {
+      const { error } = await supabase
+        .from('user_cards')
+        .update({
+          for_sale_copies: 0,
+          is_listed_in_store: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
 
-    if (!error) {
-      setInventoryList(prev => prev.filter(item => item.id !== id));
-      clearApiCache();
+      if (!error) {
+        setInventoryList(prev => prev.filter(i => i.id !== id));
+        clearStoreCache();
+      } else {
+        alert(`Error removing surplus listing: ${error.message}`);
+      }
     } else {
-      alert(`Error deleting listing: ${error.message}`);
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        setInventoryList(prev => prev.filter(i => i.id !== id));
+        clearStoreCache();
+      } else {
+        alert(`Error deleting listing: ${error.message}`);
+      }
+    }
+  };
+
+  const handleReconcilePlaysets = async () => {
+    setIsReconciling(true);
+    try {
+      const res = await reconcileOwnerPlaysets();
+      if (res.error) throw res.error;
+      alert(`✓ Playset & Surplus Reconciliation complete!\nChecked ${res.checkedCards} cards in your collection.\nActive store surplus: ${res.surplusCards} unique cards (${res.totalForSale} copies total).`);
+      await loadInventory();
+    } catch (e: any) {
+      alert(`Error during reconciliation: ${e.message || 'Unknown error'}`);
+    } finally {
+      setIsReconciling(false);
     }
   };
 
@@ -396,40 +584,63 @@ export function AdminDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl">
-          <div className={`w-2.5 h-2.5 rounded-full ${isStorePublic ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`} />
-          <span className="text-xs font-bold text-zinc-200">
-            Store is {isStorePublic ? 'Public' : 'in Maintenance'}
-          </span>
-          <button
-            onClick={handleToggleStoreVisibility}
-            disabled={savingSettings}
-            className={`text-xs font-bold px-2.5 py-1 rounded-md transition cursor-pointer border ${
-              isStorePublic
-                ? 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-            }`}
-          >
-            {savingSettings ? 'Saving…' : isStorePublic ? 'Make Private' : 'Make Public'}
-          </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {profile.role === 'owner' && (
+            <button
+              onClick={handleReconcilePlaysets}
+              disabled={isReconciling}
+              className="flex items-center gap-1.5 text-xs font-black px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-300 border border-amber-500/50 shadow-sm transition cursor-pointer disabled:opacity-50"
+              title="Audit owner collection and recalculate surplus listings"
+            >
+              <span>⚡</span> {isReconciling ? 'Reconciling…' : 'Sync Playset Surplus'}
+            </button>
+          )}
+
+          <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl">
+            <div className={`w-2.5 h-2.5 rounded-full ${isStorePublic ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`} />
+            <span className="text-xs font-bold text-zinc-200">
+              Store is {isStorePublic ? 'Public' : 'in Maintenance'}
+            </span>
+            <button
+              onClick={handleToggleStoreVisibility}
+              disabled={savingSettings}
+              className={`text-xs font-bold px-2.5 py-1 rounded-md transition cursor-pointer border ${
+                isStorePublic
+                  ? 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+              }`}
+            >
+              {savingSettings ? 'Saving…' : isStorePublic ? 'Make Private' : 'Make Public'}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-7">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Listings</span>
           <div className="text-2xl sm:text-3xl font-black text-zinc-100 mt-1">{totalItemsCount}</div>
+          <span className="text-[11px] text-zinc-500 mt-0.5 block">Unique catalog cards</span>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">In Stock Items</span>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">In Stock Listings</span>
           <div className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">{inStockCount}</div>
+          <span className="text-[11px] text-zinc-500 mt-0.5 block">Active product rows</span>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Stock Quantity</span>
+          <div className="text-2xl sm:text-3xl font-black text-amber-400 mt-1">
+            {inventoryList.filter(i => i.status === 'In Stock').reduce((sum, item) => sum + (item.quantity || 1), 0)}
+          </div>
+          <span className="text-[11px] text-zinc-500 mt-0.5 block">Available copies for sale</span>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active Inventory Value</span>
           <div className="text-2xl sm:text-3xl font-black text-zinc-100 mt-1">
             {totalValueHuf.toLocaleString()} <span className="text-sm font-semibold text-zinc-400">HUF</span>
           </div>
+          <span className="text-[11px] text-zinc-500 mt-0.5 block">≈ €{(eurHufRate > 0 ? (totalValueHuf / eurHufRate).toFixed(2) : '0.00')} (Rate: 1€ = {eurHufRate} Ft)</span>
         </div>
       </div>
 
@@ -545,7 +756,14 @@ export function AdminDashboard() {
                             </div>
                           )}
                           <div className="min-w-0">
-                            <span className="font-bold text-zinc-100 block truncate">{card?.name || 'Unknown Item'}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-zinc-100 block truncate">{card?.name || 'Unknown Item'}</span>
+                              {item.is_surplus && (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex-shrink-0">
+                                  👑 SURPLUS
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[11px] text-zinc-400 block font-mono">
                               {card?.sets?.name || 'Standard Set'} {card?.card_number ? `• ${card.card_number}` : ''}
                             </span>
@@ -712,28 +930,145 @@ export function AdminDashboard() {
               )}
 
               {selectedCard && (
-                <div className="flex items-center gap-3.5 mt-3 p-3.5 bg-zinc-950 border border-zinc-700 rounded-xl">
-                  {selectedCard.image_path && (
-                    <img
-                      src={`https://xtyfzkqubmzrsvduvzcl.supabase.co/storage/v1/object/public/card-images/${selectedCard.image_path}`}
-                      alt={selectedCard.name}
-                      className="w-10 h-14 object-cover rounded bg-zinc-900 border border-zinc-800 flex-shrink-0"
-                    />
-                  )}
-                  <div>
-                    <div className="text-sm font-black text-zinc-100">{selectedCard.name}</div>
-                    <div className="text-xs font-mono text-zinc-400">
-                      {selectedCard.set_name} • {selectedCard.card_number} • {selectedCard.rarity}
+                <>
+                  <div className="flex items-center gap-3.5 mt-3 p-3.5 bg-zinc-950 border border-zinc-700 rounded-xl">
+                    {selectedCard.image_path && (
+                      <img
+                        src={`https://xtyfzkqubmzrsvduvzcl.supabase.co/storage/v1/object/public/card-images/${selectedCard.image_path}`}
+                        alt={selectedCard.name}
+                        className="w-10 h-14 object-cover rounded bg-zinc-900 border border-zinc-800 flex-shrink-0"
+                      />
+                    )}
+                    <div>
+                      <div className="text-sm font-black text-zinc-100 flex items-center gap-2">
+                        <span>{selectedCard.name}</span>
+                        {(selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed') && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            ⭐ SHOWCASE / CHASE
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs font-mono text-zinc-400">
+                        {selectedCard.set_name} • {selectedCard.card_number} • {selectedCard.rarity}
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCard(null);
+                        setUploadedImageFiles([]);
+                        setUploadedImagePreviews([]);
+                      }}
+                      className="ml-auto text-zinc-400 hover:text-white text-base cursor-pointer p-1"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCard(null)}
-                    className="ml-auto text-zinc-400 hover:text-white text-base cursor-pointer p-1"
-                  >
-                    ✕
-                  </button>
-                </div>
+
+                  {/* SHOWCASE & MULTI-PHOTO UPLOAD SECTION */}
+                  <div className={`mt-3 p-4 rounded-xl border ${
+                    (selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed')
+                      ? 'bg-amber-500/10 border-amber-500/30'
+                      : 'bg-zinc-950 border-zinc-800'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">📸</span>
+                        <span className={`text-xs font-black uppercase tracking-wider ${
+                          (selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed')
+                            ? 'text-amber-300'
+                            : 'text-zinc-300'
+                        }`}>
+                          Card Condition Photos {(selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed') ? '(Required)' : '(Optional)'}
+                        </span>
+                      </div>
+                      {uploadedImageFiles.length > 0 && (
+                        <span className="text-[11px] font-bold text-emerald-400">
+                          {uploadedImageFiles.length} photo{uploadedImageFiles.length > 1 ? 's' : ''} attached
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 mb-3">
+                      {(selectedCard.rarity === 'Showcase' || selectedCard.rarity === 'Special' || selectedCard.rarity === 'Signed')
+                        ? 'Showcase / chase cards require actual physical photographs (front, back, corners) to verify condition and centering.'
+                        : 'Upload real condition photos (front, back, corners) for buyers to view in the store.'}
+                    </p>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) {
+                            setUploadedImageFiles(prev => [...prev, ...files]);
+                            files.forEach(file => {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => {
+                                if (ev.target?.result) {
+                                  setUploadedImagePreviews(prev => [...prev, ev.target!.result as string]);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            });
+                          }
+                          // Reset input so same files can be re-selected if needed
+                          if (e.target) e.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-600 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>➕</span> {uploadedImageFiles.length > 0 ? 'Add More Photos' : 'Upload Card Photos'}
+                      </button>
+                      {uploadedImageFiles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadedImageFiles([]);
+                            setUploadedImagePreviews([]);
+                          }}
+                          className="px-2.5 py-2 text-zinc-400 hover:text-red-400 text-xs transition cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+
+                    {uploadedImagePreviews.length > 0 && (
+                      <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 p-3 bg-zinc-950/90 rounded-xl border border-zinc-800">
+                        {uploadedImagePreviews.map((previewUrl, idx) => (
+                          <div key={idx} className="relative group rounded-lg overflow-hidden border border-zinc-700 bg-zinc-900 aspect-[3/4] flex items-center justify-center shadow-md">
+                            <img
+                              src={previewUrl}
+                              alt={`Preview ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-1 left-1 bg-black/75 px-1.5 py-0.5 rounded text-[9px] font-black text-amber-300">
+                              #{idx + 1}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUploadedImageFiles(prev => prev.filter((_, i) => i !== idx));
+                                setUploadedImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="absolute top-1 right-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-black shadow cursor-pointer transition opacity-90 group-hover:opacity-100"
+                              title="Remove photo"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -822,9 +1157,14 @@ export function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
-                  Price (HUF) *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    Price (HUF) *
+                  </label>
+                  <span className="text-[10px] font-semibold text-zinc-400">
+                    1 € ≈ 400 Ft
+                  </span>
+                </div>
                 <input
                   type="number"
                   placeholder="e.g. 99999"

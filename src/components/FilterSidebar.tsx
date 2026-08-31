@@ -529,7 +529,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {isSealedCategory && (
         <div className="border-b border-white/5 pb-2">
           <SectionHeader
-            label="Product Type"
+            label={lang === 'hu' ? 'Terméktípus' : 'Product Type'}
             badge={filters.sealedTypes?.length || 0}
             open={sealedOpen}
             onToggle={() => setSealedOpen(o => !o)}
@@ -562,7 +562,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && options.tags && options.tags.length > 0 && (
         <div className="border-b border-white/5 pb-2">
           <SectionHeader
-            label="Tags"
+            label={t('tags', lang)}
             badge={filters.tags.length}
             open={tagsOpen}
             onToggle={() => setTagsOpen(o => !o)}
@@ -579,7 +579,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search tags..."
+                  placeholder={lang === 'hu' ? 'Címkék keresése...' : 'Search tags...'}
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-md pl-7 pr-6 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-600"
@@ -614,7 +614,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 })}
                 {filteredTags.length === 0 && (
                   <div className="text-[11px] text-zinc-400 py-1">
-                    No tags matching "{tagSearch}"
+                    {lang === 'hu' ? `Nincs találat erre: "${tagSearch}"` : `No tags matching "${tagSearch}"`}
                   </div>
                 )}
               </div>
@@ -627,7 +627,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && !isPokemon && (
         <div>
           <SectionHeader
-            label="Energy Cost"
+            label={lang === 'hu' ? 'Energiaköltség' : 'Energy Cost'}
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}

@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import type { CatalogCard } from "../types";
 import { getCardImageUrl } from "../lib/supabase";
+import { getEnergyBadgeStyle } from "../lib/domainColors";
+import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -25,19 +28,22 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Showcase: { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
 };
 
-const DOMAIN_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  Fury:      { bg: "rgba(220,38,38,0.95)",   border: "rgba(239,68,68,1)",   text: "#fff" },
-  Calm:      { bg: "rgba(22,163,74,0.95)",   border: "rgba(34,197,94,1)",   text: "#fff" },
-  Mind:      { bg: "rgba(37,99,235,0.95)",   border: "rgba(59,130,246,1)",  text: "#fff" },
-  Body:      { bg: "rgba(249,115,22,0.95)",  border: "rgba(249,115,22,1)",  text: "#fff" },
-  Chaos:     { bg: "rgba(147,51,234,0.95)",  border: "rgba(168,85,247,1)",  text: "#fff" },
-  Order:     { bg: "rgba(234,179,8,0.95)",   border: "rgba(234,179,8,1)",   text: "#fff" },
-  Colorless: { bg: "rgba(75,85,99,0.95)",    border: "rgba(107,114,128,1)", text: "#fff" },
-};
-
 export function CardListItem(props: CardListItemProps) {
   const { card, onClick, gridSize = 'normal' } = props;
   const isSmall = gridSize === 'small';
+  const [lang, setLang] = useState<Language>('en');
+
+  useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
+  }, []);
 
   const normalQty = typeof props.count === 'number' ? props.count : (props.isOwned ?? props.isCollected ? 1 : 0);
   const foilQty = typeof props.foilCount === 'number' ? props.foilCount : (props.isFoilOwned ?? props.isFoilCollected ? 1 : 0);
@@ -46,8 +52,7 @@ export function CardListItem(props: CardListItemProps) {
 
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
   const showFoilToggle = card.rarity === 'Common' || card.rarity === 'Uncommon';
-  const domainValue = card.domain || 'Colorless';
-  const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
+  const energyBadgeStyle = getEnergyBadgeStyle(card.domain);
 
   const handleUpdateNormal = (e: React.MouseEvent, delta: number) => {
     e.preventDefault();
@@ -132,14 +137,12 @@ export function CardListItem(props: CardListItemProps) {
             }}
           >
             <span
-              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md"
+              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md select-none"
               style={{
-                background: colorTint.bg,
-                color: colorTint.text,
-                border: `clamp(1.5px, 0.7cqi, 3px) solid ${colorTint.border}`,
-                boxShadow: `0 0 clamp(6px, 2.5cqi, 16px) ${colorTint.bg}`,
+                ...energyBadgeStyle,
                 fontSize: 'clamp(10px, 7.2cqi, 28px)',
                 lineHeight: 1,
+                textShadow: '0 1px 3px rgba(0,0,0,0.8)',
               }}
             >
               {card.energy}
@@ -275,10 +278,10 @@ export function CardListItem(props: CardListItemProps) {
             <button
               onClick={(e) => handleUpdateNormal(e, 1)}
               className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
-              title="Add normal copy to collection"
+              title={lang === 'hu' ? "Normál példány hozzáadása a gyűjteményhez" : "Add normal copy to collection"}
             >
               <span className="text-sm font-black opacity-70">+</span>
-              <span>{showFoilToggle ? 'Normal' : (isSmall ? 'Add' : 'Add to Vault')}</span>
+              <span>{showFoilToggle ? (lang === 'hu' ? 'Normál' : 'Normal') : (isSmall ? (lang === 'hu' ? 'Hozzáadás' : 'Add') : (lang === 'hu' ? 'Hozzáadás' : 'Add to Vault'))}</span>
             </button>
           ) : (
             <div 
@@ -287,7 +290,7 @@ export function CardListItem(props: CardListItemProps) {
             >
               <button
                 onClick={(e) => handleUpdateNormal(e, -1)}
-                title="Decrease quantity (-1)"
+                title={lang === 'hu' ? "Mennyiség csökkentése (-1)" : "Decrease quantity (-1)"}
                 className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 −
@@ -297,7 +300,7 @@ export function CardListItem(props: CardListItemProps) {
               </span>
               <button
                 onClick={(e) => handleUpdateNormal(e, 1)}
-                title="Increase quantity (+1)"
+                title={lang === 'hu' ? "Mennyiség növelése (+1)" : "Increase quantity (+1)"}
                 className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 +
@@ -311,7 +314,7 @@ export function CardListItem(props: CardListItemProps) {
               <button
                 onClick={(e) => handleUpdateFoil(e, 1)}
                 className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
-                title="Add foil copy to collection"
+                title={lang === 'hu' ? "Fóliás példány hozzáadása a gyűjteményhez" : "Add foil copy to collection"}
               >
                 <span className="text-sm font-black opacity-70">+</span>
                 <span>Foil</span>
@@ -323,7 +326,7 @@ export function CardListItem(props: CardListItemProps) {
               >
                 <button
                   onClick={(e) => handleUpdateFoil(e, -1)}
-                  title="Decrease foil quantity (-1)"
+                  title={lang === 'hu' ? "Fóliás mennyiség csökkentése (-1)" : "Decrease foil quantity (-1)"}
                   className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
                 >
                   −
@@ -333,7 +336,7 @@ export function CardListItem(props: CardListItemProps) {
                 </span>
                 <button
                   onClick={(e) => handleUpdateFoil(e, 1)}
-                  title="Increase foil quantity (+1)"
+                  title={lang === 'hu' ? "Fóliás mennyiség növelése (+1)" : "Increase foil quantity (+1)"}
                   className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
                 >
                   +

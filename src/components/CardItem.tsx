@@ -1,9 +1,13 @@
+import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
 import { getCardImageUrl } from "../lib/supabase";
+import { getEnergyBadgeStyle } from "../lib/domainColors";
+import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface CardItemProps {
   card: InventoryCard;
   onClick: (id: string) => void;
+  gridSize?: "small" | "normal" | "large";
 }
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
@@ -12,16 +16,6 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Rare:     { bg: "rgba(88, 28, 135, 0.95)", text: "#d8b4fe", glow: "rgba(168, 85, 247, 0.5)",  border: "#c084fc" },
   Epic:     { bg: "rgba(154, 52, 18, 0.95)", text: "#fb923c", glow: "rgba(249, 115, 22, 0.5)",  border: "#fb923c" },
   Showcase: { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
-};
-
-const DOMAIN_TINTS: Record<string, { bg: string; border: string; text: string }> = {
-  Fury:      { bg: "rgba(220,38,38,0.95)",   border: "rgba(239,68,68,1)",   text: "#fff" },
-  Calm:      { bg: "rgba(22,163,74,0.95)",   border: "rgba(34,197,94,1)",   text: "#fff" },
-  Mind:      { bg: "rgba(37,99,235,0.95)",   border: "rgba(59,130,246,1)",  text: "#fff" },
-  Body:      { bg: "rgba(249,115,22,0.95)",  border: "rgba(249,115,22,1)",  text: "#fff" },
-  Chaos:     { bg: "rgba(147,51,234,0.95)",  border: "rgba(168,85,247,1)",  text: "#fff" },
-  Order:     { bg: "rgba(234,179,8,0.95)",   border: "rgba(234,179,8,1)",   text: "#fff" },
-  Colorless: { bg: "rgba(75,85,99,0.95)",    border: "rgba(107,114,128,1)", text: "#fff" },
 };
 
 const TYPE_ICONS: Record<string, string> = {
@@ -38,12 +32,26 @@ const TYPE_ICONS: Record<string, string> = {
   'bundle': "🎁",
 };
 
-export function CardItem({ card, onClick }: CardItemProps) {
+export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) {
+  const [lang, setLang] = useState<Language>('en');
+  const isSmall = gridSize === 'small';
+
+  useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
+  }, []);
+
   const isSealed = card.product_type && card.product_type !== 'single';
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
   const typeIcon = TYPE_ICONS[card.product_type || card.card_type] ?? (isSealed ? "📦" : "🃏");
-  const domainValue = card.domain || 'Colorless';
-  const colorTint = DOMAIN_TINTS[domainValue] ?? DOMAIN_TINTS.Colorless;
+  const energyBadgeStyle = getEnergyBadgeStyle(card.domain);
 
   return (
     <div
@@ -86,8 +94,16 @@ export function CardItem({ card, onClick }: CardItemProps) {
           )}
         </div>
 
-        {/* Top right badges: Signed / Alt Art / Overnumbered (ON) */}
+        {/* Top right badges: Photos / Signed / Alt Art / Overnumbered (ON) */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
+          {card.inventory_images && card.inventory_images.length > 0 && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-amber-400 text-zinc-950 border border-amber-200 shadow-md flex items-center gap-1"
+              title="Real physical condition photos attached"
+            >
+              <span>📸</span> {card.inventory_images.length} {card.inventory_images.length === 1 ? 'Photo' : 'Photos'}
+            </span>
+          )}
           {(() => {
             const num = (card.card_number || '').toUpperCase();
             const sub = (card.subtype || '').toLowerCase().trim();
@@ -178,14 +194,12 @@ export function CardItem({ card, onClick }: CardItemProps) {
             }}
           >
             <span
-              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md"
+              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md select-none"
               style={{
-                background: colorTint.bg,
-                color: colorTint.text,
-                border: `clamp(1.5px, 0.7cqi, 3px) solid ${colorTint.border}`,
-                boxShadow: `0 0 clamp(6px, 2.5cqi, 16px) ${colorTint.bg}`,
+                ...energyBadgeStyle,
                 fontSize: 'clamp(10px, 7.2cqi, 28px)',
                 lineHeight: 1,
+                textShadow: '0 1px 3px rgba(0,0,0,0.8)',
               }}
             >
               {card.energy}
@@ -226,44 +240,44 @@ export function CardItem({ card, onClick }: CardItemProps) {
       </button>
 
       {/* Info section */}
-      <div className="p-3.5 flex flex-col flex-grow">
+      <div className={`${isSmall ? 'p-2.5' : 'p-3.5'} flex flex-col flex-grow`}>
         {/* Card Title */}
-        <h3 className="text-sm font-semibold text-zinc-100 leading-tight line-clamp-2">
+        <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>
           {card.name}
         </h3>
 
         {/* Set name */}
-        <p className="text-zinc-300 text-[11px] font-medium truncate mt-1 mb-1.5">
+        <p className={`text-zinc-300 ${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
 
         {/* Bottom Spec Bar (Number · Type) */}
-        <div className="flex items-center text-zinc-300 font-mono text-[11px] mb-2.5">
+        <div className={`flex items-center text-zinc-300 font-mono ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2.5'}`}>
           <span className="truncate">
             {isSealed ? card.condition : (card.card_number?.includes('-') || !card.set_code ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
           </span>
-          <span className="text-zinc-400 font-bold mx-1.5 flex-shrink-0">·</span>
+          <span className="text-zinc-400 font-bold mx-1 flex-shrink-0">·</span>
           <span className="capitalize flex-shrink-0">
             {typeIcon} {isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}
           </span>
         </div>
 
         {/* Price + Buy */}
-        <div className="mt-auto flex items-center justify-between pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className={`mt-auto flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2.5'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
-            <span className="text-lg font-black text-emerald-400">
+            <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-emerald-400`}>
               {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}
             </span>
             <span style={{
-              display: 'block', fontSize: 10, fontWeight: 700, marginTop: 2,
+              display: 'block', fontSize: isSmall ? 9 : 10, fontWeight: 700, marginTop: 1,
               color: card.status === 'In Stock' ? '#86efac' : card.status === 'Reserved' ? '#fde68a' : '#71717a',
             }}>
-              {card.status === 'In Stock' ? `${card.quantity || 1} In Stock` : card.status}
+              {card.status === 'In Stock' ? `${card.quantity || 1} ${t('in_stock', lang)}` : (card.status === 'Reserved' && lang === 'hu' ? 'Lefoglalva' : card.status)}
             </span>
           </div>
           <button
             onClick={() => onClick(card.inventory_id)}
-            className="text-xs font-medium px-4 py-1.5 rounded-md transition-all active:scale-95 text-zinc-200"
+            className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-4 py-1.5'} font-medium rounded-md transition-all active:scale-95 text-zinc-200`}
             style={{
               background: "#27272a",
               border: "1px solid rgba(255,255,255,0.1)",
@@ -272,7 +286,7 @@ export function CardItem({ card, onClick }: CardItemProps) {
             onMouseEnter={(e) => (e.currentTarget.style.background = "#3f3f46")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#27272a")}
           >
-            View
+            {lang === 'hu' ? 'Megtekintés' : 'View'}
           </button>
         </div>
       </div>

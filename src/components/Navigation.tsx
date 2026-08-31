@@ -325,7 +325,7 @@ export function Navigation({ currentPath }: NavigationProps) {
             {/* Footer: Language Selector & Sign Out */}
             <div className="flex items-center justify-between pt-2.5 border-t border-zinc-800/80">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-400">Language:</span>
+                <span className="text-xs font-semibold text-zinc-400">{lang === 'hu' ? 'Nyelv:' : 'Language:'}</span>
                 <LanguageSelector />
               </div>
 

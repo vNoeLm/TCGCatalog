@@ -7,6 +7,7 @@ import { getCurrentProfile } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES } from "../lib/constants";
 import type { InventoryCard, FilterState } from "../types";
+import { getLanguage, t, type Language } from "../lib/i18n";
 
 const DEFAULT_FILTERS: FilterState = {
   category: "singles",
@@ -28,14 +29,74 @@ const DEFAULT_FILTERS: FilterState = {
   baseSetFilter: 'all',
 };
 
+const RARITY_WEIGHTS: Record<string, number> = {
+  'Common': 1,
+  'Uncommon': 2,
+  'Rare': 3,
+  'Epic': 5,
+  'Showcase': 7,
+};
+
+const SORT_OPTIONS = [
+  { mode: "Price (Low to High)", labelKey: 'sort_price_low' },
+  { mode: "Price (High to Low)", labelKey: 'sort_price_high' },
+  { mode: "Quantity (High to Low)", labelKey: 'sort_qty_high' },
+  { mode: "Quantity (Low to High)", labelKey: 'sort_qty_low' },
+  { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
+  { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
+  { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
+  { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
+  { mode: "Name (A to Z)", labelKey: 'sort_name_asc' },
+  { mode: "Name (Z to A)", labelKey: 'sort_name_desc' },
+] as const;
+
+function getSortLabel(mode: string, lang: Language): string {
+  const opt = SORT_OPTIONS.find(o => o.mode === mode);
+  return opt ? t(opt.labelKey as any, lang) : mode;
+}
+
 export function CatalogApp() {
   const BREAKPOINT = 900;
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [isWide, setIsWide] = useState(true);
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
+  const [sortMode, setSortMode] = useState<
+    "Price (Low to High)" | "Price (High to Low)" |
+    "Quantity (High to Low)" | "Quantity (Low to High)" |
+    "Card Number (Asc)" | "Card Number (Desc)" |
+    "Rarity (High to Low)" | "Rarity (Low to High)" |
+    "Name (A to Z)" | "Name (Z to A)"
+  >("Price (Low to High)");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
+  const [lang, setLang] = useState<Language>('en');
+
+  useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
+  }, []);
+
+  // Close sort dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Lock background scroll when detail modal is open
   useEffect(() => {
@@ -55,6 +116,9 @@ export function CatalogApp() {
 
     const savedGrid = sessionStorage.getItem('inventoryGridSize');
     if (savedGrid) setGridSize(savedGrid as 'small'|'normal'|'large');
+
+    const savedSort = sessionStorage.getItem('inventorySortMode');
+    if (savedSort) setSortMode(savedSort as any);
 
     const savedGame = localStorage.getItem('tcg_active_game');
     const savedFilters = sessionStorage.getItem('inventoryFilters');
@@ -125,6 +189,58 @@ export function CatalogApp() {
   useEffect(() => { if (isInitialized) sessionStorage.setItem('inventoryFilters', JSON.stringify(filters)); }, [filters, isInitialized]);
   useEffect(() => { if (isInitialized) sessionStorage.setItem('inventorySearchQuery', searchQuery); }, [searchQuery, isInitialized]);
   useEffect(() => { if (isInitialized) sessionStorage.setItem('inventoryGridSize', gridSize); }, [gridSize, isInitialized]);
+  useEffect(() => { if (isInitialized) sessionStorage.setItem('inventorySortMode', sortMode); }, [sortMode, isInitialized]);
+
+  // Sort store items
+  const sortedCards = useMemo(() => {
+    return [...cards].sort((a, b) => {
+      if (sortMode === 'Price (Low to High)') {
+        const pA = a.price_huf ?? 0;
+        const pB = b.price_huf ?? 0;
+        if (pA !== pB) return pA - pB;
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Price (High to Low)') {
+        const pA = a.price_huf ?? 0;
+        const pB = b.price_huf ?? 0;
+        if (pA !== pB) return pB - pA;
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Quantity (High to Low)') {
+        const qA = a.quantity || 0;
+        const qB = b.quantity || 0;
+        if (qA !== qB) return qB - qA;
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Quantity (Low to High)') {
+        const qA = a.quantity || 0;
+        const qB = b.quantity || 0;
+        if (qA !== qB) return qA - qB;
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Name (A to Z)') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortMode === 'Name (Z to A)') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (sortMode === 'Card Number (Asc)') {
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Card Number (Desc)') {
+        return (b.card_number || '').localeCompare(a.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Rarity (High to Low)' || sortMode === 'Rarity (Low to High)') {
+        const wA = RARITY_WEIGHTS[a.rarity] || 0;
+        const wB = RARITY_WEIGHTS[b.rarity] || 0;
+        if (wA !== wB) {
+          return sortMode === 'Rarity (High to Low)' ? wB - wA : wA - wB;
+        }
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      return 0;
+    });
+  }, [cards, sortMode]);
 
   // Fetch initial batch whenever filters or search query change
   useEffect(() => {
@@ -133,7 +249,7 @@ export function CatalogApp() {
     setPage(1);
 
     const timer = setTimeout(async () => {
-      const { data, count } = await fetchInventory(filters, searchQuery, 1);
+      const { data, count } = await fetchInventory(filters, searchQuery, 1, true);
       if (isMounted) {
         setCards(data);
         setTotalCount(count ?? data.length);
@@ -141,9 +257,20 @@ export function CatalogApp() {
       }
     }, 200);
 
+    const handleStoreChange = async () => {
+      if (!isMounted) return;
+      const { data, count } = await fetchInventory(filters, searchQuery, 1, true);
+      if (isMounted) {
+        setCards(data);
+        setTotalCount(count ?? data.length);
+      }
+    };
+    window.addEventListener('tcg-store-inventory-change', handleStoreChange);
+
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      window.removeEventListener('tcg-store-inventory-change', handleStoreChange);
     };
   }, [filters, searchQuery]);
 
@@ -205,14 +332,14 @@ export function CatalogApp() {
   if (!accessChecked) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <span style={{ color: '#818cf8', fontSize: 16, fontWeight: 700 }}>Loading Store…</span>
+        <span style={{ color: '#818cf8', fontSize: 16, fontWeight: 700 }}>{lang === 'hu' ? 'Bolt betöltése…' : 'Loading Store…'}</span>
       </div>
     );
   }
 
   // Locked screen for non-admins when store is in private maintenance
   if (!canAccess) {
-    return <ComingSoonScreen />;
+    return <ComingSoonScreen lang={lang} />;
   }
 
   return (
@@ -234,7 +361,7 @@ export function CatalogApp() {
                       : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
                   }`}
                 >
-                  <span>{cat.label}</span>
+                  <span>{cat.id === 'singles' ? (lang === 'hu' ? 'Egyedi lapok' : 'Singles') : (lang === 'hu' ? 'Bontatlan termékek' : 'Sealed Product')}</span>
                 </button>
               );
             })}
@@ -262,12 +389,59 @@ export function CatalogApp() {
                     </svg>
                     <input
                       type="text"
-                      placeholder="Search store by name, card number, set, or artist..."
+                      placeholder={t('search_placeholder', lang)}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full h-11 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
                     />
                   </div>
+
+                  {/* Sort Dropdown on Desktop */}
+                  <div className="relative w-56 shrink-0 z-40" ref={sortRef}>
+                    <button
+                      type="button"
+                      onClick={() => setSortOpen(prev => !prev)}
+                      className="w-full h-11 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-700/80 hover:border-zinc-600 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                    >
+                      <span className="truncate">
+                        {getSortLabel(sortMode, lang)}
+                      </span>
+                      <svg
+                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {sortOpen && (
+                      <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                        {SORT_OPTIONS.map(({ mode, labelKey }) => {
+                          const isSelected = sortMode === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
+                              className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                                isSelected
+                                  ? 'bg-zinc-800 text-white font-bold'
+                                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                              }`}
+                            >
+                              <span>{t(labelKey as any, lang)}</span>
+                              {isSelected && (
+                                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   <div style={{ display: 'flex', height: 44, boxSizing: 'border-box', gap: 4, alignItems: 'center', background: 'var(--bg-surface-2)', padding: 4, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
                     {(["small", "normal", "large"] as const).map(s => {
                       const active = gridSize === s;
@@ -281,24 +455,25 @@ export function CatalogApp() {
                               : 'bg-zinc-900 border-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-800 font-semibold'
                           }`}
                         >
-                          {s}
+                          {t(s, lang)}
                         </button>
                       );
                     })}
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-zinc-300 font-semibold">
-                  {totalCount} {totalCount === 1 ? "item" : "items"} available in store
+                  {lang === 'hu' ? `${totalCount} termék érhető el a boltban` : `${totalCount} ${totalCount === 1 ? "item" : "items"} available in store`}
                 </p>
               </div>
 
-              <ContentArea cards={cards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} />
+              <ContentArea cards={sortedCards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} lang={lang} />
               <InfiniteScrollSentinel
                 hasMore={hasMore}
                 loadingMore={loadingMore}
                 currentCount={cards.length}
                 totalCount={totalCount}
                 observerRef={observerTarget}
+                lang={lang}
               />
             </main>
           </>
@@ -308,7 +483,8 @@ export function CatalogApp() {
               {sidebar}
             </div>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {/* Mobile Row 1: Search */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
                 <div style={{ flex: 1, position: "relative" }}>
                   <svg
                     style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, pointerEvents: "none" }}
@@ -318,24 +494,93 @@ export function CatalogApp() {
                   </svg>
                   <input
                     type="text"
-                    placeholder="Search store..."
+                    placeholder={t('search_placeholder', lang)}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full h-11 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
                   />
                 </div>
               </div>
+
+              {/* Mobile Row 2: Sort Dropdown & Grid Size */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="flex-1 min-w-0 relative z-40" ref={sortRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen(prev => !prev)}
+                    className="w-full h-10 px-3 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-700/80 hover:border-zinc-600 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                  >
+                    <span className="truncate">
+                      {getSortLabel(sortMode, lang)}
+                    </span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {sortOpen && (
+                    <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                      {SORT_OPTIONS.map(({ mode, labelKey }) => {
+                        const isSelected = sortMode === mode;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                              isSelected
+                                ? 'bg-zinc-800 text-white font-bold'
+                                : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                            }`}
+                          >
+                            <span>{t(labelKey as any, lang)}</span>
+                            {isSelected && (
+                              <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', height: 40, boxSizing: 'border-box', gap: 2, alignItems: 'center', background: 'var(--bg-surface-2)', padding: 2, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {(["small", "normal", "large"] as const).map(s => {
+                    const active = gridSize === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setGridSize(s)}
+                        className={`h-full px-2.5 text-[11px] rounded-lg transition cursor-pointer capitalize border ${
+                          active
+                            ? 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-sm'
+                            : 'bg-zinc-900 border-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-800 font-semibold'
+                        }`}
+                      >
+                        {t(s, lang)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <p className="mt-2 text-xs text-zinc-400 font-medium">
-                {totalCount} {totalCount === 1 ? "item" : "items"} available in store
+                {lang === 'hu' ? `${totalCount} termék érhető el a boltban` : `${totalCount} ${totalCount === 1 ? "item" : "items"} available in store`}
               </p>
             </div>
-            <ContentArea cards={cards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} />
+            <ContentArea cards={sortedCards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} lang={lang} />
             <InfiniteScrollSentinel
               hasMore={hasMore}
               loadingMore={loadingMore}
               currentCount={cards.length}
               totalCount={totalCount}
               observerRef={observerTarget}
+              lang={lang}
             />
           </div>
         )}
@@ -364,12 +609,14 @@ function InfiniteScrollSentinel({
   currentCount,
   totalCount,
   observerRef,
+  lang = 'en',
 }: {
   hasMore: boolean;
   loadingMore: boolean;
   currentCount: number;
   totalCount: number;
   observerRef: React.RefObject<HTMLDivElement | null>;
+  lang?: Language;
 }) {
   return (
     <div
@@ -389,12 +636,12 @@ function InfiniteScrollSentinel({
             <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
             <path d="M12 2a10 10 0 0110 10" strokeLinecap="round" />
           </svg>
-          Loading next batch…
+          {lang === 'hu' ? 'Következő adag betöltése…' : 'Loading next batch…'}
         </div>
       )}
       {!hasMore && totalCount > 0 && (
         <div style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "var(--accent-light)" }}>✓</span> All {totalCount} items loaded
+          <span style={{ color: "var(--accent-light)" }}>✓</span> {lang === 'hu' ? `Összes elem (${totalCount}) betöltve` : `All ${totalCount} items loaded`}
         </div>
       )}
       <style>{`
@@ -404,12 +651,12 @@ function InfiniteScrollSentinel({
   );
 }
 
-function ContentArea({ cards, loading, gridSize, onCardClick }: { cards: InventoryCard[]; loading: boolean; gridSize: 'small'|'normal'|'large'; onCardClick: (id: string) => void }) {
+function ContentArea({ cards, loading, gridSize, onCardClick, lang = 'en' }: { cards: InventoryCard[]; loading: boolean; gridSize: 'small'|'normal'|'large'; onCardClick: (id: string) => void; lang?: Language }) {
   if (loading) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} style={{ borderRadius: 16, background: "var(--bg-surface-2)", height: 380, animation: "pulse 1.5s ease-in-out infinite" }} />
+          <div key={i} style={{ borderRadius: 16, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
         ))}
       </div>
     );
@@ -418,28 +665,28 @@ function ContentArea({ cards, loading, gridSize, onCardClick }: { cards: Invento
   if (cards.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "80px 24px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 20 }}>
-        <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>No items found</h3>
-        <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Try clearing filters or search term to discover products.</p>
+        <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>{lang === 'hu' ? 'Nincs találat' : 'No items found'}</h3>
+        <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>{lang === 'hu' ? 'Próbáld meg törölni a szűrőket vagy a keresési kifejezést.' : 'Try clearing filters or search term to discover products.'}</p>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 20 }}>
+    <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
       {cards.map((c) => (
-        <CardItem key={c.inventory_id} card={c} onClick={onCardClick} />
+        <CardItem key={c.inventory_id} card={c} onClick={onCardClick} gridSize={gridSize} />
       ))}
     </div>
   );
 }
 
 function getGridCols(size: 'small'|'normal'|'large') {
-  if (size === 'small') return "repeat(auto-fill, minmax(180px, 1fr))";
-  if (size === 'large') return "repeat(auto-fill, minmax(280px, 1fr))";
-  return "repeat(auto-fill, minmax(220px, 1fr))";
+  if (size === 'small') return "repeat(auto-fill, minmax(140px, 1fr))";
+  if (size === 'large') return "repeat(auto-fill, minmax(260px, 1fr))";
+  return "repeat(auto-fill, minmax(190px, 1fr))";
 }
 
-function ComingSoonScreen() {
+function ComingSoonScreen({ lang = 'en' }: { lang?: Language }) {
   return (
     <div className="max-w-lg mx-auto my-20 p-8 sm:p-10 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
       <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-zinc-300 mb-4">
@@ -447,15 +694,15 @@ function ComingSoonScreen() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       </div>
-      <h2 className="text-2xl font-black text-zinc-100 mb-2">Store in Maintenance</h2>
+      <h2 className="text-2xl font-black text-zinc-100 mb-2">{lang === 'hu' ? 'A Bolt Karbantartás Alatt' : 'Store in Maintenance'}</h2>
       <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-        The store is currently being stocked with new inventory. Please check back soon or browse our Card Catalog!
+        {lang === 'hu' ? 'A bolt feltöltése folyamatban van új termékekkel. Kérjük, látogass vissza később, vagy böngészd a kártyakatalógusunkat!' : 'The store is currently being stocked with new inventory. Please check back soon or browse our Card Catalog!'}
       </p>
       <a
         href="/"
         className="inline-block px-6 py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm transition shadow-md"
       >
-        Explore Card Catalog
+        {lang === 'hu' ? 'Kártyakatalógus Felfedezése' : 'Explore Card Catalog'}
       </a>
     </div>
   );
