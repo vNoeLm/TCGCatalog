@@ -318,132 +318,53 @@ export function parseDeckInput(rawInput: string, allCards: CatalogCard[]): Impor
   };
 }
 
-/**
- * Helper to format zone entries with detailed card names and metadata
- */
-export interface ExportedCardEntry {
-  name: string;
-  count: number;
-  cardNumber?: string;
-  type?: string;
-  domain?: string;
-  cost?: number | null;
-  id: string;
-}
-
-function formatZoneEntries(zoneMap: Record<string, number>, allCards: CatalogCard[]): ExportedCardEntry[] {
-  const list: ExportedCardEntry[] = [];
+function formatSimplifiedZoneMap(zoneMap: Record<string, number>, allCards: CatalogCard[]): Record<string, number> {
+  const result: Record<string, number> = {};
   Object.entries(zoneMap || {}).forEach(([id, count]) => {
     if (count <= 0) return;
     const card = allCards.find(c => c.id === id);
-    if (card) {
-      list.push({
-        name: card.name,
-        count,
-        cardNumber: card.card_number || undefined,
-        type: card.card_type || undefined,
-        domain: card.domain || undefined,
-        cost: card.cost ?? null,
-        id: card.id,
-      });
-    } else {
-      list.push({
-        name: id,
-        count,
-        id,
-      });
-    }
+    const key = card ? card.name : id;
+    result[key] = (result[key] || 0) + count;
   });
-  return list.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function formatSingleCardEntry(id: string | null, allCards: CatalogCard[]): ExportedCardEntry | null {
-  if (!id) return null;
-  const card = allCards.find(c => c.id === id);
-  if (!card) return { name: id, count: 1, id };
-  return {
-    name: card.name,
-    count: 1,
-    cardNumber: card.card_number || undefined,
-    type: card.card_type || undefined,
-    domain: card.domain || undefined,
-    cost: card.cost ?? null,
-    id: card.id,
-  };
+  return result;
 }
 
 /**
- * Formats a DeckState into an exportable, human-readable JSON string with full card names and details
+ * Formats a DeckState into a clean, minimal JSON string with card names and counts
  */
 export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckName = 'My Riftbound Deck'): string {
-  const legendEntry = formatSingleCardEntry(deck.legend, allCards);
-  const championEntry = formatSingleCardEntry(deck.champion, allCards);
-  const mainDeckList = formatZoneEntries(deck.mainDeck, allCards);
-  const runeDeckList = formatZoneEntries(deck.runeDeck, allCards);
-  const battlefieldsList = formatZoneEntries(deck.battlefields, allCards);
-  const sideboardList = formatZoneEntries(deck.sideboard, allCards);
-
-  const mainDeckCount = mainDeckList.reduce((sum, c) => sum + c.count, 0) + (championEntry ? 1 : 0);
-  const runeDeckCount = runeDeckList.reduce((sum, c) => sum + c.count, 0);
-  const battlefieldsCount = battlefieldsList.reduce((sum, c) => sum + c.count, 0);
-  const sideboardCount = sideboardList.reduce((sum, c) => sum + c.count, 0);
+  const legendCard = deck.legend ? allCards.find(c => c.id === deck.legend) : null;
+  const championCard = deck.champion ? allCards.find(c => c.id === deck.champion) : null;
 
   const exportObj = {
     name: deckName,
-    format: 'Standard',
-    game: 'riftbound',
-    createdAt: Date.now(),
-    legend: legendEntry,
-    champion: championEntry,
-    mainDeck: mainDeckList,
-    runeDeck: runeDeckList,
-    battlefields: battlefieldsList,
-    sideboard: sideboardList,
-    summary: {
-      mainDeckCount,
-      runeDeckCount,
-      battlefieldsCount,
-      sideboardCount,
-      totalCards: (legendEntry ? 1 : 0) + mainDeckCount + runeDeckCount + battlefieldsCount + sideboardCount,
-    },
+    legend: legendCard ? legendCard.name : deck.legend || null,
+    champion: championCard ? championCard.name : deck.champion || null,
+    mainDeck: formatSimplifiedZoneMap(deck.mainDeck, allCards),
+    runeDeck: formatSimplifiedZoneMap(deck.runeDeck, allCards),
+    battlefields: formatSimplifiedZoneMap(deck.battlefields, allCards),
+    sideboard: formatSimplifiedZoneMap(deck.sideboard, allCards),
   };
 
   return JSON.stringify(exportObj, null, 2);
 }
 
 /**
- * Formats all saved decks into a comprehensive backup JSON string with card names and metadata
+ * Formats all saved decks into a clean, minimal backup JSON string
  */
 export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: CatalogCard[]): string {
   const formattedDecks = savedDecks.map(sd => {
-    const legendEntry = formatSingleCardEntry(sd.deck.legend, allCards);
-    const championEntry = formatSingleCardEntry(sd.deck.champion, allCards);
-    const mainDeckList = formatZoneEntries(sd.deck.mainDeck, allCards);
-    const runeDeckList = formatZoneEntries(sd.deck.runeDeck, allCards);
-    const battlefieldsList = formatZoneEntries(sd.deck.battlefields, allCards);
-    const sideboardList = formatZoneEntries(sd.deck.sideboard, allCards);
-
-    const mainDeckCount = mainDeckList.reduce((sum, c) => sum + c.count, 0) + (championEntry ? 1 : 0);
-    const runeDeckCount = runeDeckList.reduce((sum, c) => sum + c.count, 0);
-    const battlefieldsCount = battlefieldsList.reduce((sum, c) => sum + c.count, 0);
-    const sideboardCount = sideboardList.reduce((sum, c) => sum + c.count, 0);
+    const legendCard = sd.deck.legend ? allCards.find(c => c.id === sd.deck.legend) : null;
+    const championCard = sd.deck.champion ? allCards.find(c => c.id === sd.deck.champion) : null;
 
     return {
-      id: sd.id,
       name: sd.name,
-      createdAt: sd.createdAt,
-      legend: legendEntry,
-      champion: championEntry,
-      mainDeck: mainDeckList,
-      runeDeck: runeDeckList,
-      battlefields: battlefieldsList,
-      sideboard: sideboardList,
-      summary: {
-        mainDeckCount,
-        runeDeckCount,
-        battlefieldsCount,
-        sideboardCount,
-      },
+      legend: legendCard ? legendCard.name : sd.deck.legend || null,
+      champion: championCard ? championCard.name : sd.deck.champion || null,
+      mainDeck: formatSimplifiedZoneMap(sd.deck.mainDeck, allCards),
+      runeDeck: formatSimplifiedZoneMap(sd.deck.runeDeck, allCards),
+      battlefields: formatSimplifiedZoneMap(sd.deck.battlefields, allCards),
+      sideboard: formatSimplifiedZoneMap(sd.deck.sideboard, allCards),
     };
   });
 

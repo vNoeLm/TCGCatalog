@@ -47,24 +47,63 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
   const [costMax, setCostMax]           = useState<number>(10);
   const [onlyOwned, setOnlyOwned]       = useState<boolean>(false);
   const [showFilters, setShowFilters]   = useState(false);
+  const [sortMode, setSortMode]         = useState<
+    'Cost (Low to High)' | 'Cost (High to Low)' |
+    'Card Number (Asc)' | 'Card Number (Desc)' |
+    'Name (A to Z)' | 'Name (Z to A)' |
+    'Rarity (High to Low)' | 'Rarity (Low to High)'
+  >('Cost (Low to High)');
   const [collection, setCollection]     = useState<Set<string>>(new Set());
 
   // Load saved collection from localStorage and keep synchronized
   React.useEffect(() => {
     const loadCollection = () => {
       try {
-        const saved = localStorage.getItem('tcg_collection');
+        const saved = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
         if (saved) {
-          setCollection(new Set(JSON.parse(saved)));
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setCollection(new Set(parsed));
+          } else if (parsed && typeof parsed === 'object') {
+            const ownedKeys = Object.entries(parsed)
+              .filter(([_, count]) => typeof count === 'number' && count > 0)
+              .map(([id]) => id);
+            setCollection(new Set(ownedKeys));
+          } else {
+            setCollection(new Set());
+          }
         } else {
           setCollection(new Set());
         }
-      } catch (e) {}
+      } catch (e) {
+        setCollection(new Set());
+      }
     };
+
     loadCollection();
+
+    const handleColChange = (e: Event) => {
+      const custom = e as CustomEvent<{ collection: Record<string, number> | string[] }>;
+      if (custom.detail?.collection) {
+        const raw = custom.detail.collection;
+        if (Array.isArray(raw)) {
+          setCollection(new Set(raw));
+        } else if (typeof raw === 'object') {
+          const ownedKeys = Object.entries(raw)
+            .filter(([_, count]) => typeof count === 'number' && count > 0)
+            .map(([id]) => id);
+          setCollection(new Set(ownedKeys));
+        }
+      } else {
+        loadCollection();
+      }
+    };
+
+    window.addEventListener('tcg-collection-change', handleColChange);
     window.addEventListener('storage', loadCollection);
     window.addEventListener('focus', loadCollection);
     return () => {
+      window.removeEventListener('tcg-collection-change', handleColChange);
       window.removeEventListener('storage', loadCollection);
       window.removeEventListener('focus', loadCollection);
     };
@@ -168,6 +207,58 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
     });
   }, [cards, search, typeFilter, rarityFilter, domainFilter, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, activeZone]);
 
+  const sortedCards = useMemo(() => {
+    const list = [...filteredCards];
+    return list.sort((a, b) => {
+      switch (sortMode) {
+        case 'Cost (Low to High)': {
+          const costA = a.cost ?? 999;
+          const costB = b.cost ?? 999;
+          if (costA !== costB) return costA - costB;
+          return a.name.localeCompare(b.name);
+        }
+        case 'Cost (High to Low)': {
+          const costA = a.cost ?? -1;
+          const costB = b.cost ?? -1;
+          if (costA !== costB) return costB - costA;
+          return a.name.localeCompare(b.name);
+        }
+        case 'Card Number (Asc)': {
+          const numA = parseInt((a.card_number || '').match(/\d+/)?.[0] || '0', 10);
+          const numB = parseInt((b.card_number || '').match(/\d+/)?.[0] || '0', 10);
+          if (numA !== numB) return numA - numB;
+          return (a.card_number || '').localeCompare(b.card_number || '');
+        }
+        case 'Card Number (Desc)': {
+          const numA = parseInt((a.card_number || '').match(/\d+/)?.[0] || '0', 10);
+          const numB = parseInt((b.card_number || '').match(/\d+/)?.[0] || '0', 10);
+          if (numA !== numB) return numB - numA;
+          return (b.card_number || '').localeCompare(a.card_number || '');
+        }
+        case 'Name (A to Z)':
+          return a.name.localeCompare(b.name);
+        case 'Name (Z to A)':
+          return b.name.localeCompare(a.name);
+        case 'Rarity (High to Low)': {
+          const order: Record<string, number> = { Showcase: 5, Epic: 4, Rare: 3, Uncommon: 2, Common: 1 };
+          const rA = order[a.rarity || ''] || 0;
+          const rB = order[b.rarity || ''] || 0;
+          if (rA !== rB) return rB - rA;
+          return a.name.localeCompare(b.name);
+        }
+        case 'Rarity (Low to High)': {
+          const order: Record<string, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Showcase: 5 };
+          const rA = order[a.rarity || ''] || 0;
+          const rB = order[b.rarity || ''] || 0;
+          if (rA !== rB) return rA - rB;
+          return a.name.localeCompare(b.name);
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [filteredCards, sortMode]);
+
   const activeFiltersCount =
     (onlyOwned ? 1 : 0) +
     (typeFilter !== 'All' ? 1 : 0) +
@@ -197,9 +288,9 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
         </div>
       )}
 
-      {/* Search + Filters toggle + Owned Only */}
+      {/* Search + Filters toggle + Sort By + Owned Only */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
             placeholder={!legendCard ? t('search_legends', lang) : t('search_cards', lang)}
@@ -207,6 +298,27 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             onChange={e => setSearch(e.target.value)}
             style={{ flex: '1 1 160px', padding: '9px 14px', borderRadius: 8, background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none', fontSize: 14 }}
           />
+
+          {/* Sort By Dropdown */}
+          <select
+            value={sortMode}
+            onChange={e => setSortMode(e.target.value as any)}
+            style={{
+              padding: '9px 12px', borderRadius: 8, background: 'var(--bg-surface)',
+              border: '1px solid var(--border)', color: 'var(--text-primary)',
+              fontWeight: 700, fontSize: 13, outline: 'none', cursor: 'pointer'
+            }}
+            title={lang === 'hu' ? 'Rendezés' : 'Sort by'}
+          >
+            <option value="Cost (Low to High)">{lang === 'hu' ? 'Költség (Növekvő)' : 'Cost: Low to High'}</option>
+            <option value="Cost (High to Low)">{lang === 'hu' ? 'Költség (Csökkenő)' : 'Cost: High to Low'}</option>
+            <option value="Card Number (Asc)">{t('sort_number_asc', lang)}</option>
+            <option value="Card Number (Desc)">{t('sort_number_desc', lang)}</option>
+            <option value="Name (A to Z)">{t('sort_name_asc', lang)}</option>
+            <option value="Name (Z to A)">{t('sort_name_desc', lang)}</option>
+            <option value="Rarity (High to Low)">{t('sort_rarity_high', lang)}</option>
+            <option value="Rarity (Low to High)">{t('sort_rarity_low', lang)}</option>
+          </select>
 
           <button
             onClick={() => setOnlyOwned(o => !o)}
@@ -390,12 +502,12 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
       <div style={{ overflowY: 'auto', flex: 1, paddingRight: 4, willChange: 'scroll-position', transform: 'translateZ(0)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 8px' }}>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-            {filteredCards.length} cards {onlyOwned && <span style={{ color: '#10b981' }}>(Owned Only)</span>}
+            {sortedCards.length} cards {onlyOwned && <span style={{ color: '#10b981' }}>(Owned Only)</span>}
           </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))', gap: '16px 10px' }}>
-          {filteredCards.map(card => {
+          {sortedCards.map(card => {
             const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=${encodeURIComponent(card.name)}`;
             const imgSrc = card.image_path ? getCardImageUrl(card.image_path) : fallback;
             const primaryDomain = (card.domain || '').toLowerCase().split(',')[0].trim();

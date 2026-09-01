@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
 import { getCardImageUrl } from "../lib/supabase";
-import { getEnergyBadgeStyle } from "../lib/domainColors";
+import { getEnergyBadgeStyle, parseDomains } from "../lib/domainColors";
+import { RUNE_ICONS } from "../lib/riftboundIcons";
+import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface CardItemProps {
@@ -181,31 +183,119 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           })()}
         </div>
 
-        {/* Top Badge: Energy for Singles or Sealed Product Badge */}
-        {!isSealed && card.energy != null && (
-          <div
-            className="absolute"
-            style={{
-              top: '3.4cqi',
-              left: '3.2cqi',
-              width: '13.8cqi',
-              height: '13.8cqi',
-              zIndex: 3,
-            }}
-          >
-            <span
-              className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md select-none"
+        {/* Top Badge: Energy Cost + Power Cost (Rune Requirement) */}
+        {!isSealed && card.energy != null && (() => {
+          const powerReq = getCardPowerRequirement(card);
+
+          return (
+            <div
+              className="absolute flex flex-col items-center pointer-events-none"
               style={{
-                ...energyBadgeStyle,
-                fontSize: 'clamp(10px, 7.2cqi, 28px)',
-                lineHeight: 1,
-                textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                top: '3.4cqi',
+                left: '3.2cqi',
+                zIndex: 3,
               }}
             >
-              {card.energy}
-            </span>
-          </div>
-        )}
+              {/* Energy Circle */}
+              <div
+                style={{
+                  width: '13.8cqi',
+                  height: '13.8cqi',
+                }}
+              >
+                <span
+                  className="w-full h-full flex items-center justify-center rounded-full font-black shadow-md select-none"
+                  style={{
+                    ...energyBadgeStyle,
+                    fontSize: 'clamp(10px, 7.2cqi, 28px)',
+                    lineHeight: 1,
+                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                  }}
+                >
+                  {card.energy}
+                </span>
+              </div>
+
+              {/* Power Cost: Domain Icon(s) underneath energy circle */}
+              {powerReq.power > 0 && (
+                <div
+                  className="flex items-center justify-center gap-0.5"
+                  style={{
+                    marginTop: '-0.8cqi',
+                  }}
+                >
+                  {powerReq.isMixed ? (
+                    // Mixed / Choice: Both domain icons side by side
+                    powerReq.domains.map((domKey, idx) => {
+                      const runeIcon = RUNE_ICONS[domKey];
+                      if (!runeIcon) return null;
+                      return (
+                        <div
+                          key={domKey}
+                          style={{
+                            width: '8.5cqi',
+                            height: '8.5cqi',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          title={`Power Cost: ${domKey}`}
+                        >
+                          <img
+                            src={runeIcon}
+                            alt={domKey}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))' }}
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    // Single domain: Domain icon + multiplier if power > 1
+                    (() => {
+                      const domKey = powerReq.domains[0];
+                      const runeIcon = RUNE_ICONS[domKey];
+                      if (!runeIcon) return null;
+                      return (
+                        <div
+                          style={{
+                            width: '10.5cqi',
+                            height: '10.5cqi',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative',
+                          }}
+                          title={`Power Cost: ${powerReq.power}x ${domKey}`}
+                        >
+                          <img
+                            src={runeIcon}
+                            alt={domKey}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.9))' }}
+                          />
+                          {powerReq.power > 1 && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: -2,
+                                right: -3,
+                                fontSize: 'clamp(8px, 4.8cqi, 13px)',
+                                fontWeight: 900,
+                                color: '#ffffff',
+                                textShadow: '0 1px 3px rgba(0,0,0,1), 0 0 2px #000',
+                              }}
+                            >
+                              {powerReq.power}x
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {isSealed && (
           <div className="absolute top-2 left-2" style={{ zIndex: 3 }}>

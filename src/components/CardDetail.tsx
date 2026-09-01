@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { CatalogCard, UserProfile } from '../types';
 import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '../lib/api';
 import { getCardImageUrl, supabase } from '../lib/supabase';
@@ -15,6 +15,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
 
 import { formatGameText } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
+import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getLanguage, t, type Language } from '../lib/i18n';
 import { syncUserCardInventory } from '../lib/userCards';
 
@@ -589,41 +590,104 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           </div>
 
-          {(card.energy != null || card.might != null) && (
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              {card.energy != null && (() => {
-                const isMulti = parsedDomains.length > 1;
-                return (
-                  <div 
-                    style={{
-                      background: isMulti
-                        ? `linear-gradient(135deg, ${parsedDomains[0].bg} 0%, ${parsedDomains[0].bg} 50%, ${parsedDomains[1].bg} 50%, ${parsedDomains[1].bg} 100%)`
-                        : (parsedDomains[0]?.bg || 'rgba(75,85,99,0.95)'),
-                      borderColor: isMulti ? 'rgba(255,255,255,0.4)' : (parsedDomains[0]?.border || 'rgba(107,114,128,1)'),
-                      boxShadow: isMulti
-                        ? `0 0 16px ${parsedDomains[0].glow}, 0 0 16px ${parsedDomains[1].glow}`
-                        : `0 0 14px ${parsedDomains[0]?.glow || 'rgba(0,0,0,0.5)'}`,
-                    }}
-                    className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
-                  >
-                    <div className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
-                      {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${t('energy', lang)}` : `${parsedDomains[0]?.name || ''} ${t('energy', lang)}`}
+          {(() => {
+            const powerReq = getCardPowerRequirement(card);
+            const hasPowerCost = powerReq.power > 0 && powerReq.domains.length > 0;
+            const hasEnergy = card.energy != null;
+            const hasMight = card.might != null;
+
+            if (!hasEnergy && !hasMight && !hasPowerCost) return null;
+
+            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0);
+            const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
+
+            return (
+              <div className={`grid ${gridClass} gap-2.5 mb-4`}>
+                {/* 1. Energy Cost */}
+                {hasEnergy && (() => {
+                  const isMulti = parsedDomains.length > 1;
+                  return (
+                    <div 
+                      style={{
+                        background: isMulti
+                          ? `linear-gradient(135deg, ${parsedDomains[0].bg} 0%, ${parsedDomains[0].bg} 50%, ${parsedDomains[1].bg} 50%, ${parsedDomains[1].bg} 100%)`
+                          : (parsedDomains[0]?.bg || 'rgba(75,85,99,0.95)'),
+                        borderColor: isMulti ? 'rgba(255,255,255,0.4)' : (parsedDomains[0]?.border || 'rgba(107,114,128,1)'),
+                        boxShadow: isMulti
+                          ? `0 0 16px ${parsedDomains[0].glow}, 0 0 16px ${parsedDomains[1].glow}`
+                          : `0 0 14px ${parsedDomains[0]?.glow || 'rgba(0,0,0,0.5)'}`,
+                      }}
+                      className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
+                        {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${t('energy', lang)}` : `${parsedDomains[0]?.name || ''} ${t('energy', lang)}`}
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        {card.energy}
+                      </div>
                     </div>
-                    <div className="text-2xl sm:text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                      {card.energy}
+                  );
+                })()}
+
+                {/* 2. Power Cost */}
+                {hasPowerCost && (
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg">
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                      {t('power_cost', lang)}
+                    </div>
+                    <div className="flex items-center gap-2 my-auto flex-wrap justify-center">
+                      {powerReq.isMixed ? (
+                        // Mixed / Flexible: Player can pay EITHER domain rune
+                        <div className="flex items-center gap-1.5 font-black text-white text-base">
+                          {powerReq.domains.map((domKey, idx) => {
+                            const runeIcon = RUNE_ICONS[domKey];
+                            return (
+                              <React.Fragment key={domKey}>
+                                {idx > 0 && <span className="text-zinc-500 font-bold text-sm">/</span>}
+                                {runeIcon ? (
+                                  <img
+                                    src={runeIcon}
+                                    alt={domKey}
+                                    className="w-8 h-8 object-contain drop-shadow"
+                                    title={domKey}
+                                  />
+                                ) : (
+                                  <span className="capitalize text-xs font-bold text-zinc-300">{domKey}</span>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        // Single domain: Shows exact power requirement (e.g. 1x, 2x, 3x)
+                        <div className="flex items-center gap-1">
+                          <span className="text-zinc-200 text-sm font-black tracking-tight">{powerReq.power}x</span>
+                          {RUNE_ICONS[powerReq.domains[0]] ? (
+                            <img
+                              src={RUNE_ICONS[powerReq.domains[0]]}
+                              alt={powerReq.domains[0]}
+                              className="w-8 h-8 object-contain drop-shadow"
+                              title={`${powerReq.power}x ${powerReq.domains[0]}`}
+                            />
+                          ) : (
+                            <span className="capitalize text-xs font-bold text-zinc-300">{powerReq.domains[0]}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })()}
-              
-              {card.might != null && (
-                <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
-                  <div className="text-2xl sm:text-3xl font-black text-amber-400">{card.might}</div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {/* 3. Might */}
+                {hasMight && (
+                  <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
+                    <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
+                    <div className="text-2xl sm:text-3xl font-black text-amber-400">{card.might}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Text Abilities */}
           {(card.text || card.ability) && (
@@ -740,8 +804,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           )}
 
-          {/* ── Admin & Owner Quick Edit Panel ── */}
-          {isAdmin && (
+          {/* ── Admin & Owner Quick Edit Panel (Store only) ── */}
+          {isAdmin && isInventory && (
             <div className="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-4 shadow-lg">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-500/20">
                 <div className="flex items-center gap-2">

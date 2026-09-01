@@ -7,6 +7,7 @@ import { useSavedDecks } from './useSavedDecks';
 import { DeckCatalog } from './DeckCatalog';
 import { DeckList } from './DeckList';
 import { DeckPreviewColumn } from './DeckPreviewColumn';
+import { DeckStatisticsModal } from './DeckStatisticsModal';
 import { formatGameText } from '../../lib/formatGameText';
 import { CardDetail } from '../CardDetail';
 import { fetchCardsCatalog } from '../../lib/api';
@@ -47,6 +48,7 @@ export function DeckBuilderApp() {
   const [showBrowserModal, setShowBrowserModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   
   const [deckNameInput, setDeckNameInput] = useState('');
   const [pasteInput, setPasteInput] = useState('');
@@ -66,14 +68,14 @@ export function DeckBuilderApp() {
 
   // Lock background scroll when preview modal or dialog is open
   useEffect(() => {
-    if (previewCard || showSaveModal || showBrowserModal || showExportModal || showImportModal) {
+    if (previewCard || showSaveModal || showBrowserModal || showExportModal || showImportModal || showStatsModal) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = originalOverflow;
       };
     }
-  }, [previewCard, showSaveModal, showBrowserModal, showExportModal, showImportModal]);
+  }, [previewCard, showSaveModal, showBrowserModal, showExportModal, showImportModal, showStatsModal]);
 
   const processImportString = (content: string) => {
     if (!content || !content.trim()) {
@@ -124,8 +126,15 @@ export function DeckBuilderApp() {
     loadCards();
   }, []);
 
-  const legendCard = useMemo(() => cards.find(c => c.id === deck.legend) || null, [deck.legend, cards]);
-  const championCard = useMemo(() => cards.find(c => c.id === deck.champion) || null, [deck.champion, cards]);
+  const legendCard = useMemo(() => {
+    if (!deck.legend) return null;
+    return cards.find(c => c.id === deck.legend) || null;
+  }, [deck.legend, cards]);
+
+  const championCard = useMemo(() => {
+    if (!deck.champion) return null;
+    return cards.find(c => c.id === deck.champion) || null;
+  }, [deck.champion, cards]);
 
   const allowedDomains = useMemo(() => {
     if (!legendCard || !legendCard.domain) return null;
@@ -173,9 +182,10 @@ export function DeckBuilderApp() {
         {/* Right: Requirements & Management */}
         <div style={{ flex: '0 0 clamp(320px, 25vw, 380px)', background: 'var(--bg-surface-2)', borderRadius: 16, border: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{t('deck_limits', lang)}</h1>
               <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setShowStatsModal(true)} style={btnStyle('rgba(56,189,248,0.12)', '#38bdf8', 'rgba(56,189,248,0.3)')} title={t('deck_statistics', lang)}>{t('statistics', lang)}</button>
                 <button onClick={() => setShowSaveModal(true)} style={btnStyle('var(--bg-surface)', 'var(--text-primary)')}>{t('save', lang)}</button>
                 <button onClick={() => setShowBrowserModal(true)} style={btnStyle('var(--bg-surface)', 'var(--text-primary)')}>{t('browse', lang)}</button>
               </div>
@@ -208,6 +218,18 @@ export function DeckBuilderApp() {
         </div>
 
       </div>
+
+      {/* Deck Statistics Modal */}
+      {showStatsModal && (
+        <DeckStatisticsModal
+          deck={deck}
+          cards={cards}
+          legendCard={legendCard}
+          championCard={championCard}
+          onClose={() => setShowStatsModal(false)}
+          lang={lang}
+        />
+      )}
 
       {/* Card Preview Modal */}
       {previewCard && (
