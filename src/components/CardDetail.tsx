@@ -6,16 +6,19 @@ import { getCurrentProfile } from '../lib/auth';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
-  Common:   { bg: "rgba(31, 41, 55, 0.9)", text: "#cbd5e1", glow: "rgba(203, 213, 225, 0.2)" },
-  Uncommon: { bg: "rgba(12, 74, 110, 0.9)", text: "#38bdf8", glow: "rgba(56, 189, 248, 0.4)" },
-  Rare:     { bg: "rgba(88, 28, 135, 0.9)", text: "#d8b4fe", glow: "rgba(216, 180, 254, 0.5)" },
-  Epic:     { bg: "rgba(154, 52, 18, 0.9)", text: "#fb923c", glow: "rgba(251, 146, 60, 0.5)" },
-  Showcase: { bg: "rgba(113, 63, 18, 0.9)", text: "#fde047", glow: "rgba(253, 224, 71, 0.6)" },
+  Common:          { bg: "rgba(31, 41, 55, 0.9)", text: "#cbd5e1", glow: "rgba(203, 213, 225, 0.2)" },
+  Uncommon:        { bg: "rgba(12, 74, 110, 0.9)", text: "#38bdf8", glow: "rgba(56, 189, 248, 0.4)" },
+  Rare:            { bg: "rgba(88, 28, 135, 0.9)", text: "#d8b4fe", glow: "rgba(216, 180, 254, 0.5)" },
+  Epic:            { bg: "rgba(154, 52, 18, 0.9)", text: "#fb923c", glow: "rgba(251, 146, 60, 0.5)" },
+  Showcase:        { bg: "rgba(113, 63, 18, 0.9)", text: "#fde047", glow: "rgba(253, 224, 71, 0.6)" },
+  "Nova Rare":     { bg: "rgba(6, 182, 212, 0.9)", text: "#67e8f9", glow: "rgba(6, 182, 212, 0.5)" },
+  "Secret":        { bg: "rgba(236, 72, 153, 0.9)", text: "#ffffff", glow: "rgba(236, 72, 153, 0.5)" },
 };
 
-import { formatGameText } from '../lib/formatGameText';
+import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
+import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { getLanguage, t, type Language } from '../lib/i18n';
 import { syncUserCardInventory } from '../lib/userCards';
 
@@ -391,16 +394,16 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {/* Main display — always dark for visual quality */}
           <div 
             style={{
-              border: `1px solid ${rarityStyle.text}44`,
-              boxShadow: `0 0 50px ${rarityStyle.glow}, 0 20px 50px rgba(0,0,0,0.6)`
+              border: card.game === 'cyberpunk' ? '1px solid rgba(255,255,255,0.1)' : `1px solid ${rarityStyle.text}33`,
+              boxShadow: card.game === 'cyberpunk' ? '0 10px 30px rgba(0,0,0,0.5)' : `0 4px 24px rgba(0,0,0,0.4)`
             }}
-            className="bg-gradient-to-br from-slate-950 via-indigo-950/40 to-slate-950 rounded-2xl sm:rounded-3xl overflow-hidden relative p-4 sm:p-6 flex items-center justify-center mb-3"
+            className="bg-zinc-950 rounded-2xl sm:rounded-3xl overflow-hidden relative p-4 sm:p-6 flex items-center justify-center mb-3"
           >
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.05)_1px,transparent_1px)] bg-[size:24px_24px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
 
             {activeUrl ? (
               <div 
-                style={{ filter: `drop-shadow(0 8px 24px ${rarityStyle.glow})` }}
+                style={{ filter: card.game === 'cyberpunk' ? 'drop-shadow(0 4px 16px rgba(0,0,0,0.6))' : `drop-shadow(0 4px 16px rgba(0,0,0,0.5))` }}
                 className="relative z-10 w-full rounded-lg overflow-hidden"
               >
                 <img src={activeUrl} alt={card.name} className="w-full h-auto block rounded-lg" />
@@ -415,7 +418,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             )}
 
             {[['top-3 left-3', 'border-l-2 border-t-2'], ['top-3 right-3', 'border-r-2 border-t-2'], ['bottom-3 left-3', 'border-l-2 border-b-2'], ['bottom-3 right-3', 'border-r-2 border-b-2']].map(([pos, border], i) => (
-              <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: `${rarityStyle.text}55`, zIndex: 2 }} />
+              <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: card.game === 'cyberpunk' ? 'rgba(255,255,255,0.15)' : `${rarityStyle.text}44`, zIndex: 2 }} />
             ))}
           </div>
 
@@ -444,13 +447,37 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
         {/* ── Right: info column ── */}
         <div className="w-full min-w-0">
-          <p className="text-[11px] sm:text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1 truncate">
-            {card.sets?.name || t('base_set', lang)} · <span className="font-mono text-zinc-300">{card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}</span>
-          </p>
+          {(() => {
+            const { main, sub } = splitCardTitle(card.name);
+            const cardNumberStr = formatCleanCardNumber(card.card_number);
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-zinc-100 leading-tight mb-3 sm:mb-4 tracking-tight">
-            {card.name}
-          </h1>
+            if (sub) {
+              return (
+                <div className="text-center mb-2 sm:mb-2.5">
+                  <p className="text-[11px] sm:text-xs text-zinc-400 font-bold uppercase tracking-widest leading-none mb-1">
+                    {card.sets?.name || t('base_set', lang)} · <span className="font-mono text-zinc-300">{cardNumberStr}</span>
+                  </p>
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-zinc-100 leading-none tracking-tight uppercase my-0.5">
+                    {main}
+                  </h1>
+                  <p className="text-xs sm:text-sm font-extrabold text-zinc-400 uppercase tracking-[0.2em] leading-snug mt-0.5">
+                    {sub}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="text-center mb-2 sm:mb-2.5">
+                <p className="text-[11px] sm:text-xs text-zinc-400 font-bold uppercase tracking-widest leading-none mb-1">
+                  {card.sets?.name || t('base_set', lang)} · <span className="font-mono text-zinc-300">{cardNumberStr}</span>
+                </p>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-zinc-100 leading-tight tracking-tight uppercase my-0.5">
+                  {card.name}
+                </h1>
+              </div>
+            );
+          })()}
 
           {/* ── Meta rows ── */}
           <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4">
@@ -459,15 +486,38 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             <div className="flex items-center gap-2 flex-wrap">
               {/* Rarity icon + label */}
               {(() => {
+                if (card.game === 'cyberpunk') {
+                  return (
+                    <span className="inline-flex items-center text-sm font-bold px-3 py-1.5 rounded-xl bg-zinc-800/90 text-zinc-100 border border-zinc-700 tracking-wider">
+                      {card.rarity}
+                    </span>
+                  );
+                }
                 const rarityKey = (card.rarity || '').toLowerCase();
                 const rarityIcon = RARITY_ICONS[rarityKey];
                 return (
                   <span 
                     style={{ background: rarityStyle.bg, color: rarityStyle.text, borderColor: `${rarityStyle.text}44`, boxShadow: `0 0 12px ${rarityStyle.glow}` }}
-                    className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg border uppercase tracking-wider"
+                    className="inline-flex items-center gap-2 text-sm font-black px-3 py-1.5 rounded-xl border uppercase tracking-wider"
                   >
-                    {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-4 h-4 object-contain" />}
+                    {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-5 h-5 object-contain" />}
                     {card.rarity}
+                  </span>
+                );
+              })()}
+
+              {/* Cyberpunk Eddiable: Sellable / Non-Sellable */}
+              {card.game === 'cyberpunk' && (() => {
+                const cpMeta = getCyberpunkMeta(card);
+                const isSellable = cpMeta?.is_eddiable;
+                return (
+                  <span className={`inline-flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-xl border uppercase tracking-wider ${
+                    isSellable
+                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40 shadow-sm"
+                      : "bg-zinc-900/90 text-zinc-400 border-zinc-700/60 shadow-sm"
+                  }`}>
+                    <span className="font-mono text-emerald-400 font-black">€$</span>
+                    {isSellable ? (lang === 'hu' ? 'Eladható' : 'Sellable') : (lang === 'hu' ? 'Nem eladható' : 'Non-Sellable')}
                   </span>
                 );
               })()}
@@ -486,7 +536,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 );
                 if (!isSigned) return null;
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
                     {t('signed_edition', lang)}
                   </span>
                 );
@@ -500,22 +550,23 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
 
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
                     {t('alt_art_edition', lang)}
                   </span>
                 );
               })()}
 
               {(() => {
-                if (!card.card_number || !card.card_number.includes('/')) return null;
-                const parts = card.card_number.split('/');
+                const cleanNum = formatCleanCardNumber(card.card_number);
+                if (!cleanNum || !cleanNum.includes('/')) return null;
+                const parts = cleanNum.split('/');
                 if (parts.length < 2) return null;
                 const numMatch = parts[0].match(/\d+/);
                 const denMatch = parts[1].match(/\d+/);
                 if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
 
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1 rounded-lg bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
                     {t('overnumbered_edition', lang)}
                   </span>
                 );
@@ -528,10 +579,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {card.domain && card.domain !== 'Colorless' && (() => {
                   return (
                     <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                        {parsedDomains.length > 1 ? t('domains', lang) : t('domain', lang)}
+                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                        {card.game === 'cyberpunk' ? (lang === 'hu' ? 'Szín' : 'Color') : (parsedDomains.length > 1 ? t('domains', lang) : t('domain', lang))}
                       </div>
-                      <div className="flex items-center gap-2 text-sm font-black flex-wrap">
+                      <div className="flex items-center gap-2 text-base font-black flex-wrap">
                         {parsedDomains.map((d, idx) => {
                           const icon = RUNE_ICONS[d.key];
                           return (
@@ -548,20 +599,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 })()}
 
                 {(() => {
+                  const isCyberpunk = card.game === 'cyberpunk';
                   const rawType = (card.card_type || '').toLowerCase();
                   const superType = (card.subtype || '').toLowerCase();
-                  const typeIcon = TYPE_ICONS[rawType];
-                  const superIcon = TYPE_ICONS[superType];
+                  const typeIcon = isCyberpunk ? null : TYPE_ICONS[rawType];
+                  const superIcon = isCyberpunk ? null : TYPE_ICONS[superType];
                   return (
                     <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{t('type', lang)}</div>
-                      <div className="flex items-center gap-1.5 text-sm font-bold text-zinc-100 truncate">
+                      <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">{t('type', lang)}</div>
+                      <div className="flex items-center gap-1.5 text-base font-bold text-zinc-100 truncate">
                         {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
                         <span className="truncate">{card.card_type}</span>
-                        {superType && superIcon && (
+                        {superType && (
                           <>
                             <span className="text-zinc-500 mx-0.5">·</span>
-                            <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />
+                            {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
                             <span className="text-indigo-300 truncate">{card.subtype}</span>
                           </>
                         )}
@@ -576,10 +628,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!tagArr || tagArr.length === 0) return null;
                 return (
                   <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('tags', lang)}</div>
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('tags', lang)}</div>
                     <div className="flex gap-1.5 flex-wrap">
                       {tagArr.map((tag: string) => (
-                        <span key={tag} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-200 border border-zinc-700">
+                        <span key={tag} className="text-sm font-bold px-3 py-1 rounded-lg bg-zinc-900 text-zinc-200 border border-zinc-700">
                           {tag}
                         </span>
                       ))}
@@ -590,7 +642,66 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           </div>
 
-          {(() => {
+          {card.game === 'cyberpunk' ? (() => {
+            const cpMeta = getCyberpunkMeta(card);
+            const costVal = cpMeta?.cost ?? card.cost;
+            const powerVal = cpMeta?.power ?? (card.might ? parseInt(card.might, 10) : null);
+            const ramVal = cpMeta?.ram;
+
+            const hasCost = costVal != null;
+            const hasPower = powerVal != null;
+            const hasRam = ramVal != null;
+
+            if (!hasCost && !hasPower && !hasRam) return null;
+
+            const statCount = (hasCost ? 1 : 0) + (hasPower ? 1 : 0) + (hasRam ? 1 : 0);
+            const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
+
+            return (
+              <div className={`grid ${gridClass} gap-2.5 mb-4`}>
+                {hasCost && (
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg">
+                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
+                      </svg>
+                      {lang === 'hu' ? 'Költség' : 'Cost'}
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black text-amber-300">
+                      {costVal}
+                    </div>
+                  </div>
+                )}
+
+                {hasPower && (
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg">
+                    <div className="text-xs font-black text-rose-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <rect width="16" height="16" x="4" y="4" rx="2" /><rect width="6" height="6" x="9" y="9" rx="1" />
+                        <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" />
+                      </svg>
+                      PWR
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black text-rose-300">
+                      {powerVal}
+                    </div>
+                  </div>
+                )}
+
+                {hasRam && (
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg">
+                    <div className="text-xs font-black text-cyan-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                      RAM
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black text-cyan-300">
+                      {ramVal}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })() : (() => {
             const powerReq = getCardPowerRequirement(card);
             const hasPowerCost = powerReq.power > 0 && powerReq.domains.length > 0;
             const hasEnergy = card.energy != null;
@@ -619,10 +730,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       }}
                       className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
                     >
-                      <div className="text-[10px] font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
+                      <div className="text-xs font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
                         {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${t('energy', lang)}` : `${parsedDomains[0]?.name || ''} ${t('energy', lang)}`}
                       </div>
-                      <div className="text-2xl sm:text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      <div className="text-3xl sm:text-4xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {card.energy}
                       </div>
                     </div>
@@ -632,7 +743,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {/* 2. Power Cost */}
                 {hasPowerCost && (
                   <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
                       {t('power_cost', lang)}
                     </div>
                     <div className="flex items-center gap-2 my-auto flex-wrap justify-center">
@@ -681,8 +792,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {/* 3. Might */}
                 {hasMight && (
                   <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                    <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
-                    <div className="text-2xl sm:text-3xl font-black text-amber-400">{card.might}</div>
+                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
+                    <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might}</div>
                   </div>
                 )}
               </div>
@@ -694,19 +805,19 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
               {card.ability && (
                 <div className={card.text ? "mb-4" : ""}>
-                  <div className="text-xs font-black text-indigo-300 uppercase tracking-wider pb-1.5 mb-2 border-b border-zinc-800">
+                  <div className="text-sm font-black text-indigo-300 uppercase tracking-wider pb-1.5 mb-2 border-b border-zinc-800">
                     {t('ability', lang)}
                   </div>
-                  <div className="text-xs sm:text-sm text-zinc-100 leading-relaxed space-y-1" dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
+                  <div className="text-sm sm:text-base text-zinc-100 leading-relaxed space-y-1" dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
                 </div>
               )}
               
               {card.text && (
                 <div className={card.ability ? "pt-3 border-t border-zinc-800" : ""}>
-                  <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
                     {t('flavor_text', lang)}
                   </div>
-                  <div className="text-xs sm:text-sm text-zinc-300 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
+                  <div className="text-sm sm:text-base text-zinc-300 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
               )}
             </div>
@@ -714,7 +825,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
           {card.artist && (
             <div className="mb-4">
-              <p className="text-xs text-zinc-400 italic">
+              <p className="text-sm text-zinc-400 italic">
                 {t('artist', lang)}: {card.artist}
               </p>
             </div>
@@ -724,11 +835,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {!isInventory && (
             <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 sm:p-5 mb-4">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-xs font-black text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="text-sm font-black text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
                   <span>📦</span> {t('my_collection_tracker', lang)}
                 </div>
                 {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
                     ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} {t('total_copies', lang)}
                   </span>
                 )}
@@ -740,8 +851,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   (collection[card.id] > 0) ? 'border-emerald-500/50' : 'border-zinc-800'
                 }`}>
                   <div>
-                    <div className="text-xs font-bold text-zinc-100">{t('normal', lang)}</div>
-                    <div className="text-[10px] text-zinc-400">{t('normal_copy', lang)}</div>
+                    <div className="text-sm font-bold text-zinc-100">{t('normal', lang)}</div>
+                    <div className="text-xs text-zinc-400">{t('normal_copy', lang)}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -752,7 +863,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     >
                       −
                     </button>
-                    <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
+                    <span className={`min-w-[20px] text-center text-base font-black font-mono ${
                       (collection[card.id] > 0) ? 'text-emerald-400' : 'text-zinc-500'
                     }`}>
                       {collection[card.id] || 0}
@@ -773,8 +884,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     (collection[`${card.id}_foil`] > 0) ? 'border-amber-500/50' : 'border-zinc-800'
                   }`}>
                     <div>
-                      <div className="text-xs font-bold text-amber-400">★ {t('foil_edition', lang)}</div>
-                      <div className="text-[10px] text-zinc-400">{t('foil_finish', lang)}</div>
+                      <div className="text-sm font-bold text-amber-400">★ {t('foil_edition', lang)}</div>
+                      <div className="text-xs text-zinc-400">{t('foil_finish', lang)}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -785,7 +896,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       >
                         −
                       </button>
-                      <span className={`min-w-[20px] text-center text-sm font-black font-mono ${
+                      <span className={`min-w-[20px] text-center text-base font-black font-mono ${
                         (collection[`${card.id}_foil`] > 0) ? 'text-amber-400' : 'text-zinc-500'
                       }`}>
                         {collection[`${card.id}_foil`] || 0}
@@ -991,7 +1102,7 @@ function PriceChartingButton({ card, isFoil, lang }: { card: CatalogCard, isFoil
   return (
     <a
       href={url} target="_blank" rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-200 hover:text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition shadow-sm"
+      className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-200 hover:text-white rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold transition shadow-sm"
     >
       📈 {t('check_on_cardmarket', lang)}
     </a>

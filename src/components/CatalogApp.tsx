@@ -4,9 +4,7 @@ import { CardItem } from "./CardItem";
 import { CardDetail } from "./CardDetail";
 import { fetchInventory, getCatalogVisibility, getSealedVisibility } from "../lib/api";
 import { getCurrentProfile } from "../lib/auth";
-import { supabase } from "../lib/supabase";
-import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES } from "../lib/constants";
-import type { InventoryCard, FilterState } from "../types";
+import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { getLanguage, t, type Language } from "../lib/i18n";
 
 const DEFAULT_FILTERS: FilterState = {
@@ -27,6 +25,7 @@ const DEFAULT_FILTERS: FilterState = {
   overnumberedFilter: 'all',
   spFilter: 'all',
   baseSetFilter: 'all',
+  eddiableFilter: 'all',
 };
 
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -137,7 +136,16 @@ export function CatalogApp() {
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
       if (customEvent.detail?.game) {
-        setFilters(prev => ({ ...prev, game: customEvent.detail.game, set: '' }));
+        setFilters(prev => ({
+          ...prev,
+          game: customEvent.detail.game,
+          set: '',
+          rarities: [],
+          type: '',
+          domains: [],
+          tags: [],
+          eddiableFilter: 'all',
+        }));
         setPage(1);
       }
     };
@@ -306,13 +314,16 @@ export function CatalogApp() {
     return () => observer.disconnect();
   }, [observerTarget.current, hasMore, loading, loadingMore, page, cards.length, totalCount]);
 
+  const isCyberpunk = filters.game === 'cyberpunk';
+
   const availableSets = useMemo(() => {
-    const setNames = new Set(SETS);
+    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
+    const setNames = new Set(baseSets);
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
     return Array.from(setNames);
-  }, [cards]);
+  }, [cards, isCyberpunk]);
 
   const sidebar = (
     <FilterSidebar
@@ -320,10 +331,10 @@ export function CatalogApp() {
       setFilters={setFilters}
       options={{
         sets: availableSets,
-        rarities: RARITIES,
-        types: TYPES,
-        domains: DOMAINS,
-        tags: TAGS,
+        rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
+        types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
+        domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
+        tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
       }}
     />
   );

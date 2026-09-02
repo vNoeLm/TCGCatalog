@@ -1,4 +1,4 @@
-﻿export interface DomainStyle {
+export interface DomainStyle {
   name: string;
   key: string;
   bg: string;
@@ -15,6 +15,11 @@ export const SINGLE_DOMAIN_MAP: Record<string, DomainStyle> = {
   chaos:     { name: 'Chaos',     key: 'chaos',     bg: 'rgba(147,51,234,0.95)',  border: 'rgba(168,85,247,1)',  text: '#ffffff', glow: 'rgba(168,85,247,0.6)' },
   order:     { name: 'Order',     key: 'order',     bg: 'rgba(234,179,8,0.95)',   border: 'rgba(234,179,8,1)',   text: '#ffffff', glow: 'rgba(234,179,8,0.6)' },
   colorless: { name: 'Colorless', key: 'colorless', bg: 'rgba(75,85,99,0.95)',    border: 'rgba(107,114,128,1)', text: '#ffffff', glow: 'rgba(107,114,128,0.4)' },
+  // Cyberpunk TCG colors
+  red:       { name: 'Red',       key: 'red',       bg: 'rgba(220,38,38,0.95)',   border: 'rgba(239,68,68,1)',   text: '#ffffff', glow: 'rgba(239,68,68,0.6)' },
+  blue:      { name: 'Blue',      key: 'blue',      bg: 'rgba(37,99,235,0.95)',   border: 'rgba(59,130,246,1)',  text: '#ffffff', glow: 'rgba(59,130,246,0.6)' },
+  green:     { name: 'Green',     key: 'green',     bg: 'rgba(22,163,74,0.95)',   border: 'rgba(34,197,94,1)',   text: '#ffffff', glow: 'rgba(34,197,94,0.6)' },
+  yellow:    { name: 'Yellow',    key: 'yellow',    bg: 'rgba(234,179,8,0.95)',   border: 'rgba(234,179,8,1)',   text: '#ffffff', glow: 'rgba(234,179,8,0.6)' },
 };
 
 /**

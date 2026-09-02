@@ -24,14 +24,21 @@ const DOMAIN_STYLES: Record<string, { dot: string; activeBg: string; border: str
   Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
   Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
   Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.18)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.1)",  hoverBorder: "rgba(203,213,225,0.35)" },
+  // Cyberpunk colors
+  Red:        { dot: "#ef4444", activeBg: "rgba(239,68,68,0.25)",   border: "rgba(239,68,68,0.8)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.15)",   hoverBorder: "rgba(239,68,68,0.5)" },
+  Blue:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.25)",  border: "rgba(59,130,246,0.8)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.15)",  hoverBorder: "rgba(59,130,246,0.5)" },
+  Green:      { dot: "#22c55e", activeBg: "rgba(34,197,94,0.25)",   border: "rgba(34,197,94,0.8)", text: "#86efac", hoverBg: "rgba(34,197,94,0.15)",   hoverBorder: "rgba(34,197,94,0.5)" },
+  Yellow:     { dot: "#eab308", activeBg: "rgba(234,179,8,0.25)",   border: "rgba(234,179,8,0.8)", text: "#fde047", hoverBg: "rgba(234,179,8,0.15)",   hoverBorder: "rgba(234,179,8,0.5)" },
 };
 
 const RARITY_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string; hoverBorder: string }> = {
-  Common:   { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
-  Uncommon: { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.22)",  border: "rgba(56,189,248,0.7)",  text: "#7dd3fc", hoverBg: "rgba(56,189,248,0.12)",  hoverBorder: "rgba(56,189,248,0.45)" },
-  Rare:     { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
-  Epic:     { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
-  Showcase: { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
+  Common:          { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
+  Uncommon:        { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.22)",  border: "rgba(56,189,248,0.7)",  text: "#7dd3fc", hoverBg: "rgba(56,189,248,0.12)",  hoverBorder: "rgba(56,189,248,0.45)" },
+  Rare:            { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
+  Epic:            { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
+  Showcase:        { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
+  "Nova Rare":     { dot: "#06b6d4", activeBg: "rgba(6,182,212,0.25)",   border: "rgba(6,182,212,0.8)",   text: "#67e8f9", hoverBg: "rgba(6,182,212,0.15)",   hoverBorder: "rgba(6,182,212,0.5)" },
+  "Secret":        { dot: "#ec4899", activeBg: "rgba(236,72,153,0.35)",  border: "rgba(236,72,153,0.9)",  text: "#ffffff", hoverBg: "rgba(236,72,153,0.2)",   hoverBorder: "rgba(236,72,153,0.6)" },
 };
 
 function SectionHeader({ label, badge, collapsible = true, open, onToggle }: {
@@ -78,6 +85,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const [sealedOpen, setSealedOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
+  const [eddiesOpen, setEddiesOpen] = useState(true);
   const [tagSearch, setTagSearch] = useState("");
 
   useEffect(() => {
@@ -95,6 +103,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
   const isPokemon = filters.game === 'pokemon';
+  const isCyberpunk = filters.game === 'cyberpunk';
 
   const set = (key: keyof FilterState, val: any) =>
     setFilters({ ...filters, [key]: val });
@@ -148,6 +157,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       overnumberedFilter: 'all',
       spFilter: 'all',
       baseSetFilter: 'all',
+      eddiableFilter: 'all',
     });
   };
 
@@ -310,7 +320,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className="border-b border-white/5 pb-2">
           <SectionHeader
-            label={isPokemon ? t('energy_type', lang) : t('domain', lang)}
+            label={isPokemon ? t('energy_type', lang) : (isCyberpunk ? (lang === 'hu' ? 'Szín' : 'Color') : t('domain', lang))}
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
@@ -625,9 +635,9 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
       {!isSealedCategory && !isPokemon && (
-        <div>
+        <div className={isCyberpunk ? "border-b border-white/5 pb-2" : ""}>
           <SectionHeader
-            label={lang === 'hu' ? 'Energiaköltség' : 'Energy Cost'}
+            label={isCyberpunk ? (lang === 'hu' ? 'Költség (€$)' : 'Cost (€$)') : (lang === 'hu' ? 'Energiaköltség' : 'Energy Cost')}
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}
@@ -653,6 +663,43 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   />
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 9. EDDIES (SELLABLE / NON-SELLABLE) FOR CYBERPUNK */}
+      {isCyberpunk && !isSealedCategory && (
+        <div>
+          <SectionHeader
+            label={lang === 'hu' ? 'Eddies (Eladhatóság)' : 'Eddies (Sellable)'}
+            badge={filters.eddiableFilter && filters.eddiableFilter !== 'all' ? 1 : 0}
+            open={eddiesOpen}
+            onToggle={() => setEddiesOpen(o => !o)}
+          />
+          {eddiesOpen && (
+            <div className="mt-1.5 flex gap-1.5">
+              {[
+                { id: 'all', label: lang === 'hu' ? 'Mind' : 'All' },
+                { id: 'sellable', label: lang === 'hu' ? 'Eladható (€$)' : 'Sellable (€$)' },
+                { id: 'non_sellable', label: lang === 'hu' ? 'Nem eladható' : 'Non-Sellable' },
+              ].map((opt) => {
+                const active = (filters.eddiableFilter || 'all') === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => set("eddiableFilter", opt.id as any)}
+                    className={`flex-1 py-1 px-1 text-[11px] font-bold rounded-lg border transition cursor-pointer text-center ${
+                      active
+                        ? "bg-amber-400 text-zinc-950 border-amber-300 shadow-sm"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,5 +1,6 @@
 export const GAMES = [
   { id: 'riftbound', name: 'Riftbound', active: true },
+  { id: 'cyberpunk', name: 'Cyberpunk TCG', active: true },
   { id: 'pokemon', name: 'Pokémon TCG', active: false },
   { id: 'onepiece', name: 'One Piece', active: false },
   { id: 'mtg', name: 'Magic: The Gathering', active: false },
@@ -29,3 +30,31 @@ export const TAGS = ["Ahri","Akali","Akshan","Ambessa","Anivia","Annie","Aphelio
 // ─── Pokémon Constants ────────────────────────────────────────────
 export const POKEMON_TYPES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Colorless'];
 export const POKEMON_RARITIES = ['Common', 'Uncommon', 'Rare', 'Double Rare', 'Ultra Rare', 'Illustration Rare', 'Special Illustration Rare', 'Hyper Rare'];
+
+// ─── Cyberpunk Constants ──────────────────────────────────────────
+export const CYBERPUNK_COLORS = ['Red', 'Blue', 'Green', 'Yellow'];
+export const CYBERPUNK_TYPES = ['Legend', 'Unit', 'Gear', 'Program'];
+export const CYBERPUNK_RARITIES = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Epic',
+  'Nova Rare',
+  'Secret',
+];
+export const CYBERPUNK_SETS = [
+  'Welcome to Night City — Retail',
+  'Embracing Power — Retail Starter Deck',
+  'The Heist — Retail Starter Deck',
+  'Set 1 Promos',
+];
+export const CYBERPUNK_TAGS = [
+  '6th Street', 'AI', 'Aldecado', 'Animal', 'Arasaka', 'Braindance',
+  'Corpo', 'Cyberware', 'Doll', 'Drone', 'Extreme', 'Fixer', 'Ganger',
+  'Maelstrom', "Maine's Crew", 'Medtech', 'Merc', 'Militech', 'Mox',
+  'Mystic', 'NCPD', 'Netrunner', 'Netwatch', 'Nomad', 'Plan', 'Quickhack',
+  'Raffen Shiv', 'Ripperdoc', 'Rocker', 'Samurai', 'Scavenger', 'Techie',
+  'Trauma Team', 'Tyger Claws', 'Valentino', 'Vehicle', 'Voodoo Boys',
+  'Weapon', 'Zetatech'
+];
+

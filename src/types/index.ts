@@ -95,6 +95,7 @@ export interface FilterState {
   overnumberedFilter?: 'all' | 'only' | 'none';
   spFilter?: 'all' | 'only' | 'none';
   baseSetFilter?: 'all' | 'only';
+  eddiableFilter?: 'all' | 'sellable' | 'non_sellable';
   page?: number;
   pageSize?: number;
   sort?: string;

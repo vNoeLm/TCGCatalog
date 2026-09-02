@@ -4,7 +4,7 @@ import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CardDetail } from "./CardDetail";
 import { fetchCardsCatalog } from "../lib/api";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { getLanguage, t, type Language } from "../lib/i18n";
 import { supabase } from "../lib/supabase";
@@ -38,13 +38,12 @@ const DEFAULT_FILTERS: FilterState = {
   altArtFilter: 'all',
   spFilter: 'all',
   baseSetFilter: 'all',
+  eddiableFilter: 'all',
 };
 
 const SORT_OPTIONS = [
   { mode: "Card Number (Asc)", labelKey: 'sort_number_asc' },
   { mode: "Card Number (Desc)", labelKey: 'sort_number_desc' },
-  { mode: "Price (Low to High)", labelKey: 'sort_price_low' },
-  { mode: "Price (High to Low)", labelKey: 'sort_price_high' },
   { mode: "Quantity (High to Low)", labelKey: 'sort_qty_high' },
   { mode: "Quantity (Low to High)", labelKey: 'sort_qty_low' },
   { mode: "Rarity (High to Low)", labelKey: 'sort_rarity_high' },
@@ -77,7 +76,6 @@ export function CardListApp() {
   const [sortMode, setSortMode] = useState<
     "Card Number (Asc)" | "Card Number (Desc)" |
     "Rarity (High to Low)" | "Rarity (Low to High)" |
-    "Price (Low to High)" | "Price (High to Low)" |
     "Quantity (High to Low)" | "Quantity (Low to High)" |
     "Name (A to Z)" | "Name (Z to A)"
   >("Card Number (Asc)");
@@ -174,7 +172,16 @@ export function CardListApp() {
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
       if (customEvent.detail?.game) {
-        setFilters(prev => ({ ...prev, game: customEvent.detail.game, set: '' }));
+        setFilters(prev => ({
+          ...prev,
+          game: customEvent.detail.game,
+          set: '',
+          rarities: [],
+          type: '',
+          domains: [],
+          tags: [],
+          eddiableFilter: 'all',
+        }));
         setPage(1);
       }
     };
@@ -514,18 +521,6 @@ export function CardListApp() {
     }
     
     filtered = [...filtered].sort((a, b) => {
-      if (sortMode === 'Price (Low to High)') {
-        const pA = a.market_price_eur ?? 0;
-        const pB = b.market_price_eur ?? 0;
-        if (pA !== pB) return pA - pB;
-        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
-      }
-      if (sortMode === 'Price (High to Low)') {
-        const pA = a.market_price_eur ?? 0;
-        const pB = b.market_price_eur ?? 0;
-        if (pA !== pB) return pB - pA;
-        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
-      }
       if (sortMode === 'Quantity (High to Low)') {
         const qA = (collection[a.id] || 0) + (collection[`${a.id}_foil`] || 0);
         const qB = (collection[b.id] || 0) + (collection[`${b.id}_foil`] || 0);
@@ -947,13 +942,16 @@ export function CardListApp() {
     }
   };
 
+  const isCyberpunk = filters.game === 'cyberpunk';
+
   const availableSets = useMemo(() => {
-    const setNames = new Set(SETS);
+    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
+    const setNames = new Set(baseSets);
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
     return Array.from(setNames);
-  }, [cards]);
+  }, [cards, isCyberpunk]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
@@ -968,10 +966,10 @@ export function CardListApp() {
               setFilters={setFilters} 
               options={{
                 sets: availableSets,
-                rarities: RARITIES,
-                types: TYPES,
-                domains: DOMAINS,
-                tags: TAGS,
+                rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
+                types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
+                domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
+                tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
               }}
             />
           </aside>
@@ -1331,10 +1329,10 @@ export function CardListApp() {
                   setFilters={setFilters}
                   options={{
                     sets: availableSets,
-                    rarities: RARITIES,
-                    types: TYPES,
-                    domains: DOMAINS,
-                    tags: TAGS,
+                    rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
+                    types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
+                    domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
+                    tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
                   }}
                 />
               </div>

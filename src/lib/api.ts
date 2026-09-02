@@ -1,10 +1,11 @@
 import { supabase } from './supabase';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
+import { getCyberpunkMeta } from './cyberpunkCardData';
 
 export const PAGE_SIZE = 36;
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v22';
+const CACHE_VERSION = 'v24';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -179,6 +180,14 @@ export async function fetchCardsCatalog(
     mappedData = mappedData.filter(card => card.set_name === filters.set);
   }
 
+  if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
+    mappedData = mappedData.filter(card => {
+      const meta = getCyberpunkMeta(card);
+      const isEddiable = Boolean(meta?.is_eddiable);
+      return filters.eddiableFilter === 'sellable' ? isEddiable : !isEddiable;
+    });
+  }
+
   const result = { data: mappedData, count: mappedData.length };
   setCached(cacheKey, result);
   return result;
@@ -285,7 +294,7 @@ export async function fetchOwnerStoreInventory(
 
     const EUR_TO_HUF = 400;
 
-    const mappedData: InventoryCard[] = (data || []).map((row: any) => {
+    let mappedData: InventoryCard[] = (data || []).map((row: any) => {
       const isFoil = row.foil_copies > 0 && row.owned_copies === 0;
       const effectiveEurPrice = typeof row.unit_price === 'number'
         ? row.unit_price
@@ -330,7 +339,15 @@ export async function fetchOwnerStoreInventory(
       };
     });
 
-    const result = { data: mappedData, count };
+    if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
+      mappedData = mappedData.filter(card => {
+        const meta = getCyberpunkMeta(card);
+        const isEddiable = Boolean(meta?.is_eddiable);
+        return filters.eddiableFilter === 'sellable' ? isEddiable : !isEddiable;
+      });
+    }
+
+    const result = { data: mappedData, count: mappedData.length };
     setCached(cacheKey, result);
     return result;
   } catch (err) {
