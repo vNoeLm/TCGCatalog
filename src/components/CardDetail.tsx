@@ -610,11 +610,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       <div className="flex items-center gap-1.5 text-base font-bold text-zinc-100 truncate">
                         {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
                         <span className="truncate">{card.card_type}</span>
-                        {superType && (
+                        {!isCyberpunk && superType && (
                           <>
                             <span className="text-zinc-500 mx-0.5">·</span>
                             {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
-                            <span className="text-indigo-300 truncate">{card.subtype}</span>
+                            <span className="text-amber-300 truncate">{card.subtype}</span>
                           </>
                         )}
                       </div>

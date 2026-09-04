@@ -943,6 +943,41 @@ export function CardListApp() {
   };
 
   const isCyberpunk = filters.game === 'cyberpunk';
+  const isRiftbound = !filters.game || filters.game === 'riftbound';
+
+  const catalogTheme = isCyberpunk
+    ? {
+        containerClass: "bg-[#0c0d10]/95 border border-[rgba(252,238,10,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(252,238,10,0.06)]",
+        inputClass: "bg-[#161822]/90 border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] focus:border-[#fcee0a] focus:ring-1 focus:ring-[#fcee0a] text-zinc-100 placeholder:text-zinc-500",
+        sortBtnClass: "bg-[#161822]/90 hover:bg-[#1c202d] border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] text-zinc-200 hover:text-white",
+        sortMenuClass: "bg-[#0c0d10] border border-[rgba(252,238,10,0.3)] shadow-2xl",
+        sortSelectedIcon: "text-[#fcee0a]",
+        mobileFilterBtn: "bg-[rgba(252,238,10,0.15)] hover:bg-[rgba(252,238,10,0.25)] border border-[rgba(252,238,10,0.4)] text-[#fcee0a]",
+        mobileFilterIcon: "text-[#fcee0a]",
+        mobileFilterBadge: "bg-[#fcee0a] text-black",
+        deckBuilderBtn: "bg-[#fcee0a] hover:bg-[#e6d809] text-black font-black shadow-lg shadow-yellow-500/20",
+        cloudSyncCard: "bg-[#161822] hover:bg-[#1c202d] border border-[rgba(252,238,10,0.3)] hover:border-[#fcee0a] shadow-lg shadow-yellow-950/20",
+        cloudSyncIconBg: "bg-[rgba(252,238,10,0.2)] border border-[rgba(252,238,10,0.35)] text-[#fcee0a]",
+        cloudSyncBadge: "bg-[rgba(252,238,10,0.2)] text-[#fcee0a] border border-[rgba(252,238,10,0.4)]",
+        cloudSyncText: "text-[#fcee0a]",
+        activePlaysetClass: "text-black font-black bg-[#fcee0a] border-[#fcee0a] shadow-[0_0_12px_rgba(252,238,10,0.3)]",
+      }
+    : {
+        containerClass: "bg-[#091428]/95 border border-[rgba(245,158,11,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(245,158,11,0.06)]",
+        inputClass: "bg-[#0e1c36]/90 border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] focus:border-[#f59e0b] focus:ring-1 focus:ring-[#f59e0b] text-zinc-100 placeholder:text-zinc-500",
+        sortBtnClass: "bg-[#0e1c36]/90 hover:bg-[#122244] border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] text-zinc-200 hover:text-white",
+        sortMenuClass: "bg-[#091428] border border-[rgba(245,158,11,0.3)] shadow-2xl",
+        sortSelectedIcon: "text-[#f59e0b]",
+        mobileFilterBtn: "bg-[rgba(245,158,11,0.15)] hover:bg-[rgba(245,158,11,0.25)] border border-[rgba(245,158,11,0.4)] text-[#fbbf24]",
+        mobileFilterIcon: "text-[#fbbf24]",
+        mobileFilterBadge: "bg-amber-500 text-[#091428]",
+        deckBuilderBtn: "bg-amber-500 hover:bg-amber-400 text-[#091428] font-black shadow-lg shadow-amber-500/25",
+        cloudSyncCard: "bg-[#0e1c36] hover:bg-[#132546] border border-[rgba(245,158,11,0.3)] hover:border-[#f59e0b] shadow-lg shadow-amber-950/20",
+        cloudSyncIconBg: "bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.35)] text-[#f59e0b]",
+        cloudSyncBadge: "bg-[rgba(245,158,11,0.2)] text-[#fbbf24] border border-[rgba(245,158,11,0.4)]",
+        cloudSyncText: "text-[#fbbf24]",
+        activePlaysetClass: "text-[#091428] font-black bg-amber-500 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]",
+      };
 
   const availableSets = useMemo(() => {
     const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
@@ -979,7 +1014,7 @@ export function CardListApp() {
         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
           
           {/* Controls Bar (Search, Sort, Grid Size, Tabs & Collection Actions) */}
-          <div className="flex flex-col gap-3 bg-zinc-900/90 border border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md relative z-30">
+          <div className={`flex flex-col gap-3 ${catalogTheme.containerClass} rounded-2xl p-3.5 sm:p-4 backdrop-blur-md relative z-30`}>
             
             {isWide ? (
               /* Desktop Layout: Search Bar (Left) + Sort Dropdown (Right) in a single row */
@@ -996,7 +1031,7 @@ export function CardListApp() {
                     placeholder={t('search_placeholder', lang)}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
+                    className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
                   />
                 </div>
 
@@ -1005,7 +1040,7 @@ export function CardListApp() {
                   <button
                     type="button"
                     onClick={() => setSortOpen(prev => !prev)}
-                    className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                    className={`w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl ${catalogTheme.sortBtnClass} text-xs font-semibold transition shadow-sm cursor-pointer select-none`}
                   >
                     <span className="truncate">
                       {getSortLabel(sortMode, lang)}
@@ -1019,7 +1054,7 @@ export function CardListApp() {
                   </button>
 
                   {sortOpen && (
-                    <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                    <div className={`absolute right-0 mt-1.5 w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100`}>
                       {SORT_OPTIONS.map(({ mode, labelKey }) => {
                         const isSelected = sortMode === mode;
                         return (
@@ -1035,7 +1070,7 @@ export function CardListApp() {
                           >
                             <span>{t(labelKey as any, lang)}</span>
                             {isSelected && (
-                              <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <svg className={`w-3.5 h-3.5 ${catalogTheme.sortSelectedIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -1062,7 +1097,7 @@ export function CardListApp() {
                     placeholder={t('search_placeholder', lang)}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 rounded-xl pl-10 pr-3 text-xs font-medium text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition shadow-inner"
+                    className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
                   />
                 </div>
 
@@ -1071,14 +1106,14 @@ export function CardListApp() {
                   <button
                     type="button"
                     onClick={() => setShowMobileFilters(true)}
-                    className="flex-1 h-10 px-3 flex items-center justify-center gap-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition cursor-pointer shadow-sm active:scale-95 min-w-0"
+                    className={`flex-1 h-10 px-3 flex items-center justify-center gap-2 rounded-xl ${catalogTheme.mobileFilterBtn} text-xs font-bold transition cursor-pointer shadow-sm active:scale-95 min-w-0`}
                   >
-                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className={`w-4 h-4 ${catalogTheme.mobileFilterIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
                     <span className="truncate">{t('filters', lang)}</span>
                     {activeFilterBadgeCount > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center shrink-0">
+                      <span className={`w-5 h-5 rounded-full ${catalogTheme.mobileFilterBadge} text-[11px] font-black flex items-center justify-center shrink-0`}>
                         {activeFilterBadgeCount}
                       </span>
                     )}
@@ -1088,7 +1123,7 @@ export function CardListApp() {
                     <button
                       type="button"
                       onClick={() => setSortOpen(prev => !prev)}
-                      className="w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                      className={`w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl ${catalogTheme.sortBtnClass} text-xs font-semibold transition shadow-sm cursor-pointer select-none`}
                     >
                       <span className="truncate">
                         {getSortLabel(sortMode, lang)}
@@ -1102,7 +1137,7 @@ export function CardListApp() {
                     </button>
 
                     {sortOpen && (
-                      <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                      <div className={`absolute right-0 mt-1.5 w-full rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100`}>
                         {SORT_OPTIONS.map(({ mode, labelKey }) => {
                           const isSelected = sortMode === mode;
                           return (
@@ -1118,7 +1153,7 @@ export function CardListApp() {
                             >
                               <span>{t(labelKey as any, lang)}</span>
                               {isSelected && (
-                                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <svg className={`w-3.5 h-3.5 ${catalogTheme.sortSelectedIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                 </svg>
                               )}
@@ -1145,7 +1180,7 @@ export function CardListApp() {
                     activeClass = 'text-white font-bold bg-emerald-500/20 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.25)]';
                   } else if (f === "Playset") {
                     label = `${t('playset', lang)} (${playsetCount} / ${relevantTotal})`;
-                    activeClass = 'text-white font-bold bg-indigo-500/20 border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.25)]';
+                    activeClass = catalogTheme.activePlaysetClass;
                   } else if (f === "Missing") {
                     label = `${t('missing', lang)} (${missingCount} / ${relevantTotal})`;
                     activeClass = 'text-white font-bold bg-rose-500/20 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.25)]';
@@ -1193,24 +1228,14 @@ export function CardListApp() {
 
               {/* Collection Actions Buttons - 100% full-width on mobile */}
               <div className="grid grid-cols-3 sm:flex items-center gap-1.5 w-full sm:w-auto">
-                {/* Deck Builder Button (Per Game Support) */}
-                {(!filters.game || filters.game === 'riftbound') ? (
-                  <a
-                    href="/deck-builder"
-                    title="Open Deck Builder for Riftbound"
-                    className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-100 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer shadow-sm whitespace-nowrap"
-                  >
-                    {t('deck_builder', lang)}
-                  </a>
-                ) : (
-                  <button
-                    disabled
-                    title="Deck Builder is not available for this game yet"
-                    className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg text-zinc-500 bg-zinc-950/40 border border-zinc-800/50 opacity-50 cursor-not-allowed whitespace-nowrap"
-                  >
-                    {t('deck_builder', lang)}
-                  </button>
-                )}
+                {/* Deck Builder Button */}
+                <a
+                  href="/deck-builder"
+                  title="Open Deck Builder"
+                  className={`flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
+                >
+                  {t('deck_builder', lang)}
+                </a>
 
                 <button
                   onClick={() => setShowExportModal(true)}

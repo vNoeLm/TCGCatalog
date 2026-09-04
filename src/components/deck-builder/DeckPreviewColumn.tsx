@@ -1,12 +1,15 @@
 import React from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
+import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
 import { type Language } from '../../lib/i18n';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
   cards: CatalogCard[];
+  activeGame?: 'riftbound' | 'cyberpunk';
+  cyberpunkLegends?: CatalogCard[];
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
@@ -14,7 +17,19 @@ interface DeckPreviewColumnProps {
   lang?: Language;
 }
 
-export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCardClick, onRemoveCard, lang = 'en' }: DeckPreviewColumnProps) {
+export function DeckPreviewColumn({
+  deck,
+  cards,
+  activeGame = 'riftbound',
+  cyberpunkLegends = [],
+  legendCard,
+  championCard,
+  onCardClick,
+  onRemoveCard,
+  lang = 'en',
+}: DeckPreviewColumnProps) {
+  const isCyberpunk = activeGame === 'cyberpunk';
+
   // Group cards by ID and count how many we have total
   const getAllCardsGrouped = () => {
     const counts = new Map<string, { card: CatalogCard; qty: number }>();
@@ -27,10 +42,17 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
       }
     };
 
-    if (legendCard) addCardToGroup(legendCard, 1);
-    if (championCard) addCardToGroup(championCard, 1);
+    if (isCyberpunk) {
+      (cyberpunkLegends.length > 0 ? cyberpunkLegends : (deck.legends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[]).forEach(l => {
+        addCardToGroup(l, 1);
+      });
+    } else {
+      if (legendCard) addCardToGroup(legendCard, 1);
+      if (championCard) addCardToGroup(championCard, 1);
+    }
 
-    const addFromZone = (zoneMap: Record<string, number>) => {
+    const addFromZone = (zoneMap: Record<string, number> | undefined) => {
+      if (!zoneMap) return;
       Object.entries(zoneMap).forEach(([id, qty]) => {
         const c = cards.find(x => x.id === id);
         if (c) addCardToGroup(c, qty);
@@ -38,8 +60,10 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
     };
 
     addFromZone(deck.mainDeck);
-    addFromZone(deck.runeDeck);
-    addFromZone(deck.battlefields);
+    if (!isCyberpunk) {
+      addFromZone(deck.runeDeck);
+      addFromZone(deck.battlefields);
+    }
     addFromZone(deck.sideboard);
 
     // Return as array
@@ -51,7 +75,11 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
   if (previewCards.length === 0) {
     return (
       <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-        <div style={{ opacity: 0.25, fontSize: 48 }}>🃏</div>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3, marginBottom: 4 }}>
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <path d="M7 7h.01" />
+          <path d="M17 17h.01" />
+        </svg>
         <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{lang === 'hu' ? 'A pakli üres' : 'Deck is empty'}</p>
         <p style={{ margin: 0, fontSize: 12 }}>{lang === 'hu' ? 'Adj hozzá kártyákat a katalógusból.' : 'Add cards from the catalog.'}</p>
       </div>
@@ -59,9 +87,18 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{lang === 'hu' ? 'Pakli Előnézet' : 'Deck Preview'}</h2>
+    <div style={{ height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{
+          margin: 0,
+          fontSize: 14,
+          fontWeight: 800,
+          color: isCyberpunk ? '#fcee0a' : 'var(--text-primary)',
+          letterSpacing: isCyberpunk ? '0.04em' : 'normal',
+          textTransform: isCyberpunk ? 'uppercase' : 'none',
+        }}>
+          {lang === 'hu' ? 'Pakli Előnézet' : 'Deck Preview'}
+        </h2>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{previewCards.reduce((sum, item) => sum + item.qty, 0)} {lang === 'hu' ? 'Összesen' : 'Total'}</span>
       </div>
 
@@ -130,6 +167,36 @@ export function DeckPreviewColumn({ deck, cards, legendCard, championCard, onCar
                   {qty}
                 </div>
               )}
+
+              {/* Cyberpunk RAM Badge on Preview */}
+              {isCyberpunk && (() => {
+                const meta = getCyberpunkMeta(card);
+                const ram = meta?.ram ?? null;
+                const col = (meta?.color || card.domain || '').trim();
+                const colHex = col === 'Red' ? '#ef4444' : col === 'Green' ? '#22c55e' : col === 'Blue' ? '#06b6d4' : col === 'Yellow' ? '#eab308' : '#94a3b8';
+                if (ram === null) return null;
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 4,
+                      left: 4,
+                      zIndex: 4,
+                      background: 'rgba(15, 23, 42, 0.92)',
+                      color: colHex,
+                      border: `1px solid ${colHex}`,
+                      borderRadius: 4,
+                      padding: '1px 4px',
+                      fontSize: 9,
+                      fontWeight: 800,
+                      fontFamily: 'monospace',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
+                    }}
+                  >
+                    {card.card_type === 'Legend' ? `+${ram} RAM` : `${ram} RAM`}
+                  </div>
+                );
+              })()}
 
               {/* X Remove Button on TOP-RIGHT */}
               {onRemoveCard && (

@@ -10,33 +10,37 @@ export interface SavedDeck {
   createdAt: number;
 }
 
-export function useSavedDecks() {
+export function useSavedDecks(activeGame: 'riftbound' | 'cyberpunk' = 'riftbound') {
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const storageKey = activeGame === 'cyberpunk' ? 'cyberpunk_saved_decks' : 'riftbound_saved_decks';
 
   useEffect(() => {
-    const saved = localStorage.getItem('riftbound_saved_decks');
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         setSavedDecks(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to parse saved decks', e);
+        setSavedDecks([]);
       }
+    } else {
+      setSavedDecks([]);
     }
     setLoaded(true);
-  }, []);
+  }, [activeGame, storageKey]);
 
   useEffect(() => {
     if (loaded) {
-      localStorage.setItem('riftbound_saved_decks', JSON.stringify(savedDecks));
+      localStorage.setItem(storageKey, JSON.stringify(savedDecks));
     }
-  }, [savedDecks, loaded]);
+  }, [savedDecks, loaded, storageKey]);
 
   const saveDeck = (name: string, deck: DeckState) => {
     const newDeck: SavedDeck = {
       id: crypto.randomUUID(),
       name,
-      deck,
+      deck: { ...deck, game: activeGame },
       createdAt: Date.now(),
     };
     setSavedDecks(prev => [...prev, newDeck]);

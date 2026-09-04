@@ -41,22 +41,27 @@ const RARITY_STYLES: Record<string, { dot: string; activeBg: string; border: str
   "Secret":        { dot: "#ec4899", activeBg: "rgba(236,72,153,0.35)",  border: "rgba(236,72,153,0.9)",  text: "#ffffff", hoverBg: "rgba(236,72,153,0.2)",   hoverBorder: "rgba(236,72,153,0.6)" },
 };
 
-function SectionHeader({ label, badge, collapsible = true, open, onToggle }: {
+function SectionHeader({ label, badge, collapsible = true, open, onToggle, theme }: {
   label: string;
   badge?: number;
   collapsible?: boolean;
   open?: boolean;
   onToggle?: () => void;
+  theme?: {
+    sectionHover?: string;
+    sectionBadge?: string;
+    sectionArrow?: string;
+  };
 }) {
   return (
     <div
       onClick={collapsible ? onToggle : undefined}
-      className="flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-zinc-100 hover:text-white cursor-pointer select-none transition group"
+      className={`flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-zinc-100 ${theme?.sectionHover || "hover:text-white"} cursor-pointer select-none transition group`}
     >
       <span className="flex items-center gap-1.5">
         {label}
         {badge != null && badge > 0 && (
-          <span className="text-[10px] px-1.5 py-0.2 bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-full font-bold">
+          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${theme?.sectionBadge || "bg-zinc-800 text-zinc-100 border border-zinc-700"}`}>
             {badge}
           </span>
         )}
@@ -65,7 +70,7 @@ function SectionHeader({ label, badge, collapsible = true, open, onToggle }: {
         <svg
           width="12" height="12" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
-          className={`text-zinc-300 group-hover:text-white transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+          className={`${theme?.sectionArrow || "text-zinc-300 group-hover:text-white"} transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
         >
           <path d="M19 9l-7 7-7-7" />
         </svg>
@@ -238,12 +243,38 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase())
   );
 
+  const sidebarTheme = isCyberpunk
+    ? {
+        container: "bg-[#0c0d10]/95 border border-[rgba(252,238,10,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(252,238,10,0.06)]",
+        divider: "border-[rgba(252,238,10,0.15)]",
+        headerTitle: "text-[#fcee0a]",
+        headerIcon: "text-[#fcee0a]",
+        sectionHover: "hover:text-[#fcee0a]",
+        sectionBadge: "bg-[rgba(252,238,10,0.15)] text-[#fcee0a] border border-[rgba(252,238,10,0.4)]",
+        sectionArrow: "text-zinc-400 group-hover:text-[#fcee0a]",
+        input: "bg-[#161822] border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] focus:border-[#fcee0a] text-zinc-100 placeholder:text-zinc-500",
+        btnDefault: "bg-[#161822] border-zinc-800 text-zinc-300 hover:text-white hover:border-[rgba(252,238,10,0.4)] hover:bg-[#1a1d28]",
+        btnActive: "bg-[rgba(252,238,10,0.15)] border-[#fcee0a] text-[#fcee0a] font-bold shadow-[0_0_10px_rgba(252,238,10,0.15)]",
+      }
+    : {
+        container: "bg-[#091428]/95 border border-[rgba(245,158,11,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(245,158,11,0.06)]",
+        divider: "border-[rgba(245,158,11,0.15)]",
+        headerTitle: "text-[#fbbf24]",
+        headerIcon: "text-[#f59e0b]",
+        sectionHover: "hover:text-[#fbbf24]",
+        sectionBadge: "bg-[rgba(245,158,11,0.2)] text-[#fbbf24] border border-[rgba(245,158,11,0.4)]",
+        sectionArrow: "text-zinc-400 group-hover:text-[#fbbf24]",
+        input: "bg-[#0e1c36] border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] focus:border-[#f59e0b] text-zinc-100 placeholder:text-zinc-500",
+        btnDefault: "bg-[#0e1c36] border-zinc-800 text-zinc-300 hover:text-white hover:border-[rgba(245,158,11,0.4)] hover:bg-[#122244]",
+        btnActive: "bg-[rgba(245,158,11,0.2)] border-[#f59e0b] text-[#fbbf24] font-bold shadow-[0_0_10px_rgba(245,158,11,0.2)]",
+      };
+
   return (
-    <div className="w-full bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-3 space-y-2.5 shadow-lg">
+    <div className={`w-full ${sidebarTheme.container} rounded-xl p-3 space-y-2.5 shadow-lg`}>
       {/* Pinned header */}
-      <div className="flex items-center justify-between pb-2 border-b border-white/5">
-        <span className="text-zinc-100 font-bold text-xs flex items-center gap-1.5 uppercase tracking-wider">
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="text-zinc-300">
+      <div className={`flex items-center justify-between pb-2 border-b ${sidebarTheme.divider}`}>
+        <span className={`font-bold text-xs flex items-center gap-1.5 uppercase tracking-wider ${sidebarTheme.headerTitle}`}>
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className={sidebarTheme.headerIcon}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
           {t('filters', lang)}
@@ -257,19 +288,20 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       </div>
 
       {/* 1. SET SECTION (Default OPEN) */}
-      <div className="border-b border-white/5 pb-2">
+      <div className={`border-b ${sidebarTheme.divider} pb-2`}>
         <SectionHeader
           label={t('set', lang)}
           badge={filters.set ? 1 : 0}
           open={setOpen}
           onToggle={() => setSetOpen(o => !o)}
+          theme={sidebarTheme}
         />
         {setOpen && (
           <div className="mt-1">
             <select
               value={filters.set}
               onChange={(e) => set("set", e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 outline-none cursor-pointer appearance-none transition focus:border-zinc-600 font-medium"
+              className={`w-full ${sidebarTheme.input} rounded-md px-2.5 py-1.5 text-xs outline-none cursor-pointer appearance-none transition font-medium`}
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23d4d4d8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "no-repeat",
@@ -286,12 +318,13 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 2. TYPE SECTION (Default OPEN) - Symmetrical 2-Column Grid */}
       {!isSealedCategory && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={t('type', lang)}
             badge={filters.type ? 1 : 0}
             open={typeOpen}
             onToggle={() => setTypeOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {typeOpen && (
             <div className="grid grid-cols-2 gap-1 mt-1">
@@ -303,8 +336,8 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     onClick={() => set("type", val)}
                     className={`w-full py-1.5 px-1.5 min-h-[32px] text-xs rounded-md border text-center transition cursor-pointer font-medium leading-tight flex items-center justify-center ${
                       active
-                        ? "bg-zinc-800 border-zinc-500 text-white font-bold shadow-sm"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700 hover:bg-zinc-800/50"
+                        ? sidebarTheme.btnActive
+                        : sidebarTheme.btnDefault
                     }`}
                   >
                     {val || t('all', lang)}
@@ -318,12 +351,13 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 3. DOMAIN SECTION (Default OPEN) - Balanced 3-Column Micro Grid */}
       {!isSealedCategory && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={isPokemon ? t('energy_type', lang) : (isCyberpunk ? (lang === 'hu' ? 'Szín' : 'Color') : t('domain', lang))}
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {domainOpen && (
             <div className="grid grid-cols-3 gap-1 mt-1">
@@ -350,7 +384,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     } ${
                       active
                         ? 'font-bold'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700'
+                        : sidebarTheme.btnDefault
                     }`}
                     onMouseEnter={e => {
                       if (!active) {
@@ -379,12 +413,13 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 4. CARD VARIANT SECTION (Default COLLAPSED) - 2x2 Grid */}
       {!isSealedCategory && isRiftbound && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={t('card_variant', lang)}
             badge={variantBadgeCount}
             open={variantsOpen}
             onToggle={() => setVariantsOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {variantsOpen && (
             <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -395,7 +430,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 className={`col-span-2 text-xs py-1.5 px-2.5 rounded-md border text-center font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   baseSet === 'only'
                     ? "bg-emerald-500/20 border-emerald-500/80 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 <span>{baseSet === 'only' ? `✓ ${t('base_set_only', lang)}: ON` : t('base_set_only', lang)}</span>
@@ -407,7 +442,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
                   filters.foilFilter
                     ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.2)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 {filters.foilFilter ? "Foil: ON" : t('foil_only', lang)}
@@ -422,7 +457,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.25)]"
                     : sp === 'none'
                     ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 {sp === 'only' ? "SP: ONLY" : sp === 'none' ? "SP: NO" : t('sp_cards', lang)}
@@ -437,7 +472,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     ? "bg-purple-500/20 border-purple-500/80 text-purple-200 font-semibold shadow-[0_0_8px_rgba(168,85,247,0.25)]"
                     : signed === 'none'
                     ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 {signed === 'only' ? "Signed: ONLY" : signed === 'none' ? "Signed: NO" : t('signed_cards', lang)}
@@ -452,7 +487,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     ? "bg-pink-500/20 border-pink-500/80 text-pink-200 font-semibold shadow-[0_0_8px_rgba(236,72,153,0.25)]"
                     : altArt === 'none'
                     ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 {altArt === 'only' ? "Alt Art: ONLY" : altArt === 'none' ? "Alt Art: NO" : t('alt_art', lang)}
@@ -467,7 +502,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     ? "bg-violet-500/20 border-violet-500/80 text-violet-200 font-semibold shadow-[0_0_8px_rgba(139,92,246,0.25)]"
                     : overnumbered === 'none'
                     ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                    : sidebarTheme.btnDefault
                 }`}
               >
                 {overnumbered === 'only' ? "Overnum: ONLY" : overnumbered === 'none' ? "Overnum: NO" : t('overnumbered', lang)}
@@ -479,20 +514,25 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 5. RARITY SECTION (Default COLLAPSED) - 2-Column Compact Grid */}
       {!isSealedCategory && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={t('rarity', lang)}
             badge={filters.rarities.length}
             open={rarityOpen}
             onToggle={() => setRarityOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {rarityOpen && (
             <div className="grid grid-cols-2 gap-1 mt-1">
               {(isPokemon ? POKEMON_RARITIES : options.rarities).map((r) => {
                 const active = filters.rarities.includes(r);
                 const rs = RARITY_STYLES[r] ?? { 
-                  dot: "var(--accent)", activeBg: "var(--accent-muted)", border: "var(--accent-border)", 
-                  text: "var(--accent-light)", hoverBg: "rgba(255,255,255,0.1)", hoverBorder: "rgba(255,255,255,0.3)" 
+                  dot: isCyberpunk ? "#fcee0a" : "#f59e0b",
+                  activeBg: isCyberpunk ? "rgba(252,238,10,0.2)" : "rgba(245,158,11,0.2)",
+                  border: isCyberpunk ? "rgba(252,238,10,0.8)" : "rgba(245,158,11,0.8)", 
+                  text: isCyberpunk ? "#fef08a" : "#fbbf24",
+                  hoverBg: "rgba(255,255,255,0.1)",
+                  hoverBorder: "rgba(255,255,255,0.3)" 
                 };
                 return (
                   <button
@@ -507,7 +547,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     className={`flex items-center gap-1.5 py-1 px-2 rounded text-xs font-medium cursor-pointer border transition text-left ${
                       active
                         ? 'font-semibold'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700'
+                        : sidebarTheme.btnDefault
                     }`}
                     onMouseEnter={e => {
                       if (!active) {
@@ -537,12 +577,13 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 6. SEALED PRODUCT TYPE (Default COLLAPSED) */}
       {isSealedCategory && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={lang === 'hu' ? 'Terméktípus' : 'Product Type'}
             badge={filters.sealedTypes?.length || 0}
             open={sealedOpen}
             onToggle={() => setSealedOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {sealedOpen && (
             <div className="grid grid-cols-2 gap-1 mt-1">
@@ -554,8 +595,8 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     onClick={() => toggleSealedType(st)}
                     className={`flex items-center justify-between py-1 px-2 rounded text-xs font-medium cursor-pointer border transition text-left ${
                       active
-                        ? "bg-emerald-500/20 border-emerald-500/80 text-emerald-200 font-semibold shadow-[0_0_8px_rgba(16,185,129,0.2)]"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:border-zinc-700 hover:text-white"
+                        ? (isCyberpunk ? "bg-[rgba(252,238,10,0.2)] border-[#fcee0a] text-[#fcee0a] font-semibold" : "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.2)]")
+                        : sidebarTheme.btnDefault
                     }`}
                   >
                     <span className="truncate">{st}</span>
@@ -570,12 +611,13 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 7. TAGS SECTION (Default COLLAPSED) */}
       {!isSealedCategory && options.tags && options.tags.length > 0 && (
-        <div className="border-b border-white/5 pb-2">
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
             label={t('tags', lang)}
             badge={filters.tags.length}
             open={tagsOpen}
             onToggle={() => setTagsOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {tagsOpen && (
             <div className="mt-1.5">
@@ -592,7 +634,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   placeholder={lang === 'hu' ? 'Címkék keresése...' : 'Search tags...'}
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-md pl-7 pr-6 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-zinc-600"
+                  className={`w-full ${sidebarTheme.input} rounded-md pl-7 pr-6 py-1 text-xs outline-none transition`}
                 />
                 {tagSearch && (
                   <button
@@ -614,8 +656,8 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                       onClick={() => toggleTag(t)}
                       className={`px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer font-medium ${
                         active
-                          ? "bg-zinc-800 border-zinc-500 text-white font-bold shadow-sm"
-                          : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700"
+                          ? sidebarTheme.btnActive
+                          : sidebarTheme.btnDefault
                       }`}
                     >
                       {t}
@@ -635,17 +677,18 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
       {!isSealedCategory && !isPokemon && (
-        <div className={isCyberpunk ? "border-b border-white/5 pb-2" : ""}>
+        <div className={isCyberpunk ? `border-b ${sidebarTheme.divider} pb-2` : ""}>
           <SectionHeader
             label={isCyberpunk ? (lang === 'hu' ? 'Költség (€$)' : 'Cost (€$)') : (lang === 'hu' ? 'Energiaköltség' : 'Energy Cost')}
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {costOpen && (
             <div className="mt-1.5">
               <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs">
+                <div className={`flex-1 flex items-center ${sidebarTheme.input} rounded-md px-2 py-1 text-xs`}>
                   <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Min</span>
                   <input
                     type="number" min={1} max={10} value={filters.costMin}
@@ -654,7 +697,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   />
                 </div>
                 <span className="text-zinc-600 font-bold">–</span>
-                <div className="flex-1 flex items-center bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs">
+                <div className={`flex-1 flex items-center ${sidebarTheme.input} rounded-md px-2 py-1 text-xs`}>
                   <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Max</span>
                   <input
                     type="number" min={1} max={10} value={filters.costMax}
@@ -676,6 +719,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
             badge={filters.eddiableFilter && filters.eddiableFilter !== 'all' ? 1 : 0}
             open={eddiesOpen}
             onToggle={() => setEddiesOpen(o => !o)}
+            theme={sidebarTheme}
           />
           {eddiesOpen && (
             <div className="mt-1.5 flex gap-1.5">
@@ -692,8 +736,8 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     onClick={() => set("eddiableFilter", opt.id as any)}
                     className={`flex-1 py-1 px-1 text-[11px] font-bold rounded-lg border transition cursor-pointer text-center ${
                       active
-                        ? "bg-amber-400 text-zinc-950 border-amber-300 shadow-sm"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700"
+                        ? "bg-[#fcee0a] text-black border-[#fcee0a] shadow-sm"
+                        : sidebarTheme.btnDefault
                     }`}
                   >
                     {opt.label}

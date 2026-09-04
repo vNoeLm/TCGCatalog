@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CatalogCard } from '../../types';
 import { supabase, getCardImageUrl } from '../../lib/supabase';
-import { useDeckBuilder } from './useDeckBuilder';
-import type { DeckState } from './useDeckBuilder';
+import { useDeckBuilder, getDeckCyberpunkRam, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
 import { useSavedDecks } from './useSavedDecks';
 import { DeckCatalog } from './DeckCatalog';
 import { DeckList } from './DeckList';
@@ -30,19 +29,155 @@ const DOMAIN_COLORS: Record<string, string> = {
   body:    '#f97316', chaos: '#a855f7', order: '#eab308', colorless: '#94a3b8',
 };
 
-const statRow: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8' };
-const statLabel: React.CSSProperties = { fontWeight: 700 };
-const statVal: React.CSSProperties = { color: '#e2e8f0' };
+interface ActionButtonProps {
+  onClick: () => void;
+  title?: string;
+  isCyberpunk: boolean;
+  type: 'stats' | 'save' | 'browse' | 'import' | 'export' | 'clear';
+  children: React.ReactNode;
+}
+
+function ActionButton({ onClick, title, isCyberpunk, type, children }: ActionButtonProps) {
+  const [hovered, setHovered] = useState(false);
+
+  let baseStyle: React.CSSProperties = {
+    padding: '7px 4px',
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.15s ease',
+    width: '100%',
+  };
+
+  if (isCyberpunk) {
+    switch (type) {
+      case 'stats':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(252, 238, 10, 0.25)' : 'rgba(252, 238, 10, 0.12)',
+          color: '#fcee0a',
+          border: `1px solid ${hovered ? '#fcee0a' : 'rgba(252, 238, 10, 0.4)'}`,
+          boxShadow: hovered ? '0 0 12px rgba(252, 238, 10, 0.35)' : 'none',
+          fontWeight: 800,
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'save':
+      case 'browse':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? '#222530' : '#161820',
+          color: hovered ? '#ffffff' : '#f4f4f5',
+          border: `1px solid ${hovered ? 'rgba(252, 238, 10, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`,
+          boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'import':
+      case 'export':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(0, 240, 255, 0.2)' : 'rgba(0, 240, 255, 0.08)',
+          color: '#00f0ff',
+          border: `1px solid ${hovered ? '#00f0ff' : 'rgba(0, 240, 255, 0.35)'}`,
+          boxShadow: hovered ? '0 0 12px rgba(0, 240, 255, 0.35)' : 'none',
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'clear':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
+          color: '#ef4444',
+          border: `1px solid ${hovered ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'}`,
+          boxShadow: hovered ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
+          fontWeight: 800,
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+    }
+  } else {
+    // Riftbound
+    switch (type) {
+      case 'stats':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.12)',
+          color: '#fbbf24',
+          border: `1px solid ${hovered ? '#f59e0b' : 'rgba(245, 158, 11, 0.4)'}`,
+          boxShadow: hovered ? '0 0 14px rgba(245, 158, 11, 0.35)' : 'none',
+          fontWeight: 800,
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'save':
+      case 'browse':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? '#152542' : '#0e1c36',
+          color: hovered ? '#ffffff' : '#f4f4f5',
+          border: `1px solid ${hovered ? 'rgba(245, 158, 11, 0.5)' : 'rgba(245, 158, 11, 0.25)'}`,
+          boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'import':
+      case 'export':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(14, 165, 233, 0.22)' : 'rgba(14, 165, 233, 0.1)',
+          color: '#38bdf8',
+          border: `1px solid ${hovered ? '#38bdf8' : 'rgba(14, 165, 233, 0.35)'}`,
+          boxShadow: hovered ? '0 0 12px rgba(14, 165, 233, 0.35)' : 'none',
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+      case 'clear':
+        baseStyle = {
+          ...baseStyle,
+          background: hovered ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
+          color: '#ef4444',
+          border: `1px solid ${hovered ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'}`,
+          boxShadow: hovered ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
+          fontWeight: 800,
+          transform: hovered ? 'translateY(-1px)' : 'none',
+        };
+        break;
+    }
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={title}
+      style={baseStyle}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function DeckBuilderApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
   const [lang, setLang] = useState<Language>('en');
-  
-  const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder();
-  const { savedDecks, saveDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks();
-  const [activeZone, setActiveZone] = useState<keyof DeckState>('legend');
+
+  const [activeGame, setActiveGame] = useState<'riftbound' | 'cyberpunk'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tcg_active_game');
+      if (saved === 'cyberpunk' || saved === 'riftbound') return saved;
+    }
+    return 'riftbound';
+  });
+
+  const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder(activeGame);
+  const { savedDecks, saveDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
+  const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>(activeGame === 'cyberpunk' ? 'legends' : 'legend');
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showBrowserModal, setShowBrowserModal] = useState(false);
@@ -66,15 +201,43 @@ export function DeckBuilderApp() {
     return () => window.removeEventListener('tcg-lang-change', handleLangChange);
   }, []);
 
-  // Lock background scroll when preview modal or dialog is open
+  // Listen to game switch from top header selector
   useEffect(() => {
+    const handleGameChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ game: string }>;
+      if (customEvent.detail?.game === 'cyberpunk' || customEvent.detail?.game === 'riftbound') {
+        const nextGame = customEvent.detail.game as 'riftbound' | 'cyberpunk';
+        setActiveGame(nextGame);
+        setActiveZone(nextGame === 'cyberpunk' ? 'legends' : 'legend');
+      }
+    };
+    window.addEventListener('tcg-game-change', handleGameChange);
+    return () => window.removeEventListener('tcg-game-change', handleGameChange);
+  }, []);
+
+  // Lock background scroll when preview modal or dialog is open, and handle Escape key to close modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewCard(null);
+        setShowSaveModal(false);
+        setShowBrowserModal(false);
+        setShowExportModal(false);
+        setShowImportModal(false);
+        setShowStatsModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     if (previewCard || showSaveModal || showBrowserModal || showExportModal || showImportModal || showStatsModal) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
       };
     }
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [previewCard, showSaveModal, showBrowserModal, showExportModal, showImportModal, showStatsModal]);
 
   const processImportString = (content: string) => {
@@ -115,16 +278,30 @@ export function DeckBuilderApp() {
     reader.readAsText(file);
   };
 
+  // Fetch cards whenever activeGame changes
   useEffect(() => {
     async function loadCards() {
-      const { data } = await fetchCardsCatalog(DEFAULT_FILTERS, '');
+      setLoading(true);
+      const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame } as any, '', true);
       if (data) {
         setCards(data);
       }
       setLoading(false);
     }
     loadCards();
-  }, []);
+  }, [activeGame]);
+
+  const isCyberpunk = activeGame === 'cyberpunk';
+
+  const cyberpunkRamLimits: CyberpunkRamLimits = useMemo(() => {
+    if (!isCyberpunk) return { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
+    return getDeckCyberpunkRam(deck.legends || [], cards);
+  }, [isCyberpunk, deck.legends, cards]);
+
+  const cyberpunkLegends = useMemo(() => {
+    if (!isCyberpunk) return [];
+    return (deck.legends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
+  }, [isCyberpunk, deck.legends, cards]);
 
   const legendCard = useMemo(() => {
     if (!deck.legend) return null;
@@ -154,10 +331,19 @@ export function DeckBuilderApp() {
       <div style={{ width: '100%', padding: "clamp(16px,2vw,24px)", display: "flex", gap: 24, height: 'calc(100vh - 70px)' }}>
         
         {/* Left: Visual Preview */}
-        <div style={{ flex: '0 0 clamp(280px, 25vw, 420px)', background: 'var(--bg-surface-2)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{
+          flex: '0 0 clamp(280px, 25vw, 400px)',
+          background: isCyberpunk ? '#0c0d10' : 'var(--bg-surface-2)',
+          borderRadius: 16,
+          border: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.2)' : '1px solid var(--border)',
+          overflow: 'hidden',
+          boxShadow: isCyberpunk ? '0 8px 32px rgba(0,0,0,0.6)' : 'none',
+        }}>
           <DeckPreviewColumn 
             deck={deck} 
             cards={cards} 
+            activeGame={activeGame}
+            cyberpunkLegends={cyberpunkLegends}
             legendCard={legendCard} 
             championCard={championCard} 
             onCardClick={setPreviewCard}
@@ -170,6 +356,8 @@ export function DeckBuilderApp() {
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <DeckCatalog 
             cards={cards} 
+            activeGame={activeGame}
+            cyberpunkRamLimits={cyberpunkRamLimits}
             allowedDomains={allowedDomains} 
             legendCard={legendCard} 
             activeZone={activeZone}
@@ -180,36 +368,96 @@ export function DeckBuilderApp() {
         </div>
 
         {/* Right: Requirements & Management */}
-        <div style={{ flex: '0 0 clamp(320px, 25vw, 380px)', background: 'var(--bg-surface-2)', borderRadius: 16, border: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{t('deck_limits', lang)}</h1>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setShowStatsModal(true)} style={btnStyle('rgba(56,189,248,0.12)', '#38bdf8', 'rgba(56,189,248,0.3)')} title={t('deck_statistics', lang)}>{t('statistics', lang)}</button>
-                <button onClick={() => setShowSaveModal(true)} style={btnStyle('var(--bg-surface)', 'var(--text-primary)')}>{t('save', lang)}</button>
-                <button onClick={() => setShowBrowserModal(true)} style={btnStyle('var(--bg-surface)', 'var(--text-primary)')}>{t('browse', lang)}</button>
-              </div>
+        <div style={{
+          flex: '0 0 360px',
+          width: 360,
+          minWidth: 360,
+          maxWidth: 360,
+          background: isCyberpunk ? '#0c0d10' : '#091428',
+          borderRadius: 16,
+          border: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.25)' : '1px solid rgba(245, 158, 11, 0.35)',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: isCyberpunk ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(245, 158, 11, 0.08)',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h1 style={{
+                margin: 0,
+                fontSize: 18,
+                fontWeight: 900,
+                color: isCyberpunk ? '#fcee0a' : '#f59e0b',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}>
+                {t('deck_limits', lang)}
+              </h1>
             </div>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-              <input 
-                type="file" 
-                accept=".json,.txt,.deck" 
-                style={{ display: 'none' }} 
-                ref={fileInputRef}
-                onChange={handleFileUpload} 
-              />
-              <button onClick={() => setShowImportModal(true)} style={btnStyle('transparent', 'var(--text-muted)')}>{t('import', lang)}</button>
-              <button onClick={() => setShowExportModal(true)} style={btnStyle('transparent', 'var(--text-muted)')}>{t('export', lang)}</button>
-              <button onClick={() => { if(confirm(lang === 'hu' ? 'Biztosan törlöd a teljes paklit?' : 'Clear entire deck?')) clearDeck() }} style={btnStyle('rgba(239,68,68,0.1)', '#ef4444', '#ef4444')}>{t('clear_deck', lang)}</button>
+
+            {/* Uniform 3x2 Action Buttons Grid taking 100% available space with hover feedback */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, width: '100%' }}>
+              <ActionButton
+                onClick={() => setShowStatsModal(true)}
+                isCyberpunk={isCyberpunk}
+                type="stats"
+                title={t('deck_statistics', lang)}
+              >
+                {t('statistics', lang)}
+              </ActionButton>
+
+              <ActionButton
+                onClick={() => setShowSaveModal(true)}
+                isCyberpunk={isCyberpunk}
+                type="save"
+              >
+                {t('save', lang)}
+              </ActionButton>
+
+              <ActionButton
+                onClick={() => setShowBrowserModal(true)}
+                isCyberpunk={isCyberpunk}
+                type="browse"
+              >
+                {t('browse', lang)}
+              </ActionButton>
+
+              <ActionButton
+                onClick={() => setShowImportModal(true)}
+                isCyberpunk={isCyberpunk}
+                type="import"
+              >
+                {t('import', lang)}
+              </ActionButton>
+
+              <ActionButton
+                onClick={() => setShowExportModal(true)}
+                isCyberpunk={isCyberpunk}
+                type="export"
+              >
+                {t('export', lang)}
+              </ActionButton>
+
+              <ActionButton
+                onClick={() => { if(confirm(lang === 'hu' ? 'Biztosan törlöd a teljes paklit?' : 'Clear entire deck?')) clearDeck(); }}
+                isCyberpunk={isCyberpunk}
+                type="clear"
+              >
+                {t('clear_deck', lang)}
+              </ActionButton>
             </div>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             <DeckList 
               deck={deck} 
               cards={cards} 
+              activeGame={activeGame}
+              cyberpunkRamLimits={cyberpunkRamLimits}
+              cyberpunkLegends={cyberpunkLegends}
               legendCard={legendCard} 
               championCard={championCard} 
               onRemoveCard={removeCard}
+              onCardClick={setPreviewCard}
               activeZone={activeZone}
               onSetZone={setActiveZone}
               lang={lang}
@@ -224,6 +472,9 @@ export function DeckBuilderApp() {
         <DeckStatisticsModal
           deck={deck}
           cards={cards}
+          activeGame={activeGame}
+          cyberpunkRamLimits={cyberpunkRamLimits}
+          cyberpunkLegends={cyberpunkLegends}
           legendCard={legendCard}
           championCard={championCard}
           onClose={() => setShowStatsModal(false)}
@@ -234,6 +485,7 @@ export function DeckBuilderApp() {
       {/* Card Preview Modal */}
       {previewCard && (
         <div 
+          data-testid="preview-card-backdrop"
           onClick={() => setPreviewCard(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
@@ -276,7 +528,7 @@ export function DeckBuilderApp() {
                   flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13,
                 }}
               >
-                📁 {t('choose_file', lang)}
+                {t('choose_file', lang)}
               </button>
             </div>
 

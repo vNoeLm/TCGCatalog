@@ -1,14 +1,18 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { CatalogCard } from '../../types';
-import type { DeckState } from './useDeckBuilder';
+import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
+import { isCardRamSufficient } from './useDeckBuilder';
+import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
 import { t, type Language } from '../../lib/i18n';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
+  activeGame?: 'riftbound' | 'cyberpunk';
+  cyberpunkRamLimits?: CyberpunkRamLimits;
   allowedDomains: string[] | null;
   legendCard: CatalogCard | null;
-  activeZone: keyof DeckState;
+  activeZone: keyof DeckState | 'legends';
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
   lang?: Language;
@@ -22,14 +26,23 @@ const DOMAIN_COLORS: Record<string, string> = {
   chaos:     '#a855f7',
   order:     '#eab308',
   colorless: '#94a3b8',
+  Red:       '#ef4444',
+  Green:     '#22c55e',
+  Blue:      '#06b6d4',
+  Yellow:    '#eab308',
+  red:       '#ef4444',
+  green:     '#22c55e',
+  blue:      '#06b6d4',
+  yellow:    '#eab308',
 };
 
 // Ordered rarity list for display
 const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 
 // Zone-aware type options (only show types valid for each zone)
-const ZONE_TYPE_OPTIONS: Record<keyof DeckState, string[]> = {
+const ZONE_TYPE_OPTIONS: Record<string, string[]> = {
   legend:      ['Legend'],
+  legends:     ['Legend'],
   champion:    ['Unit'],
   mainDeck:    ['Unit', 'Spell', 'Gear'],
   sideboard:   ['Unit', 'Spell', 'Gear'],
@@ -37,11 +50,54 @@ const ZONE_TYPE_OPTIONS: Record<keyof DeckState, string[]> = {
   battlefields:['Battlefield'],
 };
 
-export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onAddCard, onPreviewCard, lang = 'en' }: DeckCatalogProps) {
+const CYBERPUNK_ZONE_TYPE_OPTIONS: Record<string, string[]> = {
+  legend:      ['Legend'],
+  legends:     ['Legend'],
+  mainDeck:    ['Unit', 'Gear', 'Program'],
+  sideboard:   ['Unit', 'Gear', 'Program'],
+};
+
+export function DeckCatalog({
+  cards,
+  activeGame = 'riftbound',
+  cyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 },
+  allowedDomains,
+  legendCard,
+  activeZone,
+  onAddCard,
+  onPreviewCard,
+  lang = 'en',
+}: DeckCatalogProps) {
+  const isCyberpunk = activeGame === 'cyberpunk';
+  const theme = isCyberpunk
+    ? {
+        accent: '#fcee0a',
+        accentMuted: 'rgba(252, 238, 10, 0.15)',
+        accentBorder: 'rgba(252, 238, 10, 0.4)',
+        accentGlow: 'rgba(252, 238, 10, 0.15)',
+        textOnAccent: '#000000',
+        inputBg: '#161822',
+        inputBorder: 'rgba(252, 238, 10, 0.25)',
+        panelBg: '#0c0d10',
+        panelBorder: 'rgba(252, 238, 10, 0.3)',
+      }
+    : {
+        accent: '#f59e0b',
+        accentMuted: 'rgba(245, 158, 11, 0.15)',
+        accentBorder: 'rgba(245, 158, 11, 0.4)',
+        accentGlow: 'rgba(245, 158, 11, 0.2)',
+        textOnAccent: '#091428',
+        inputBg: '#0e1c36',
+        inputBorder: 'rgba(245, 158, 11, 0.25)',
+        panelBg: '#091428',
+        panelBorder: 'rgba(245, 158, 11, 0.3)',
+      };
+
   const [search, setSearch]             = useState('');
   const [typeFilter, setTypeFilter]     = useState<string>('All');
   const [rarityFilter, setRarityFilter] = useState<string>('All');
   const [domainFilter, setDomainFilter] = useState<string>('All');
+  const [ramFilter, setRamFilter]       = useState<string>('All');
   const [setFilter, setSetFilter]       = useState<string>('All');
   const [costMin, setCostMin]           = useState<number>(0);
   const [costMax, setCostMax]           = useState<number>(10);
@@ -119,16 +175,25 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [cards]);
 
-  // Domain options locked to legend when selected
+  // Domain / Color options
   const domainOptions = useMemo(() => {
+    if (isCyberpunk) {
+      return ['All', 'Red', 'Green', 'Blue', 'Yellow'];
+    }
     const base = (legendCard && allowedDomains)
       ? allowedDomains
       : ['fury', 'calm', 'mind', 'body', 'chaos', 'order'];
     return ['All', ...base, 'colorless'];
-  }, [allowedDomains, legendCard]);
+  }, [isCyberpunk, allowedDomains, legendCard]);
 
   // Available type options for current zone (only show relevant types)
-  const typeOptions = ZONE_TYPE_OPTIONS[activeZone] || [];
+  const typeOptions = useMemo(() => {
+    if (isCyberpunk) {
+      return CYBERPUNK_ZONE_TYPE_OPTIONS[activeZone] || ['Unit', 'Gear', 'Program'];
+    }
+    return ZONE_TYPE_OPTIONS[activeZone] || [];
+  }, [isCyberpunk, activeZone]);
+
   const showTypeFilter = typeOptions.length > 1;
 
   // Available rarities sorted in defined order
@@ -145,23 +210,31 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
       // 1. Zone validity — hard filter based on active zone
-      switch (activeZone) {
-        case 'legend':       if (card.card_type !== 'Legend') return false; break;
-        case 'champion':     
-          if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
-          if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
-            const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
-            if (!hasCommonTag) return false;
-          }
-          break;
-        case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
-        case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
-        case 'mainDeck':
-        case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
+      if (isCyberpunk) {
+        if (activeZone === 'legends' || activeZone === 'legend') {
+          if (card.card_type !== 'Legend') return false;
+        } else {
+          if (card.card_type === 'Legend') return false;
+        }
+      } else {
+        switch (activeZone) {
+          case 'legend':       if (card.card_type !== 'Legend') return false; break;
+          case 'champion':     
+            if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
+            if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
+              const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
+              if (!hasCommonTag) return false;
+            }
+            break;
+          case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
+          case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
+          case 'mainDeck':
+          case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
+        }
       }
 
-      // 2. Domain restriction from selected Legend
-      if (allowedDomains && activeZone !== 'legend') {
+      // 2. Domain restriction from selected Legend (Riftbound only)
+      if (!isCyberpunk && allowedDomains && activeZone !== 'legend') {
         const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
         const isColorless = cardDomains.length === 0 || cardDomains.includes('colorless');
         const matches = cardDomains.some(d => allowedDomains.includes(d));
@@ -183,13 +256,32 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
       // 6. Rarity
       if (rarityFilter !== 'All' && card.rarity !== rarityFilter) return false;
 
-      // 7. Domain filter chip
+      // 7. Domain / Color filter chip
       if (domainFilter !== 'All') {
-        const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
-        if (domainFilter === 'colorless') {
-          if (cardDomains.length > 0 && !cardDomains.includes('colorless')) return false;
+        if (isCyberpunk) {
+          const meta = getCyberpunkMeta(card);
+          const col = (meta?.color || card.domain || '').toLowerCase();
+          if (col !== domainFilter.toLowerCase()) return false;
         } else {
-          if (!cardDomains.includes(domainFilter.toLowerCase())) return false;
+          const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
+          if (domainFilter === 'colorless') {
+            if (cardDomains.length > 0 && !cardDomains.includes('colorless')) return false;
+          } else {
+            if (!cardDomains.includes(domainFilter.toLowerCase())) return false;
+          }
+        }
+      }
+
+      // 7b. RAM filter for Cyberpunk
+      if (isCyberpunk && ramFilter !== 'All') {
+        const meta = getCyberpunkMeta(card);
+        const ram = meta?.ram ?? 0;
+        if (ramFilter === '1' && ram !== 1) return false;
+        if (ramFilter === '2' && ram !== 2) return false;
+        if (ramFilter === '3+' && ram < 3) return false;
+        if (ramFilter === 'Within RAM') {
+          const ramCheck = isCardRamSufficient(card, cyberpunkRamLimits);
+          if (!ramCheck.sufficient) return false;
         }
       }
 
@@ -277,14 +369,51 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
     setCostMax(10);
   }, []);
 
+  const currentLabelStyle: React.CSSProperties = {
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: isCyberpunk ? '#fcee0a' : '#fbbf24',
+    marginBottom: 6,
+    display: 'block',
+  };
+
+  const currentSelectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '7px 10px',
+    borderRadius: 6,
+    background: theme.inputBg,
+    border: `1px solid ${theme.inputBorder}`,
+    color: '#f4f4f5',
+    fontSize: 13,
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* Legend prompt */}
-      {!legendCard && (
-        <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <span>✨</span>
+      {!isCyberpunk && !legendCard && (
+        <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#fbbf24', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
           {t('select_legend_prompt', lang)}
+        </div>
+      )}
+
+      {/* Cyberpunk Legend Helper Note */}
+      {isCyberpunk && (activeZone === 'legends' || activeZone === 'legend') && (
+        <div style={{
+          background: 'rgba(252, 238, 10, 0.08)',
+          border: '1px solid rgba(252, 238, 10, 0.3)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          marginBottom: 10,
+          fontSize: 12,
+          color: '#fcee0a',
+          fontWeight: 600,
+        }}>
+          Choose exactly 3 unique Legends — their cumulative RAM determines which cards you can include in your deck.
         </div>
       )}
 
@@ -293,10 +422,15 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
-            placeholder={!legendCard ? t('search_legends', lang) : t('search_cards', lang)}
+            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? t('search_legends', lang) : t('search_cards', lang))}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ flex: '1 1 160px', padding: '9px 14px', borderRadius: 8, background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none', fontSize: 14 }}
+            style={{
+              flex: '1 1 160px', padding: '9px 14px', borderRadius: 8,
+              background: theme.inputBg,
+              border: `1px solid ${theme.inputBorder}`,
+              color: '#f4f4f5', outline: 'none', fontSize: 14,
+            }}
           />
 
           {/* Sort By Dropdown */}
@@ -304,8 +438,10 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             value={sortMode}
             onChange={e => setSortMode(e.target.value as any)}
             style={{
-              padding: '9px 12px', borderRadius: 8, background: 'var(--bg-surface)',
-              border: '1px solid var(--border)', color: 'var(--text-primary)',
+              padding: '9px 12px', borderRadius: 8,
+              background: theme.inputBg,
+              border: `1px solid ${theme.inputBorder}`,
+              color: '#f4f4f5',
               fontWeight: 700, fontSize: 13, outline: 'none', cursor: 'pointer'
             }}
             title={lang === 'hu' ? 'Rendezés' : 'Sort by'}
@@ -324,15 +460,15 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             onClick={() => setOnlyOwned(o => !o)}
             style={{
               padding: '9px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-              background: onlyOwned ? 'rgba(52,211,153,0.18)' : 'var(--bg-surface)',
-              border: onlyOwned ? '1px solid rgba(52,211,153,0.5)' : '1px solid var(--border)',
+              background: onlyOwned ? 'rgba(52,211,153,0.18)' : theme.inputBg,
+              border: onlyOwned ? '1px solid rgba(52,211,153,0.5)' : `1px solid ${theme.inputBorder}`,
               color: onlyOwned ? '#10b981' : 'var(--text-secondary)',
               display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
               transition: 'all 0.15s',
             }}
             title={onlyOwned ? (lang === 'hu' ? "Csak birtokolt kártyák (Kattints az összeshez)" : "Showing only owned cards (Click to show all cards)") : (lang === 'hu' ? "Szűrés a gyűjteményedben lévő kártyákra" : "Click to filter and show only cards in your collection")}
           >
-            <span style={{ fontSize: 14 }}>{onlyOwned ? '✓' : '★'}</span>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: onlyOwned ? '#10b981' : 'var(--text-muted)', display: 'inline-block' }} />
             <span>{t('owned_only', lang)}</span>
             {collection.size > 0 && (
               <span style={{
@@ -349,33 +485,56 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             onClick={() => setShowFilters(f => !f)}
             style={{
               padding: '9px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-              background: showFilters ? 'rgba(99,102,241,0.15)' : 'var(--bg-surface)',
-              border: showFilters ? '1px solid rgba(99,102,241,0.5)' : '1px solid var(--border)',
-              color: showFilters ? '#a5b4fc' : 'var(--text-primary)',
+              background: showFilters ? theme.accentMuted : theme.inputBg,
+              border: showFilters ? `1px solid ${theme.accentBorder}` : `1px solid ${theme.inputBorder}`,
+              color: showFilters ? theme.accent : 'var(--text-primary)',
+              boxShadow: showFilters ? `0 0 12px ${theme.accentGlow}` : 'none',
               display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease',
             }}
           >
             {t('filters', lang)}
             {activeFiltersCount > 0 && (
-              <span style={{ background: '#6366f1', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{activeFiltersCount}</span>
+              <span style={{
+                background: theme.accent,
+                color: theme.textOnAccent,
+                borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 900,
+              }}>
+                {activeFiltersCount}
+              </span>
             )}
             <span style={{
-              fontSize: 9, opacity: 0.6, display: 'inline-block',
+              fontSize: 9, opacity: 0.8, display: 'inline-block',
               transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s'
             }}>▼</span>
           </button>
         </div>
 
-        {/* Expandable filter panel */}
+        {/* Expandable filter panel with game styling */}
         {showFilters && (
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{
+            background: theme.panelBg,
+            border: `1px solid ${theme.panelBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 16px ${theme.accentGlow}`,
+          }}>
 
             {/* Owned Only Filter Switch */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px',
+              background: theme.inputBg,
+              borderRadius: 10,
+              border: `1px solid ${theme.inputBorder}`,
+            }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>★</span> {t('only_show_owned', lang)}
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {t('only_show_owned', lang)}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                   {collection.size > 0 ? `${ownedInCatalogCount} ${t('matching_cards_owned', lang)}` : (lang === 'hu' ? 'Nincsenek kártyák a gyűjteményedben' : 'No cards currently saved in your collection')}
@@ -384,10 +543,10 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
               <button
                 onClick={() => setOnlyOwned(o => !o)}
                 style={{
-                  padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  background: onlyOwned ? '#10b981' : 'transparent',
-                  border: `1px solid ${onlyOwned ? '#10b981' : 'var(--border)'}`,
-                  color: onlyOwned ? '#fff' : 'var(--text-muted)',
+                  padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                  background: onlyOwned ? theme.accent : 'transparent',
+                  border: `1px solid ${onlyOwned ? theme.accent : theme.inputBorder}`,
+                  color: onlyOwned ? theme.textOnAccent : 'var(--text-muted)',
                   transition: 'all 0.15s',
                 }}
               >
@@ -398,15 +557,15 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             {/* Row 1: Type (when applicable) + Rarity */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={labelStyle}>{t('type', lang)}</label>
-                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle} disabled={!showTypeFilter}>
+                <label style={currentLabelStyle}>{t('type', lang)}</label>
+                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={currentSelectStyle} disabled={!showTypeFilter}>
                   {showTypeFilter && <option value="All">{t('all_types', lang)}</option>}
                   {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={labelStyle}>{t('set', lang)}</label>
-                <select value={setFilter} onChange={e => setSetFilter(e.target.value)} style={selectStyle}>
+                <label style={currentLabelStyle}>{t('set', lang)}</label>
+                <select value={setFilter} onChange={e => setSetFilter(e.target.value)} style={currentSelectStyle}>
                   <option value="All">{t('all_sets', lang)}</option>
                   {availableSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -415,43 +574,48 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
 
             {/* Row 2: Rarity chips */}
             <div>
-              <label style={labelStyle}>{t('rarity', lang)}</label>
+              <label style={currentLabelStyle}>{t('rarity', lang)}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                {['All', ...rarityOptions].map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setRarityFilter(r === rarityFilter ? 'All' : r)}
-                    style={{
-                      padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                      background: rarityFilter === r ? 'rgba(99,102,241,0.2)' : 'transparent',
-                      border: `1px solid ${rarityFilter === r ? '#6366f1' : 'var(--border)'}`,
-                      color: rarityFilter === r ? '#a5b4fc' : 'var(--text-muted)',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {r === 'All' ? t('all', lang) : r}
-                  </button>
-                ))}
+                {['All', ...rarityOptions].map(r => {
+                  const isActive = rarityFilter === r;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => setRarityFilter(isActive ? 'All' : r)}
+                      style={{
+                        padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
+                        color: isActive ? theme.accent : 'var(--text-muted)',
+                        boxShadow: isActive ? `0 0 10px ${theme.accentGlow}` : 'none',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {r === 'All' ? t('all', lang) : r}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Row 3: Domain chips (hidden for legend/rune/battlefield zones) */}
             {!['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
-                <label style={labelStyle}>{t('domain', lang)}</label>
+                <label style={currentLabelStyle}>{t('domain', lang)}</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                   {domainOptions.map(d => {
                     const isActive = domainFilter === d;
-                    const color = DOMAIN_COLORS[d] || '#6366f1';
+                    const color = DOMAIN_COLORS[d] || theme.accent;
                     return (
                       <button
                         key={d}
                         onClick={() => setDomainFilter(isActive ? 'All' : d)}
                         style={{
                           padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          background: isActive ? color + '30' : 'transparent',
-                          border: `1px solid ${isActive ? color : 'var(--border)'}`,
+                          background: isActive ? color + '30' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isActive ? color : theme.inputBorder}`,
                           color: isActive ? color : 'var(--text-muted)',
+                          boxShadow: isActive ? `0 0 10px ${color}35` : 'none',
                           transition: 'all 0.15s', textTransform: 'capitalize',
                         }}
                       >
@@ -463,25 +627,53 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
               </div>
             )}
 
+            {/* Row 3b: RAM filter chips for Cyberpunk */}
+            {isCyberpunk && (
+              <div>
+                <label style={currentLabelStyle}>RAM Requirement</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {['All', '1', '2', '3+', 'Within RAM'].map(r => {
+                    const isActive = ramFilter === r;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => setRamFilter(isActive ? 'All' : r)}
+                        style={{
+                          padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          background: isActive ? 'rgba(252, 238, 10, 0.2)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isActive ? '#fcee0a' : theme.inputBorder}`,
+                          color: isActive ? '#fcee0a' : 'var(--text-muted)',
+                          boxShadow: isActive ? '0 0 10px rgba(252,238,10,0.3)' : 'none',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {r === 'Within RAM' ? 'Within Deck RAM' : (r === 'All' ? 'All RAM' : `${r} RAM`)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Row 4: Cost range */}
             <div>
-              <label style={labelStyle}>{t('cost_range', lang)}</label>
+              <label style={currentLabelStyle}>{t('cost_range', lang)}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input, #1e293b)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '4px 12px', flex: 1 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MIN</span>
                   <input
                     type="number" min={0} max={20} value={costMin}
                     onChange={e => { const v = +e.target.value; if (v <= costMax) setCostMin(v); }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
+                    style={{ background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
                   />
                 </div>
                 <span style={{ color: 'var(--text-muted)' }}>–</span>
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input, #1e293b)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '4px 12px', flex: 1 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MAX</span>
                   <input
                     type="number" min={0} max={20} value={costMax}
                     onChange={e => { const v = +e.target.value; if (v >= costMin) setCostMax(v); }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
+                    style={{ background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
                   />
                 </div>
               </div>
@@ -489,7 +681,22 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
 
             {activeFiltersCount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={resetFilters} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                <button
+                  onClick={resetFilters}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${theme.accentBorder}`,
+                    color: theme.accent,
+                    padding: '5px 12px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = theme.accentMuted}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
                   {t('reset_filters', lang)}
                 </button>
               </div>
@@ -514,23 +721,73 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
             const domainColor = DOMAIN_COLORS[primaryDomain] || '#334155';
             const isOwned = collection.has(card.id) || collection.has(`${card.id}_foil`);
 
+            const meta = isCyberpunk ? getCyberpunkMeta(card) : null;
+            const ram = meta?.ram ?? null;
+            const color = (meta?.color || card.domain || '').trim();
+            const colorHex = isCyberpunk ? (DOMAIN_COLORS[color] || '#38bdf8') : domainColor;
+            const ramCheck = isCyberpunk ? isCardRamSufficient(card, cyberpunkRamLimits) : { sufficient: true, cardRam: 0, cardColor: '', availableRam: 0 };
+            const hasRamIssue = isCyberpunk && activeZone !== 'legends' && activeZone !== 'legend' && !ramCheck.sufficient;
+
             return (
               <div key={card.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }} className="deck-catalog-card">
                 <div
                   style={{
                     position: 'relative', borderRadius: 8, overflow: 'hidden',
                     aspectRatio: '2.5/3.5',
-                    border: `1px solid ${isOwned ? 'rgba(52,211,153,0.6)' : domainColor + '55'}`,
+                    border: `1px solid ${isOwned ? 'rgba(52,211,153,0.6)' : (hasRamIssue ? 'rgba(239,68,68,0.7)' : colorHex + '55')}`,
                     boxShadow: isOwned ? '0 4px 14px rgba(52,211,153,0.15)' : '0 4px 12px rgba(0,0,0,0.3)',
                     cursor: 'pointer',
                     transform: 'translateZ(0)',
                     willChange: 'transform',
+                    opacity: hasRamIssue ? 0.82 : 1,
                   }}
                   onClick={() => onAddCard(card)}
                   onContextMenu={e => { e.preventDefault(); onPreviewCard(card); }}
                 >
                   <img src={imgSrc} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   
+                  {/* Cyberpunk RAM badge */}
+                  {isCyberpunk && ram !== null && (
+                    <div
+                      style={{
+                        position: 'absolute', top: 4, left: 4, zIndex: 3,
+                        background: 'rgba(15, 23, 42, 0.92)',
+                        color: colorHex,
+                        border: `1px solid ${colorHex}`,
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        fontFamily: 'monospace',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.7)',
+                      }}
+                    >
+                      {card.card_type === 'Legend' ? `+${ram} RAM` : `${ram} RAM`}
+                    </div>
+                  )}
+
+                  {/* RAM warning banner on card face */}
+                  {hasRamIssue && (
+                    <div
+                      style={{
+                        position: 'absolute', bottom: 4, left: 4, right: 4, zIndex: 3,
+                        background: 'rgba(239, 68, 68, 0.95)',
+                        color: '#fff',
+                        borderRadius: 4,
+                        padding: '2px 4px',
+                        fontSize: 9,
+                        fontWeight: 800,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.7)',
+                      }}
+                    >
+                      Needs {ramCheck.cardRam} {ramCheck.cardColor} RAM
+                    </div>
+                  )}
+
                   {/* Owned check badge */}
                   {isOwned && (
                     <div 
@@ -555,9 +812,15 @@ export function DeckCatalog({ cards, allowedDomains, legendCard, activeZone, onA
                     alignItems: 'center', padding: '6px', gap: 4,
                     opacity: 0, transition: 'opacity 0.15s',
                   }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: 'rgba(99,102,241,0.85)', padding: '3px 10px', borderRadius: 20 }}>
-                      + Add
-                    </span>
+                    {hasRamIssue ? (
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#fca5a5', background: 'rgba(239,68,68,0.85)', padding: '4px 8px', borderRadius: 20, textAlign: 'center' }}>
+                        Needs {ramCheck.cardRam} {ramCheck.cardColor} RAM
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: 'rgba(99,102,241,0.85)', padding: '3px 10px', borderRadius: 20 }}>
+                        + Add
+                      </span>
+                    )}
                     <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>Right-click to preview</span>
                   </div>
                 </div>
