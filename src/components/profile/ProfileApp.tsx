@@ -23,7 +23,7 @@ export function ProfileApp() {
 
   // Repay Pending Order State
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
-  const [payingProvider, setPayingProvider] = useState<'stripe' | 'barion'>('stripe');
+  const [payingProvider, setPayingProvider] = useState<'stripe'>('stripe');
   const [payingSessionId, setPayingSessionId] = useState<string>('');
 
   const showToast = (msg: string) => {
@@ -38,16 +38,13 @@ export function ProfileApp() {
   const [cancellingOrderNumber, setCancellingOrderNumber] = useState<string | null>(null);
 
   const handleOpenPayment = async (order: Order) => {
-    const provider = (order.payment_method === 'barion' ? 'barion' : 'stripe') as 'stripe' | 'barion';
-    const endpoint = provider === 'barion' ? '/api/checkout/barion' : '/api/checkout/stripe';
-
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/checkout/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber: order.order_number,
-          customerEmail: order.customer_info?.email || profile?.email || '',
+          customerEmail: order.customer_info?.email || profile?.email || 'customer@tcgvault.hu',
           totalHuf: order.total_price_huf ?? order.total_huf ?? 0,
           items: order.items?.map(it => ({
             name: `${it.quantity}x ${it.card_name}`,
@@ -57,20 +54,30 @@ export function ProfileApp() {
         }),
       });
 
-      const data = await res.json();
-      if (data.mode === 'hosted' && data.url) {
+      let data: any = {};
+      try {
+        const rawText = await res.text();
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = {};
+      }
+
+      if (res.ok && data.mode === 'hosted' && data.url) {
         window.location.href = data.url;
+        return;
+      }
+
+      if (!res.ok || !data.success) {
+        showToast(data.error || 'Failed to initialize Stripe checkout.');
         return;
       }
 
       // Simulator sandbox mode
       setPayingOrder(order);
-      setPayingProvider(provider);
-      setPayingSessionId(data.sessionId || data.paymentId || order.payment_id || `${provider}-repay-${order.order_number}-${Date.now()}`);
-    } catch (e) {
-      setPayingOrder(order);
-      setPayingProvider(provider);
-      setPayingSessionId(order.payment_id || `${provider}-repay-${order.order_number}-${Date.now()}`);
+      setPayingProvider('stripe');
+      setPayingSessionId(data.sessionId || order.payment_id || `stripe-repay-${order.order_number}-${Date.now()}`);
+    } catch (e: any) {
+      showToast(e?.message || 'Failed to open payment gateway.');
     }
   };
 

@@ -59,13 +59,13 @@ export function BuyModal({
   const [houseNumber, setHouseNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [saveLocally, setSaveLocally] = useState<boolean>(true);
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'barion' | 'manual'>('stripe');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'manual'>('stripe');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [pendingPaymentOrder, setPendingPaymentOrder] = useState<Order | null>(null);
-  const [activeGatewayProvider, setActiveGatewayProvider] = useState<'stripe' | 'barion' | null>(null);
+  const [activeGatewayProvider, setActiveGatewayProvider] = useState<'stripe' | null>(null);
   const [gatewaySessionId, setGatewaySessionId] = useState<string>('');
 
   const prevIsOpenRef = useRef(false);
@@ -277,7 +277,7 @@ export function BuyModal({
 
       const createdOrder = res.order;
 
-      // ── 1. Stripe Checkout Flow ──
+      // ── 1. Stripe Hosted / Instant Checkout Flow ──
       if (paymentMethod === 'stripe') {
         const stripeRes = await fetch('/api/checkout/stripe', {
           method: 'POST',
@@ -294,53 +294,35 @@ export function BuyModal({
           }),
         });
 
-        const stripeData = await stripeRes.json();
-        if (stripeData.mode === 'hosted' && stripeData.url) {
+        let stripeData: any = {};
+        try {
+          const rawText = await stripeRes.text();
+          stripeData = rawText ? JSON.parse(rawText) : {};
+        } catch (e) {
+          stripeData = {};
+        }
+
+        if (stripeRes.ok && stripeData.mode === 'hosted' && stripeData.url) {
           if (isMultiItem) clearCart();
           onOrderPlaced();
           window.location.href = stripeData.url;
           return;
         }
 
-        // Sandbox simulator mode
-        if (isMultiItem) clearCart();
-        setPendingPaymentOrder(createdOrder);
-        setActiveGatewayProvider('stripe');
-        setGatewaySessionId(stripeData.sessionId || `stripe-${Date.now()}`);
-        return;
-      }
+        if (!stripeRes.ok || !stripeData.success) {
+          throw new Error(stripeData.error || (lang === 'hu' ? 'A Stripe fizetési munkamenet indítása sikertelen.' : 'Stripe payment initialization failed.'));
+        }
 
-      // ── 2. Barion Smart Gateway Flow ──
-      if (paymentMethod === 'barion') {
-        const barionRes = await fetch('/api/checkout/barion', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderNumber: createdOrder.order_number,
-            customerEmail: contactEmail,
-            totalHuf: grandTotal,
-            items: itemsPayload.map(it => ({
-              name: `${it.quantity}x ${it.card.name} ${it.isFoil ? '(Foil)' : ''}`,
-              priceHuf: it.priceHuf,
-              quantity: it.quantity,
-            })),
-          }),
-        });
-
-        const barionData = await barionRes.json();
-        if (barionData.mode === 'hosted' && barionData.url) {
+        // Sandbox simulator mode (fallback only if endpoint explicitly returned simulator)
+        if (stripeData.mode === 'simulator') {
           if (isMultiItem) clearCart();
-          onOrderPlaced();
-          window.location.href = barionData.url;
+          setPendingPaymentOrder(createdOrder);
+          setActiveGatewayProvider('stripe');
+          setGatewaySessionId(stripeData.sessionId || `stripe-${Date.now()}`);
           return;
         }
 
-        // Sandbox simulator mode
-        if (isMultiItem) clearCart();
-        setPendingPaymentOrder(createdOrder);
-        setActiveGatewayProvider('barion');
-        setGatewaySessionId(barionData.paymentId || `barion-${Date.now()}`);
-        return;
+        throw new Error(lang === 'hu' ? 'A fizetési munkamenet létrehozása nem sikerült.' : 'Failed to create payment session.');
       }
 
       // ── 3. Manual Payment Flow (COD / Bank Transfer) ──
@@ -466,8 +448,6 @@ export function BuyModal({
                 <span className="font-semibold text-zinc-200">
                   {completedOrder.payment_method === 'stripe'
                     ? 'Stripe (Card / Apple & Google Pay)'
-                    : completedOrder.payment_method === 'barion'
-                    ? 'Barion Smart Gateway'
                     : (lang === 'hu' ? 'Banki átutalás / Utánvét' : 'Bank Transfer / COD')}
                 </span>
               </div>
@@ -896,42 +876,7 @@ export function BuyModal({
                   </div>
                 </button>
 
-                {/* 2. Barion Smart Gateway */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('barion')}
-                  className={`w-full p-3 rounded-xl text-left border transition cursor-pointer flex items-start justify-between gap-3 ${
-                    paymentMethod === 'barion'
-                      ? 'bg-amber-500/10 border-amber-400 shadow-sm shadow-amber-500/10'
-                      : 'bg-zinc-950/70 border-zinc-800 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center shrink-0 border-zinc-600">
-                      {paymentMethod === 'barion' && (
-                        <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-zinc-100">
-                          {t('barion_payment', lang)}
-                        </span>
-                        <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          0% Fee
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                        {t('barion_desc', lang)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 opacity-80 pt-0.5">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/80">Barion</span>
-                  </div>
-                </button>
-
-                {/* 3. Manual / COD / Bank Transfer */}
+                {/* 2. Manual / COD / Bank Transfer */}
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('manual')}
@@ -1007,8 +952,6 @@ export function BuyModal({
                     <span>
                       {paymentMethod === 'stripe'
                         ? `${t('pay_with_stripe', lang)} (${fmt(grandTotal)})`
-                        : paymentMethod === 'barion'
-                        ? `${t('pay_with_barion', lang)} (${fmt(grandTotal)})`
                         : `${t('place_order', lang)} (${fmt(grandTotal)})`}
                     </span>
                   </>

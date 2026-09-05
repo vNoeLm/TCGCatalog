@@ -4,7 +4,7 @@ import { t, type Language } from '../../lib/i18n';
 
 interface PaymentGatewaySheetProps {
   order: Order;
-  provider: 'stripe' | 'barion';
+  provider?: 'stripe' | 'barion';
   sessionId: string;
   lang: Language;
   onPaymentSuccess: (updatedOrder: Order) => void;
@@ -13,7 +13,7 @@ interface PaymentGatewaySheetProps {
 
 export function PaymentGatewaySheet({
   order,
-  provider,
+  provider = 'stripe',
   sessionId,
   lang,
   onPaymentSuccess,
@@ -21,16 +21,12 @@ export function PaymentGatewaySheet({
 }: PaymentGatewaySheetProps) {
   // Stripe state:
   const [stripeTab, setStripeTab] = useState<'apple_pay' | 'google_pay' | 'card'>('card');
-  // Barion state:
-  const [barionTab, setBarionTab] = useState<'card' | 'wallet'>('card');
 
   // Card form state
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvc, setCardCvc] = useState('');
   const [cardName, setCardName] = useState(order.shipping_name || '');
-  const [walletEmail, setWalletEmail] = useState(order.customer_info?.email || '');
-  const [walletPin, setWalletPin] = useState('1234');
 
   // Biometric / Processing modal simulation state
   const [biometricType, setBiometricType] = useState<'apple' | 'google' | null>(null);
@@ -63,12 +59,19 @@ export function PaymentGatewaySheet({
         body: JSON.stringify({
           orderNumber: order.order_number,
           paymentStatus: 'paid',
-          paymentMethod: provider,
+          paymentMethod: 'stripe',
           paymentId: `${sessionId}-${methodName}`,
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const rawText = await res.text();
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = {};
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Payment confirmation failed');
       }
@@ -77,7 +80,7 @@ export function PaymentGatewaySheet({
         ...order,
         status: 'Processing',
         payment_status: 'paid',
-        payment_method: provider,
+        payment_method: 'stripe',
         payment_id: `${sessionId}-${methodName}`,
       };
 
@@ -95,33 +98,25 @@ export function PaymentGatewaySheet({
       <div
         className="rounded-xl p-4 border flex items-center justify-between gap-3"
         style={{
-          background: provider === 'stripe' ? 'rgba(99, 102, 241, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-          borderColor: provider === 'stripe' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+          background: 'rgba(99, 102, 241, 0.08)',
+          borderColor: 'rgba(99, 102, 241, 0.25)',
         }}
       >
         <div className="flex items-center gap-3">
-          {provider === 'stripe' ? (
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-black text-sm">
-              S
-            </div>
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-sm">
-              B
-            </div>
-          )}
+          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-black text-sm">
+            S
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm sm:text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                {provider === 'stripe' ? t('stripe_modal_title', lang) : t('barion_modal_title', lang)}
+                {t('stripe_modal_title', lang)}
               </h4>
               <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                 {t('test_mode_badge', lang)}
               </span>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {provider === 'stripe'
-                ? 'Apple Pay, Google Pay & Card 256-bit SSL'
-                : 'Barion MNB engedéllyel rendelkező elektronikus fizetés (0% fee)'}
+              Apple Pay, Google Pay & Card 256-bit SSL
             </p>
           </div>
         </div>
@@ -373,171 +368,7 @@ export function PaymentGatewaySheet({
         </div>
       )}
 
-      {/* ── BARION VIEW ── */}
-      {provider === 'barion' && !biometricType && (
-        <div className="space-y-4">
-          {/* Method Tabs */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setBarionTab('card')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                barionTab === 'card'
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                <line x1="1" y1="10" x2="23" y2="10" />
-              </svg>
-              <span>{lang === 'hu' ? 'Bankkártya / Okos Fizetés' : 'Card / Smart Pay'}</span>
-            </button>
 
-            <button
-              type="button"
-              onClick={() => setBarionTab('wallet')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                barionTab === 'wallet'
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/20'
-                  : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
-              }`}
-            >
-              <span className="text-sm font-black">B</span>
-              <span>Barion Tárca (Wallet)</span>
-            </button>
-          </div>
-
-          {/* Card / Smart Pay Tab */}
-          {barionTab === 'card' && (
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
-                  {t('card_number', lang)}
-                </label>
-                <button
-                  type="button"
-                  onClick={handleFillTestCard}
-                  className="text-[10px] text-emerald-400 hover:text-emerald-300 underline font-bold cursor-pointer"
-                >
-                  {t('demo_autofill', lang)}
-                </button>
-              </div>
-
-              <input
-                type="text"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                placeholder="4242 •••• •••• 4242"
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 font-mono focus:border-emerald-400 outline-none"
-              />
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('card_expiry', lang)}
-                  </label>
-                  <input
-                    type="text"
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(e.target.value)}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 font-mono focus:border-emerald-400 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('card_cvc', lang)}
-                  </label>
-                  <input
-                    type="password"
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value)}
-                    placeholder="123"
-                    maxLength={4}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 font-mono focus:border-emerald-400 outline-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => handleCompletePayment('barion_card')}
-                className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30 disabled:opacity-50"
-              >
-                {isProcessing ? (
-                  <>
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    <span>{t('payment_processing', lang)}</span>
-                  </>
-                ) : (
-                  <span>
-                    {t('pay_with_barion', lang)} ({fmt(totalHuf)})
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Barion Wallet Tab */}
-          {barionTab === 'wallet' && (
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  Barion Email
-                </label>
-                <input
-                  type="email"
-                  value={walletEmail}
-                  onChange={(e) => setWalletEmail(e.target.value)}
-                  placeholder="barion@wallet.hu"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-emerald-400 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  Barion PIN (4 digits)
-                </label>
-                <input
-                  type="password"
-                  value={walletPin}
-                  onChange={(e) => setWalletPin(e.target.value)}
-                  maxLength={4}
-                  placeholder="••••"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 font-mono focus:border-emerald-400 outline-none"
-                />
-              </div>
-
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => handleCompletePayment('barion_wallet')}
-                className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30 disabled:opacity-50"
-              >
-                {isProcessing ? (
-                  <>
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    <span>{t('payment_processing', lang)}</span>
-                  </>
-                ) : (
-                  <span>
-                    {lang === 'hu' ? 'Fizetés Barion Tárcával' : 'Pay with Barion Wallet'} ({fmt(totalHuf)})
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {error && (
         <div className="p-2.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-semibold">

@@ -310,11 +310,11 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
     // ── 4. Persist in Store-Wide Central Orders Database via /api/orders ──
     if (typeof window !== 'undefined') {
       try {
-        fetch('/api/orders', {
+        await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order: newOrder }),
-        }).catch(apiErr => console.warn('Background sync of order to /api/orders failed:', apiErr));
+        });
       } catch (e) {
         console.warn('Could not post order to /api/orders:', e);
       }

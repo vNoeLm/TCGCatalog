@@ -60,8 +60,27 @@ export const POST: APIRoute = async ({ request }) => {
     const targetIdx = currentOrders.findIndex(o => o.order_number === orderNumber);
 
     if (targetIdx === -1) {
-      return new Response(JSON.stringify({ success: false, error: 'Order not found.' }), {
-        status: 404,
+      const placeholderOrder: Order = {
+        id: `ord_${orderNumber}`,
+        order_number: orderNumber,
+        user_id: 'guest',
+        status: paymentStatus === 'paid' ? 'Processing' : 'Pending',
+        total_price_huf: 0,
+        shipping_name: '',
+        shipping_address: '',
+        tracking_number: null,
+        payment_method: paymentMethod || 'stripe',
+        payment_status: paymentStatus,
+        payment_id: paymentId,
+        notes: null,
+        items: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      currentOrders.unshift(placeholderOrder);
+      await saveStoredOrders(currentOrders);
+      return new Response(JSON.stringify({ success: true, order: placeholderOrder }), {
+        status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }

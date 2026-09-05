@@ -45,7 +45,8 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentS
         // 2. Fetch latest order state
         const res = await fetch('/api/orders');
         if (res.ok) {
-          const json = await res.json();
+          const rawText = await res.text();
+          const json = rawText ? JSON.parse(rawText) : {};
           if (json.success && Array.isArray(json.orders)) {
             const found = json.orders.find((o: Order) => o.order_number === orderNumber);
             if (isSubscribed && found) {

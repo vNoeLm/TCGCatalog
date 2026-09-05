@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ request, url }) => {
       });
     }
 
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || (import.meta as any).env?.STRIPE_SECRET_KEY;
     const origin = url.origin;
     const defaultSuccessUrl = `${origin}/checkout/success?order_number=${encodeURIComponent(orderNumber)}&gateway=stripe&session_id={CHECKOUT_SESSION_ID}`;
     const defaultCancelUrl = `${origin}/store?order_cancelled=${encodeURIComponent(orderNumber)}`;
@@ -55,8 +55,8 @@ export const POST: APIRoute = async ({ request, url }) => {
       const validItems = Array.isArray(items) && items.length > 0 ? items : [{ name: `TCG Order #${orderNumber}`, priceHuf: totalHuf, quantity: 1 }];
       validItems.forEach((it, idx) => {
         params.append(`line_items[${idx}][price_data][currency]`, 'huf');
-        // HUF is integer-based in Stripe (no cents)
-        params.append(`line_items[${idx}][price_data][unit_amount]`, String(Math.max(1, Math.round(it.priceHuf))));
+        // In Stripe, HUF is a two-decimal currency: unit_amount is in fillér (1 HUF = 100 subunits)
+        params.append(`line_items[${idx}][price_data][unit_amount]`, String(Math.max(100, Math.round(it.priceHuf * 100))));
         params.append(`line_items[${idx}][price_data][product_data][name]`, it.name || `Card item #${idx + 1}`);
         params.append(`line_items[${idx}][quantity]`, String(Math.max(1, it.quantity || 1)));
       });
