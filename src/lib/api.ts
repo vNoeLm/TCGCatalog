@@ -3,6 +3,7 @@ import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
 
 export const PAGE_SIZE = 36;
+export const STORE_PAGE_SIZE = 100;
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
 const CACHE_VERSION = 'v24';
@@ -281,8 +282,9 @@ export async function fetchOwnerStoreInventory(
     }
 
     // Pagination
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    const pageSize = STORE_PAGE_SIZE;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
     query = query.range(from, to).order('created_at', { ascending: false });
 
     const { data, error, count } = await query;
@@ -347,7 +349,8 @@ export async function fetchOwnerStoreInventory(
       });
     }
 
-    const result = { data: mappedData, count: mappedData.length };
+    const finalCount = typeof count === 'number' ? count : mappedData.length;
+    const result = { data: mappedData, count: finalCount };
     setCached(cacheKey, result);
     return result;
   } catch (err) {
@@ -484,8 +487,9 @@ export async function fetchLegacyInventory(
   }
 
   // Pagination
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const pageSize = STORE_PAGE_SIZE;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
   query = query.range(from, to).order('created_at', { ascending: false });
 
   const { data, error, count } = await query;

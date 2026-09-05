@@ -10,6 +10,7 @@ import { getLanguage, t, type Language } from "../lib/i18n";
 import { supabase } from "../lib/supabase";
 import { getCurrentUser, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
 import { syncUserCardInventory, bulkSyncCollectionToUserCards } from "../lib/userCards";
+import { useSiteTheme } from "../lib/theme";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -586,10 +587,9 @@ export function CardListApp() {
   const activeFilterBadgeCount = useMemo(() => {
     let count = 0;
     if (filters.set) count++;
-    if (filters.rarity) count++;
+    if (filters.rarities && filters.rarities.length > 0) count += filters.rarities.length;
     if (filters.type) count++;
-    if (filters.domain) count++;
-    if (filters.energyType) count++;
+    if (filters.domains && filters.domains.length > 0) count += filters.domains.length;
     if (filters.foilFilter) count++;
     if (filters.signedFilter && filters.signedFilter !== 'all') count++;
     if (filters.altArtFilter && filters.altArtFilter !== 'all') count++;
@@ -942,42 +942,26 @@ export function CardListApp() {
     }
   };
 
+  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
   const isCyberpunk = filters.game === 'cyberpunk';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
 
-  const catalogTheme = isCyberpunk
-    ? {
-        containerClass: "bg-[#0c0d10]/95 border border-[rgba(252,238,10,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(252,238,10,0.06)]",
-        inputClass: "bg-[#161822]/90 border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] focus:border-[#fcee0a] focus:ring-1 focus:ring-[#fcee0a] text-zinc-100 placeholder:text-zinc-500",
-        sortBtnClass: "bg-[#161822]/90 hover:bg-[#1c202d] border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] text-zinc-200 hover:text-white",
-        sortMenuClass: "bg-[#0c0d10] border border-[rgba(252,238,10,0.3)] shadow-2xl",
-        sortSelectedIcon: "text-[#fcee0a]",
-        mobileFilterBtn: "bg-[rgba(252,238,10,0.15)] hover:bg-[rgba(252,238,10,0.25)] border border-[rgba(252,238,10,0.4)] text-[#fcee0a]",
-        mobileFilterIcon: "text-[#fcee0a]",
-        mobileFilterBadge: "bg-[#fcee0a] text-black",
-        deckBuilderBtn: "bg-[#fcee0a] hover:bg-[#e6d809] text-black font-black shadow-lg shadow-yellow-500/20",
-        cloudSyncCard: "bg-[#161822] hover:bg-[#1c202d] border border-[rgba(252,238,10,0.3)] hover:border-[#fcee0a] shadow-lg shadow-yellow-950/20",
-        cloudSyncIconBg: "bg-[rgba(252,238,10,0.2)] border border-[rgba(252,238,10,0.35)] text-[#fcee0a]",
-        cloudSyncBadge: "bg-[rgba(252,238,10,0.2)] text-[#fcee0a] border border-[rgba(252,238,10,0.4)]",
-        cloudSyncText: "text-[#fcee0a]",
-        activePlaysetClass: "text-black font-black bg-[#fcee0a] border-[#fcee0a] shadow-[0_0_12px_rgba(252,238,10,0.3)]",
-      }
-    : {
-        containerClass: "bg-[#091428]/95 border border-[rgba(245,158,11,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(245,158,11,0.06)]",
-        inputClass: "bg-[#0e1c36]/90 border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] focus:border-[#f59e0b] focus:ring-1 focus:ring-[#f59e0b] text-zinc-100 placeholder:text-zinc-500",
-        sortBtnClass: "bg-[#0e1c36]/90 hover:bg-[#122244] border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] text-zinc-200 hover:text-white",
-        sortMenuClass: "bg-[#091428] border border-[rgba(245,158,11,0.3)] shadow-2xl",
-        sortSelectedIcon: "text-[#f59e0b]",
-        mobileFilterBtn: "bg-[rgba(245,158,11,0.15)] hover:bg-[rgba(245,158,11,0.25)] border border-[rgba(245,158,11,0.4)] text-[#fbbf24]",
-        mobileFilterIcon: "text-[#fbbf24]",
-        mobileFilterBadge: "bg-amber-500 text-[#091428]",
-        deckBuilderBtn: "bg-amber-500 hover:bg-amber-400 text-[#091428] font-black shadow-lg shadow-amber-500/25",
-        cloudSyncCard: "bg-[#0e1c36] hover:bg-[#132546] border border-[rgba(245,158,11,0.3)] hover:border-[#f59e0b] shadow-lg shadow-amber-950/20",
-        cloudSyncIconBg: "bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.35)] text-[#f59e0b]",
-        cloudSyncBadge: "bg-[rgba(245,158,11,0.2)] text-[#fbbf24] border border-[rgba(245,158,11,0.4)]",
-        cloudSyncText: "text-[#fbbf24]",
-        activePlaysetClass: "text-[#091428] font-black bg-amber-500 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]",
-      };
+  const catalogTheme = {
+    containerClass: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
+    inputClass: "bg-[var(--bg-input)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+    sortBtnClass: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-white",
+    sortMenuClass: "bg-[var(--bg-surface)] border border-[var(--border)] shadow-2xl",
+    sortSelectedIcon: "text-[var(--accent)]",
+    mobileFilterBtn: "bg-[var(--accent-muted)] hover:bg-[var(--accent)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]",
+    mobileFilterIcon: "text-[var(--text-accent)]",
+    mobileFilterBadge: "bg-[var(--accent)] text-[var(--text-on-accent)]",
+    deckBuilderBtn: "bg-[var(--accent)] hover:brightness-110 text-[var(--text-on-accent)] font-black shadow-lg shadow-[var(--accent-glow)]",
+    cloudSyncCard: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--accent)] shadow-lg shadow-black/40",
+    cloudSyncIconBg: "bg-[var(--accent-muted)] border border-[var(--accent-border)] text-[var(--text-accent)]",
+    cloudSyncBadge: "bg-[var(--accent-muted)] text-[var(--text-accent)] border border-[var(--accent-border)]",
+    cloudSyncText: "text-[var(--text-accent)]",
+    activePlaysetClass: "text-[var(--text-on-accent)] font-black bg-[var(--accent)] border-[var(--accent)] shadow-[0_0_12px_var(--accent-glow)]",
+  };
 
   const availableSets = useMemo(() => {
     const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
@@ -1169,11 +1153,11 @@ export function CardListApp() {
 
             {/* Row 3: Dedicated Full-Width Collection Status Tabs (All, Owned, Playset, Missing) */}
             <div className="w-full">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-zinc-950/80 p-1.5 rounded-xl border border-zinc-800 w-full">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[var(--bg-input)] p-1.5 rounded-xl border border-[var(--border)] w-full">
                 {(["All", "Owned", "Playset", "Missing"] as const).map(f => {
                   const active = collectionFilter === f;
                   let label = `${t('all', lang)} (${relevantTotal})`;
-                  let activeClass = 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-md';
+                  let activeClass = 'text-white font-bold bg-[var(--bg-raised)] border-[var(--border-hover)] shadow-md';
 
                   if (f === "Owned") {
                     label = `${t('owned', lang)} (${ownedCount} / ${relevantTotal})`;
@@ -1193,7 +1177,7 @@ export function CardListApp() {
                       className={`py-2 px-2.5 text-xs rounded-lg transition border cursor-pointer font-semibold text-center justify-center flex items-center min-w-0 ${
                         active
                           ? activeClass
-                          : 'bg-transparent border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+                          : 'bg-transparent border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       <span className="truncate">{label}</span>
@@ -1204,9 +1188,9 @@ export function CardListApp() {
             </div>
 
             {/* Row 4: Grid Size Switcher (100% on mobile) + Collection Actions (100% on mobile) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-zinc-800/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-[var(--border-subtle)]">
               {/* Grid Size Switcher - 100% full-width on mobile */}
-              <div className="grid grid-cols-3 sm:flex items-center bg-zinc-950/80 border border-zinc-800 rounded-xl p-1 h-10 sm:h-9 shrink-0 gap-1 w-full sm:w-auto">
+              <div className="grid grid-cols-3 sm:flex items-center bg-[var(--bg-input)] border border-[var(--border)] rounded-xl p-1 h-10 sm:h-9 shrink-0 gap-1 w-full sm:w-auto">
                 {(["small", "normal", "large"] as const).map(size => {
                   const active = gridSize === size;
                   return (
@@ -1216,8 +1200,8 @@ export function CardListApp() {
                       title={`Card display size: ${size}`}
                       className={`flex items-center justify-center px-3 py-1.5 sm:py-1 text-xs rounded-lg transition cursor-pointer capitalize font-semibold ${
                         active
-                          ? 'text-zinc-50 bg-zinc-800 border border-zinc-600 shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border border-transparent'
+                          ? 'text-zinc-50 bg-[var(--bg-raised)] border border-[var(--border-hover)] shadow-sm'
+                          : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5 border border-transparent'
                       }`}
                     >
                       {t(size as any, lang)}
@@ -1240,7 +1224,7 @@ export function CardListApp() {
                 <button
                   onClick={() => setShowExportModal(true)}
                   title="Export or copy collection"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
                   {t('export', lang)}
                 </button>
@@ -1248,7 +1232,7 @@ export function CardListApp() {
                 <button
                   onClick={() => setShowImportModal(true)}
                   title="Import collection from text list or JSON file"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
                   {t('import', lang)}
                 </button>
@@ -1626,8 +1610,13 @@ export function CardListApp() {
           style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            style={{ touchAction: 'auto' }}
-            className="w-full max-w-5xl my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            style={{
+              touchAction: 'auto',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
+            }}
+            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <CardDetail cardId={selectedCardId} onClose={() => setSelectedCardId(null)} />
           </div>

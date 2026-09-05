@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
 import { getCardImageUrl } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
-import { RUNE_ICONS, RARITY_ICONS } from "../lib/riftboundIcons";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { getLanguage, t, type Language } from "../lib/i18n";
@@ -21,20 +20,6 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Showcase:        { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
   "Nova Rare":     { bg: "rgba(6, 182, 212, 0.95)", text: "#67e8f9", glow: "rgba(6, 182, 212, 0.6)",   border: "#06b6d4" },
   "Secret":        { bg: "rgba(236, 72, 153, 0.95)", text: "#ffffff", glow: "rgba(236, 72, 153, 0.6)", border: "#ec4899" },
-};
-
-const TYPE_ICONS: Record<string, string> = {
-  Unit: "🗡️",
-  Champion: "⚔️",
-  Spell: "✨",
-  Gear: "🛡️",
-  Battlefield: "🏰",
-  Legend: "👑",
-  Rune: "🔮",
-  'booster_box': "📦",
-  'booster_pack': "🃏",
-  'starter_deck': "🎴",
-  'bundle': "🎁",
 };
 
 export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) {
@@ -60,14 +45,13 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
   const domainStyle = parsedDomains[0];
   const hoverBorder = isCyberpunk && domainStyle ? domainStyle.border : rarityStyle.border;
   const hoverGlow = isCyberpunk && domainStyle ? domainStyle.glow : rarityStyle.glow;
-  const typeIcon = TYPE_ICONS[card.product_type || card.card_type] ?? (isSealed ? "📦" : "🃏");
 
   return (
     <div
       className="rounded-2xl overflow-hidden flex flex-col h-full group/card"
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: "1px solid var(--border-subtle)",
         boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
         transition: "border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
       }}
@@ -78,7 +62,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 12px rgba(0,0,0,0.4)`;
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)";
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
       }}
     >
@@ -94,7 +78,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           ) : (
             <div className="relative z-[1] text-center px-4">
               <span className="text-5xl font-black select-none text-zinc-100">
-                {isSealed ? '📦' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                {isSealed ? 'SEALED' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
               <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
                 {isSealed ? (card.product_type || 'Sealed') : (card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`))}
@@ -107,10 +91,14 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
           {card.inventory_images && card.inventory_images.length > 0 && (
             <span
-              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-amber-400 text-zinc-950 border border-amber-200 shadow-md flex items-center gap-1"
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-amber-400 text-zinc-950 border border-amber-200 shadow-md flex items-center gap-1.5"
               title="Real physical condition photos attached"
             >
-              <span>📸</span> {card.inventory_images.length} {card.inventory_images.length === 1 ? 'Photo' : 'Photos'}
+              <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>{card.inventory_images.length} {card.inventory_images.length === 1 ? 'Photo' : 'Photos'}</span>
             </span>
           )}
           {(() => {
@@ -208,37 +196,6 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             );
           })()}
         </div>
-
-        {/* Bottom Middle: Rarity Icon (Riftbound only, slightly smaller) */}
-        {!isSealed && card.game !== 'cyberpunk' && (() => {
-          const rKey = (card.rarity || '').toLowerCase();
-          const rIcon = RARITY_ICONS[rKey];
-          if (!rIcon) return null;
-          return (
-            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
-              <img src={rIcon} alt={card.rarity} className="w-3.5 h-3.5 object-contain filter drop-shadow(0 2px 4px rgba(0,0,0,0.8))" />
-            </div>
-          );
-        })()}
-
-        {/* Bottom Right: Domain Icon (e.g. Body icon in bottom right for orange card) */}
-        {!isSealed && parsedDomains.length > 0 && parsedDomains[0].key !== 'colorless' && (
-          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 pointer-events-none" style={{ zIndex: 3 }}>
-            {parsedDomains.map((d) => {
-              const icon = RUNE_ICONS[d.key];
-              if (!icon) return null;
-              return (
-                <img
-                  key={d.key}
-                  src={icon}
-                  alt={d.name}
-                  className="w-5 h-5 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
-                  title={d.name}
-                />
-              );
-            })}
-          </div>
-        )}
       </button>
 
       {/* Info section */}
@@ -276,7 +233,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             {isSealed ? card.condition : formatCleanCardNumber(card.card_number)}
           </span>
           <span className="capitalize truncate text-center font-medium">
-            {isCyberpunk ? card.card_type : `${typeIcon} ${isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}`}
+            {isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}
           </span>
           <span className="capitalize truncate text-right text-zinc-400 font-medium">
             {card.rarity || ''}

@@ -5,6 +5,7 @@ import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
 import { t, type Language } from '../../lib/i18n';
+import { useSiteTheme } from '../../lib/theme';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -69,7 +70,8 @@ export function DeckCatalog({
   lang = 'en',
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
-  const theme = isCyberpunk
+  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
+  const theme = isCyberpunkTheme
     ? {
         accent: '#fcee0a',
         accentMuted: 'rgba(252, 238, 10, 0.15)',
@@ -374,7 +376,7 @@ export function DeckCatalog({
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    color: isCyberpunk ? '#fcee0a' : '#fbbf24',
+    color: isCyberpunkTheme ? '#fcee0a' : '#fbbf24',
     marginBottom: 6,
     display: 'block',
   };

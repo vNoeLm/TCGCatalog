@@ -76,7 +76,7 @@ async function downloadImage(url: string, filepath: string) {
   console.log("Scrolling to load all cards...");
   let previousHeight = 0;
   while (true) {
-    const currentHeight = await page.evaluate('document.body.scrollHeight');
+    const currentHeight = (await page.evaluate('document.body.scrollHeight')) as number;
     await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
     await page.waitForTimeout(2000); 
     if (currentHeight === previousHeight) {

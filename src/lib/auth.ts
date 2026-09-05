@@ -186,7 +186,4 @@ export async function loadCollectionFromCloud(): Promise<Record<string, number> 
 
 // ─── User Orders ──────────────────────────────────────────────────
 
-export async function fetchUserOrders() {
-  // Orders table is not currently provisioned in database
-  return [];
-}
+export { fetchUserOrders } from './orders';

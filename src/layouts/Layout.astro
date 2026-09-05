@@ -27,17 +27,28 @@ const pathname = Astro.url.pathname;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <!-- Immediate theme resolution to prevent FOUC -->
+    <script is:inline>
+      (function() {
+        try {
+          var override = localStorage.getItem('tcg_theme_override');
+          var game = localStorage.getItem('tcg_active_game') || 'riftbound';
+          var theme = (override === 'cyberpunk' || override === 'riftbound' || override === 'dark') ? override : (game === 'cyberpunk' ? 'cyberpunk' : 'riftbound');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="min-h-screen font-sans pb-16" style="background: var(--bg-page); color: var(--text-primary);">
-    <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50">
+  <body class="min-h-screen font-sans pb-16">
+    <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50 transition-colors duration-200">
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
-          <a href="/" class="flex items-center" style="text-decoration: none;">
-            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap" style="background: linear-gradient(90deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          <a href="/" class="flex items-center group transition" style="text-decoration: none;">
+            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-zinc-100 group-hover:text-white transition-colors">
               TCG Vault
             </span>
           </a>
-          <div class="h-4 sm:h-5 w-px bg-zinc-800" />
+          <div class="h-4 sm:h-5 w-px bg-[var(--border)] opacity-60" />
           <GameSelector client:load />
         </div>
         <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">

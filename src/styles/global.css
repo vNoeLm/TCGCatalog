@@ -1,44 +1,141 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────
-   DESIGN TOKENS — Light & Dark themes
+   DESIGN TOKENS — Game Themes
 ───────────────────────────────────────────── */
-:root, html.dark {
-  /* Backgrounds — Obsidian & Slate (zinc scale) */
-  --bg-page:      #09090b; /* zinc-950 */
-  --bg-surface:   #18181b; /* zinc-900 */
-  --bg-surface-2: #27272a; /* zinc-800 */
-  --bg-raised:    #27272a; /* zinc-800 */
-  --bg-input:     #09090b; /* zinc-950 */
-  --bg-header:    rgba(9, 9, 11, 0.92);
 
-  /* Borders — white-alpha and zinc-800 */
-  --border:       #27272a; /* zinc-800 */
-  --border-subtle:rgba(255, 255, 255, 0.06);
-  --border-hover: #3f3f46; /* zinc-700 */
+/* DEFAULT & RIFTBOUND: League Hextech Deep Navy & Amber Gold */
+:root,
+html.dark,
+html[data-theme="riftbound"] {
+  /* Backgrounds: Atmospheric Hextech Navy (NOT flat black) */
+  --bg-page:          #040914;
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(14, 42, 85, 0.45) 0%, rgba(4, 9, 20, 0.95) 60%), #040914;
+  --bg-surface:       #091428;
+  --bg-surface-2:     #0e1c36;
+  --bg-raised:        #122344;
+  --bg-input:         #081224;
+  --bg-header:        rgba(6, 14, 30, 0.94);
 
-  /* Text — Strict 4-tier zinc scale */
-  --text-primary:     #f4f4f5; /* Tier 1: zinc-100 */
-  --text-secondary:   #d4d4d8; /* Tier 2: zinc-300 */
-  --text-tertiary:    #a1a1aa; /* Tier 3: zinc-400 */
-  --text-muted:       #71717a; /* Tier 4: zinc-500 */
-  --text-placeholder: #71717a; /* zinc-500 */
-  --text-accent:      #f4f4f5;
+  /* Borders: Hextech Gold & Deep Blue */
+  --border:           rgba(245, 158, 11, 0.25);
+  --border-subtle:    rgba(245, 158, 11, 0.12);
+  --border-hover:     rgba(245, 158, 11, 0.5);
 
-  /* Neutral active/accent tokens */
-  --accent:       #f4f4f5;
-  --accent-light: #d4d4d8;
-  --accent-muted: rgba(255, 255, 255, 0.08);
-  --accent-border:rgba(255, 255, 255, 0.15);
-  --accent-glow:  rgba(255, 255, 255, 0.08);
+  /* Text: Clean slate scale with gold accents */
+  --text-primary:     #f8fafc;
+  --text-secondary:   #cbd5e1;
+  --text-tertiary:    #94a3b8;
+  --text-muted:       #64748b;
+  --text-placeholder: #475569;
+  --text-accent:      #fbbf24;
+  --text-on-accent:   #040914;
+
+  /* Accent: Hextech Amber & Gold */
+  --accent:           #f59e0b;
+  --accent-light:     #fbbf24;
+  --accent-muted:     rgba(245, 158, 11, 0.15);
+  --accent-border:    rgba(245, 158, 11, 0.4);
+  --accent-glow:      rgba(245, 158, 11, 0.25);
+
+  /* Brand Logo Gradient */
+  --brand-gradient:   linear-gradient(90deg, #fde047, #f59e0b, #38bdf8);
 
   /* Scrollbar */
-  --scrollbar-thumb: #3f3f46;
-  --scrollbar-track: #18181b;
+  --scrollbar-thumb:  rgba(245, 158, 11, 0.28);
+  --scrollbar-track:  #040914;
 
   /* Shadows */
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
-  --shadow-header: 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.65), 0 0 16px rgba(245, 158, 11, 0.08);
+  --shadow-header:    0 1px 0 rgba(245, 158, 11, 0.18);
+}
+
+/* CYBERPUNK: Dark Tech Carbon/Black & Cyberpunk Neon Yellow */
+html[data-theme="cyberpunk"] {
+  /* Backgrounds: Dark Tech Black */
+  --bg-page:          #07080a;
+  --bg-page-gradient: radial-gradient(circle at 50% 0%, rgba(252, 238, 10, 0.04) 0%, transparent 50%), #07080a;
+  --bg-surface:       #0c0d12;
+  --bg-surface-2:     #13161f;
+  --bg-raised:        #1a1d29;
+  --bg-input:         #11131a;
+  --bg-header:        rgba(10, 11, 15, 0.92);
+
+  /* Borders: Cyberpunk Yellow & Dark Tech */
+  --border:           rgba(252, 238, 10, 0.22);
+  --border-subtle:    rgba(252, 238, 10, 0.1);
+  --border-hover:     rgba(252, 238, 10, 0.45);
+
+  /* Text: Tech scale with neon yellow accent */
+  --text-primary:     #f4f4f6;
+  --text-secondary:   #d1d5db;
+  --text-tertiary:    #9ca3af;
+  --text-muted:       #6b7280;
+  --text-placeholder: #525866;
+  --text-accent:      #fcee0a;
+  --text-on-accent:   #07080a;
+
+  /* Accent: Neon Yellow */
+  --accent:           #fcee0a;
+  --accent-light:     #fef08a;
+  --accent-muted:     rgba(252, 238, 10, 0.15);
+  --accent-border:    rgba(252, 238, 10, 0.4);
+  --accent-glow:      rgba(252, 238, 10, 0.2);
+
+  /* Brand Logo Gradient */
+  --brand-gradient:   linear-gradient(90deg, #fcee0a, #ffe600, #00f0ff);
+
+  /* Scrollbar */
+  --scrollbar-thumb:  rgba(252, 238, 10, 0.25);
+  --scrollbar-track:  #07080a;
+
+  /* Shadows */
+  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(252, 238, 10, 0.06);
+  --shadow-header:    0 1px 0 rgba(252, 238, 10, 0.15);
+}
+
+/* GENERIC DARK: Clean Neutral Deep Slate / Obsidian & Electric Blue */
+html[data-theme="dark"] {
+  /* Backgrounds: Neutral Deep Slate / Charcoal */
+  --bg-page:          #090a0f;
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(30, 41, 59, 0.45) 0%, rgba(9, 10, 15, 0.98) 60%), #090a0f;
+  --bg-surface:       #111318;
+  --bg-surface-2:     #171922;
+  --bg-raised:        #1f222e;
+  --bg-input:         #0d0e13;
+  --bg-header:        rgba(12, 14, 20, 0.94);
+
+  /* Borders: Crisp Slate / Zinc */
+  --border:           rgba(255, 255, 255, 0.12);
+  --border-subtle:    rgba(255, 255, 255, 0.06);
+  --border-hover:     rgba(255, 255, 255, 0.25);
+
+  /* Text: Clean neutral high-contrast white & slate */
+  --text-primary:     #f8fafc;
+  --text-secondary:   #cbd5e1;
+  --text-tertiary:    #94a3b8;
+  --text-muted:       #64748b;
+  --text-placeholder: #475569;
+  --text-accent:      #60a5fa;
+  --text-on-accent:   #090a0f;
+
+  /* Accent: Clean Electric Blue */
+  --accent:           #3b82f6;
+  --accent-light:     #60a5fa;
+  --accent-muted:     rgba(59, 130, 246, 0.15);
+  --accent-border:    rgba(59, 130, 246, 0.4);
+  --accent-glow:      rgba(59, 130, 246, 0.25);
+
+  /* Brand Logo Gradient */
+  --brand-gradient:   linear-gradient(90deg, #ffffff, #93c5fd, #3b82f6);
+
+  /* Scrollbar */
+  --scrollbar-thumb:  rgba(255, 255, 255, 0.16);
+  --scrollbar-track:  #090a0f;
+
+  /* Shadows */
+  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(59, 130, 246, 0.06);
+  --shadow-header:    0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* ─────────────────────────────────────────────
@@ -50,11 +147,19 @@ html {
 }
 
 body {
-  background: var(--bg-page);
+  background: var(--bg-page-gradient, var(--bg-page));
   color: var(--text-primary);
+  min-height: 100vh;
   transition: background 0.2s, color 0.2s;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.brand-logo-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: all 0.2s;
 }
 
 /* ─────────────────────────────────────────────

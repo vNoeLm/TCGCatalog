@@ -12,6 +12,8 @@ import { CardDetail } from '../CardDetail';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { getLanguage, t, type Language } from '../../lib/i18n';
+import { useSiteTheme } from '../../lib/theme';
+import { Modal } from '../ui/Modal';
 
 const DEFAULT_FILTERS = {
   set: "",
@@ -292,6 +294,7 @@ export function DeckBuilderApp() {
   }, [activeGame]);
 
   const isCyberpunk = activeGame === 'cyberpunk';
+  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
 
   const cyberpunkRamLimits: CyberpunkRamLimits = useMemo(() => {
     if (!isCyberpunk) return { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
@@ -333,11 +336,11 @@ export function DeckBuilderApp() {
         {/* Left: Visual Preview */}
         <div style={{
           flex: '0 0 clamp(280px, 25vw, 400px)',
-          background: isCyberpunk ? '#0c0d10' : 'var(--bg-surface-2)',
+          background: isCyberpunkTheme ? '#0c0d10' : 'var(--bg-surface-2)',
           borderRadius: 16,
-          border: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.2)' : '1px solid var(--border)',
+          border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.2)' : '1px solid var(--border)',
           overflow: 'hidden',
-          boxShadow: isCyberpunk ? '0 8px 32px rgba(0,0,0,0.6)' : 'none',
+          boxShadow: isCyberpunkTheme ? '0 8px 32px rgba(0,0,0,0.6)' : 'none',
         }}>
           <DeckPreviewColumn 
             deck={deck} 
@@ -373,21 +376,21 @@ export function DeckBuilderApp() {
           width: 360,
           minWidth: 360,
           maxWidth: 360,
-          background: isCyberpunk ? '#0c0d10' : '#091428',
+          background: isCyberpunkTheme ? '#0c0d10' : '#091428',
           borderRadius: 16,
-          border: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.25)' : '1px solid rgba(245, 158, 11, 0.35)',
+          border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.25)' : '1px solid rgba(245, 158, 11, 0.35)',
           padding: 16,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: isCyberpunk ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(245, 158, 11, 0.08)',
+          boxShadow: isCyberpunkTheme ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(245, 158, 11, 0.08)',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h1 style={{
                 margin: 0,
                 fontSize: 18,
                 fontWeight: 900,
-                color: isCyberpunk ? '#fcee0a' : '#f59e0b',
+                color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
               }}>
@@ -399,7 +402,7 @@ export function DeckBuilderApp() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, width: '100%' }}>
               <ActionButton
                 onClick={() => setShowStatsModal(true)}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="stats"
                 title={t('deck_statistics', lang)}
               >
@@ -408,7 +411,7 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowSaveModal(true)}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="save"
               >
                 {t('save', lang)}
@@ -416,7 +419,7 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowBrowserModal(true)}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="browse"
               >
                 {t('browse', lang)}
@@ -424,7 +427,7 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowImportModal(true)}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="import"
               >
                 {t('import', lang)}
@@ -432,7 +435,7 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowExportModal(true)}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="export"
               >
                 {t('export', lang)}
@@ -440,7 +443,7 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => { if(confirm(lang === 'hu' ? 'Biztosan törlöd a teljes paklit?' : 'Clear entire deck?')) clearDeck(); }}
-                isCyberpunk={isCyberpunk}
+                isCyberpunk={isCyberpunkTheme}
                 type="clear"
               >
                 {t('clear_deck', lang)}
@@ -490,8 +493,13 @@ export function DeckBuilderApp() {
           style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <div 
             onClick={(e) => e.stopPropagation()}
-            style={{ touchAction: 'auto' }}
-            className="w-full max-w-5xl my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            style={{
+              touchAction: 'auto',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
+            }}
+            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <CardDetail cardId={previewCard.id} onClose={() => setPreviewCard(null)} />
           </div>
@@ -500,210 +508,227 @@ export function DeckBuilderApp() {
       {/* Modals for Saved Decks features */}
       
       {showSaveModal && (
-        <div onClick={() => setShowSaveModal(false)} style={modalBackdropStyle}>
-          <div onClick={e => e.stopPropagation()} style={modalWindowStyle}>
-            <h2 style={{ margin: '0 0 16px', fontSize: 20 }}>{t('save_deck', lang)}</h2>
-            <input autoFocus type="text" value={deckNameInput} onChange={e => setDeckNameInput(e.target.value)} placeholder={t('deck_name', lang)} style={inputStyle} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-              <button onClick={() => setShowSaveModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
-              <button onClick={() => { if(deckNameInput.trim()){ saveDeck(deckNameInput.trim(), deck); setDeckNameInput(''); setShowSaveModal(false); } }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>{t('save', lang)}</button>
-            </div>
+        <Modal
+          isOpen={showSaveModal}
+          onClose={() => setShowSaveModal(false)}
+          title={t('save_deck', lang)}
+        >
+          <input autoFocus type="text" value={deckNameInput} onChange={e => setDeckNameInput(e.target.value)} placeholder={t('deck_name', lang)} style={inputStyle} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+            <button onClick={() => setShowSaveModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
+            <button onClick={() => { if(deckNameInput.trim()){ saveDeck(deckNameInput.trim(), deck); setDeckNameInput(''); setShowSaveModal(false); } }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>{t('save', lang)}</button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showImportModal && (
-        <div onClick={() => setShowImportModal(false)} style={modalBackdropStyle}>
-          <div onClick={e => e.stopPropagation()} style={{ ...modalWindowStyle, maxWidth: 520 }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{t('import_deck', lang)}</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-              {lang === 'hu' ? 'Tölts fel egy paklifájlt (.json vagy .txt), vagy illessz be egy JSON objektumot / szöveges paklilistát lentebb.' : 'Upload a deck file (.json or .txt) or paste a JSON object / text decklist below.'}
-            </p>
+        <Modal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          title={t('import_deck', lang)}
+          maxWidth="max-w-xl"
+        >
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+            {lang === 'hu' ? 'Tölts fel egy paklifájlt (.json vagy .txt), vagy illessz be egy JSON objektumot / szöveges paklilistát lentebb.' : 'Upload a deck file (.json or .txt) or paste a JSON object / text decklist below.'}
+          </p>
 
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
-                  flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13,
-                }}
-              >
-                {t('choose_file', lang)}
-              </button>
-            </div>
-
-            <textarea
-              value={pasteInput}
-              onChange={e => setPasteInput(e.target.value)}
-              placeholder={lang === 'hu' ? `Illeszd be a pakli JSON-t vagy szöveges listát ide...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive` : `Paste deck JSON or text list here...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive`}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <button
+              onClick={() => fileInputRef.current?.click()}
               style={{
-                width: '100%', height: 160, padding: 12, borderRadius: 10,
-                background: 'var(--bg-input)', border: '1px solid var(--border)',
-                color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: 12,
-                outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
+                flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13,
               }}
-            />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-              <button onClick={() => setShowImportModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
-              <button 
-                onClick={() => processImportString(pasteInput)}
-                style={btnStyle('#6366f1', '#fff', '#6366f1')}
-              >
-                {t('import_deck', lang)}
-              </button>
-            </div>
+            >
+              {t('choose_file', lang)}
+            </button>
           </div>
-        </div>
+
+          <textarea
+            value={pasteInput}
+            onChange={e => setPasteInput(e.target.value)}
+            placeholder={lang === 'hu' ? `Illeszd be a pakli JSON-t vagy szöveges listát ide...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive` : `Paste deck JSON or text list here...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive`}
+            style={{
+              width: '100%', height: 160, padding: 12, borderRadius: 10,
+              background: 'var(--bg-input)', border: '1px solid var(--border)',
+              color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: 12,
+              outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+            }}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+            <button onClick={() => setShowImportModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
+            <button 
+              onClick={() => processImportString(pasteInput)}
+              style={btnStyle('#6366f1', '#fff', '#6366f1')}
+            >
+              {t('import_deck', lang)}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showExportModal && (
-        <div onClick={() => setShowExportModal(false)} style={modalBackdropStyle}>
-          <div onClick={e => e.stopPropagation()} style={{ ...modalWindowStyle, maxWidth: 500 }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{t('export_deck', lang)}</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-              {lang === 'hu' ? 'Exportáld az aktuális paklidat, vagy töltsd le az összes mentett paklidat.' : 'Export your current active deck or download all saved decks.'}
-            </p>
+        <Modal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          title={t('export_deck', lang)}
+          maxWidth="max-w-xl"
+        >
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+            {lang === 'hu' ? 'Exportáld az aktuális paklidat, vagy töltsd le az összes mentett paklidat.' : 'Export your current active deck or download all saved decks.'}
+          </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Export Current Deck JSON */}
-              <button
-                onClick={() => {
-                  const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
-                  const jsonStr = exportDeckToJson(deck, cards, deckName);
-                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
-                  const anchor = document.createElement('a');
-                  anchor.setAttribute("href", dataStr);
-                  const safeFilename = deckName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                  anchor.setAttribute("download", `${safeFilename}.json`);
-                  document.body.appendChild(anchor);
-                  anchor.click();
-                  anchor.remove();
-                  setShowExportModal(false);
-                }}
-                style={{
-                  ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
-                  padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700 }}>💾 {t('download_current_deck', lang)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyetlen paklifájl kártyanevekkel és metaadatokkal' : 'Single deck file with card names and metadata'}</div>
-                </div>
-                <span>↓</span>
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Export Current Deck JSON */}
+            <button
+              onClick={() => {
+                const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
+                const jsonStr = exportDeckToJson(deck, cards, deckName);
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
+                const anchor = document.createElement('a');
+                anchor.setAttribute("href", dataStr);
+                const safeFilename = deckName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                anchor.setAttribute("download", `${safeFilename}.json`);
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                setShowExportModal(false);
+              }}
+              style={{
+                ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
+                padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>💾 {t('download_current_deck', lang)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyetlen paklifájl kártyanevekkel és metaadatokkal' : 'Single deck file with card names and metadata'}</div>
+              </div>
+              <span>↓</span>
+            </button>
 
-              {/* Copy Decklist as Text */}
-              <button
-                onClick={() => {
-                  const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
-                  const textDeck = exportDeckToText(deck, cards, deckName);
-                  navigator.clipboard.writeText(textDeck);
-                  alert(lang === 'hu' ? 'Paklilista vágólapra másolva!' : 'Decklist copied to clipboard!');
-                  setShowExportModal(false);
-                }}
-                style={{
-                  ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
-                  padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700 }}>📋 {t('copy_decklist', lang)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyszerű szöveges formátum Discordhoz vagy fórumokhoz' : 'Plain text format with card names for Discord or forums'}</div>
-                </div>
-                <span>📋</span>
-              </button>
+            {/* Copy Decklist as Text */}
+            <button
+              onClick={() => {
+                const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
+                const textDeck = exportDeckToText(deck, cards, deckName);
+                navigator.clipboard.writeText(textDeck);
+                alert(lang === 'hu' ? 'Paklilista vágólapra másolva!' : 'Decklist copied to clipboard!');
+                setShowExportModal(false);
+              }}
+              style={{
+                ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
+                padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>📋 {t('copy_decklist', lang)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyszerű szöveges formátum Discordhoz vagy fórumokhoz' : 'Plain text format with card names for Discord or forums'}</div>
+              </div>
+              <span>📋</span>
+            </button>
 
-              {/* Export All Saved Decks Backup */}
-              <button
-                onClick={() => {
-                  const jsonStr = exportSavedDecksToJson(savedDecks, cards);
-                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
-                  const anchor = document.createElement('a');
-                  anchor.setAttribute("href", dataStr);
-                  anchor.setAttribute("download", "tcg_vault_all_saved_decks.json");
-                  document.body.appendChild(anchor);
-                  anchor.click();
-                  anchor.remove();
-                  setShowExportModal(false);
-                }}
-                style={{
-                  ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
-                  padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700 }}>{t('backup_all_decks', lang)} ({savedDecks.length})</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Teljes biztonsági mentés kártyanevekkel és statisztikákkal' : 'Full backup with complete card names and stats'}</div>
-                </div>
-                <span>↓</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <button onClick={() => setShowExportModal(false)} style={btnStyle()}>{t('close', lang)}</button>
-            </div>
+            {/* Export All Saved Decks Backup */}
+            <button
+              onClick={() => {
+                const jsonStr = exportSavedDecksToJson(savedDecks, cards);
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
+                const anchor = document.createElement('a');
+                anchor.setAttribute("href", dataStr);
+                anchor.setAttribute("download", "tcg_vault_all_saved_decks.json");
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                setShowExportModal(false);
+              }}
+              style={{
+                ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
+                padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>{t('backup_all_decks', lang)} ({savedDecks.length})</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Teljes biztonsági mentés kártyanevekkel és statisztikákkal' : 'Full backup with complete card names and stats'}</div>
+              </div>
+              <span>↓</span>
+            </button>
           </div>
-        </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+            <button onClick={() => setShowExportModal(false)} style={btnStyle()}>{t('close', lang)}</button>
+          </div>
+        </Modal>
       )}
 
-      {showBrowserModal && (
-        <div onClick={() => setShowBrowserModal(false)} style={modalBackdropStyle}>
-          <div onClick={e => e.stopPropagation()} style={{ ...modalWindowStyle, maxWidth: 800 }}>
-            <h2 style={{ margin: '0 0 16px', fontSize: 24, fontWeight: 800 }}>{t('saved_decks', lang)}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxHeight: '70vh', overflowY: 'auto' }}>
-              {savedDecks.length === 0 && <p style={{ color: 'var(--text-muted)' }}>{t('no_saved_decks', lang)}</p>}
-              {savedDecks.map(sd => {
-                const lCard = cards.find(c => c.id === sd.deck.legend);
-                const cCard = cards.find(c => c.id === sd.deck.champion);
-                const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=Unknown`;
-                const domains = lCard?.domain ? lCard.domain.split(',').map(d => d.trim().toLowerCase()) : [];
-                
-                return (
-                  <div key={sd.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, background: 'var(--bg-input)', borderRadius: 16, border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                      <div style={{ display: 'flex', gap: -30, position: 'relative' }}>
-                        <div style={{ width: 80, height: 112, borderRadius: 8, overflow: 'hidden', zIndex: 2, border: '2px solid var(--bg-input)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                          <img src={lCard?.image_path ? getCardImageUrl(lCard.image_path) : fallback} alt="Legend" style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                        </div>
-                        {cCard && (
-                          <div style={{ width: 80, height: 112, borderRadius: 8, overflow: 'hidden', marginLeft: -40, zIndex: 1, border: '2px solid var(--bg-input)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                            <img src={cCard.image_path ? getCardImageUrl(cCard.image_path) : fallback} alt="Champion" style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text-primary)' }}>{sd.name}</div>
-                          {domains.length > 0 && (
-                            <div style={{ display: 'flex', gap: 4 }}>
-                              {domains.map(d => (
-                                <div key={d} style={{ width: 12, height: 12, borderRadius: '50%', background: DOMAIN_COLORS[d] || '#94a3b8', boxShadow: '0 0 0 1px rgba(255,255,255,0.2)' }} title={d} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8 }}>{new Date(sd.createdAt).toLocaleDateString(lang === 'hu' ? 'hu-HU' : undefined)}</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {lCard && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}><span style={{ color: 'var(--text-primary)', opacity: 0.7 }}>Legend:</span> {lCard.name}</div>}
-                          {cCard && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}><span style={{ color: 'var(--text-primary)', opacity: 0.7 }}>Champion:</span> {cCard.name}</div>}
-                        </div>
-                      </div>
+      <Modal
+        isOpen={showBrowserModal}
+        onClose={() => setShowBrowserModal(false)}
+        title={t('saved_decks', lang)}
+        maxWidth="max-w-2xl"
+      >
+        <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+          {savedDecks.length === 0 && (
+            <p className="text-zinc-500 text-sm py-4 text-center">{t('no_saved_decks', lang)}</p>
+          )}
+          {savedDecks.map(sd => {
+            const lCard = cards.find(c => c.id === sd.deck.legend);
+            const cCard = cards.find(c => c.id === sd.deck.champion);
+            const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=Unknown`;
+            const domains = lCard?.domain ? lCard.domain.split(',').map(d => d.trim().toLowerCase()) : [];
+
+            return (
+              <div key={sd.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-zinc-950/60 rounded-xl border border-zinc-800">
+                <div className="flex items-center gap-4">
+                  <div className="flex relative">
+                    <div className="w-14 h-20 rounded-lg overflow-hidden z-10 border border-zinc-700 shadow-md">
+                      <img src={lCard?.image_path ? getCardImageUrl(lCard.image_path) : fallback} alt="Legend" className="w-full h-full object-cover" />
                     </div>
-                    <div style={{ display: 'flex', gap: 12 }}>
-                      <button onClick={() => { if(confirm(lang === 'hu' ? 'Törlöd ezt a paklit?' : 'Delete this deck?')) deleteDeck(sd.id); }} style={btnStyle('transparent', '#ef4444', '#ef4444')}>{t('delete', lang)}</button>
-                      <button onClick={() => { loadDeck(sd.deck); setShowBrowserModal(false); }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>{t('load_deck', lang)}</button>
+                    {cCard && (
+                      <div className="w-14 h-20 rounded-lg overflow-hidden -ml-6 z-0 border border-zinc-700 shadow-md">
+                        <img src={cCard.image_path ? getCardImageUrl(cCard.image_path) : fallback} alt="Champion" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-bold text-base text-zinc-100">{sd.name}</div>
+                      {domains.length > 0 && (
+                        <div className="flex gap-1">
+                          {domains.map(d => (
+                            <div key={d} className="w-2.5 h-2.5 rounded-full" style={{ background: DOMAIN_COLORS[d] || '#94a3b8' }} title={d} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-zinc-500 mb-1">{new Date(sd.createdAt).toLocaleDateString(lang === 'hu' ? 'hu-HU' : undefined)}</div>
+                    <div className="text-xs text-zinc-400 space-y-0.5">
+                      {lCard && <div><span className="text-zinc-500">Legend:</span> {lCard.name}</div>}
+                      {cCard && <div><span className="text-zinc-500">Champion:</span> {cCard.name}</div>}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-              <button onClick={() => setShowBrowserModal(false)} style={btnStyle()}>{t('close', lang)}</button>
-            </div>
-          </div>
+                </div>
+                <div className="flex gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => { if(confirm(lang === 'hu' ? 'Törlöd ezt a paklit?' : 'Delete this deck?')) deleteDeck(sd.id); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition cursor-pointer"
+                  >
+                    {t('delete', lang)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { loadDeck(sd.deck); setShowBrowserModal(false); }}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition cursor-pointer"
+                  >
+                    {t('load_deck', lang)}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </Modal>
+
 
     </>
   );
@@ -712,7 +737,5 @@ export function DeckBuilderApp() {
 const btnStyle = (bg = 'var(--bg-surface)', color = 'var(--text-primary)', border = 'var(--border)') => ({
   background: bg, border: `1px solid ${border}`, color, padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700
 });
-const modalBackdropStyle: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 24, backdropFilter: 'blur(4px)' };
-const modalWindowStyle: React.CSSProperties = { background: 'var(--bg-surface-2)', padding: 24, borderRadius: 20, width: '100%', maxWidth: 400, border: '1px solid var(--border)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none', fontSize: 14 };
 

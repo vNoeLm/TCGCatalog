@@ -5,6 +5,9 @@ import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { LanguageSelector } from './LanguageSelector';
+import { CartDrawer } from './CartDrawer';
+import { BuyModal } from './BuyModal';
+import { getCartCount, type CartItem } from '../lib/cart';
 import { getLanguage, t, type Language } from '../lib/i18n';
 
 interface NavigationProps {
@@ -19,6 +22,9 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lang, setLang] = useState<Language>('en');
+  const [cartCount, setCartCount] = useState(0);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [checkoutCartItems, setCheckoutCartItems] = useState<CartItem[] | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -47,6 +53,12 @@ export function Navigation({ currentPath }: NavigationProps) {
     };
     window.addEventListener('tcg-lang-change', handleLangChange);
 
+    setCartCount(getCartCount());
+    const handleCartChange = () => {
+      setCartCount(getCartCount());
+    };
+    window.addEventListener('tcg-cart-changed', handleCartChange);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         getCurrentProfile().then(p => {
@@ -72,6 +84,7 @@ export function Navigation({ currentPath }: NavigationProps) {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('tcg-lang-change', handleLangChange);
+      window.removeEventListener('tcg-cart-changed', handleCartChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -87,11 +100,19 @@ export function Navigation({ currentPath }: NavigationProps) {
     return (
       <a
         href={href}
-        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition cursor-pointer border whitespace-nowrap ${
+        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
           active
-            ? 'bg-zinc-800 border-zinc-600 text-white shadow-sm'
-            : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-zinc-900 hover:border-zinc-800'
+            ? 'font-bold shadow-sm'
+            : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/10'
         }`}
+        style={
+          active
+            ? {
+                background: 'var(--accent-muted)',
+                color: 'var(--text-accent)',
+              }
+            : undefined
+        }
       >
         {label}
       </a>
@@ -113,6 +134,47 @@ export function Navigation({ currentPath }: NavigationProps) {
         {/* Language Selector */}
         <LanguageSelector />
 
+        {/* Shopping Cart Button */}
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+            isCartOpen
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)]'
+              : 'bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white'
+          }`}
+          title={t('cart', lang)}
+          aria-label={cartCount > 0 ? `${t('cart', lang)} (${cartCount} items)` : t('cart', lang)}
+        >
+          <svg
+            className="w-4 h-4 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ color: cartCount > 0 ? 'var(--text-accent)' : 'inherit' }}
+          >
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+          <span className="hidden md:inline">{t('cart', lang)}</span>
+          {cartCount > 0 && (
+            <span
+              className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black leading-tight border"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--text-on-accent, #000)',
+                borderColor: 'var(--accent-border)',
+              }}
+            >
+              {cartCount}
+            </span>
+          )}
+        </button>
+
         {/* Auth Section */}
         <div className="relative" ref={dropdownRef}>
           {loading ? (
@@ -121,39 +183,66 @@ export function Navigation({ currentPath }: NavigationProps) {
             <div>
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-bold transition cursor-pointer shadow-sm"
+                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full text-xs font-bold transition cursor-pointer shadow-sm border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
               >
                 {userProfile.avatar_url ? (
                   <img
                     src={userProfile.avatar_url}
                     alt={userProfile.display_name || 'User'}
-                    className="w-6 h-6 rounded-full object-cover border border-zinc-700"
+                    className="w-6 h-6 rounded-full object-cover"
+                    style={{ border: '1px solid var(--border)' }}
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center text-[11px] font-black">
+                  <div 
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black"
+                    style={{
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--accent)',
+                    }}
+                  >
                     {(userProfile.display_name || userProfile.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
                 <span>{userProfile.display_name || t('account', lang)}</span>
-                <svg className="w-3 h-3 text-zinc-400 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3 h-3 shrink-0" style={{ color: 'var(--text-tertiary)' }} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M3 5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
 
               {/* User Dropdown Menu */}
               {dropdownOpen && (
-                <div className="absolute top-[calc(100%+8px)] right-0 w-52 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2 border-b border-zinc-800/80 mb-1">
-                    <div className="text-xs font-bold text-zinc-100 truncate">{userProfile.display_name || t('account', lang)}</div>
-                    <div className="text-[11px] font-mono text-zinc-400 truncate">{userProfile.email}</div>
+                <div 
+                  className="absolute top-[calc(100%+8px)] right-0 w-52 rounded-xl p-1.5 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100"
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border)',
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.8), 0 0 24px var(--accent-glow)'
+                  }}
+                >
+                  <div 
+                    className="p-2 mb-1"
+                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                  >
+                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-[11px] font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>{userProfile.email}</div>
                   </div>
 
                   <a
                     href="/profile"
                     onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white hover:bg-zinc-800 transition"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-muted)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
                   >
-                    <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     {t('my_profile', lang)}
@@ -163,9 +252,18 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <a
                       href="/admin"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white hover:bg-zinc-800 transition"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
+                      style={{ color: 'var(--text-secondary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--accent-muted)';
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }}
                     >
-                      <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                       {t('store_dashboard', lang)}
@@ -178,7 +276,8 @@ export function Navigation({ currentPath }: NavigationProps) {
                       await signOut();
                       window.location.reload();
                     }}
-                    className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition cursor-pointer text-left border-t border-zinc-800/80 mt-1 pt-1.5"
+                    className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer text-left mt-1 pt-1.5"
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -191,9 +290,9 @@ export function Navigation({ currentPath }: NavigationProps) {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition cursor-pointer shadow-sm whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow-sm whitespace-nowrap border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
@@ -203,20 +302,61 @@ export function Navigation({ currentPath }: NavigationProps) {
         </div>
       </nav>
 
-      {/* Mobile Hamburger Button (< 640px) */}
-      <div className="flex sm:hidden items-center">
+      {/* Mobile Controls (< 640px) */}
+      <div className="flex sm:hidden items-center gap-2">
+        {/* Mobile Cart Button */}
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className={`relative h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border ${
+            isCartOpen
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)]'
+              : 'bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white'
+          }`}
+          title={t('cart', lang)}
+          aria-label={cartCount > 0 ? `${t('cart', lang)} (${cartCount} items)` : t('cart', lang)}
+        >
+          <svg
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ color: cartCount > 0 ? 'var(--text-accent)' : 'inherit' }}
+          >
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+          {cartCount > 0 && (
+            <span
+              className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black leading-tight border"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--text-on-accent, #000)',
+                borderColor: 'var(--accent-border)',
+              }}
+            >
+              {cartCount}
+            </span>
+          )}
+        </button>
+
+        {/* Mobile Hamburger Button */}
         <button
           type="button"
           onClick={() => setMobileMenuOpen(prev => !prev)}
-          className="h-9 px-2.5 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 hover:text-white hover:bg-zinc-800 transition cursor-pointer shadow-sm active:scale-95"
+          className="h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
           aria-label="Toggle navigation menu"
         >
           {mobileMenuOpen ? (
-            <svg className="w-5 h-5 text-zinc-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-5 h-5" style={{ color: 'var(--text-primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 text-zinc-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           )}
@@ -232,33 +372,49 @@ export function Navigation({ currentPath }: NavigationProps) {
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-full bg-zinc-950 border-b border-zinc-800 p-4 shadow-2xl flex flex-col gap-3.5 animate-in slide-in-from-top-2 duration-150"
+            className="w-full p-4 shadow-2xl flex flex-col gap-3.5 animate-in slide-in-from-top-2 duration-150"
+            style={{
+              background: 'var(--bg-surface)',
+              borderBottom: '1px solid var(--border)'
+            }}
           >
             {/* User Profile (Clickable container to open Profile page) / Sign In Section */}
             {userProfile ? (
               <a
                 href="/profile"
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-xl flex items-center justify-between transition cursor-pointer group shadow-sm"
+                className="p-3 rounded-xl flex items-center justify-between transition cursor-pointer group shadow-sm border"
+                style={{
+                  background: 'var(--bg-surface-2)',
+                  borderColor: 'var(--border)',
+                }}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   {userProfile.avatar_url ? (
                     <img
                       src={userProfile.avatar_url}
                       alt={userProfile.display_name || 'User'}
-                      className="w-8 h-8 rounded-full object-cover border border-zinc-700 shrink-0"
+                      className="w-8 h-8 rounded-full object-cover shrink-0"
+                      style={{ border: '1px solid var(--border)' }}
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center text-xs font-black shrink-0">
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+                      style={{
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--accent)'
+                      }}
+                    >
                       {(userProfile.display_name || userProfile.email || 'U')[0].toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-zinc-100 group-hover:text-white truncate">{userProfile.display_name || t('account', lang)}</div>
-                    <div className="text-[11px] font-mono text-zinc-400 truncate">{userProfile.email}</div>
+                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-[11px] font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>{userProfile.email}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-zinc-400 group-hover:text-zinc-200 shrink-0 pl-2">
+                <div className="flex items-center gap-1 shrink-0 pl-2" style={{ color: 'var(--text-secondary)' }}>
                   <span className="text-[11px] font-semibold">{t('my_profile', lang)}</span>
                   <span className="text-xs">→</span>
                 </div>
@@ -266,7 +422,12 @@ export function Navigation({ currentPath }: NavigationProps) {
             ) : (
               <button
                 onClick={() => { setMobileMenuOpen(false); setShowAuthModal(true); }}
-                className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                style={{
+                  background: 'var(--accent)',
+                  color: 'var(--text-on-accent, #000)',
+                  boxShadow: '0 0 16px var(--accent-glow)'
+                }}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -281,28 +442,46 @@ export function Navigation({ currentPath }: NavigationProps) {
               <a
                 href="/"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                style={
                   isActive('/')
-                    ? 'bg-zinc-800 border-zinc-600 text-white'
-                    : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
-                }`}
+                    ? {
+                        background: 'var(--accent-muted)',
+                        borderColor: 'var(--accent)',
+                        color: 'var(--text-accent)'
+                      }
+                    : {
+                        background: 'var(--bg-surface-2)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)'
+                      }
+                }
               >
                 <span>{t('catalog', lang)}</span>
-                <span className="text-zinc-500">→</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 
               {showStore && (
                 <a
                   href="/store"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
                     isActive('/store')
-                      ? 'bg-zinc-800 border-zinc-600 text-white'
-                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
-                  }`}
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
                 >
                   <span>{t('store', lang)}</span>
-                  <span className="text-zinc-500">→</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}
 
@@ -310,22 +489,34 @@ export function Navigation({ currentPath }: NavigationProps) {
                 <a
                   href="/admin"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border ${
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
                     isActive('/admin')
-                      ? 'bg-zinc-800 border-zinc-600 text-white'
-                      : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:text-white'
-                  }`}
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
                 >
                   <span>{t('store_dashboard', lang)}</span>
-                  <span className="text-zinc-500">→</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}
             </div>
 
             {/* Footer: Language Selector & Sign Out */}
-            <div className="flex items-center justify-between pt-2.5 border-t border-zinc-800/80">
+            <div 
+              className="flex items-center justify-between pt-2.5"
+              style={{ borderTop: '1px solid var(--border-subtle)' }}
+            >
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-400">{lang === 'hu' ? 'Nyelv:' : 'Language:'}</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{lang === 'hu' ? 'Nyelv:' : 'Language:'}</span>
                 <LanguageSelector />
               </div>
 
@@ -355,6 +546,33 @@ export function Navigation({ currentPath }: NavigationProps) {
           }}
         />
       )}
+
+      {/* Slide-over Shopping Cart Drawer */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onCheckout={(items) => {
+          setIsCartOpen(false);
+          setCheckoutCartItems(items);
+        }}
+        lang={lang}
+      />
+
+      {/* Multi-Item Checkout Modal */}
+      {checkoutCartItems && (
+        <BuyModal
+          isOpen={Boolean(checkoutCartItems)}
+          onClose={() => setCheckoutCartItems(null)}
+          cartItems={checkoutCartItems}
+          profile={userProfile}
+          lang={lang}
+          onOrderPlaced={() => {
+            setCheckoutCartItems(null);
+            setCartCount(getCartCount());
+          }}
+        />
+      )}
     </>
   );
 }
+

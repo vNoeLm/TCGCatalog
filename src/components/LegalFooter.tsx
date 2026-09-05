@@ -41,12 +41,18 @@ export function LegalFooter() {
           <button
             type="button"
             onClick={() => handleToggle(false)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/80 shadow-2xl backdrop-blur-md transition-all cursor-pointer group active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md transition-all cursor-pointer group active:scale-95 border"
+            style={{
+              background: 'var(--bg-header)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
             title={lang === 'hu' ? 'Jogi információk megnyitása' : 'Expand Legal & Disclaimer Footer'}
           >
             <span className="text-xs font-bold text-zinc-400 group-hover:text-zinc-200 hidden sm:inline">Legal</span>
             <svg
-              className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-transform group-hover:-translate-y-0.5"
+              className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
+              style={{ color: 'var(--accent)' }}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
@@ -57,13 +63,19 @@ export function LegalFooter() {
 
       {/* Expanded State: Fixed Bottom Bar */}
       {!collapsed && (
-        <footer className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 border-t border-zinc-800/90 text-zinc-400 shadow-2xl backdrop-blur-md animate-fade-in">
+        <footer
+          className="fixed bottom-0 left-0 right-0 z-40 border-t text-zinc-400 shadow-2xl backdrop-blur-md animate-fade-in transition-colors duration-200"
+          style={{
+            background: 'var(--bg-header)',
+            borderColor: 'var(--border)',
+          }}
+        >
           <div className="max-w-[1400px] mx-auto px-4 py-2.5 sm:px-6 sm:py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 sm:gap-4 text-left">
             
             {/* Legal Disclaimer & Copyright (Fully visible) */}
             <div className="flex flex-col sm:flex-row items-start sm:items-baseline gap-2 sm:gap-3 w-full md:w-auto min-w-0">
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-black tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                <span className="text-xs font-black tracking-tight brand-logo-text">
                   TCG Vault
                 </span>
                 <span className="text-[11px] text-zinc-400 font-medium">

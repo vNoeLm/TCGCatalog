@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { GAMES } from '../lib/constants';
+import { GAMES, STORAGE_KEYS, EVENTS } from '../lib/constants';
 import { getLanguage, t, type Language } from '../lib/i18n';
+import { applySiteTheme } from '../lib/theme';
 
 export function GameSelector() {
   const [activeGame, setActiveGame] = useState('riftbound');
@@ -12,19 +13,17 @@ export function GameSelector() {
     setLang(getLanguage());
     const handleLangChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
+      if (customEvent.detail?.lang) setLang(customEvent.detail.lang);
     };
-    window.addEventListener('tcg-lang-change', handleLangChange);
+    window.addEventListener(EVENTS.LANG_CHANGE, handleLangChange);
 
     // Read from localStorage on mount (only active games)
-    const saved = localStorage.getItem('tcg_active_game');
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
     if (saved && GAMES.some(g => g.id === saved && g.active !== false)) {
       setActiveGame(saved);
     } else {
       setActiveGame('riftbound');
-      localStorage.setItem('tcg_active_game', 'riftbound');
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_GAME, 'riftbound');
     }
 
     // Listen to external game change events
@@ -34,19 +33,17 @@ export function GameSelector() {
         setActiveGame(customEvent.detail.game);
       }
     };
-    window.addEventListener('tcg-game-change', handleGameChange);
+    window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
 
     // Close on outside click
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      window.removeEventListener('tcg-lang-change', handleLangChange);
-      window.removeEventListener('tcg-game-change', handleGameChange);
+      window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
+      window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -57,10 +54,12 @@ export function GameSelector() {
 
     setActiveGame(gameId);
     setIsOpen(false);
-    localStorage.setItem('tcg_active_game', gameId);
-    sessionStorage.setItem('catalogGame', gameId);
-    window.dispatchEvent(new CustomEvent('tcg-game-change', { detail: { game: gameId } }));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_GAME, gameId);
+    sessionStorage.setItem(STORAGE_KEYS.CATALOG_GAME, gameId);
+    applySiteTheme(gameId);
+    window.dispatchEvent(new CustomEvent(EVENTS.GAME_CHANGE, { detail: { game: gameId } }));
   };
+
 
   const currentGame = GAMES.find(g => g.id === activeGame) || GAMES[0];
 
@@ -70,10 +69,16 @@ export function GameSelector() {
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-100 text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap"
+        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
       >
-        <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] shrink-0" />
-        <span className="tracking-wide text-zinc-200 group-hover:text-white truncate max-w-[85px] sm:max-w-none">{currentGame.name}</span>
+        <span
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{
+            background: 'var(--accent)',
+            boxShadow: '0 0 8px var(--accent-glow)',
+          }}
+        />
+        <span className="tracking-wide truncate max-w-[85px] sm:max-w-none">{currentGame.name}</span>
         <svg
           className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
@@ -84,8 +89,14 @@ export function GameSelector() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 mt-1.5 w-56 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800">
+        <div
+          className="absolute left-0 mt-1.5 w-56 rounded-xl border shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md"
+          style={{
+            background: 'var(--bg-surface)',
+            borderColor: 'var(--border)',
+          }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5">
             {t('select_game', lang)}
           </div>
           {GAMES.map(g => {
@@ -110,6 +121,8 @@ export function GameSelector() {
               );
             }
 
+            const gameDotColor = g.id === 'cyberpunk' ? '#fcee0a' : (g.id === 'riftbound' ? '#f59e0b' : '#a1a1aa');
+
             return (
               <button
                 key={g.id}
@@ -117,16 +130,26 @@ export function GameSelector() {
                 onClick={() => handleSelectGame(g.id)}
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition cursor-pointer text-left ${
                   isSelected
-                    ? 'bg-indigo-600/20 text-indigo-300 font-bold'
-                    : 'text-zinc-300 hover:text-white hover:bg-zinc-800/70'
+                    ? 'font-bold'
+                    : 'text-zinc-300 hover:text-white hover:bg-white/5'
                 }`}
+                style={{
+                  background: isSelected ? 'var(--accent-muted)' : undefined,
+                  color: isSelected ? 'var(--text-accent)' : undefined,
+                }}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.8)]' : 'bg-zinc-600'}`} />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{
+                      background: gameDotColor,
+                      boxShadow: isSelected ? `0 0 8px ${gameDotColor}` : 'none',
+                    }}
+                  />
                   <span>{g.name}</span>
                 </div>
                 {isSelected && (
-                  <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 )}

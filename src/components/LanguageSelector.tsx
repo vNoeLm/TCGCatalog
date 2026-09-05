@@ -27,7 +27,9 @@ export function LanguageSelector() {
   };
 
   return (
-    <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 shadow-sm">
+    <div 
+      className="flex items-center rounded-xl p-0.5 shadow-sm transition border border-[var(--border)] hover:border-[var(--border-hover)] bg-[var(--bg-surface)]"
+    >
       {LANGUAGES.map(l => {
         const isActive = currentLang === l.id;
         return (
@@ -43,9 +45,18 @@ export function LanguageSelector() {
             title={`Switch to ${l.label}`}
             className={`px-2 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
               isActive
-                ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
-                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                ? 'shadow-[0_0_10px_var(--accent-glow)]'
+                : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/15'
             }`}
+            style={
+              isActive
+                ? {
+                    background: 'var(--accent)',
+                    color: 'var(--text-on-accent, #000)',
+                    border: '1px solid var(--accent)',
+                  }
+                : undefined
+            }
           >
             {l.flag}
           </button>

@@ -4,8 +4,10 @@ import { CardItem } from "./CardItem";
 import { CardDetail } from "./CardDetail";
 import { fetchInventory, getCatalogVisibility, getSealedVisibility } from "../lib/api";
 import { getCurrentProfile } from "../lib/auth";
-import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
+import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, STORAGE_KEYS, EVENTS } from "../lib/constants";
 import { getLanguage, t, type Language } from "../lib/i18n";
+import { useSiteTheme } from "../lib/theme";
+import type { FilterState, InventoryCard } from "../types";
 
 const DEFAULT_FILTERS: FilterState = {
   category: "singles",
@@ -55,10 +57,8 @@ function getSortLabel(mode: string, lang: Language): string {
 }
 
 export function CatalogApp() {
-  const BREAKPOINT = 900;
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [isWide, setIsWide] = useState(true);
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
   const [sortMode, setSortMode] = useState<
     "Price (Low to High)" | "Price (High to Low)" |
@@ -82,8 +82,8 @@ export function CatalogApp() {
         setLang(customEvent.detail.lang);
       }
     };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
+    window.addEventListener(EVENTS.LANG_CHANGE, handleLangChange);
+    return () => window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
   }, []);
 
   // Close sort dropdown on click outside
@@ -110,23 +110,26 @@ export function CatalogApp() {
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
-    const savedSearch = sessionStorage.getItem('inventorySearchQuery');
+    const savedSearch = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_SEARCH);
     if (savedSearch !== null) setSearchQuery(savedSearch);
 
-    const savedGrid = sessionStorage.getItem('inventoryGridSize');
+    const savedGrid = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_GRID);
     if (savedGrid) setGridSize(savedGrid as 'small'|'normal'|'large');
 
-    const savedSort = sessionStorage.getItem('inventorySortMode');
+    const savedSort = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_SORT);
     if (savedSort) setSortMode(savedSort as any);
 
-    const savedGame = localStorage.getItem('tcg_active_game');
-    const savedFilters = sessionStorage.getItem('inventoryFilters');
+    const savedGame = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
+    const savedFilters = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
         if (savedGame) parsed.game = savedGame;
         setFilters(prev => ({ ...prev, ...parsed }));
-      } catch (e) {}
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn('Filter state parse error, resetting to defaults:', e);
+        sessionStorage.removeItem(STORAGE_KEYS.INVENTORY_FILTERS);
+      }
     } else if (savedGame) {
       setFilters(prev => ({ ...prev, game: savedGame }));
     }
@@ -149,10 +152,10 @@ export function CatalogApp() {
         setPage(1);
       }
     };
-    window.addEventListener('tcg-game-change', handleGameChange);
+    window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
 
     return () => {
-      window.removeEventListener('tcg-game-change', handleGameChange);
+      window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
     };
   }, []);
 
@@ -186,18 +189,11 @@ export function CatalogApp() {
     });
   }, []);
 
-  useEffect(() => {
-    const check = () => setIsWide(window.innerWidth >= BREAKPOINT);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
   // Save filters & state to session storage
-  useEffect(() => { if (isInitialized) sessionStorage.setItem('inventoryFilters', JSON.stringify(filters)); }, [filters, isInitialized]);
-  useEffect(() => { if (isInitialized) sessionStorage.setItem('inventorySearchQuery', searchQuery); }, [searchQuery, isInitialized]);
-  useEffect(() => { if (isInitialized) sessionStorage.setItem('inventoryGridSize', gridSize); }, [gridSize, isInitialized]);
-  useEffect(() => { if (isInitialized) sessionStorage.setItem('inventorySortMode', sortMode); }, [sortMode, isInitialized]);
+  useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_FILTERS, JSON.stringify(filters)); }, [filters, isInitialized]);
+  useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_SEARCH, searchQuery); }, [searchQuery, isInitialized]);
+  useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_GRID, gridSize); }, [gridSize, isInitialized]);
+  useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_SORT, sortMode); }, [sortMode, isInitialized]);
 
   // Sort store items
   const sortedCards = useMemo(() => {
@@ -273,12 +269,12 @@ export function CatalogApp() {
         setTotalCount(count ?? data.length);
       }
     };
-    window.addEventListener('tcg-store-inventory-change', handleStoreChange);
+    window.addEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleStoreChange);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
-      window.removeEventListener('tcg-store-inventory-change', handleStoreChange);
+      window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleStoreChange);
     };
   }, [filters, searchQuery]);
 
@@ -314,7 +310,18 @@ export function CatalogApp() {
     return () => observer.disconnect();
   }, [observerTarget.current, hasMore, loading, loadingMore, page, cards.length, totalCount]);
 
+  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
   const isCyberpunk = filters.game === 'cyberpunk';
+
+  const catalogTheme = {
+    containerClass: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
+    inputClass: "bg-[var(--bg-input)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+    sortBtnClass: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-white",
+    sortMenuClass: "bg-[var(--bg-surface)] border border-[var(--border)] shadow-2xl",
+    sortSelectedIcon: "text-[var(--accent)]",
+    categoryContainer: "bg-[var(--bg-surface)] border border-[var(--border)]",
+    categoryActive: "text-[var(--text-accent)] font-bold bg-[var(--bg-raised)] border-[var(--accent)] shadow-sm",
+  };
 
   const availableSets = useMemo(() => {
     const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
@@ -359,7 +366,7 @@ export function CatalogApp() {
       {/* Top Header: Category Switcher (if Sealed Products is enabled in store settings) */}
       {isSealedEnabled && (
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-          <div className="flex gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-xl">
+          <div className={`flex gap-1.5 p-1 rounded-xl ${catalogTheme.categoryContainer}`}>
             {CATEGORIES.map(cat => {
               const active = (filters.category || 'singles') === cat.id;
               return (
@@ -368,8 +375,8 @@ export function CatalogApp() {
                   onClick={() => setFilters(prev => ({ ...prev, category: cat.id as any }))}
                   className={`flex items-center gap-2 px-3.5 py-1.5 text-xs rounded-lg transition cursor-pointer border ${
                     active
-                      ? 'text-white font-bold bg-zinc-800 border-zinc-600 shadow-sm'
-                      : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
+                      ? catalogTheme.categoryActive
+                      : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5 font-semibold'
                   }`}
                 >
                   <span>{cat.id === 'singles' ? (lang === 'hu' ? 'Egyedi lapok' : 'Singles') : (lang === 'hu' ? 'Bontatlan termékek' : 'Sealed Product')}</span>
@@ -380,146 +387,42 @@ export function CatalogApp() {
         </div>
       )}
 
-      {/* Main Content Layout */}
-      <div style={{ display: "grid", gridTemplateColumns: isWide ? "264px 1fr" : "1fr", gap: isWide ? 24 : 16 }}>
-        {isWide ? (
-          <>
-            <aside style={{ position: "sticky", top: 88, alignSelf: "start" }}>
-              {sidebar}
-            </aside>
-            <main style={{ minWidth: 0 }}>
-              {/* Search & Grid Controls */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ flex: 1, position: "relative" }}>
-                    <svg
-                      style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, pointerEvents: "none" }}
-                      fill="none" viewBox="0 0 24 24" stroke="#71717a"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder={t('search_placeholder', lang)}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-11 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
-                    />
-                  </div>
+      {/* Main Content Layout — Responsive CSS grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
+        {/* Sidebar: In-flow on mobile, sticky rail on large screens */}
+        <aside className="w-full lg:sticky lg:top-[88px] lg:self-start">
+          {sidebar}
+        </aside>
 
-                  {/* Sort Dropdown on Desktop */}
-                  <div className="relative w-56 shrink-0 z-40" ref={sortRef}>
-                    <button
-                      type="button"
-                      onClick={() => setSortOpen(prev => !prev)}
-                      className="w-full h-11 px-3.5 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-700/80 hover:border-zinc-600 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
-                    >
-                      <span className="truncate">
-                        {getSortLabel(sortMode, lang)}
-                      </span>
-                      <svg
-                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {sortOpen && (
-                      <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                        {SORT_OPTIONS.map(({ mode, labelKey }) => {
-                          const isSelected = sortMode === mode;
-                          return (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
-                              className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
-                                isSelected
-                                  ? 'bg-zinc-800 text-white font-bold'
-                                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
-                              }`}
-                            >
-                              <span>{t(labelKey as any, lang)}</span>
-                              {isSelected && (
-                                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', height: 44, boxSizing: 'border-box', gap: 4, alignItems: 'center', background: 'var(--bg-surface-2)', padding: 4, borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    {(["small", "normal", "large"] as const).map(s => {
-                      const active = gridSize === s;
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => setGridSize(s)}
-                          className={`h-full px-3 text-xs rounded-lg transition cursor-pointer capitalize border ${
-                            active
-                              ? 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-sm'
-                              : 'bg-zinc-900 border-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-800 font-semibold'
-                          }`}
-                        >
-                          {t(s, lang)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-zinc-300 font-semibold">
-                  {lang === 'hu' ? `${totalCount} termék érhető el a boltban` : `${totalCount} ${totalCount === 1 ? "item" : "items"} available in store`}
-                </p>
+        <main className="min-w-0">
+          {/* Search, Sort & Grid Controls */}
+          <div className="mb-5">
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
+              {/* Search Bar */}
+              <div className="flex-1 relative">
+                <svg
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={t('search_placeholder', lang)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full h-11 ${catalogTheme.inputClass} rounded-xl pl-10 pr-4 text-sm outline-none transition`}
+                />
               </div>
 
-              <ContentArea cards={sortedCards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} lang={lang} />
-              <InfiniteScrollSentinel
-                hasMore={hasMore}
-                loadingMore={loadingMore}
-                currentCount={cards.length}
-                totalCount={totalCount}
-                observerRef={observerTarget}
-                lang={lang}
-              />
-            </main>
-          </>
-        ) : (
-          <div>
-            <div style={{ marginBottom: 20 }}>
-              {sidebar}
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              {/* Mobile Row 1: Search */}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <svg
-                    style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 18, height: 18, pointerEvents: "none" }}
-                    fill="none" viewBox="0 0 24 24" stroke="#71717a"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder={t('search_placeholder', lang)}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-11 bg-zinc-900 border border-zinc-700/80 rounded-xl pl-11 pr-4 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              {/* Mobile Row 2: Sort Dropdown & Grid Size */}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div className="flex-1 min-w-0 relative z-40" ref={sortRef}>
+              {/* Sort & Grid Size Controls */}
+              <div className="flex gap-2 sm:gap-3 items-center">
+                {/* Sort Dropdown */}
+                <div className="relative flex-1 sm:w-56 sm:flex-initial shrink-0 z-40" ref={sortRef}>
                   <button
                     type="button"
                     onClick={() => setSortOpen(prev => !prev)}
-                    className="w-full h-10 px-3 flex items-center justify-between gap-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-700/80 hover:border-zinc-600 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm cursor-pointer select-none"
+                    className={`w-full h-11 px-3.5 flex items-center justify-between gap-1.5 rounded-xl ${catalogTheme.sortBtnClass} text-xs font-semibold transition shadow-sm cursor-pointer select-none`}
                   >
                     <span className="truncate">
                       {getSortLabel(sortMode, lang)}
@@ -533,7 +436,7 @@ export function CatalogApp() {
                   </button>
 
                   {sortOpen && (
-                    <div className="absolute right-0 mt-1.5 w-full rounded-xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                    <div className={`absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md border shadow-2xl z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100`}>
                       {SORT_OPTIONS.map(({ mode, labelKey }) => {
                         const isSelected = sortMode === mode;
                         return (
@@ -541,7 +444,7 @@ export function CatalogApp() {
                             key={mode}
                             type="button"
                             onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
-                            className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                            className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
                               isSelected
                                 ? 'bg-zinc-800 text-white font-bold'
                                 : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
@@ -549,7 +452,7 @@ export function CatalogApp() {
                           >
                             <span>{t(labelKey as any, lang)}</span>
                             {isSelected && (
-                              <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <svg className={`w-3.5 h-3.5 ${catalogTheme.sortSelectedIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -560,17 +463,19 @@ export function CatalogApp() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', height: 40, boxSizing: 'border-box', gap: 2, alignItems: 'center', background: 'var(--bg-surface-2)', padding: 2, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                {/* Grid Size Switcher */}
+                <div className="flex h-11 box-border gap-1 items-center bg-zinc-900 border border-zinc-700/80 p-1 rounded-xl">
                   {(["small", "normal", "large"] as const).map(s => {
                     const active = gridSize === s;
                     return (
                       <button
                         key={s}
+                        type="button"
                         onClick={() => setGridSize(s)}
-                        className={`h-full px-2.5 text-[11px] rounded-lg transition cursor-pointer capitalize border ${
+                        className={`h-full px-2.5 sm:px-3 text-[11px] sm:text-xs rounded-lg transition cursor-pointer capitalize border ${
                           active
                             ? 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-sm'
-                            : 'bg-zinc-900 border-zinc-700/80 text-zinc-200 hover:text-white hover:bg-zinc-800 font-semibold'
+                            : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
                         }`}
                       >
                         {t(s, lang)}
@@ -579,22 +484,23 @@ export function CatalogApp() {
                   })}
                 </div>
               </div>
-
-              <p className="mt-2 text-xs text-zinc-400 font-medium">
-                {lang === 'hu' ? `${totalCount} termék érhető el a boltban` : `${totalCount} ${totalCount === 1 ? "item" : "items"} available in store`}
-              </p>
             </div>
-            <ContentArea cards={sortedCards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} lang={lang} />
-            <InfiniteScrollSentinel
-              hasMore={hasMore}
-              loadingMore={loadingMore}
-              currentCount={cards.length}
-              totalCount={totalCount}
-              observerRef={observerTarget}
-              lang={lang}
-            />
+
+            <p className="mt-2 text-xs text-zinc-300 font-semibold">
+              {lang === 'hu' ? `${totalCount} termék érhető el a boltban` : `${totalCount} ${totalCount === 1 ? "item" : "items"} available in store`}
+            </p>
           </div>
-        )}
+
+          <ContentArea cards={sortedCards} loading={loading} gridSize={gridSize} onCardClick={setSelectedInventoryId} lang={lang} />
+          <InfiniteScrollSentinel
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            currentCount={cards.length}
+            totalCount={totalCount}
+            observerRef={observerTarget}
+            lang={lang}
+          />
+        </main>
       </div>
 
       {selectedInventoryId && (

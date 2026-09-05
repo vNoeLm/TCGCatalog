@@ -58,3 +58,45 @@ export const CYBERPUNK_TAGS = [
   'Weapon', 'Zetatech'
 ];
 
+// ─── Storage Keys ─────────────────────────────────────────────────
+/** Centralized localStorage / sessionStorage key registry. */
+export const STORAGE_KEYS = {
+  ACTIVE_GAME:         'tcg_active_game',
+  CART:                'tcg-cart',
+  CART_EXPIRY:         'tcg-cart-expiry',
+  CHECKOUT_INFO:       'tcg-checkout-info',
+  ORDERS:              'tcg-orders',
+  LANG:                'tcg-lang',
+  THEME_OVERRIDE:      'tcg-theme-override',
+  INVENTORY_FILTERS:   'inventoryFilters',
+  INVENTORY_SEARCH:    'inventorySearchQuery',
+  INVENTORY_SORT:      'inventorySortMode',
+  INVENTORY_GRID:      'inventoryGridSize',
+  CATALOG_GAME:        'catalogGame',
+} as const;
+
+// ─── Custom Event Names ────────────────────────────────────────────
+/** Centralized CustomEvent name registry. */
+export const EVENTS = {
+  GAME_CHANGE:          'tcg-game-change',
+  LANG_CHANGE:          'tcg-lang-change',
+  CART_CHANGED:         'tcg-cart-changed',
+  ORDERS_CHANGED:       'tcg-orders-changed',
+  STORE_INVENTORY_CHANGE: 'tcg-store-inventory-change',
+} as const;
+
+// ─── Sort Modes ────────────────────────────────────────────────────
+export const SORT_MODES = [
+  'Price (Low to High)',
+  'Price (High to Low)',
+  'Quantity (High to Low)',
+  'Quantity (Low to High)',
+  'Card Number (Asc)',
+  'Card Number (Desc)',
+  'Rarity (High to Low)',
+  'Rarity (Low to High)',
+  'Name (A to Z)',
+  'Name (Z to A)',
+] as const;
+
+export type SortMode = typeof SORT_MODES[number];

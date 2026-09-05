@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import type { CatalogCard } from "../types";
 import { getCardImageUrl } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
-import { RUNE_ICONS, RARITY_ICONS } from "../lib/riftboundIcons";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { getLanguage, t, type Language } from "../lib/i18n";
@@ -88,7 +87,7 @@ export function CardListItem(props: CardListItemProps) {
       className="rounded-2xl overflow-hidden flex flex-col h-full group/card"
       style={{
         background: "var(--bg-surface)",
-        border: isAnyOwned ? "1.5px solid rgba(52,211,153,0.5)" : "1px solid rgba(255,255,255,0.08)",
+        border: isAnyOwned ? "1.5px solid rgba(52,211,153,0.5)" : "1px solid var(--border-subtle)",
         boxShadow: isAnyOwned ? `0 4px 20px rgba(52,211,153,0.1)` : `var(--shadow-card)`,
         transition: "border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
       }}
@@ -103,7 +102,7 @@ export function CardListItem(props: CardListItemProps) {
         (e.currentTarget as HTMLElement).style.boxShadow = isAnyOwned
           ? `0 4px 20px rgba(52,211,153,0.1)`
           : `var(--shadow-card)`;
-        (e.currentTarget as HTMLElement).style.borderColor = isAnyOwned ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.08)";
+        (e.currentTarget as HTMLElement).style.borderColor = isAnyOwned ? "rgba(52,211,153,0.5)" : "var(--border-subtle)";
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
       }}
     >
@@ -215,37 +214,6 @@ export function CardListItem(props: CardListItemProps) {
             );
           })()}
         </div>
-
-        {/* Bottom Middle: Rarity Icon (Riftbound only, slightly smaller) */}
-        {card.game !== 'cyberpunk' && (() => {
-          const rKey = (card.rarity || '').toLowerCase();
-          const rIcon = RARITY_ICONS[rKey];
-          if (!rIcon) return null;
-          return (
-            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
-              <img src={rIcon} alt={card.rarity} className="w-3.5 h-3.5 object-contain filter drop-shadow(0 2px 4px rgba(0,0,0,0.8))" />
-            </div>
-          );
-        })()}
-
-        {/* Bottom Right: Domain Icon (e.g. Body icon in bottom right for orange card) */}
-        {parsedDomains.length > 0 && parsedDomains[0].key !== 'colorless' && (
-          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 pointer-events-none" style={{ zIndex: 3 }}>
-            {parsedDomains.map((d) => {
-              const icon = RUNE_ICONS[d.key];
-              if (!icon) return null;
-              return (
-                <img
-                  key={d.key}
-                  src={icon}
-                  alt={d.name}
-                  className="w-5 h-5 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
-                  title={d.name}
-                />
-              );
-            })}
-          </div>
-        )}
       </button>
 
       <div className={`${isSmall ? 'p-2.5' : 'p-3'} flex flex-col flex-grow`}>

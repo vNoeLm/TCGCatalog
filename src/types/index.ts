@@ -88,7 +88,7 @@ export interface FilterState {
   sealedTypes?: string[];
   costMin: number;
   costMax: number;
-  stockStatus: string;
+  stockStatus?: string;
   foilFilter?: boolean;
   signedFilter?: 'all' | 'only' | 'none';
   altArtFilter?: 'all' | 'only' | 'none';
@@ -137,8 +137,10 @@ export interface SavedDeck {
 }
 
 export interface OrderItem {
+  inventory_id?: string;
   card_id: string;
   card_name: string;
+  name?: string;
   card_number?: string;
   set_name?: string;
   condition: string;
@@ -155,11 +157,26 @@ export interface Order {
   user_id: string;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
   total_price_huf: number;
+  total_huf?: number;
   shipping_name?: string | null;
   shipping_address?: string | null;
   tracking_number?: string | null;
+  payment_method?: string | null;
+  payment_status?: 'pending' | 'paid' | 'refunded' | null;
+  payment_id?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
   notes?: string | null;
   items: OrderItem[];
   created_at: string;
   updated_at: string;
+  customer_info?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    postal_code?: string;
+    country?: string;
+  };
 }

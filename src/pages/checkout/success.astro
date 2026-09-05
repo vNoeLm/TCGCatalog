@@ -1,0 +1,21 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { PaymentSuccessView } from '../../components/PaymentSuccessView';
+
+export const prerender = false;
+
+const orderNumber = Astro.url.searchParams.get('order_number') || '';
+const gateway = Astro.url.searchParams.get('gateway') || 'stripe';
+const sessionId = Astro.url.searchParams.get('session_id') || Astro.url.searchParams.get('paymentId') || '';
+---
+
+<Layout title="Payment Success | TCG Vault">
+  <main class="min-h-[85vh] py-12 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto flex items-center justify-center">
+    <PaymentSuccessView
+      client:load
+      orderNumber={orderNumber}
+      gateway={gateway}
+      sessionId={sessionId}
+    />
+  </main>
+</Layout>

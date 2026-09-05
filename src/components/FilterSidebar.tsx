@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import type { FilterState } from "../types";
 import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES } from "../lib/constants";
 import { getLanguage, t, type Language } from "../lib/i18n";
+import { useSiteTheme } from "../lib/theme";
+import { DOMAIN_STYLES, RARITY_STYLES } from "../lib/domainColors";
 
 interface FilterSidebarProps {
   filters: FilterState;
@@ -16,30 +18,6 @@ interface FilterSidebarProps {
   };
 }
 
-const DOMAIN_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string; hoverBorder: string }> = {
-  Fury:       { dot: "#ef4444", activeBg: "rgba(239,68,68,0.22)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.12)",   hoverBorder: "rgba(239,68,68,0.45)" },
-  Calm:       { dot: "#22c55e", activeBg: "rgba(34,197,94,0.22)",   border: "rgba(34,197,94,0.7)", text: "#86efac", hoverBg: "rgba(34,197,94,0.12)",   hoverBorder: "rgba(34,197,94,0.45)" },
-  Mind:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.22)",  border: "rgba(59,130,246,0.7)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.12)",  hoverBorder: "rgba(59,130,246,0.45)" },
-  Body:       { dot: "#f97316", activeBg: "rgba(249,115,22,0.22)",  border: "rgba(249,115,22,0.7)", text: "#fdba74", hoverBg: "rgba(249,115,22,0.12)",  hoverBorder: "rgba(249,115,22,0.45)" },
-  Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
-  Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
-  Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.18)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.1)",  hoverBorder: "rgba(203,213,225,0.35)" },
-  // Cyberpunk colors
-  Red:        { dot: "#ef4444", activeBg: "rgba(239,68,68,0.25)",   border: "rgba(239,68,68,0.8)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.15)",   hoverBorder: "rgba(239,68,68,0.5)" },
-  Blue:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.25)",  border: "rgba(59,130,246,0.8)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.15)",  hoverBorder: "rgba(59,130,246,0.5)" },
-  Green:      { dot: "#22c55e", activeBg: "rgba(34,197,94,0.25)",   border: "rgba(34,197,94,0.8)", text: "#86efac", hoverBg: "rgba(34,197,94,0.15)",   hoverBorder: "rgba(34,197,94,0.5)" },
-  Yellow:     { dot: "#eab308", activeBg: "rgba(234,179,8,0.25)",   border: "rgba(234,179,8,0.8)", text: "#fde047", hoverBg: "rgba(234,179,8,0.15)",   hoverBorder: "rgba(234,179,8,0.5)" },
-};
-
-const RARITY_STYLES: Record<string, { dot: string; activeBg: string; border: string; text: string; hoverBg: string; hoverBorder: string }> = {
-  Common:          { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
-  Uncommon:        { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.22)",  border: "rgba(56,189,248,0.7)",  text: "#7dd3fc", hoverBg: "rgba(56,189,248,0.12)",  hoverBorder: "rgba(56,189,248,0.45)" },
-  Rare:            { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
-  Epic:            { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
-  Showcase:        { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
-  "Nova Rare":     { dot: "#06b6d4", activeBg: "rgba(6,182,212,0.25)",   border: "rgba(6,182,212,0.8)",   text: "#67e8f9", hoverBg: "rgba(6,182,212,0.15)",   hoverBorder: "rgba(6,182,212,0.5)" },
-  "Secret":        { dot: "#ec4899", activeBg: "rgba(236,72,153,0.35)",  border: "rgba(236,72,153,0.9)",  text: "#ffffff", hoverBg: "rgba(236,72,153,0.2)",   hoverBorder: "rgba(236,72,153,0.6)" },
-};
 
 function SectionHeader({ label, badge, collapsible = true, open, onToggle, theme }: {
   label: string;
@@ -243,31 +221,22 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase())
   );
 
-  const sidebarTheme = isCyberpunk
-    ? {
-        container: "bg-[#0c0d10]/95 border border-[rgba(252,238,10,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(252,238,10,0.06)]",
-        divider: "border-[rgba(252,238,10,0.15)]",
-        headerTitle: "text-[#fcee0a]",
-        headerIcon: "text-[#fcee0a]",
-        sectionHover: "hover:text-[#fcee0a]",
-        sectionBadge: "bg-[rgba(252,238,10,0.15)] text-[#fcee0a] border border-[rgba(252,238,10,0.4)]",
-        sectionArrow: "text-zinc-400 group-hover:text-[#fcee0a]",
-        input: "bg-[#161822] border border-[rgba(252,238,10,0.25)] hover:border-[rgba(252,238,10,0.4)] focus:border-[#fcee0a] text-zinc-100 placeholder:text-zinc-500",
-        btnDefault: "bg-[#161822] border-zinc-800 text-zinc-300 hover:text-white hover:border-[rgba(252,238,10,0.4)] hover:bg-[#1a1d28]",
-        btnActive: "bg-[rgba(252,238,10,0.15)] border-[#fcee0a] text-[#fcee0a] font-bold shadow-[0_0_10px_rgba(252,238,10,0.15)]",
-      }
-    : {
-        container: "bg-[#091428]/95 border border-[rgba(245,158,11,0.25)] shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(245,158,11,0.06)]",
-        divider: "border-[rgba(245,158,11,0.15)]",
-        headerTitle: "text-[#fbbf24]",
-        headerIcon: "text-[#f59e0b]",
-        sectionHover: "hover:text-[#fbbf24]",
-        sectionBadge: "bg-[rgba(245,158,11,0.2)] text-[#fbbf24] border border-[rgba(245,158,11,0.4)]",
-        sectionArrow: "text-zinc-400 group-hover:text-[#fbbf24]",
-        input: "bg-[#0e1c36] border border-[rgba(245,158,11,0.25)] hover:border-[rgba(245,158,11,0.45)] focus:border-[#f59e0b] text-zinc-100 placeholder:text-zinc-500",
-        btnDefault: "bg-[#0e1c36] border-zinc-800 text-zinc-300 hover:text-white hover:border-[rgba(245,158,11,0.4)] hover:bg-[#122244]",
-        btnActive: "bg-[rgba(245,158,11,0.2)] border-[#f59e0b] text-[#fbbf24] font-bold shadow-[0_0_10px_rgba(245,158,11,0.2)]",
-      };
+  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
+
+  const sidebarTheme = {
+    container: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
+    divider: "border-[var(--border-subtle)]",
+    headerTitle: "text-[var(--text-accent)]",
+    headerIcon: "text-[var(--accent)]",
+    sectionHover: "hover:text-[var(--text-accent)]",
+    sectionBadge: "bg-[var(--accent-muted)] text-[var(--text-accent)] border border-[var(--accent-border)]",
+    sectionArrow: "text-zinc-400 group-hover:text-[var(--text-accent)]",
+    input: "bg-[var(--bg-input)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+    btnDefault: "bg-[var(--bg-input)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--accent-border)] hover:bg-[var(--bg-raised)]",
+    btnActive: "bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]",
+  };
+
+  const activeAccentClass = "bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-semibold shadow-[0_0_8px_var(--accent-glow)]";
 
   return (
     <div className={`w-full ${sidebarTheme.container} rounded-xl p-3 space-y-2.5 shadow-lg`}>
@@ -441,7 +410,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 onClick={() => set("foilFilter", !filters.foilFilter)}
                 className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
                   filters.foilFilter
-                    ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                    ? activeAccentClass
                     : sidebarTheme.btnDefault
                 }`}
               >
@@ -454,7 +423,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 title="Click to cycle: Only SP Cards → Exclude SP Cards → All Cards"
                 className={`text-xs py-1.5 px-2 rounded-md border text-center font-medium transition cursor-pointer ${
                   sp === 'only'
-                    ? "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.25)]"
+                    ? activeAccentClass
                     : sp === 'none'
                     ? "bg-rose-500/20 border-rose-500/80 text-rose-300 font-semibold shadow-[0_0_8px_rgba(244,63,94,0.2)]"
                     : sidebarTheme.btnDefault
@@ -527,12 +496,12 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
               {(isPokemon ? POKEMON_RARITIES : options.rarities).map((r) => {
                 const active = filters.rarities.includes(r);
                 const rs = RARITY_STYLES[r] ?? { 
-                  dot: isCyberpunk ? "#fcee0a" : "#f59e0b",
-                  activeBg: isCyberpunk ? "rgba(252,238,10,0.2)" : "rgba(245,158,11,0.2)",
-                  border: isCyberpunk ? "rgba(252,238,10,0.8)" : "rgba(245,158,11,0.8)", 
-                  text: isCyberpunk ? "#fef08a" : "#fbbf24",
+                  dot: "var(--accent)",
+                  activeBg: "var(--accent-muted)",
+                  border: "var(--accent)", 
+                  text: "var(--text-accent)",
                   hoverBg: "rgba(255,255,255,0.1)",
-                  hoverBorder: "rgba(255,255,255,0.3)" 
+                  hoverBorder: "var(--border-hover)" 
                 };
                 return (
                   <button
@@ -595,7 +564,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     onClick={() => toggleSealedType(st)}
                     className={`flex items-center justify-between py-1 px-2 rounded text-xs font-medium cursor-pointer border transition text-left ${
                       active
-                        ? (isCyberpunk ? "bg-[rgba(252,238,10,0.2)] border-[#fcee0a] text-[#fcee0a] font-semibold" : "bg-amber-500/20 border-amber-500/80 text-amber-200 font-semibold shadow-[0_0_8px_rgba(245,158,11,0.2)]")
+                        ? activeAccentClass
                         : sidebarTheme.btnDefault
                     }`}
                   >
