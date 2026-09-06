@@ -5,16 +5,24 @@ import { clearCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
 
 interface PaymentSuccessViewProps {
-  orderNumber: string;
-  gateway: string;
-  sessionId: string;
+  orderNumber?: string;
+  gateway?: string;
+  sessionId?: string;
   initialOrder?: Order | null;
 }
 
-export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrder }: PaymentSuccessViewProps) {
+export function PaymentSuccessView({
+  orderNumber: propOrderNumber,
+  gateway: propGateway,
+  sessionId: propSessionId,
+  initialOrder,
+}: PaymentSuccessViewProps = {}) {
   const [lang, setLang] = useState<Language>('en');
-  const [loading, setLoading] = useState(!initialOrder);
+  const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<Order | null>(initialOrder || null);
+  const [orderNumber, setOrderNumber] = useState(propOrderNumber || '');
+  const [gateway, setGateway] = useState(propGateway || 'stripe');
+  const [sessionId, setSessionId] = useState(propSessionId || '');
 
   useEffect(() => {
     setLang(getLanguage());
@@ -31,7 +39,17 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
       console.warn('Could not clear cart:', e);
     }
 
-    if (!orderNumber) {
+    // Resolve URL params
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const resolvedOrderNumber = propOrderNumber || searchParams?.get('order_number') || '';
+    const resolvedGateway = propGateway || searchParams?.get('gateway') || 'stripe';
+    const resolvedSessionId = propSessionId || searchParams?.get('session_id') || searchParams?.get('paymentId') || '';
+
+    if (resolvedOrderNumber) setOrderNumber(resolvedOrderNumber);
+    if (resolvedGateway) setGateway(resolvedGateway);
+    if (resolvedSessionId) setSessionId(resolvedSessionId);
+
+    if (!resolvedOrderNumber) {
       setLoading(false);
       return;
     }
@@ -47,13 +65,13 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
           if (raw) {
             const list: Order[] = JSON.parse(raw);
             if (Array.isArray(list)) {
-              const idx = list.findIndex(o => o.order_number === orderNumber || o.id === orderNumber);
+              const idx = list.findIndex(o => o.order_number === resolvedOrderNumber || o.id === resolvedOrderNumber);
               if (idx !== -1) {
                 list[idx] = {
                   ...list[idx],
                   payment_status: 'paid',
-                  payment_method: gateway || list[idx].payment_method || 'stripe',
-                  payment_id: sessionId || list[idx].payment_id,
+                  payment_method: resolvedGateway || list[idx].payment_method || 'stripe',
+                  payment_id: resolvedSessionId || list[idx].payment_id,
                   status: list[idx].status === 'Pending' ? 'Processing' : list[idx].status,
                   updated_at: new Date().toISOString(),
                 };
@@ -66,7 +84,7 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
           console.warn('Failed to update local order:', e);
         }
 
-        if (isSubscribed && localFound && !order) {
+        if (isSubscribed && localFound) {
           setOrder(localFound);
         }
 
@@ -77,13 +95,13 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
             const cloudOrders: Order[] = authData.user.user_metadata?.saved_orders || [];
             let changed = false;
             const updatedCloud = cloudOrders.map(o => {
-              if (o.order_number === orderNumber || o.id === orderNumber) {
+              if (o.order_number === resolvedOrderNumber || o.id === resolvedOrderNumber) {
                 changed = true;
                 return {
                   ...o,
                   payment_status: 'paid' as const,
-                  payment_method: gateway || o.payment_method || 'stripe',
-                  payment_id: sessionId || o.payment_id,
+                  payment_method: resolvedGateway || o.payment_method || 'stripe',
+                  payment_id: resolvedSessionId || o.payment_id,
                   status: o.status === 'Pending' ? 'Processing' : o.status,
                   updated_at: new Date().toISOString(),
                 };
@@ -102,29 +120,43 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
 
         // 3. Confirm payment on server via /api/checkout/confirm
         const payloadData = localFound || initialOrder || order;
-        await fetch('/api/checkout/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderNumber,
-            paymentStatus: 'paid',
-            paymentMethod: gateway,
-            paymentId: sessionId,
-            orderData: payloadData,
-          }),
-        });
-
-        // 4. Fetch latest order state from /api/orders
-        const res = await fetch('/api/orders');
-        if (res.ok) {
-          const rawText = await res.text();
-          const json = rawText ? JSON.parse(rawText) : {};
-          if (json.success && Array.isArray(json.orders)) {
-            const found = json.orders.find((o: Order) => o.order_number === orderNumber);
-            if (isSubscribed && found) {
-              setOrder(found);
+        try {
+          const confirmRes = await fetch('/api/checkout/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderNumber: resolvedOrderNumber,
+              paymentStatus: 'paid',
+              paymentMethod: resolvedGateway,
+              paymentId: resolvedSessionId,
+              orderData: payloadData,
+            }),
+          });
+          if (confirmRes.ok) {
+            const confirmJson = await confirmRes.json().catch(() => ({}));
+            if (confirmJson.success && confirmJson.order && isSubscribed) {
+              setOrder(prev => prev || confirmJson.order);
             }
           }
+        } catch (confirmErr) {
+          console.warn('Failed to post to /api/checkout/confirm:', confirmErr);
+        }
+
+        // 4. Fetch latest order state from /api/orders
+        try {
+          const res = await fetch('/api/orders');
+          if (res.ok) {
+            const rawText = await res.text();
+            const json = rawText ? JSON.parse(rawText) : {};
+            if (json.success && Array.isArray(json.orders)) {
+              const found = json.orders.find((o: Order) => o.order_number === resolvedOrderNumber);
+              if (isSubscribed && found) {
+                setOrder(found);
+              }
+            }
+          }
+        } catch (ordersErr) {
+          console.warn('Failed to fetch from /api/orders:', ordersErr);
         }
 
         // Notify client tabs
@@ -141,7 +173,7 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrd
     return () => {
       isSubscribed = false;
     };
-  }, [orderNumber, gateway, sessionId]);
+  }, [propOrderNumber, propGateway, propSessionId]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);

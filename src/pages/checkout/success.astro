@@ -1,61 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { PaymentSuccessView } from '../../components/PaymentSuccessView';
-import { supabaseAdmin } from '../../lib/supabaseServer';
-import type { Order } from '../../types';
-
-export const prerender = false;
-
-const orderNumber = Astro.url.searchParams.get('order_number') || '';
-const gateway = Astro.url.searchParams.get('gateway') || 'stripe';
-const sessionId = Astro.url.searchParams.get('session_id') || Astro.url.searchParams.get('paymentId') || '';
-
-let serverResolvedOrder: Order | null = null;
-
-if (orderNumber) {
-  try {
-    const { data } = await supabaseAdmin
-      .from('settings')
-      .select('value')
-      .eq('key', 'store_orders')
-      .maybeSingle();
-
-    if (data?.value) {
-      const orders: Order[] = JSON.parse(data.value);
-      if (Array.isArray(orders)) {
-        const idx = orders.findIndex(o => o.order_number === orderNumber);
-        if (idx !== -1) {
-          const existing = orders[idx];
-          serverResolvedOrder = {
-            ...existing,
-            payment_status: 'paid',
-            payment_method: gateway || existing.payment_method || 'stripe',
-            payment_id: sessionId || existing.payment_id,
-            status: existing.status === 'Pending' ? 'Processing' : existing.status,
-            updated_at: new Date().toISOString(),
-          };
-          orders[idx] = serverResolvedOrder;
-          await supabaseAdmin.from('settings').upsert({
-            key: 'store_orders',
-            value: JSON.stringify(orders),
-          });
-        }
-      }
-    }
-  } catch (e) {
-    console.error('Error settling order on success page server render:', e);
-  }
-}
 ---
 
 <Layout title="Payment Success | TCG Vault">
   <main class="min-h-[85vh] py-12 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto flex items-center justify-center">
-    <PaymentSuccessView
-      client:load
-      orderNumber={orderNumber}
-      gateway={gateway}
-      sessionId={sessionId}
-      initialOrder={serverResolvedOrder}
-    />
+    <PaymentSuccessView client:load />
   </main>
 </Layout>
+
