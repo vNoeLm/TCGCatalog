@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import type { Order } from '../types';
 import { getLanguage, t, type Language } from '../lib/i18n';
+import { clearCart } from '../lib/cart';
+import { supabase } from '../lib/supabase';
 
 interface PaymentSuccessViewProps {
   orderNumber: string;
   gateway: string;
   sessionId: string;
+  initialOrder?: Order | null;
 }
 
-export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentSuccessViewProps) {
+export function PaymentSuccessView({ orderNumber, gateway, sessionId, initialOrder }: PaymentSuccessViewProps) {
   const [lang, setLang] = useState<Language>('en');
-  const [loading, setLoading] = useState(true);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(!initialOrder);
+  const [order, setOrder] = useState<Order | null>(initialOrder || null);
 
   useEffect(() => {
     setLang(getLanguage());
@@ -21,6 +24,13 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentS
   }, []);
 
   useEffect(() => {
+    // Clear cart on payment success
+    try {
+      clearCart();
+    } catch (e) {
+      console.warn('Could not clear cart:', e);
+    }
+
     if (!orderNumber) {
       setLoading(false);
       return;
@@ -28,9 +38,70 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentS
 
     let isSubscribed = true;
 
-    async function confirmAndFetch() {
+    async function confirmAndSync() {
       try {
-        // 1. Confirm payment on server
+        // 1. Immediately update localStorage order so profile view has 'paid' right away
+        let localFound: Order | null = null;
+        try {
+          const raw = localStorage.getItem('tcg_user_orders');
+          if (raw) {
+            const list: Order[] = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const idx = list.findIndex(o => o.order_number === orderNumber || o.id === orderNumber);
+              if (idx !== -1) {
+                list[idx] = {
+                  ...list[idx],
+                  payment_status: 'paid',
+                  payment_method: gateway || list[idx].payment_method || 'stripe',
+                  payment_id: sessionId || list[idx].payment_id,
+                  status: list[idx].status === 'Pending' ? 'Processing' : list[idx].status,
+                  updated_at: new Date().toISOString(),
+                };
+                localFound = list[idx];
+                localStorage.setItem('tcg_user_orders', JSON.stringify(list));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to update local order:', e);
+        }
+
+        if (isSubscribed && localFound && !order) {
+          setOrder(localFound);
+        }
+
+        // 2. Sync to Supabase auth user_metadata if logged in
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const cloudOrders: Order[] = authData.user.user_metadata?.saved_orders || [];
+            let changed = false;
+            const updatedCloud = cloudOrders.map(o => {
+              if (o.order_number === orderNumber || o.id === orderNumber) {
+                changed = true;
+                return {
+                  ...o,
+                  payment_status: 'paid' as const,
+                  payment_method: gateway || o.payment_method || 'stripe',
+                  payment_id: sessionId || o.payment_id,
+                  status: o.status === 'Pending' ? 'Processing' : o.status,
+                  updated_at: new Date().toISOString(),
+                };
+              }
+              return o;
+            });
+            if (changed) {
+              await supabase.auth.updateUser({
+                data: { saved_orders: updatedCloud },
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to update user_metadata in PaymentSuccessView:', e);
+        }
+
+        // 3. Confirm payment on server via /api/checkout/confirm
+        const payloadData = localFound || initialOrder || order;
         await fetch('/api/checkout/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -39,10 +110,11 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentS
             paymentStatus: 'paid',
             paymentMethod: gateway,
             paymentId: sessionId,
+            orderData: payloadData,
           }),
         });
 
-        // 2. Fetch latest order state
+        // 4. Fetch latest order state from /api/orders
         const res = await fetch('/api/orders');
         if (res.ok) {
           const rawText = await res.text();
@@ -64,7 +136,7 @@ export function PaymentSuccessView({ orderNumber, gateway, sessionId }: PaymentS
       }
     }
 
-    confirmAndFetch();
+    confirmAndSync();
 
     return () => {
       isSubscribed = false;

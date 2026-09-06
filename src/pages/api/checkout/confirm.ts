@@ -47,6 +47,7 @@ export const POST: APIRoute = async ({ request }) => {
       paymentStatus = 'paid',
       paymentMethod,
       paymentId,
+      orderData,
     } = body;
 
     if (!orderNumber) {
@@ -60,7 +61,15 @@ export const POST: APIRoute = async ({ request }) => {
     const targetIdx = currentOrders.findIndex(o => o.order_number === orderNumber);
 
     if (targetIdx === -1) {
-      const placeholderOrder: Order = {
+      const fullOrder: Order = orderData && typeof orderData === 'object' ? {
+        ...orderData,
+        order_number: orderNumber,
+        status: paymentStatus === 'paid' ? 'Processing' : (orderData.status || 'Pending'),
+        payment_method: paymentMethod || orderData.payment_method || 'stripe',
+        payment_status: paymentStatus,
+        payment_id: paymentId || orderData.payment_id,
+        updated_at: new Date().toISOString(),
+      } : {
         id: `ord_${orderNumber}`,
         order_number: orderNumber,
         user_id: 'guest',
@@ -77,9 +86,9 @@ export const POST: APIRoute = async ({ request }) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      currentOrders.unshift(placeholderOrder);
+      currentOrders.unshift(fullOrder);
       await saveStoredOrders(currentOrders);
-      return new Response(JSON.stringify({ success: true, order: placeholderOrder }), {
+      return new Response(JSON.stringify({ success: true, order: fullOrder }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -87,11 +96,12 @@ export const POST: APIRoute = async ({ request }) => {
 
     const prevOrder = currentOrders[targetIdx];
     const updatedOrder: Order = {
+      ...(orderData && typeof orderData === 'object' ? orderData : {}),
       ...prevOrder,
       payment_status: paymentStatus,
       payment_method: paymentMethod || prevOrder.payment_method,
       payment_id: paymentId || prevOrder.payment_id,
-      status: prevOrder.status === 'Pending' && paymentStatus === 'paid' ? 'Processing' : prevOrder.status,
+      status: (prevOrder.status === 'Pending' || (orderData && orderData.status === 'Pending')) && paymentStatus === 'paid' ? 'Processing' : prevOrder.status,
       updated_at: new Date().toISOString(),
     };
 

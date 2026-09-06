@@ -98,9 +98,18 @@ export async function fetchUserOrders(): Promise<Order[]> {
         allStoreOrders.forEach(stOrd => {
           const key = stOrd.order_number || stOrd.id;
           if (orderMap.has(key)) {
+            const existing = orderMap.get(key)!;
+            const isPaid = stOrd.payment_status === 'paid' || existing.payment_status === 'paid';
+            const resolvedPaymentStatus = isPaid ? 'paid' : (stOrd.payment_status || existing.payment_status);
+            const resolvedStatus = isPaid && (stOrd.status === 'Pending' || existing.status === 'Pending')
+              ? 'Processing'
+              : (stOrd.status !== 'Pending' ? stOrd.status : existing.status);
+
             orderMap.set(key, {
-              ...orderMap.get(key)!,
+              ...existing,
               ...stOrd,
+              payment_status: resolvedPaymentStatus,
+              status: resolvedStatus,
             });
           } else if (user && stOrd.user_id === user.id) {
             orderMap.set(key, stOrd);
@@ -114,6 +123,14 @@ export async function fetchUserOrders(): Promise<Order[]> {
 
   const merged = Array.from(orderMap.values());
   merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Self-heal local storage with latest merged order statuses
+  if (typeof window !== 'undefined' && merged.length > 0) {
+    try {
+      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(merged));
+    } catch (e) {}
+  }
+
   return merged;
 }
 
@@ -341,18 +358,24 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
  * Queries /api/orders with fallback to Supabase settings table.
  */
 export async function fetchStoreOrders(): Promise<Order[]> {
+  const storeMap = new Map<string, Order>();
+
   try {
     if (typeof window !== 'undefined') {
       const res = await fetch('/api/orders');
       if (res.ok) {
-        const json = await res.json();
+        const rawText = await res.text();
+        const json = rawText ? JSON.parse(rawText) : {};
         if (json.success && Array.isArray(json.orders)) {
-          return json.orders;
+          json.orders.forEach((o: Order) => {
+            const key = o.order_number || o.id;
+            if (key) storeMap.set(key, o);
+          });
         }
       }
     }
 
-    // Fallback directly to Supabase settings table
+    // Direct check to Supabase settings table
     const { data } = await supabase
       .from('settings')
       .select('value')
@@ -362,15 +385,43 @@ export async function fetchStoreOrders(): Promise<Order[]> {
     if (data?.value) {
       const parsed = JSON.parse(data.value);
       if (Array.isArray(parsed)) {
-        parsed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        return parsed;
+        parsed.forEach((stOrd: Order) => {
+          const key = stOrd.order_number || stOrd.id;
+          if (key) {
+            if (storeMap.has(key)) {
+              storeMap.set(key, { ...storeMap.get(key)!, ...stOrd });
+            } else {
+              storeMap.set(key, stOrd);
+            }
+          }
+        });
       }
     }
   } catch (e) {
     console.warn('Failed to fetch store orders:', e);
   }
 
-  return [];
+  // Also include any orders stored locally on this device so admin sees recent orders immediately
+  if (typeof window !== 'undefined') {
+    try {
+      const rawLocal = localStorage.getItem(ORDERS_STORAGE_KEY);
+      if (rawLocal) {
+        const localList: Order[] = JSON.parse(rawLocal);
+        if (Array.isArray(localList)) {
+          localList.forEach(lo => {
+            const key = lo.order_number || lo.id;
+            if (key && !storeMap.has(key)) {
+              storeMap.set(key, lo);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  const merged = Array.from(storeMap.values());
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return merged;
 }
 
 /**
