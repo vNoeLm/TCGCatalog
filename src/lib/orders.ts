@@ -432,7 +432,8 @@ export async function updateOrderStatus(
   orderNumber: string,
   status: Order['status'],
   trackingNumber?: string | null,
-  notes?: string | null
+  notes?: string | null,
+  orderData?: Order | null
 ): Promise<{ success: boolean; order?: Order; error?: string }> {
   try {
     let updatedOrder: Order | null = null;
@@ -441,7 +442,7 @@ export async function updateOrderStatus(
       const res = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNumber, status, trackingNumber, notes }),
+        body: JSON.stringify({ orderNumber, status, trackingNumber, notes, orderData: orderData || undefined }),
       });
 
       if (res.ok) {
@@ -505,7 +506,8 @@ export async function updateOrderPayment(
   orderNumber: string,
   paymentStatus: 'pending' | 'paid' | 'refunded',
   paymentMethod?: string,
-  paymentId?: string
+  paymentId?: string,
+  orderData?: Order | null
 ): Promise<{ success: boolean; order?: Order; error?: string }> {
   try {
     let updatedOrder: Order | null = null;
@@ -519,6 +521,7 @@ export async function updateOrderPayment(
           payment_status: paymentStatus,
           payment_method: paymentMethod,
           payment_id: paymentId,
+          orderData: orderData || undefined,
         }),
       });
 

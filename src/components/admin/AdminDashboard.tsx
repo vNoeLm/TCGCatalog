@@ -210,7 +210,8 @@ export function AdminDashboard() {
     setUpdatingOrderNumber(orderNumber);
     setOrderFeedback(null);
     try {
-      const res = await updateOrderStatus(orderNumber, nextStatus);
+      const orderData = orders.find(o => o.order_number === orderNumber) || null;
+      const res = await updateOrderStatus(orderNumber, nextStatus, undefined, undefined, orderData);
       if (res.success && res.order) {
         setOrders(prev => prev.map(o => o.order_number === orderNumber ? res.order! : o));
         setOrderFeedback({ orderNumber, message: `Order #${orderNumber} marked as ${nextStatus}!`, type: 'success' });
@@ -228,7 +229,8 @@ export function AdminDashboard() {
     setUpdatingOrderNumber(orderNumber);
     setOrderFeedback(null);
     try {
-      const res = await updateOrderPayment(orderNumber, nextPaymentStatus);
+      const orderData = orders.find(o => o.order_number === orderNumber) || null;
+      const res = await updateOrderPayment(orderNumber, nextPaymentStatus, undefined, undefined, orderData);
       if (res.success && res.order) {
         setOrders(prev => prev.map(o => o.order_number === orderNumber ? res.order! : o));
         setOrderFeedback({ orderNumber, message: `Payment for order #${orderNumber} marked as ${nextPaymentStatus}!`, type: 'success' });

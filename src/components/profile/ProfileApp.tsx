@@ -35,7 +35,18 @@ export function ProfileApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderStatusFilter, setOrderStatusFilter] = useState('All');
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [cancellingOrderNumber, setCancellingOrderNumber] = useState<string | null>(null);
+  // Per-order expand state: Cancelled/Delivered start collapsed
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
+
+  const isOrderExpanded = (order: Order): boolean => {
+    if (order.order_number in expandedOrders) return expandedOrders[order.order_number];
+    return order.status !== 'Cancelled' && order.status !== 'Delivered';
+  };
+  const toggleOrderExpand = (order: Order) => {
+    setExpandedOrders(prev => ({ ...prev, [order.order_number]: !isOrderExpanded(order) }));
+  };
 
   const handleOpenPayment = async (order: Order) => {
     try {
@@ -192,9 +203,24 @@ export function ProfileApp() {
   };
 
   const filteredOrders = useMemo(() => {
-    if (orderStatusFilter === 'All') return orders;
-    return orders.filter(o => o.status === orderStatusFilter);
-  }, [orders, orderStatusFilter]);
+    return orders.filter(o => {
+      if (orderStatusFilter !== 'All' && o.status !== orderStatusFilter) return false;
+      if (orderDateFilter !== 'all') {
+        const d = new Date(o.created_at);
+        const now = new Date();
+        if (orderDateFilter === 'today') {
+          if (d.toDateString() !== now.toDateString()) return false;
+        } else if (orderDateFilter === 'week') {
+          const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
+          if (d < cutoff) return false;
+        } else if (orderDateFilter === 'month') {
+          const cutoff = new Date(now); cutoff.setMonth(cutoff.getMonth() - 1);
+          if (d < cutoff) return false;
+        }
+      }
+      return true;
+    });
+  }, [orders, orderStatusFilter, orderDateFilter]);
 
   if (loading) {
     return (
@@ -622,38 +648,74 @@ export function ProfileApp() {
               </p>
             </div>
 
-            {/* Status Filter Pills - Scrollable on mobile */}
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full py-1 custom-scrollbar shrink-0">
-              {[
-                { key: 'All', label: t('order_all', lang) },
-                { key: 'Pending', label: t('order_pending', lang) },
-                { key: 'Processing', label: t('order_processing', lang) },
-                { key: 'Shipped', label: t('order_shipped', lang) },
-                { key: 'Delivered', label: t('order_delivered', lang) },
-              ].map(st => (
-                <button
-                  key={st.key}
-                  onClick={() => setOrderStatusFilter(st.key)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap"
-                  style={
-                    orderStatusFilter === st.key
-                      ? {
-                          background: 'var(--accent-muted)',
-                          borderColor: 'var(--accent)',
-                          color: 'var(--text-accent)',
-                          boxShadow: '0 0 10px var(--accent-glow)',
-                          fontWeight: 700
-                        }
-                      : {
-                          background: 'var(--bg-input)',
-                          borderColor: 'var(--border)',
-                          color: 'var(--text-secondary)'
-                        }
-                  }
-                >
-                  {st.label}
-                </button>
-              ))}
+            {/* Filters: Status + Date */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Status pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
+                {[
+                  { key: 'All', label: t('order_all', lang) },
+                  { key: 'Pending', label: t('order_pending', lang) },
+                  { key: 'Processing', label: t('order_processing', lang) },
+                  { key: 'Shipped', label: t('order_shipped', lang) },
+                  { key: 'Delivered', label: t('order_delivered', lang) },
+                ].map(st => (
+                  <button
+                    key={st.key}
+                    onClick={() => setOrderStatusFilter(st.key)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap"
+                    style={
+                      orderStatusFilter === st.key
+                        ? {
+                            background: 'var(--accent-muted)',
+                            borderColor: 'var(--accent)',
+                            color: 'var(--text-accent)',
+                            boxShadow: '0 0 10px var(--accent-glow)',
+                            fontWeight: 700
+                          }
+                        : {
+                            background: 'var(--bg-input)',
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-secondary)'
+                          }
+                    }
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Date range pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
+                {([
+                  { key: 'all' as const, label: lang === 'hu' ? 'Összes idő' : 'All Time' },
+                  { key: 'today' as const, label: lang === 'hu' ? 'Ma' : 'Today' },
+                  { key: 'week' as const, label: lang === 'hu' ? 'Ezen a héten' : 'This Week' },
+                  { key: 'month' as const, label: lang === 'hu' ? 'Ebben a hónapban' : 'This Month' },
+                ]).map(dt => (
+                  <button
+                    key={dt.key}
+                    onClick={() => setOrderDateFilter(dt.key)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap"
+                    style={
+                      orderDateFilter === dt.key
+                        ? {
+                            background: 'var(--accent-muted)',
+                            borderColor: 'var(--accent)',
+                            color: 'var(--text-accent)',
+                            boxShadow: '0 0 10px var(--accent-glow)',
+                            fontWeight: 700
+                          }
+                        : {
+                            background: 'var(--bg-input)',
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-secondary)'
+                          }
+                    }
+                  >
+                    {dt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -717,19 +779,23 @@ export function ProfileApp() {
                   order.status === 'Delivered' ? t('order_delivered', lang) :
                   order.status;
 
+                const expanded = isOrderExpanded(order);
+
                 return (
                   <div
                     key={order.id}
-                    className="rounded-xl p-5 shadow-sm border"
+                    className="rounded-xl shadow-sm border overflow-hidden"
                     style={{
                       background: 'var(--bg-surface)',
-                      borderColor: 'var(--border)'
+                      borderColor: isCancelled ? 'rgba(239,68,68,0.2)' : 'var(--border)',
+                      opacity: isCancelled ? 0.85 : 1,
                     }}
                   >
-                    {/* Order Header */}
-                    <div 
-                      className="flex flex-wrap items-center justify-between gap-3 pb-3.5 mb-3.5"
-                      style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    {/* Clickable Order Header */}
+                    <button
+                      type="button"
+                      onClick={() => toggleOrderExpand(order)}
+                      className="w-full flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-left cursor-pointer hover:bg-white/[0.02] transition-colors"
                     >
                       <div>
                         <div className="flex items-center gap-2.5">
@@ -789,14 +855,26 @@ export function ProfileApp() {
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-[10px] block uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('total', lang)}</span>
-                        <span className="text-base font-black font-mono" style={{ color: 'var(--text-primary)' }}>
-                          {order.total_price_huf?.toLocaleString() || 0} HUF
-                        </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="text-right">
+                          <span className="text-[10px] block uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('total', lang)}</span>
+                          <span className="text-base font-black font-mono" style={{ color: 'var(--text-primary)' }}>
+                            {order.total_price_huf?.toLocaleString() || 0} HUF
+                          </span>
+                        </div>
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+                          style={{ color: 'var(--text-tertiary)' }}
+                          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                       </div>
-                    </div>
+                    </button>
 
+                    {/* Expandable Detail Section */}
+                    {expanded && (
+                    <div className="px-5 pb-5">
                     {/* Tracking Info if available */}
                     {order.tracking_number && (
                       <div 
@@ -901,6 +979,8 @@ export function ProfileApp() {
                         </div>
                       </div>
                     )}
+                    </div>
+                    )} {/* end expanded */}
                   </div>
                 );
               })}

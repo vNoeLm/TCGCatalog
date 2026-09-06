@@ -194,6 +194,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       paymentId,
       cancellationReason,
       cancellation_reason,
+      // Full order object sent when upsert is needed (order not yet in store_orders)
+      orderData,
     } = body;
 
     if (!orderNumber) {
@@ -204,13 +206,32 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     const currentOrders = await getStoredOrders();
-    const targetIdx = currentOrders.findIndex(o => o.order_number === orderNumber);
+    let targetIdx = currentOrders.findIndex(o => o.order_number === orderNumber);
 
+    // ── Upsert: if order not in store_orders, add it so the update can proceed ──
     if (targetIdx === -1) {
-      return new Response(JSON.stringify({ success: false, error: 'Order not found.' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const stub: Order = (orderData && orderData.order_number === orderNumber)
+        ? { ...orderData }
+        : {
+            id: orderNumber,
+            order_number: orderNumber,
+            status: status || 'Pending',
+            payment_status: payment_status || paymentStatus || 'pending',
+            payment_method: payment_method || paymentMethod || 'unknown',
+            payment_id: payment_id || paymentId || '',
+            items: [],
+            total_price_huf: 0,
+            total_huf: 0,
+            shipping_name: '',
+            shipping_address: '',
+            customer_info: {},
+            notes: notes || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as unknown as Order;
+
+      currentOrders.unshift(stub);
+      targetIdx = 0;
     }
 
     const previousOrder = currentOrders[targetIdx];
