@@ -88,14 +88,14 @@ export function DeckPreviewColumn({
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', padding: '16px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: isCyberpunk ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{
           margin: 0,
           fontSize: 14,
           fontWeight: 800,
-          color: isCyberpunk ? '#fcee0a' : 'var(--text-primary)',
-          letterSpacing: isCyberpunk ? '0.04em' : 'normal',
-          textTransform: isCyberpunk ? 'uppercase' : 'none',
+          color: 'var(--text-accent)',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
         }}>
           {lang === 'hu' ? 'Pakli Előnézet' : 'Deck Preview'}
         </h2>

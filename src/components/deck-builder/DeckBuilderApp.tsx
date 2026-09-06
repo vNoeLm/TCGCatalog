@@ -12,7 +12,6 @@ import { CardDetail } from '../CardDetail';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { getLanguage, t, type Language } from '../../lib/i18n';
-import { useSiteTheme } from '../../lib/theme';
 import { Modal } from '../ui/Modal';
 
 const DEFAULT_FILTERS = {
@@ -34,12 +33,12 @@ const DOMAIN_COLORS: Record<string, string> = {
 interface ActionButtonProps {
   onClick: () => void;
   title?: string;
-  isCyberpunk: boolean;
+  isCyberpunk?: boolean;
   type: 'stats' | 'save' | 'browse' | 'import' | 'export' | 'clear';
   children: React.ReactNode;
 }
 
-function ActionButton({ onClick, title, isCyberpunk, type, children }: ActionButtonProps) {
+function ActionButton({ onClick, title, type, children }: ActionButtonProps) {
   const [hovered, setHovered] = useState(false);
 
   let baseStyle: React.CSSProperties = {
@@ -53,101 +52,51 @@ function ActionButton({ onClick, title, isCyberpunk, type, children }: ActionBut
     width: '100%',
   };
 
-  if (isCyberpunk) {
-    switch (type) {
-      case 'stats':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(252, 238, 10, 0.25)' : 'rgba(252, 238, 10, 0.12)',
-          color: '#fcee0a',
-          border: `1px solid ${hovered ? '#fcee0a' : 'rgba(252, 238, 10, 0.4)'}`,
-          boxShadow: hovered ? '0 0 12px rgba(252, 238, 10, 0.35)' : 'none',
-          fontWeight: 800,
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'save':
-      case 'browse':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? '#222530' : '#161820',
-          color: hovered ? '#ffffff' : '#f4f4f5',
-          border: `1px solid ${hovered ? 'rgba(252, 238, 10, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`,
-          boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'import':
-      case 'export':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(0, 240, 255, 0.2)' : 'rgba(0, 240, 255, 0.08)',
-          color: '#00f0ff',
-          border: `1px solid ${hovered ? '#00f0ff' : 'rgba(0, 240, 255, 0.35)'}`,
-          boxShadow: hovered ? '0 0 12px rgba(0, 240, 255, 0.35)' : 'none',
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'clear':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
-          color: '#ef4444',
-          border: `1px solid ${hovered ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'}`,
-          boxShadow: hovered ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
-          fontWeight: 800,
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-    }
-  } else {
-    // Riftbound
-    switch (type) {
-      case 'stats':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.12)',
-          color: '#fbbf24',
-          border: `1px solid ${hovered ? '#f59e0b' : 'rgba(245, 158, 11, 0.4)'}`,
-          boxShadow: hovered ? '0 0 14px rgba(245, 158, 11, 0.35)' : 'none',
-          fontWeight: 800,
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'save':
-      case 'browse':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? '#152542' : '#0e1c36',
-          color: hovered ? '#ffffff' : '#f4f4f5',
-          border: `1px solid ${hovered ? 'rgba(245, 158, 11, 0.5)' : 'rgba(245, 158, 11, 0.25)'}`,
-          boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'import':
-      case 'export':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(14, 165, 233, 0.22)' : 'rgba(14, 165, 233, 0.1)',
-          color: '#38bdf8',
-          border: `1px solid ${hovered ? '#38bdf8' : 'rgba(14, 165, 233, 0.35)'}`,
-          boxShadow: hovered ? '0 0 12px rgba(14, 165, 233, 0.35)' : 'none',
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-      case 'clear':
-        baseStyle = {
-          ...baseStyle,
-          background: hovered ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
-          color: '#ef4444',
-          border: `1px solid ${hovered ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'}`,
-          boxShadow: hovered ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
-          fontWeight: 800,
-          transform: hovered ? 'translateY(-1px)' : 'none',
-        };
-        break;
-    }
+  switch (type) {
+    case 'stats':
+      baseStyle = {
+        ...baseStyle,
+        background: hovered ? 'var(--accent-glow)' : 'var(--accent-muted)',
+        color: 'var(--text-accent)',
+        border: `1px solid ${hovered ? 'var(--accent)' : 'var(--accent-border, var(--border))'}`,
+        boxShadow: hovered ? '0 0 14px var(--accent-glow)' : 'none',
+        fontWeight: 800,
+        transform: hovered ? 'translateY(-1px)' : 'none',
+      };
+      break;
+    case 'save':
+    case 'browse':
+      baseStyle = {
+        ...baseStyle,
+        background: hovered ? 'var(--bg-raised)' : 'var(--bg-surface-2)',
+        color: hovered ? '#ffffff' : 'var(--text-primary)',
+        border: `1px solid ${hovered ? 'var(--border-hover)' : 'var(--border)'}`,
+        boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.5)' : 'none',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+      };
+      break;
+    case 'import':
+    case 'export':
+      baseStyle = {
+        ...baseStyle,
+        background: hovered ? 'rgba(14, 165, 233, 0.22)' : 'rgba(14, 165, 233, 0.1)',
+        color: '#38bdf8',
+        border: `1px solid ${hovered ? '#38bdf8' : 'rgba(14, 165, 233, 0.35)'}`,
+        boxShadow: hovered ? '0 0 12px rgba(14, 165, 233, 0.35)' : 'none',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+      };
+      break;
+    case 'clear':
+      baseStyle = {
+        ...baseStyle,
+        background: hovered ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
+        color: '#ef4444',
+        border: `1px solid ${hovered ? '#ef4444' : 'rgba(239, 68, 68, 0.4)'}`,
+        boxShadow: hovered ? '0 0 12px rgba(239, 68, 68, 0.35)' : 'none',
+        fontWeight: 800,
+        transform: hovered ? 'translateY(-1px)' : 'none',
+      };
+      break;
   }
 
   return (
@@ -294,7 +243,6 @@ export function DeckBuilderApp() {
   }, [activeGame]);
 
   const isCyberpunk = activeGame === 'cyberpunk';
-  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
 
   const cyberpunkRamLimits: CyberpunkRamLimits = useMemo(() => {
     if (!isCyberpunk) return { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
@@ -336,11 +284,11 @@ export function DeckBuilderApp() {
         {/* Left: Visual Preview */}
         <div style={{
           flex: '0 0 clamp(280px, 25vw, 400px)',
-          background: isCyberpunkTheme ? '#0c0d10' : 'var(--bg-surface-2)',
+          background: 'var(--bg-surface-2)',
           borderRadius: 16,
-          border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.2)' : '1px solid var(--border)',
+          border: '1px solid var(--border)',
           overflow: 'hidden',
-          boxShadow: isCyberpunkTheme ? '0 8px 32px rgba(0,0,0,0.6)' : 'none',
+          boxShadow: 'var(--shadow-card)',
         }}>
           <DeckPreviewColumn 
             deck={deck} 
@@ -376,21 +324,21 @@ export function DeckBuilderApp() {
           width: 360,
           minWidth: 360,
           maxWidth: 360,
-          background: isCyberpunkTheme ? '#0c0d10' : '#091428',
+          background: 'var(--bg-surface)',
           borderRadius: 16,
-          border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.25)' : '1px solid rgba(245, 158, 11, 0.35)',
+          border: '1px solid var(--border)',
           padding: 16,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: isCyberpunkTheme ? '0 8px 32px rgba(0,0,0,0.6)' : '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(245, 158, 11, 0.08)',
+          boxShadow: 'var(--shadow-card)',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid rgba(245, 158, 11, 0.2)', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h1 style={{
                 margin: 0,
                 fontSize: 18,
                 fontWeight: 900,
-                color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
+                color: 'var(--text-accent)',
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
               }}>
@@ -402,7 +350,6 @@ export function DeckBuilderApp() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, width: '100%' }}>
               <ActionButton
                 onClick={() => setShowStatsModal(true)}
-                isCyberpunk={isCyberpunkTheme}
                 type="stats"
                 title={t('deck_statistics', lang)}
               >
@@ -411,7 +358,6 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowSaveModal(true)}
-                isCyberpunk={isCyberpunkTheme}
                 type="save"
               >
                 {t('save', lang)}
@@ -419,7 +365,6 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowBrowserModal(true)}
-                isCyberpunk={isCyberpunkTheme}
                 type="browse"
               >
                 {t('browse', lang)}
@@ -427,7 +372,6 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowImportModal(true)}
-                isCyberpunk={isCyberpunkTheme}
                 type="import"
               >
                 {t('import', lang)}
@@ -435,7 +379,6 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => setShowExportModal(true)}
-                isCyberpunk={isCyberpunkTheme}
                 type="export"
               >
                 {t('export', lang)}
@@ -443,7 +386,6 @@ export function DeckBuilderApp() {
 
               <ActionButton
                 onClick={() => { if(confirm(lang === 'hu' ? 'Biztosan törlöd a teljes paklit?' : 'Clear entire deck?')) clearDeck(); }}
-                isCyberpunk={isCyberpunkTheme}
                 type="clear"
               >
                 {t('clear_deck', lang)}

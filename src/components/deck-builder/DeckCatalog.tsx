@@ -5,7 +5,6 @@ import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
 import { t, type Language } from '../../lib/i18n';
-import { useSiteTheme } from '../../lib/theme';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -70,30 +69,17 @@ export function DeckCatalog({
   lang = 'en',
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
-  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
-  const theme = isCyberpunkTheme
-    ? {
-        accent: '#fcee0a',
-        accentMuted: 'rgba(252, 238, 10, 0.15)',
-        accentBorder: 'rgba(252, 238, 10, 0.4)',
-        accentGlow: 'rgba(252, 238, 10, 0.15)',
-        textOnAccent: '#000000',
-        inputBg: '#161822',
-        inputBorder: 'rgba(252, 238, 10, 0.25)',
-        panelBg: '#0c0d10',
-        panelBorder: 'rgba(252, 238, 10, 0.3)',
-      }
-    : {
-        accent: '#f59e0b',
-        accentMuted: 'rgba(245, 158, 11, 0.15)',
-        accentBorder: 'rgba(245, 158, 11, 0.4)',
-        accentGlow: 'rgba(245, 158, 11, 0.2)',
-        textOnAccent: '#091428',
-        inputBg: '#0e1c36',
-        inputBorder: 'rgba(245, 158, 11, 0.25)',
-        panelBg: '#091428',
-        panelBorder: 'rgba(245, 158, 11, 0.3)',
-      };
+  const theme = {
+    accent: 'var(--accent)',
+    accentMuted: 'var(--accent-muted)',
+    accentBorder: 'var(--accent-border, var(--border))',
+    accentGlow: 'var(--accent-glow)',
+    textOnAccent: 'var(--text-on-accent)',
+    inputBg: 'var(--bg-input, var(--bg-surface-2))',
+    inputBorder: 'var(--border)',
+    panelBg: 'var(--bg-surface)',
+    panelBorder: 'var(--border)',
+  };
 
   const [search, setSearch]             = useState('');
   const [typeFilter, setTypeFilter]     = useState<string>('All');
@@ -376,7 +362,7 @@ export function DeckCatalog({
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-    color: isCyberpunkTheme ? '#fcee0a' : '#fbbf24',
+    color: 'var(--text-accent)',
     marginBottom: 6,
     display: 'block',
   };
@@ -398,7 +384,7 @@ export function DeckCatalog({
 
       {/* Legend prompt */}
       {!isCyberpunk && !legendCard && (
-        <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#fbbf24', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+        <div style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border, var(--border))', color: 'var(--text-accent)', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
           {t('select_legend_prompt', lang)}
         </div>
       )}

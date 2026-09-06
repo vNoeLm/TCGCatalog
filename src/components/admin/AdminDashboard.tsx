@@ -369,7 +369,7 @@ export function AdminDashboard() {
     .reduce((sum, item) => sum + (item.price_huf * (item.quantity || 1)), 0);
 
   const pendingOrdersCount = useMemo(() => {
-    return orders.filter(o => o.status === 'Pending').length;
+    return orders.filter(o => o.status === 'Pending' || o.status === 'Processing').length;
   }, [orders]);
 
   const shippedOrdersCount = useMemo(() => {
@@ -578,7 +578,7 @@ export function AdminDashboard() {
               className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
               style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
             >
-              {pendingOrdersCount} pending
+              {pendingOrdersCount} to ship
             </span>
           ) : (
             <span className="text-[11px] font-mono font-bold" style={{ color: 'var(--text-tertiary)' }}>

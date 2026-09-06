@@ -161,6 +161,11 @@ export interface Order {
   shipping_name?: string | null;
   shipping_address?: string | null;
   tracking_number?: string | null;
+  courier_name?: string | null;
+  shipping_label_url?: string | null;
+  invoice_number?: string | null;
+  invoice_status?: 'none' | 'pending' | 'issued' | 'failed' | null;
+  invoice_url?: string | null;
   payment_method?: string | null;
   payment_status?: 'pending' | 'paid' | 'refunded' | null;
   payment_id?: string | null;

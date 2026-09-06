@@ -5,7 +5,6 @@ import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
 import { t, type Language } from '../../lib/i18n';
-import { useSiteTheme } from '../../lib/theme';
 
 interface DeckStatisticsModalProps {
   deck: DeckState;
@@ -53,7 +52,6 @@ export function DeckStatisticsModal({
   lang = 'en',
 }: DeckStatisticsModalProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
-  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
   // 1. Gather all card entries across zones
   const getZoneEntries = (zoneMap: Record<string, number>) => {
     return Object.entries(zoneMap || {})
@@ -198,30 +196,28 @@ export function DeckStatisticsModal({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: isCyberpunkTheme ? '#0c0d10' : '#091428',
-          border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
           borderRadius: 20,
           width: '100%',
           maxWidth: 680,
           maxHeight: '90vh',
           overflowY: 'auto',
           padding: '24px',
-          boxShadow: isCyberpunkTheme
-            ? '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 30px rgba(252, 238, 10, 0.12)'
-            : '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 30px rgba(245, 158, 11, 0.15)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.95), 0 0 30px var(--accent-glow)',
           display: 'flex',
           flexDirection: 'column',
           gap: 20,
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.15)' : '1px solid rgba(245, 158, 11, 0.15)', paddingBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16 }}>
           <div>
             <h2 style={{
               margin: 0,
               fontSize: 20,
               fontWeight: 900,
-              color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
+              color: 'var(--text-accent)',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
             }}>
@@ -234,9 +230,9 @@ export function DeckStatisticsModal({
           <button
             onClick={onClose}
             style={{
-              background: isCyberpunkTheme ? 'rgba(252, 238, 10, 0.08)' : 'rgba(245, 158, 11, 0.1)',
-              border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.3)' : '1px solid rgba(245, 158, 11, 0.35)',
-              color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
+              background: 'var(--accent-muted)',
+              border: '1px solid var(--accent-border, var(--border))',
+              color: 'var(--text-accent)',
               borderRadius: '50%',
               width: 32,
               height: 32,
@@ -248,22 +244,12 @@ export function DeckStatisticsModal({
               transition: 'all 0.15s ease',
             }}
             onMouseEnter={e => {
-              if (isCyberpunkTheme) {
-                e.currentTarget.style.background = 'rgba(252, 238, 10, 0.2)';
-                e.currentTarget.style.borderColor = '#fcee0a';
-              } else {
-                e.currentTarget.style.background = 'rgba(245, 158, 11, 0.2)';
-                e.currentTarget.style.borderColor = '#f59e0b';
-              }
+              e.currentTarget.style.background = 'var(--accent-glow)';
+              e.currentTarget.style.borderColor = 'var(--accent)';
             }}
             onMouseLeave={e => {
-              if (isCyberpunkTheme) {
-                e.currentTarget.style.background = 'rgba(252, 238, 10, 0.08)';
-                e.currentTarget.style.borderColor = 'rgba(252, 238, 10, 0.3)';
-              } else {
-                e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.35)';
-              }
+              e.currentTarget.style.background = 'var(--accent-muted)';
+              e.currentTarget.style.borderColor = 'var(--accent-border, var(--border))';
             }}
           >
             ✕
@@ -272,37 +258,37 @@ export function DeckStatisticsModal({
 
         {/* Quick Highlights Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-          <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
               {t('avg_cost', lang)}
             </div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: isCyberpunkTheme ? '#fcee0a' : '#fbbf24' }}>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
               {avgEnergyCost}
             </div>
           </div>
 
           {isCyberpunk ? (
-            <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
                 Legends
               </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: cyberpunkLegends.length === 3 ? '#10b981' : (isCyberpunkTheme ? '#fcee0a' : '#f59e0b') }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: cyberpunkLegends.length === 3 ? '#10b981' : 'var(--text-accent)' }}>
                 {cyberpunkLegends.length} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 3</span>
               </div>
             </div>
           ) : (
-            <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
                 {lang === 'hu' ? 'Átlag Erő Költség' : 'Avg Power Cost'}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b' }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
                 {avgPowerCost}
               </div>
             </div>
           )}
 
           {isCyberpunk ? (
-            <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
                 Main Deck
               </div>
@@ -311,17 +297,17 @@ export function DeckStatisticsModal({
               </div>
             </div>
           ) : (
-            <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
                 {t('rune_deck', lang)}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b' }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
                 {runeCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 12</span>
               </div>
             </div>
           )}
 
-          <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
               {t('sideboard', lang)}
             </div>
@@ -332,9 +318,9 @@ export function DeckStatisticsModal({
         </div>
 
         {/* Section 1: Cost Curve Bar Chart */}
-        <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
+        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b' }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
               {t('cost_curve', lang)}
             </h3>
             <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
@@ -350,7 +336,7 @@ export function DeckStatisticsModal({
 
               return (
                 <div key={cost} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? (isCyberpunkTheme ? '#fcee0a' : '#fbbf24') : 'var(--text-muted, #64748b)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? 'var(--text-accent)' : 'var(--text-muted, #64748b)' }}>
                     {count}
                   </span>
                   <div
@@ -358,14 +344,10 @@ export function DeckStatisticsModal({
                       width: '100%',
                       maxWidth: 38,
                       height: `${Math.max(4, heightPct)}%`,
-                      background: count > 0
-                        ? (isCyberpunkTheme ? 'linear-gradient(to top, #ca8a04, #fcee0a)' : 'linear-gradient(to top, #d97706, #f59e0b)')
-                        : 'rgba(255,255,255,0.04)',
+                      background: count > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.04)',
                       borderRadius: '6px 6px 2px 2px',
                       transition: 'height 0.3s ease',
-                      boxShadow: count > 0
-                        ? (isCyberpunkTheme ? '0 0 10px rgba(252,238,10,0.4)' : '0 0 10px rgba(245,158,11,0.4)')
-                        : 'none',
+                      boxShadow: count > 0 ? '0 0 10px var(--accent-glow)' : 'none',
                     }}
                   />
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)' }}>
@@ -544,8 +526,8 @@ export function DeckStatisticsModal({
         {/* Section 3: Card Types & Rarities */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {/* Card Types */}
-          <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b' }}>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
               {t('type_breakdown', lang)}
             </h3>
 
@@ -568,7 +550,7 @@ export function DeckStatisticsModal({
                           </span>
                         </div>
                         <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: isCyberpunkTheme ? '#fcee0a' : '#f59e0b', borderRadius: 3 }} />
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
                         </div>
                       </div>
                     );
@@ -578,8 +560,8 @@ export function DeckStatisticsModal({
           </div>
 
           {/* Rarity Breakdown */}
-          <div style={{ background: isCyberpunkTheme ? '#111218' : '#0e1c36', border: isCyberpunkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b' }}>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
               {t('rarity_breakdown', lang)}
             </h3>
 
@@ -614,35 +596,21 @@ export function DeckStatisticsModal({
             style={{
               padding: '8px 22px',
               borderRadius: 10,
-              background: isCyberpunkTheme ? '#161820' : '#0e1c36',
-              border: isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
-              color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
+              background: 'var(--bg-surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-accent)',
               fontSize: 13,
               fontWeight: 800,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
             onMouseEnter={e => {
-              if (isCyberpunkTheme) {
-                e.currentTarget.style.background = 'rgba(252, 238, 10, 0.15)';
-                e.currentTarget.style.borderColor = '#fcee0a';
-                e.currentTarget.style.boxShadow = '0 0 12px rgba(252, 238, 10, 0.3)';
-              } else {
-                e.currentTarget.style.background = 'rgba(245, 158, 11, 0.2)';
-                e.currentTarget.style.borderColor = '#f59e0b';
-                e.currentTarget.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.3)';
-              }
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.boxShadow = '0 0 12px var(--accent-glow)';
             }}
             onMouseLeave={e => {
-              if (isCyberpunkTheme) {
-                e.currentTarget.style.background = '#161820';
-                e.currentTarget.style.borderColor = 'rgba(252, 238, 10, 0.4)';
-                e.currentTarget.style.boxShadow = 'none';
-              } else {
-                e.currentTarget.style.background = '#0e1c36';
-                e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             {t('close', lang)}

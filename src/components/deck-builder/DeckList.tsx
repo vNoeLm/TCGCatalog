@@ -3,7 +3,6 @@ import type { CatalogCard } from '../../types';
 import { isCardRamSufficient, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { t, type Language } from '../../lib/i18n';
-import { useSiteTheme } from '../../lib/theme';
 import { CYBERPUNK_COLOR_THEMES } from '../../lib/domainColors';
 
 interface DeckListProps {
@@ -37,7 +36,6 @@ export function DeckList({
 }: DeckListProps) {
   const [collapsedZones, setCollapsedZones] = useState<Set<string>>(new Set());
   const isCyberpunk = activeGame === 'cyberpunk';
-  const { isCyberpunk: isCyberpunkTheme } = useSiteTheme(activeGame);
 
   const toggleZone = (zone: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -110,14 +108,14 @@ export function DeckList({
           marginTop: 16,
           cursor: 'pointer',
           background: isActive
-            ? (isCyberpunkTheme ? 'rgba(252, 238, 10, 0.08)' : 'rgba(245, 158, 11, 0.12)')
+            ? 'var(--accent-muted)'
             : 'transparent',
           borderRadius: 8,
           border: isActive
-            ? (isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.4)' : '1px solid #f59e0b')
+            ? '1px solid var(--accent)'
             : '1px solid transparent',
           boxShadow: isActive
-            ? (isCyberpunkTheme ? '0 0 12px rgba(252, 238, 10, 0.15)' : '0 0 12px rgba(245, 158, 11, 0.2)')
+            ? '0 0 12px var(--accent-glow)'
             : 'none',
           transition: 'all 0.15s'
         }}
@@ -134,7 +132,7 @@ export function DeckList({
             fontSize: 15,
             fontWeight: 800,
             color: isActive
-              ? (isCyberpunkTheme ? '#fcee0a' : '#f59e0b')
+              ? 'var(--text-accent)'
               : 'var(--text-primary)'
           }}>
             {title}
@@ -142,8 +140,8 @@ export function DeckList({
           {isActive && (
             <span style={{
               fontSize: 10,
-              background: isCyberpunkTheme ? '#fcee0a' : '#f59e0b',
-              color: isCyberpunkTheme ? '#000000' : '#091428',
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
               padding: '2px 7px',
               borderRadius: 6,
               fontWeight: 900,
@@ -157,7 +155,7 @@ export function DeckList({
           fontSize: 13,
           fontWeight: 700,
           color: isValid
-            ? (isActive ? (isCyberpunkTheme ? '#fcee0a' : '#fbbf24') : 'var(--text-muted)')
+            ? (isActive ? 'var(--text-accent)' : 'var(--text-muted)')
             : '#ef4444'
         }}>
           {min !== undefined ? `${count} / ${min}-${max}` : `${count} / ${max}`}
@@ -199,10 +197,10 @@ export function DeckList({
           padding: '7px 10px',
           background: ramError 
             ? (isHovered ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.08)') 
-            : (isHovered ? (isCyberpunkTheme ? 'rgba(252, 238, 10, 0.08)' : 'rgba(245, 158, 11, 0.12)') : 'var(--bg-surface-2)'),
+            : (isHovered ? 'var(--accent-muted)' : 'var(--bg-surface-2)'),
           border: ramError 
             ? '1px solid rgba(239,68,68,0.5)' 
-            : (isHovered ? (isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)') : '1px solid transparent'),
+            : (isHovered ? '1px solid var(--accent)' : '1px solid transparent'),
           borderRadius: 8,
           marginBottom: 4,
           cursor: 'pointer',
@@ -283,11 +281,11 @@ export function DeckList({
           justifyContent: 'space-between', 
           padding: '6px 10px', 
           background: isHovered 
-            ? (isCyberpunkTheme ? 'rgba(252, 238, 10, 0.15)' : 'rgba(245, 158, 11, 0.12)') 
-            : (isCyberpunkTheme ? '#161820' : '#0e1c36'), 
+            ? 'var(--accent-muted)' 
+            : 'var(--bg-surface-2)', 
           border: isHovered 
-            ? (isCyberpunkTheme ? '1px solid #fcee0a' : '1px solid #f59e0b') 
-            : (isCyberpunkTheme ? '1px solid rgba(252, 238, 10, 0.2)' : '1px solid rgba(245, 158, 11, 0.15)'),
+            ? '1px solid var(--accent)' 
+            : '1px solid var(--border)',
           borderRadius: 8, 
           marginBottom: 4,
           cursor: 'pointer',
@@ -296,7 +294,7 @@ export function DeckList({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {qty !== undefined && <span style={{ fontWeight: 800, color: isCyberpunkTheme ? '#fcee0a' : '#f59e0b', minWidth: 20 }}>{qty}x</span>}
+          {qty !== undefined && <span style={{ fontWeight: 800, color: 'var(--text-accent)', minWidth: 20 }}>{qty}x</span>}
           <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: 13 }}>{card.name}</span>
           <span style={{ fontSize: 11, color: '#94a3b8' }}>{card.card_type}</span>
         </div>
