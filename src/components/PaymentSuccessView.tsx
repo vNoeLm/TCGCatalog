@@ -121,9 +121,15 @@ export function PaymentSuccessView({
         // 3. Confirm payment on server via /api/checkout/confirm
         const payloadData = localFound || initialOrder || order;
         try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (sessionData?.session?.access_token) {
+            headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+          }
+
           const confirmRes = await fetch('/api/checkout/confirm', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               orderNumber: resolvedOrderNumber,
               paymentStatus: 'paid',
@@ -140,6 +146,59 @@ export function PaymentSuccessView({
           }
         } catch (confirmErr) {
           console.warn('Failed to post to /api/checkout/confirm:', confirmErr);
+        }
+
+        // Direct client fallback to sync settings.store_orders & orders table
+        try {
+          if (payloadData) {
+            const paidOrder: Order = {
+              ...payloadData,
+              payment_status: 'paid',
+              payment_method: resolvedGateway || payloadData.payment_method || 'stripe',
+              payment_id: resolvedSessionId || payloadData.payment_id,
+              status: payloadData.status === 'Pending' ? 'Processing' : payloadData.status,
+              updated_at: new Date().toISOString(),
+            };
+
+            const { data: storeRow } = await supabase
+              .from('settings')
+              .select('value')
+              .eq('key', 'store_orders')
+              .maybeSingle();
+
+            let list: Order[] = storeRow?.value ? JSON.parse(storeRow.value) : [];
+            const idx = list.findIndex(o => o.order_number === resolvedOrderNumber);
+            if (idx !== -1) {
+              list[idx] = { ...list[idx], ...paidOrder };
+            } else {
+              list.unshift(paidOrder);
+            }
+
+            await supabase.from('settings').upsert({
+              key: 'store_orders',
+              value: JSON.stringify(list),
+            });
+
+            // Also try public.orders table
+            try {
+              await supabase.from('orders').upsert({
+                order_number: paidOrder.order_number,
+                user_id: paidOrder.user_id || null,
+                status: paidOrder.status,
+                total_price_huf: paidOrder.total_price_huf,
+                shipping_name: paidOrder.shipping_name,
+                shipping_address: paidOrder.shipping_address,
+                payment_method: paidOrder.payment_method,
+                payment_status: paidOrder.payment_status,
+                payment_id: paidOrder.payment_id,
+                notes: paidOrder.notes,
+                items: paidOrder.items,
+                updated_at: paidOrder.updated_at,
+              }, { onConflict: 'order_number' });
+            } catch (e) {}
+          }
+        } catch (directSyncErr) {
+          console.warn('Direct store_orders settlement in PaymentSuccessView failed:', directSyncErr);
         }
 
         // 4. Fetch latest order state from /api/orders

@@ -324,16 +324,59 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
       }
     }
 
-    // ── 4. Persist in Store-Wide Central Orders Database via /api/orders ──
+    // ── 4. Persist in Store-Wide Central Orders Database via /api/orders & direct client fallback ──
     if (typeof window !== 'undefined') {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (sessionData?.session?.access_token) {
+          headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+        }
         await fetch('/api/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ order: newOrder }),
         });
       } catch (e) {
         console.warn('Could not post order to /api/orders:', e);
+      }
+
+      // Direct client fallback to sync settings.store_orders & orders table
+      try {
+        const { data: storeRow } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'store_orders')
+          .maybeSingle();
+
+        let list: Order[] = storeRow?.value ? JSON.parse(storeRow.value) : [];
+        if (!list.some(o => o.order_number === newOrder.order_number)) {
+          list.unshift(newOrder);
+          await supabase.from('settings').upsert({
+            key: 'store_orders',
+            value: JSON.stringify(list),
+          });
+        }
+
+        // Also sync to public.orders table if it exists
+        try {
+          await supabase.from('orders').upsert({
+            order_number: newOrder.order_number,
+            user_id: newOrder.user_id || null,
+            status: newOrder.status,
+            total_price_huf: newOrder.total_price_huf,
+            shipping_name: newOrder.shipping_name,
+            shipping_address: newOrder.shipping_address,
+            payment_method: newOrder.payment_method,
+            payment_status: newOrder.payment_status,
+            notes: newOrder.notes,
+            items: newOrder.items,
+            created_at: newOrder.created_at,
+            updated_at: newOrder.updated_at,
+          }, { onConflict: 'order_number' });
+        } catch (e) {}
+      } catch (directErr) {
+        console.warn('Direct store_orders sync in createOrder failed:', directErr);
       }
     }
 
@@ -422,6 +465,23 @@ export async function fetchStoreOrders(): Promise<Order[]> {
         localStorage.removeItem(ORDERS_STORAGE_KEY);
       }
     }
+
+    // Direct check to authenticated user's saved_orders in metadata
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser?.user_metadata?.saved_orders && Array.isArray(currentUser.user_metadata.saved_orders)) {
+        currentUser.user_metadata.saved_orders.forEach((ord: Order) => {
+          const key = ord.order_number || ord.id;
+          if (key) {
+            if (storeMap.has(key)) {
+              storeMap.set(key, { ...storeMap.get(key)!, ...ord });
+            } else {
+              storeMap.set(key, ord);
+            }
+          }
+        });
+      }
+    } catch (e) {}
   } catch (e) {
     console.warn('Failed to fetch store orders:', e);
   }
