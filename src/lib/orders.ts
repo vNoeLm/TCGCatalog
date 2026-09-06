@@ -472,12 +472,8 @@ export async function fetchStoreOrders(): Promise<Order[]> {
       if (currentUser?.user_metadata?.saved_orders && Array.isArray(currentUser.user_metadata.saved_orders)) {
         currentUser.user_metadata.saved_orders.forEach((ord: Order) => {
           const key = ord.order_number || ord.id;
-          if (key) {
-            if (storeMap.has(key)) {
-              storeMap.set(key, { ...storeMap.get(key)!, ...ord });
-            } else {
-              storeMap.set(key, ord);
-            }
+          if (key && !storeMap.has(key)) {
+            storeMap.set(key, ord);
           }
         });
       }
@@ -616,6 +612,21 @@ export async function updateOrderStatus(
         }
       } catch (e) {}
 
+      // Sync in user_metadata if order belongs to current user
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser?.user_metadata?.saved_orders && Array.isArray(currentUser.user_metadata.saved_orders)) {
+          const userOrders: Order[] = currentUser.user_metadata.saved_orders;
+          const uIdx = userOrders.findIndex(o => o.order_number === orderNumber);
+          if (uIdx !== -1) {
+            userOrders[uIdx] = updatedOrder;
+            await supabase.auth.updateUser({
+              data: { saved_orders: userOrders }
+            });
+          }
+        }
+      } catch (e) {}
+
       window.dispatchEvent(new CustomEvent('tcg-orders-changed', { detail: { order: updatedOrder } }));
     }
 
@@ -749,6 +760,21 @@ export async function updateOrderPayment(
           if (idx !== -1) {
             orders[idx] = updatedOrder;
             localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+          }
+        }
+      } catch (e) {}
+
+      // Sync in user_metadata if order belongs to current user
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser?.user_metadata?.saved_orders && Array.isArray(currentUser.user_metadata.saved_orders)) {
+          const userOrders: Order[] = currentUser.user_metadata.saved_orders;
+          const uIdx = userOrders.findIndex(o => o.order_number === orderNumber);
+          if (uIdx !== -1) {
+            userOrders[uIdx] = updatedOrder;
+            await supabase.auth.updateUser({
+              data: { saved_orders: userOrders }
+            });
           }
         }
       } catch (e) {}

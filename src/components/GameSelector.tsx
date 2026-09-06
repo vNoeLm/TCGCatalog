@@ -4,7 +4,15 @@ import { getLanguage, t, type Language } from '../lib/i18n';
 import { applySiteTheme } from '../lib/theme';
 
 export function GameSelector() {
-  const [activeGame, setActiveGame] = useState('riftbound');
+  const [activeGame, setActiveGame] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
+      if (saved && GAMES.some(g => g.id === saved && g.active !== false)) {
+        return saved;
+      }
+    }
+    return 'riftbound';
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [lang, setLang] = useState<Language>('en');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -21,9 +29,11 @@ export function GameSelector() {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
     if (saved && GAMES.some(g => g.id === saved && g.active !== false)) {
       setActiveGame(saved);
+      applySiteTheme(saved);
     } else {
       setActiveGame('riftbound');
       localStorage.setItem(STORAGE_KEYS.ACTIVE_GAME, 'riftbound');
+      applySiteTheme('riftbound');
     }
 
     // Listen to external game change events

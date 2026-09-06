@@ -23,35 +23,49 @@ function getSupabaseClient(request: Request): SupabaseClient {
 }
 
 async function getStoredOrders(client: SupabaseClient = supabaseAdmin): Promise<Order[]> {
-  // 1. Try fetching from public.orders table if it exists
-  try {
-    const { data: tableRows, error: tableErr } = await client
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+  const map = new Map<string, Order>();
 
-    if (!tableErr && Array.isArray(tableRows) && tableRows.length > 0) {
-      return tableRows as unknown as Order[];
-    }
-  } catch (e) {
-    // orders table may not exist yet in schema cache
-  }
-
-  // 2. Fallback to settings.store_orders JSON blob
+  // 1. Primary: settings.store_orders
   try {
-    const { data, error } = await client
+    const { data, error } = await supabaseAdmin
       .from('settings')
       .select('value')
       .eq('key', SETTINGS_KEY)
       .maybeSingle();
 
-    if (error || !data?.value) return [];
-    const parsed = JSON.parse(data.value);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!error && data?.value) {
+      const parsed = JSON.parse(data.value);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((o: Order) => {
+          if (o.order_number) map.set(o.order_number, o);
+        });
+      }
+    }
   } catch (e) {
-    console.error('Failed to parse store_orders JSON:', e);
-    return [];
+    console.error('Failed to parse store_orders JSON in orders.ts:', e);
   }
+
+  // 2. Supplemental: public.orders table
+  try {
+    const { data: tableRows, error: tableErr } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!tableErr && Array.isArray(tableRows)) {
+      tableRows.forEach((row: any) => {
+        if (row.order_number) {
+          if (!map.has(row.order_number)) {
+            map.set(row.order_number, row as Order);
+          } else {
+            map.set(row.order_number, { ...row, ...map.get(row.order_number)! });
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  return Array.from(map.values());
 }
 
 async function saveStoredOrders(
@@ -61,9 +75,9 @@ async function saveStoredOrders(
 ): Promise<boolean> {
   let settingsSaved = false;
 
-  // 1. Save to settings table
+  // 1. Save to settings table using supabaseAdmin
   try {
-    const { error } = await client
+    const { error } = await supabaseAdmin
       .from('settings')
       .upsert({
         key: SETTINGS_KEY,
@@ -74,13 +88,6 @@ async function saveStoredOrders(
       settingsSaved = true;
     } else {
       console.warn('saveStoredOrders settings error:', error);
-      // Try fallback with supabaseAdmin if client was auth-scoped
-      if (client !== supabaseAdmin) {
-        const { error: adminErr } = await supabaseAdmin
-          .from('settings')
-          .upsert({ key: SETTINGS_KEY, value: JSON.stringify(orders) });
-        if (!adminErr) settingsSaved = true;
-      }
     }
   } catch (e) {
     console.error('Failed to upsert store_orders in settings:', e);
@@ -89,7 +96,7 @@ async function saveStoredOrders(
   // 2. Also sync to public.orders table if it exists
   try {
     if (updatedOrder) {
-      await client.from('orders').upsert({
+      await supabaseAdmin.from('orders').upsert({
         order_number: updatedOrder.order_number,
         user_id: updatedOrder.user_id || null,
         status: updatedOrder.status,

@@ -58,7 +58,23 @@ function getSortLabel(mode: string, lang: Language): string {
 
 export function CatalogApp() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>(() => {
+    let initialGame = 'riftbound';
+    if (typeof window !== 'undefined') {
+      const savedGame = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
+      if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
+        initialGame = savedGame;
+      }
+      const savedFilters = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
+      if (savedFilters) {
+        try {
+          const parsed = JSON.parse(savedFilters);
+          return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+        } catch (e) {}
+      }
+    }
+    return { ...DEFAULT_FILTERS, game: initialGame };
+  });
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
   const [sortMode, setSortMode] = useState<
     "Price (Low to High)" | "Price (High to Low)" |

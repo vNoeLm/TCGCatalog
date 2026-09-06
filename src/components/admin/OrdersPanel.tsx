@@ -68,11 +68,6 @@ export function OrdersPanel({
   const [expandOverrides, setExpandOverrides] = useState<Record<string, boolean>>({});
   const [showAnalytics, setShowAnalytics] = useState(false);
 
-  // Invoicing & Shipping async state per order
-  const [issuingInvoiceOrder, setIssuingInvoiceOrder] = useState<string | null>(null);
-  const [creatingLabelOrder, setCreatingLabelOrder] = useState<string | null>(null);
-  const [localFeedback, setLocalFeedback] = useState<{ orderNumber: string; message: string; type: 'success' | 'error' } | null>(null);
-
   const isUnfulfilledOrder = (o: Order) => o.status === 'Pending' || o.status === 'Processing';
 
   const isExpanded = (ord: Order): boolean => {
@@ -166,81 +161,7 @@ export function OrdersPanel({
     }
   };
 
-  // ─── Automated Invoicing Action (Számlázz.hu) ───
-  const handleIssueInvoice = async (ord: Order) => {
-    setIssuingInvoiceOrder(ord.order_number);
-    setLocalFeedback(null);
-    try {
-      const res = await fetch('/api/invoicing/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNumber: ord.order_number }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLocalFeedback({
-          orderNumber: ord.order_number,
-          message: data.message || `Számla (#${data.invoiceNumber}) sikeresen rögzítve!`,
-          type: 'success',
-        });
-        if (data.order) {
-          Object.assign(ord, data.order);
-        }
-      } else {
-        setLocalFeedback({
-          orderNumber: ord.order_number,
-          message: data.error || 'Nem sikerült kiállítani a számlát.',
-          type: 'error',
-        });
-      }
-    } catch (err: any) {
-      setLocalFeedback({
-        orderNumber: ord.order_number,
-        message: err?.message || 'Hiba a számlázás során.',
-        type: 'error',
-      });
-    } finally {
-      setIssuingInvoiceOrder(null);
-    }
-  };
 
-  // ─── Automated Shipping Label Action (FürgeFutár) ───
-  const handleCreateShippingLabel = async (ord: Order) => {
-    setCreatingLabelOrder(ord.order_number);
-    setLocalFeedback(null);
-    try {
-      const res = await fetch('/api/shipping/create-label', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNumber: ord.order_number }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLocalFeedback({
-          orderNumber: ord.order_number,
-          message: data.message || `Fuvarlevél (#${data.trackingNumber}) sikeresen legenerálva és rendelés kiküldve!`,
-          type: 'success',
-        });
-        if (data.order) {
-          Object.assign(ord, data.order);
-        }
-      } else {
-        setLocalFeedback({
-          orderNumber: ord.order_number,
-          message: data.error || 'Nem sikerült legenerálni a csomagcímkét.',
-          type: 'error',
-        });
-      }
-    } catch (err: any) {
-      setLocalFeedback({
-        orderNumber: ord.order_number,
-        message: err?.message || 'Hiba a csomagcímke generálása során.',
-        type: 'error',
-      });
-    } finally {
-      setCreatingLabelOrder(null);
-    }
-  };
 
   const dateFilterLabels: { key: DateFilter; label: string }[] = [
     { key: 'all', label: 'All Time' },
@@ -503,16 +424,13 @@ export function OrdersPanel({
       </div>
 
       {/* Feedback Toast */}
-      {(orderFeedback || localFeedback) && (
+      {orderFeedback && (
         <div className={`p-3 rounded-xl text-xs font-bold border flex items-center justify-between ${
-          (orderFeedback?.type || localFeedback?.type) === 'success'
+          orderFeedback.type === 'success'
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
             : 'bg-red-500/10 border-red-500/30 text-red-300'
         }`}>
-          <span>{orderFeedback?.message || localFeedback?.message}</span>
-          {localFeedback && (
-            <button onClick={() => setLocalFeedback(null)} className="ml-2 text-zinc-400 hover:text-white">✕</button>
-          )}
+          <span>{orderFeedback.message}</span>
         </div>
       )}
 
@@ -688,70 +606,6 @@ export function OrdersPanel({
                             <span>✓</span>
                             <span>Mark as Shipped</span>
                           </button>
-                        )}
-
-                        {/* Számlázz.hu Action */}
-                        <button
-                          type="button"
-                          onClick={() => handleIssueInvoice(ord)}
-                          disabled={issuingInvoiceOrder === ord.order_number || ord.invoice_status === 'issued'}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-                            ord.invoice_status === 'issued'
-                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                              : 'bg-zinc-800 border-zinc-700 hover:border-blue-400 text-zinc-300 hover:text-white'
-                          }`}
-                        >
-                          <span>📄</span>
-                          <span>
-                            {issuingInvoiceOrder === ord.order_number
-                              ? 'Issuing…'
-                              : ord.invoice_status === 'issued'
-                              ? `Számla: #${ord.invoice_number}`
-                              : 'Számla Kiállítása (Számlázz.hu)'}
-                          </span>
-                        </button>
-
-                        {ord.invoice_url && (
-                          <a
-                            href={ord.invoice_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-bold text-blue-400 hover:underline px-1 py-1"
-                          >
-                            Megnyitás ↗
-                          </a>
-                        )}
-
-                        {/* FürgeFutár Label Action */}
-                        <button
-                          type="button"
-                          onClick={() => handleCreateShippingLabel(ord)}
-                          disabled={creatingLabelOrder === ord.order_number || !!ord.tracking_number}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center gap-1.5 ${
-                            ord.tracking_number
-                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                              : 'bg-zinc-800 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white'
-                          }`}
-                        >
-                          <span>📦</span>
-                          <span>
-                            {creatingLabelOrder === ord.order_number
-                              ? 'Booking…'
-                              : ord.tracking_number
-                              ? `Fuvarlevél: #${ord.tracking_number}`
-                              : 'Fuvarlevél Generálás (FürgeFutár)'}
-                          </span>
-                        </button>
-
-                        {ord.shipping_label_url && (
-                          <a
-                            href={ord.shipping_label_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-bold text-emerald-400 hover:underline px-1 py-1"
-                          >
-                            Címke ↗
-                          </a>
                         )}
                       </div>
 

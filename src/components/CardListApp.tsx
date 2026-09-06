@@ -65,7 +65,23 @@ export function CardListApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>(() => {
+    let initialGame = 'riftbound';
+    if (typeof window !== 'undefined') {
+      const savedGame = localStorage.getItem('tcg_active_game');
+      if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
+        initialGame = savedGame;
+      }
+      const savedFilters = sessionStorage.getItem('catalogFilters');
+      if (savedFilters) {
+        try {
+          const parsed = JSON.parse(savedFilters);
+          return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+        } catch (e) {}
+      }
+    }
+    return { ...DEFAULT_FILTERS, game: initialGame };
+  });
   const [isWide, setIsWide] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
@@ -173,6 +189,8 @@ export function CardListApp() {
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
       if (customEvent.detail?.game) {
+        setAllCards([]);
+        setSearchQuery('');
         setFilters(prev => ({
           ...prev,
           game: customEvent.detail.game,
@@ -330,15 +348,28 @@ export function CardListApp() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Initial Data Fetch
+  // Fetch cards based on active filters and search query
   useEffect(() => {
     let isMounted = true;
-    async function loadData() {
-      setLoading(true);
-      const { data } = await fetchCardsCatalog(DEFAULT_FILTERS, '');
+    setLoading(true);
+    setPage(1);
+
+    const timer = setTimeout(async () => {
+      const { data } = await fetchCardsCatalog(filters, searchQuery);
       if (isMounted) {
-        setCards(data);
-        setAllCards(data);
+        setCards(data || []);
+
+        // Sync allCards for playset/collection calculations
+        if (!searchQuery.trim() && (!filters.rarities || filters.rarities.length === 0) && !filters.type && (!filters.domains || filters.domains.length === 0) && !filters.set) {
+          setAllCards(data || []);
+        } else {
+          setAllCards(prev => {
+            const sameGame = prev.filter(c => (c.game || 'riftbound') === filters.game);
+            const existingIds = new Set(sameGame.map(c => c.id));
+            const newCards = (data || []).filter(c => !existingIds.has(c.id));
+            return newCards.length > 0 ? [...sameGame, ...newCards] : (sameGame.length > 0 ? sameGame : (data || []));
+          });
+        }
 
         // Auto-clean stale/deleted card IDs from collection in localStorage
         if (data && data.length > 0) {
@@ -364,30 +395,7 @@ export function CardListApp() {
 
         setLoading(false);
       }
-    }
-    loadData();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Filtered Cards Fetching
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-    setPage(1);
-
-    const timer = setTimeout(async () => {
-      const { data } = await fetchCardsCatalog(filters, searchQuery);
-      if (isMounted) {
-        setCards(data);
-        setAllCards(prev => {
-          if (!data || data.length === 0) return prev;
-          const existingIds = new Set(prev.map(c => c.id));
-          const newCards = data.filter(c => !existingIds.has(c.id));
-          return newCards.length > 0 ? [...prev, ...newCards] : prev;
-        });
-        setLoading(false);
-      }
-    }, 200);
+    }, 150);
 
     return () => {
       isMounted = false;
