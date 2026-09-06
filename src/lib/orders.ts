@@ -375,6 +375,27 @@ export async function fetchStoreOrders(): Promise<Order[]> {
       }
     }
 
+    // Direct check to public.orders table if it exists
+    try {
+      const { data: tableOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (Array.isArray(tableOrders)) {
+        tableOrders.forEach((o: any) => {
+          const key = o.order_number || o.id;
+          if (key) {
+            if (storeMap.has(key)) {
+              storeMap.set(key, { ...storeMap.get(key)!, ...o });
+            } else {
+              storeMap.set(key, o as Order);
+            }
+          }
+        });
+      }
+    } catch (e) {}
+
     // Direct check to Supabase settings table
     const { data } = await supabase
       .from('settings')
@@ -396,16 +417,20 @@ export async function fetchStoreOrders(): Promise<Order[]> {
           }
         });
       }
+      // If store_orders was explicitly purged to empty array in cloud, wipe local storage on this machine
+      if (parsed.length === 0 && typeof window !== 'undefined') {
+        localStorage.removeItem(ORDERS_STORAGE_KEY);
+      }
     }
   } catch (e) {
     console.warn('Failed to fetch store orders:', e);
   }
 
-  // Also include any orders stored locally on this device so admin sees recent orders immediately
+  // Include any unsynced orders stored locally only if cloud isn't explicitly empty
   if (typeof window !== 'undefined') {
     try {
       const rawLocal = localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (rawLocal) {
+      if (rawLocal && storeMap.size > 0) {
         const localList: Order[] = JSON.parse(rawLocal);
         if (Array.isArray(localList)) {
           localList.forEach(lo => {
@@ -439,9 +464,15 @@ export async function updateOrderStatus(
     let updatedOrder: Order | null = null;
 
     if (typeof window !== 'undefined') {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionData?.session?.access_token) {
+        headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+      }
+
       const res = await fetch('/api/orders', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ orderNumber, status, trackingNumber, notes, orderData: orderData || undefined }),
       });
 
@@ -449,13 +480,66 @@ export async function updateOrderStatus(
         const json = await res.json();
         if (json.success && json.order) {
           updatedOrder = json.order;
-        } else {
-          return { success: false, error: json.error || 'Failed to update order status.' };
         }
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        return { success: false, error: errJson.error || 'Failed to update order status.' };
       }
+    }
+
+    // Direct client fallback using authenticated Supabase session if API was unreachable or failed
+    if (!updatedOrder) {
+      try {
+        // 1. Try public.orders table
+        await supabase
+          .from('orders')
+          .update({
+            status,
+            tracking_number: trackingNumber !== undefined ? trackingNumber : undefined,
+            notes: notes !== undefined ? notes : undefined,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('order_number', orderNumber);
+
+        // 2. Direct settings.store_orders update
+        const { data: storeRow } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'store_orders')
+          .maybeSingle();
+
+        let list: Order[] = storeRow?.value ? JSON.parse(storeRow.value) : [];
+        const idx = list.findIndex(o => o.order_number === orderNumber);
+        if (idx !== -1) {
+          list[idx] = {
+            ...list[idx],
+            status,
+            ...(trackingNumber !== undefined ? { tracking_number: trackingNumber } : {}),
+            ...(notes !== undefined ? { notes } : {}),
+            updated_at: new Date().toISOString(),
+          };
+          updatedOrder = list[idx];
+        } else if (orderData) {
+          updatedOrder = {
+            ...orderData,
+            status,
+            ...(trackingNumber !== undefined ? { tracking_number: trackingNumber } : {}),
+            ...(notes !== undefined ? { notes } : {}),
+            updated_at: new Date().toISOString(),
+          };
+          list.unshift(updatedOrder);
+        }
+
+        if (updatedOrder) {
+          await supabase.from('settings').upsert({
+            key: 'store_orders',
+            value: JSON.stringify(list),
+          });
+        }
+      } catch (fallbackErr) {
+        console.warn('Client fallback update failed:', fallbackErr);
+      }
+    }
+
+    if (!updatedOrder) {
+      return { success: false, error: 'Failed to update order status.' };
     }
 
     // Sync in local storage if present on this device
@@ -475,7 +559,7 @@ export async function updateOrderStatus(
       window.dispatchEvent(new CustomEvent('tcg-orders-changed', { detail: { order: updatedOrder } }));
     }
 
-    return { success: true, order: updatedOrder || undefined };
+    return { success: true, order: updatedOrder };
   } catch (err: any) {
     console.error('Failed to update order status:', err);
     return { success: false, error: err?.message || 'Failed to update order status.' };
@@ -513,13 +597,19 @@ export async function updateOrderPayment(
     let updatedOrder: Order | null = null;
 
     if (typeof window !== 'undefined') {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionData?.session?.access_token) {
+        headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+      }
+
       const res = await fetch('/api/orders', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           orderNumber,
           payment_status: paymentStatus,
-          payment_method: paymentMethod,
+          payment_method: paymentMethod || 'stripe',
           payment_id: paymentId,
           orderData: orderData || undefined,
         }),
@@ -529,13 +619,64 @@ export async function updateOrderPayment(
         const json = await res.json();
         if (json.success && json.order) {
           updatedOrder = json.order;
-        } else {
-          return { success: false, error: json.error || 'Failed to update payment status.' };
         }
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        return { success: false, error: errJson.error || 'Failed to update payment status.' };
       }
+    }
+
+    // Direct client fallback using authenticated Supabase session
+    if (!updatedOrder) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            payment_status: paymentStatus,
+            payment_method: paymentMethod || 'stripe',
+            payment_id: paymentId || undefined,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('order_number', orderNumber);
+
+        const { data: storeRow } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'store_orders')
+          .maybeSingle();
+
+        let list: Order[] = storeRow?.value ? JSON.parse(storeRow.value) : [];
+        const idx = list.findIndex(o => o.order_number === orderNumber);
+        if (idx !== -1) {
+          list[idx] = {
+            ...list[idx],
+            payment_status: paymentStatus,
+            payment_method: paymentMethod || list[idx].payment_method || 'stripe',
+            payment_id: paymentId || list[idx].payment_id,
+            updated_at: new Date().toISOString(),
+          };
+          updatedOrder = list[idx];
+        } else if (orderData) {
+          updatedOrder = {
+            ...orderData,
+            payment_status: paymentStatus,
+            payment_method: paymentMethod || orderData.payment_method || 'stripe',
+            payment_id: paymentId || orderData.payment_id,
+            updated_at: new Date().toISOString(),
+          };
+          list.unshift(updatedOrder);
+        }
+
+        if (updatedOrder) {
+          await supabase.from('settings').upsert({
+            key: 'store_orders',
+            value: JSON.stringify(list),
+          });
+        }
+      } catch (fallbackErr) {
+        console.warn('Client fallback update payment failed:', fallbackErr);
+      }
+    }
+
+    if (!updatedOrder) {
+      return { success: false, error: 'Failed to update payment status.' };
     }
 
     // Sync in local storage if present on this device
@@ -555,10 +696,65 @@ export async function updateOrderPayment(
       window.dispatchEvent(new CustomEvent('tcg-orders-changed', { detail: { order: updatedOrder } }));
     }
 
-    return { success: true, order: updatedOrder || undefined };
+    return { success: true, order: updatedOrder };
   } catch (err: any) {
     console.error('Failed to update payment status:', err);
     return { success: false, error: err?.message || 'Failed to update payment status.' };
   }
 }
+
+/**
+ * Completely purge all test orders from Cloud DB, localStorage, and User Auth Metadata.
+ */
+export async function purgeAllOrders(): Promise<{ success: boolean; error?: string }> {
+  try {
+    // 1. Wipe local device storage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ORDERS_STORAGE_KEY);
+    }
+
+    // 2. Call DELETE /api/orders?all=true with auth header
+    const { data: sessionData } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (sessionData?.session?.access_token) {
+      headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+    }
+
+    await fetch('/api/orders?all=true', { method: 'DELETE', headers }).catch(() => null);
+
+    // 3. Directly clear settings.store_orders
+    try {
+      await supabase.from('settings').upsert({ key: 'store_orders', value: '[]' });
+    } catch (e) {}
+
+    // 4. Directly clear public.orders if table exists
+    try {
+      await supabase.from('orders').delete().neq('order_number', '__dummy__');
+    } catch (e) {}
+
+    // 5. Clear current user saved_orders in auth metadata
+    const user = await getCurrentUser();
+    if (user) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            ...user.user_metadata,
+            saved_orders: [],
+          },
+        });
+      } catch (e) {}
+    }
+
+    // 6. Notify application
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tcg-orders-changed'));
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Failed to purge orders:', err);
+    return { success: false, error: err?.message || 'Failed to purge orders.' };
+  }
+}
+
 

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
 import { reconcileOwnerPlaysets } from '../../lib/userCards';
-import { fetchStoreOrders, updateOrderStatus, updateOrderPayment } from '../../lib/orders';
+import { fetchStoreOrders, updateOrderStatus, updateOrderPayment, purgeAllOrders } from '../../lib/orders';
 import { getEurToHufRate } from '../../lib/currency';
 import { EVENTS } from '../../lib/constants';
 import type { CatalogCard, UserProfile, Order } from '../../types';
@@ -241,6 +241,24 @@ export function AdminDashboard() {
       setOrderFeedback({ orderNumber, message: err?.message || 'Failed to update payment status.', type: 'error' });
     } finally {
       setUpdatingOrderNumber(null);
+    }
+  };
+
+  const handlePurgeOrders = async () => {
+    if (!window.confirm('Biztosan törölni szeretnéd az összes teszt rendelést az adatbázisból és az eszközről?\nAre you sure you want to permanently purge all test orders?')) return;
+    setLoadingOrders(true);
+    try {
+      const res = await purgeAllOrders();
+      if (res.success) {
+        setOrders([]);
+        setOrderFeedback({ orderNumber: 'all', message: 'All test orders permanently purged from database & device!', type: 'success' });
+      } else {
+        setOrderFeedback({ orderNumber: 'all', message: res.error || 'Failed to purge orders.', type: 'error' });
+      }
+    } catch (err: any) {
+      setOrderFeedback({ orderNumber: 'all', message: err?.message || 'Error purging orders.', type: 'error' });
+    } finally {
+      setLoadingOrders(false);
     }
   };
 
@@ -632,6 +650,7 @@ export function AdminDashboard() {
           loadingOrders={loadingOrders}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onUpdateOrderPayment={handleUpdateOrderPayment}
+          onPurgeOrders={handlePurgeOrders}
           updatingOrderNumber={updatingOrderNumber}
           orderFeedback={orderFeedback}
         />

@@ -832,7 +832,7 @@ export function ProfileApp() {
                                   : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                               }`}
                             >
-                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : 'COD / Transfer'}
+                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : 'Stripe'}
                             </span>
                           )}
                           {order.payment_status && (

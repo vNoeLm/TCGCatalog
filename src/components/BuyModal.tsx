@@ -59,7 +59,7 @@ export function BuyModal({
   const [houseNumber, setHouseNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [saveLocally, setSaveLocally] = useState<boolean>(true);
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'manual'>('stripe');
+  const paymentMethod = 'stripe';
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,17 +324,6 @@ export function BuyModal({
 
         throw new Error(lang === 'hu' ? 'A fizetési munkamenet létrehozása nem sikerült.' : 'Failed to create payment session.');
       }
-
-      // ── 3. Manual Payment Flow (COD / Bank Transfer) ──
-      if (isMultiItem) {
-        clearCart();
-        onOrderPlaced();
-      } else {
-        const remaining = Math.max(0, maxStock - quantity);
-        onOrderPlaced(remaining);
-      }
-
-      setCompletedOrder(createdOrder);
     } catch (err: any) {
       console.error('Order submission error:', err);
       setError(err?.message || (lang === 'hu' ? 'Hiba történt a rendelés leadásakor.' : 'Failed to place order.'));
@@ -833,80 +822,35 @@ export function BuyModal({
               </div>
             </div>
 
-            {/* Payment Method Selector */}
+            {/* Payment Method - Stripe Only */}
             <div className="space-y-2 pt-1">
               <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
                 {t('payment_method', lang)}
               </label>
-              <div className="grid grid-cols-1 gap-2">
-                {/* 1. Stripe (Card, Apple Pay, Google Pay) */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('stripe')}
-                  className={`w-full p-3 rounded-xl text-left border transition cursor-pointer flex items-start justify-between gap-3 ${
-                    paymentMethod === 'stripe'
-                      ? 'bg-amber-500/10 border-amber-400 shadow-sm shadow-amber-500/10'
-                      : 'bg-zinc-950/70 border-zinc-800 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center shrink-0 border-zinc-600">
-                      {paymentMethod === 'stripe' && (
-                        <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-zinc-100">
-                          {t('stripe_payment', lang)}
-                        </span>
-                        <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          Instant
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                        {t('stripe_desc', lang)}
-                      </p>
-                    </div>
+              <div className="w-full p-3.5 rounded-xl border border-amber-400/60 bg-amber-500/10 shadow-sm shadow-amber-500/10 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-4 h-4 mt-0.5 rounded-full border border-amber-400 flex items-center justify-center shrink-0">
+                    <div className="w-2 h-2 rounded-full bg-amber-400" />
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 opacity-80 pt-0.5">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Pay</span>
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">GPay</span>
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Card</span>
-                  </div>
-                </button>
-
-                {/* 2. Manual / COD / Bank Transfer */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('manual')}
-                  className={`w-full p-3 rounded-xl text-left border transition cursor-pointer flex items-start justify-between gap-3 ${
-                    paymentMethod === 'manual'
-                      ? 'bg-amber-500/10 border-amber-400 shadow-sm shadow-amber-500/10'
-                      : 'bg-zinc-950/70 border-zinc-800 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center shrink-0 border-zinc-600">
-                      {paymentMethod === 'manual' && (
-                        <div className="w-2 h-2 rounded-full bg-amber-400" />
-                      )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-bold text-zinc-100">
+                        {t('stripe_payment', lang)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        Instant
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-zinc-100">
-                          {t('cod_payment', lang)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                        {t('cod_desc', lang)}
-                      </p>
-                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
+                      {t('stripe_desc', lang)}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 opacity-80 pt-0.5">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">COD / Wire</span>
-                  </div>
-                </button>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 opacity-90 pt-0.5">
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Pay</span>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">GPay</span>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">Card</span>
+                </div>
               </div>
             </div>
 
