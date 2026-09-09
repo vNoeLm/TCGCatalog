@@ -116,17 +116,19 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     localStorage.setItem("tcg_collection", JSON.stringify(next));
     window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-    // Sync role-based surplus inventory to database in background
-    const regularCount = isFoil ? (next[targetCardId] || 0) : (updated <= 0 ? 0 : updated);
-    const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${targetCardId}_foil`] || 0);
-    const cardObj = isInventory ? data?.cards : data;
-    syncUserCardInventory({
-      cardId: targetCardId,
-      ownedCopies: regularCount,
-      foilCopies: foilCount,
-      cardRarity: cardObj?.rarity,
-      cardMarketPriceEur: cardObj?.market_price_eur,
-    }).catch(err => console.warn('Background card sync in detail:', err));
+    // Only the store owner syncs surplus inventory to database in background
+    if (profile?.role === 'owner') {
+      const regularCount = isFoil ? (next[targetCardId] || 0) : (updated <= 0 ? 0 : updated);
+      const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${targetCardId}_foil`] || 0);
+      const cardObj = isInventory ? data?.cards : data;
+      syncUserCardInventory({
+        cardId: targetCardId,
+        ownedCopies: regularCount,
+        foilCopies: foilCount,
+        cardRarity: cardObj?.rarity,
+        cardMarketPriceEur: cardObj?.market_price_eur,
+      }).catch(err => console.warn('Background card sync in detail:', err));
+    }
   };
 
   // ── Admin Quick Edit Handlers ──

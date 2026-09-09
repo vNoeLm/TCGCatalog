@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import type { CatalogCard, FilterState } from "../types";
+import type { CatalogCard, FilterState, UserProfile } from "../types";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CardDetail } from "./CardDetail";
@@ -8,7 +8,7 @@ import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUN
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { getLanguage, t, type Language } from "../lib/i18n";
 import { supabase } from "../lib/supabase";
-import { getCurrentUser, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
+import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
 import { syncUserCardInventory, bulkSyncCollectionToUserCards } from "../lib/userCards";
 import { useSiteTheme } from "../lib/theme";
 
@@ -107,6 +107,7 @@ export function CardListApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [savingToCloud, setSavingToCloud] = useState(false);
   const [restoringFromCloud, setRestoringFromCloud] = useState(false);
 
@@ -121,8 +122,14 @@ export function CardListApp() {
   // Check auth on mount
   useEffect(() => {
     getCurrentUser().then(user => setCurrentUser(user));
+    getCurrentProfile().then(prof => setCurrentUserProfile(prof));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user || null);
+      if (session?.user) {
+        getCurrentProfile().then(prof => setCurrentUserProfile(prof));
+      } else {
+        setCurrentUserProfile(null);
+      }
     });
     return () => {
       subscription.unsubscribe();
@@ -294,17 +301,19 @@ export function CardListApp() {
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-      // Sync role-based surplus inventory to database in background
-      const regularCount = isFoil ? (next[cardId] || 0) : (updated <= 0 ? 0 : updated);
-      const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${cardId}_foil`] || 0);
-      const cardObj = cards.find(c => c.id === cardId);
-      syncUserCardInventory({
-        cardId,
-        ownedCopies: regularCount,
-        foilCopies: foilCount,
-        cardRarity: cardObj?.rarity,
-        cardMarketPriceEur: cardObj?.market_price_eur,
-      }).catch(err => console.warn('Background card sync:', err));
+      // Only the store owner syncs surplus inventory to database in background
+      if (currentUserProfile?.role === 'owner') {
+        const regularCount = isFoil ? (next[cardId] || 0) : (updated <= 0 ? 0 : updated);
+        const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${cardId}_foil`] || 0);
+        const cardObj = cards.find(c => c.id === cardId);
+        syncUserCardInventory({
+          cardId,
+          ownedCopies: regularCount,
+          foilCopies: foilCount,
+          cardRarity: cardObj?.rarity,
+          cardMarketPriceEur: cardObj?.market_price_eur,
+        }).catch(err => console.warn('Background card sync:', err));
+      }
 
       return next;
     });
@@ -326,16 +335,18 @@ export function CardListApp() {
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-      // Sync role-based surplus inventory to database in background
-      const regularCount = isFoil ? (next[cardId] || 0) : newCount;
-      const foilCount = isFoil ? newCount : (next[`${cardId}_foil`] || 0);
-      const cardObj = cards.find(c => c.id === cardId);
-      syncUserCardInventory({
-        cardId,
-        ownedCopies: regularCount,
-        foilCopies: foilCount,
-        cardMarketPriceEur: cardObj?.market_price_eur,
-      }).catch(err => console.warn('Background card sync:', err));
+      // Only the store owner syncs surplus inventory to database in background
+      if (currentUserProfile?.role === 'owner') {
+        const regularCount = isFoil ? (next[cardId] || 0) : newCount;
+        const foilCount = isFoil ? newCount : (next[`${cardId}_foil`] || 0);
+        const cardObj = cards.find(c => c.id === cardId);
+        syncUserCardInventory({
+          cardId,
+          ownedCopies: regularCount,
+          foilCopies: foilCount,
+          cardMarketPriceEur: cardObj?.market_price_eur,
+        }).catch(err => console.warn('Background card sync:', err));
+      }
 
       return next;
     });
@@ -807,18 +818,18 @@ export function CardListApp() {
     }
     setSavingToCloud(true);
     try {
-      const priceMap: Record<string, number> = {};
-      cards.forEach(c => {
-        if (c.market_price_eur) priceMap[c.id] = c.market_price_eur;
-      });
-
-      const [{ error: authError }, { error: surplusError }] = await Promise.all([
-        saveCollectionToCloud(collection),
-        bulkSyncCollectionToUserCards(collection, priceMap),
-      ]);
-
+      const { error: authError } = await saveCollectionToCloud(collection);
       if (authError) throw authError;
-      if (surplusError) console.warn('Surplus sync warning:', surplusError);
+
+      // Only platform owner synchronizes surplus to public store inventory
+      if (currentUserProfile?.role === 'owner') {
+        const priceMap: Record<string, number> = {};
+        cards.forEach(c => {
+          if (c.market_price_eur) priceMap[c.id] = c.market_price_eur;
+        });
+        const { error: surplusError } = await bulkSyncCollectionToUserCards(collection, priceMap);
+        if (surplusError) console.warn('Surplus sync warning:', surplusError);
+      }
 
       showToast(`☁️ ${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
     } catch (e: any) {

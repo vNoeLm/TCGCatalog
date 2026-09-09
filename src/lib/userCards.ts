@@ -59,16 +59,20 @@ export interface SyncCardParams {
  */
 export async function syncUserCardInventory(params: SyncCardParams): Promise<{ data: UserCard | null; error: any }> {
   const profile = await getCurrentProfile();
-  if (!profile) {
-    return { data: null, error: new Error('User not authenticated') };
+  if (!profile || profile.role !== 'owner') {
+    // Only the platform owner can list surplus cards in the store.
+    // Regular users track their collection purely in local state and user_metadata cloud backup.
+    return { data: null, error: null };
   }
 
   const { cardId, ownedCopies, foilCopies, cardRarity, customUnitPrice, cardMarketPriceEur } = params;
   const safeOwned = Math.max(0, ownedCopies || 0);
   const safeFoil = Math.max(0, foilCopies || 0);
 
-  // If both counts are 0, remove or clear row
-  if (safeOwned === 0 && safeFoil === 0) {
+  const { forSaleCopies, isListedInStore } = calculateSurplus(safeOwned, safeFoil, profile.role, cardRarity);
+
+  // If there is no surplus for sale, ensure any previous row for this card is removed from store inventory
+  if (forSaleCopies <= 0 || !isListedInStore) {
     const { error: delError } = await supabase
       .from('user_cards')
       .delete()
@@ -83,16 +87,12 @@ export async function syncUserCardInventory(params: SyncCardParams): Promise<{ d
     return { data: null, error: delError };
   }
 
-  const { forSaleCopies, isListedInStore } = calculateSurplus(safeOwned, safeFoil, profile.role, cardRarity);
-
-  // If owner and listed, assign unit price from custom override or market price
+  // Active surplus listing: assign price
   let unitPrice: number | null = null;
-  if (profile.role === 'owner' && isListedInStore) {
-    if (typeof customUnitPrice === 'number') {
-      unitPrice = customUnitPrice;
-    } else if (typeof cardMarketPriceEur === 'number') {
-      unitPrice = cardMarketPriceEur;
-    }
+  if (typeof customUnitPrice === 'number') {
+    unitPrice = customUnitPrice;
+  } else if (typeof cardMarketPriceEur === 'number') {
+    unitPrice = cardMarketPriceEur;
   }
 
   const payload = {
@@ -102,7 +102,7 @@ export async function syncUserCardInventory(params: SyncCardParams): Promise<{ d
     foil_copies: safeFoil,
     for_sale_copies: forSaleCopies,
     unit_price: unitPrice,
-    is_listed_in_store: isListedInStore,
+    is_listed_in_store: true,
     updated_at: new Date().toISOString(),
   };
 
@@ -150,13 +150,17 @@ export async function fetchUserCards(userId?: string): Promise<UserCard[]> {
 
 /**
  * Bulk syncs local storage collection dictionary to the user_cards table.
+ * ONLY stores active surplus listings (forSaleCopies > 0) for the platform owner.
  */
 export async function bulkSyncCollectionToUserCards(
   collectionDict: Record<string, number>,
   marketPrices: Record<string, number> = {}
 ): Promise<{ successCount: number; error: any }> {
   const profile = await getCurrentProfile();
-  if (!profile) return { successCount: 0, error: new Error('Not authenticated') };
+  if (!profile || profile.role !== 'owner') {
+    // Only the store owner can list surplus cards in the store.
+    return { successCount: 0, error: null };
+  }
 
   // Group by card_id (separating regular and foil keys)
   const cardMap = new Map<string, { owned: number; foil: number }>();
@@ -177,33 +181,50 @@ export async function bulkSyncCollectionToUserCards(
     }
   });
 
-  const upsertRows = Array.from(cardMap.entries()).map(([cardId, { owned, foil }]) => {
+  const upsertRows: any[] = [];
+  const surplusCardIds = new Set<string>();
+
+  for (const [cardId, { owned, foil }] of cardMap.entries()) {
     const { forSaleCopies, isListedInStore } = calculateSurplus(owned, foil, profile.role);
-    const unitPrice = (profile.role === 'owner' && isListedInStore && marketPrices[cardId]) 
-      ? marketPrices[cardId] 
-      : null;
+    if (forSaleCopies > 0 && isListedInStore) {
+      surplusCardIds.add(cardId);
+      const unitPrice = marketPrices[cardId] || null;
+      upsertRows.push({
+        user_id: profile.id,
+        card_id: cardId,
+        owned_copies: owned,
+        foil_copies: foil,
+        for_sale_copies: forSaleCopies,
+        unit_price: unitPrice,
+        is_listed_in_store: true,
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
 
-    return {
-      user_id: profile.id,
-      card_id: cardId,
-      owned_copies: owned,
-      foil_copies: foil,
-      for_sale_copies: forSaleCopies,
-      unit_price: unitPrice,
-      is_listed_in_store: isListedInStore,
-      updated_at: new Date().toISOString(),
-    };
-  });
-
-  if (upsertRows.length === 0) return { successCount: 0, error: null };
-
-  const { error } = await supabase
+  // 1. Delete any previous user_cards for this owner that no longer have surplus
+  const { data: existingRows } = await supabase
     .from('user_cards')
-    .upsert(upsertRows, { onConflict: 'user_id,card_id' });
+    .select('id, card_id')
+    .eq('user_id', profile.id);
 
-  if (error) {
-    console.error('Error bulk syncing user_cards:', error);
-    return { successCount: 0, error };
+  if (existingRows && existingRows.length > 0) {
+    const idsToDelete = existingRows.filter(r => !surplusCardIds.has(r.card_id)).map(r => r.id);
+    if (idsToDelete.length > 0) {
+      await supabase.from('user_cards').delete().in('id', idsToDelete);
+    }
+  }
+
+  // 2. Upsert only active surplus items
+  if (upsertRows.length > 0) {
+    const { error } = await supabase
+      .from('user_cards')
+      .upsert(upsertRows, { onConflict: 'user_id,card_id' });
+
+    if (error) {
+      console.error('Error bulk syncing user_cards:', error);
+      return { successCount: 0, error };
+    }
   }
 
   clearStoreCache();
@@ -215,8 +236,9 @@ export async function bulkSyncCollectionToUserCards(
 }
 
 /**
- * Reconciles the owner's entire collection (from localStorage and user_cards),
- * checking all playset limits and recalculating surplus for sale in the public store.
+ * Reconciles the owner's entire collection,
+ * checking all playset limits and strictly storing only active surplus listings (forSaleCopies > 0).
+ * Removes any non-surplus rows from the database.
  */
 export async function reconcileOwnerPlaysets(): Promise<{ checkedCards: number; surplusCards: number; totalForSale: number; error: any }> {
   const profile = await getCurrentProfile();
@@ -224,7 +246,7 @@ export async function reconcileOwnerPlaysets(): Promise<{ checkedCards: number; 
     return { checkedCards: 0, surplusCards: 0, totalForSale: 0, error: new Error('Only owner can reconcile store surplus') };
   }
 
-  // 1. Get saved local collection & cloud collection
+  // 1. Get saved local collection
   let collectionDict: Record<string, number> = {};
   if (typeof window !== 'undefined') {
     const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
@@ -236,7 +258,7 @@ export async function reconcileOwnerPlaysets(): Promise<{ checkedCards: number; 
     }
   }
 
-  // 2. Fetch all cards for market prices
+  // 2. Fetch all cards for market prices & rarities
   const { data: allCards } = await supabase
     .from('cards')
     .select('id, card_number, name, rarity, market_price_eur, market_price_foil_eur');
@@ -276,34 +298,46 @@ export async function reconcileOwnerPlaysets(): Promise<{ checkedCards: number; 
   });
 
   const upsertRows: any[] = [];
+  const activeSurplusIds = new Set<string>();
   let surplusCards = 0;
   let totalForSale = 0;
 
   for (const [cardId, { owned, foil }] of cardCounts.entries()) {
     const cardInfo = cardMap.get(cardId);
     const { forSaleCopies, isListedInStore } = calculateSurplus(owned, foil, profile.role, cardInfo?.rarity);
-    const isFoil = foil > 0 && owned === 0;
-    const unitPrice = isListedInStore && cardInfo
-      ? (isFoil ? (cardInfo.market_price_foil_eur ?? cardInfo.market_price_eur) : cardInfo.market_price_eur)
-      : null;
 
-    if (isListedInStore) {
+    if (isListedInStore && forSaleCopies > 0) {
+      activeSurplusIds.add(cardId);
       surplusCards++;
       totalForSale += forSaleCopies;
-    }
 
-    upsertRows.push({
-      user_id: profile.id,
-      card_id: cardId,
-      owned_copies: owned,
-      foil_copies: foil,
-      for_sale_copies: forSaleCopies,
-      unit_price: unitPrice,
-      is_listed_in_store: isListedInStore,
-      updated_at: new Date().toISOString(),
-    });
+      const isFoil = foil > 0 && owned === 0;
+      const unitPrice = cardInfo
+        ? (isFoil ? (cardInfo.market_price_foil_eur ?? cardInfo.market_price_eur) : cardInfo.market_price_eur)
+        : null;
+
+      upsertRows.push({
+        user_id: profile.id,
+        card_id: cardId,
+        owned_copies: owned,
+        foil_copies: foil,
+        for_sale_copies: forSaleCopies,
+        unit_price: unitPrice,
+        is_listed_in_store: true,
+        updated_at: new Date().toISOString(),
+      });
+    }
   }
 
+  // Delete any stale/unlisted rows from user_cards
+  if (existingUserCards && existingUserCards.length > 0) {
+    const staleIds = existingUserCards.filter(r => !activeSurplusIds.has(r.card_id)).map(r => r.id);
+    if (staleIds.length > 0) {
+      await supabase.from('user_cards').delete().in('id', staleIds);
+    }
+  }
+
+  // Upsert only active surplus items
   if (upsertRows.length > 0) {
     const { error: upsertError } = await supabase
       .from('user_cards')
