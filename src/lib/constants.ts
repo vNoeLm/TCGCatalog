@@ -101,3 +101,6 @@ export const SORT_MODES = [
 ] as const;
 
 export type SortMode = typeof SORT_MODES[number];
+
+// ─── Platform Store Owner ──────────────────────────────────────────
+export const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';

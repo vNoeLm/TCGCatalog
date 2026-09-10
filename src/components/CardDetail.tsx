@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { CatalogCard, UserProfile, SellerProfileSummary } from '../types';
-import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '../lib/api';
+import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache, getDisplayConditionNotes } from '../lib/api';
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
@@ -58,10 +58,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [sellerSummary, setSellerSummary] = useState<SellerProfileSummary | null>(null);
 
   useEffect(() => {
-    if (data?.seller_id || isInventory) {
-      fetchSellerRatingSummary(data?.seller_id).then(s => setSellerSummary(s));
+    if (data?.seller_id) {
+      fetchSellerRatingSummary(data.seller_id).then(s => setSellerSummary(s));
+    } else if (isInventory && data) {
+      fetchSellerRatingSummary().then(s => setSellerSummary(s));
     }
-  }, [data?.seller_id, isInventory]);
+  }, [data?.seller_id, isInventory, Boolean(data)]);
 
   useEffect(() => {
     setLang(getLanguage());
@@ -1184,18 +1186,22 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             >
               <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>{t('condition', lang)}</p>
               <p className="text-base sm:text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{data.condition}</p>
-              {data.notes && (
-                <p 
-                  className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border-subtle)',
-                    color: 'var(--text-secondary)'
-                  }}
-                >
-                  {data.notes}
-                </p>
-              )}
+              {(() => {
+                const displayNotes = getDisplayConditionNotes(data.notes);
+                if (!displayNotes) return null;
+                return (
+                  <p 
+                    className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
+                    style={{
+                      background: 'var(--bg-input)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    {displayNotes}
+                  </p>
+                );
+              })()}
             </div>
           )}
 
@@ -1209,7 +1215,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {sellerSummary?.avatar_url ? (
                   <img
                     src={sellerSummary.avatar_url}
-                    alt={sellerSummary.display_name || 'Seller'}
+                    alt={sellerSummary.display_name || data?.seller_name || 'Seller'}
                     className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shrink-0"
                   />
                 ) : (
@@ -1221,13 +1227,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       color: 'var(--text-accent)',
                     }}
                   >
-                    {sellerSummary?.display_name ? sellerSummary.display_name[0].toUpperCase() : 'N'}
+                    {sellerSummary?.display_name ? sellerSummary.display_name[0].toUpperCase() : (data?.seller_name ? data.seller_name[0].toUpperCase() : 'S')}
                   </div>
                 )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                      {sellerSummary?.display_name || data?.seller_name || 'Noel :3'}
+                      {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
                     </span>
                     {(() => {
                       const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');

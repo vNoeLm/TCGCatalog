@@ -1,13 +1,36 @@
 import { supabase } from './supabase';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
-import { EVENTS } from './constants';
+import { EVENTS, OWNER_ID } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
 
+// ─── Helper: Clean Condition Notes (Hide Raw System JSON) ─────────
+export function getDisplayConditionNotes(notes: string | null | undefined): string | null {
+  if (!notes || typeof notes !== 'string') return null;
+  const trimmed = notes.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        const userNote = parsed.user_notes || parsed.condition_notes || parsed.notes || parsed.description;
+        if (typeof userNote === 'string' && userNote.trim().length > 0) {
+          return userNote.trim();
+        }
+        return null;
+      }
+    } catch (e) {}
+  }
+  if (trimmed.startsWith('marketplace:') || trimmed.startsWith('seller:')) {
+    return null;
+  }
+  return trimmed;
+}
+
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v25';
+const CACHE_VERSION = 'v26';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -148,7 +171,6 @@ export async function fetchCardsCatalog(
   }
 
   let mappedData: CatalogCard[] = (data || []).map((row: any) => {
-    const isBasicRune = row.card_type === 'Rune' && (row.subtype === 'Basic' || !row.name?.includes('Promo'));
     return {
       id: row.id,
       card_number: row.card_number,
@@ -171,10 +193,10 @@ export async function fetchCardsCatalog(
       market_price_eur: row.market_price_eur ?? null,
       market_price_foil_eur: row.market_price_foil_eur ?? null,
       last_price_updated_at: row.last_price_updated_at ?? null,
-      set_id: isBasicRune ? '' : (row.sets?.id || ''),
-      set_name: isBasicRune ? '' : (row.sets?.name || ''),
-      set_code: isBasicRune ? '' : (row.sets?.code || ''),
-      sets: isBasicRune ? undefined : (row.sets || undefined),
+      set_id: row.sets?.id || '',
+      set_name: row.sets?.name || '',
+      set_code: row.sets?.code || '',
+      sets: row.sets || undefined,
     };
   });
 
@@ -227,6 +249,7 @@ export async function fetchOwnerStoreInventory(
           )
         )
       `, { count: 'exact' })
+      .eq('user_id', OWNER_ID)
       .eq('is_listed_in_store', true)
       .gt('for_sale_copies', 0);
 
@@ -387,7 +410,8 @@ export async function fetchLegacyInventory(
         )
       ),
       inventory_images ( image_path, display_order )
-    `, { count: 'exact' });
+    `, { count: 'exact' })
+    .or('notes.is.null,notes.not.ilike.*marketplace*');
 
   if (searchQuery.trim() !== '') {
     query = query.or(`name.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`, { foreignTable: 'cards' });
@@ -504,7 +528,12 @@ export async function fetchLegacyInventory(
     return { data: [], count: 0 };
   }
 
-  const mappedData: InventoryCard[] = (data || []).map((row: any) => {
+  const mappedData: InventoryCard[] = (data || [])
+    .filter((row: any) => {
+      const notesStr = String(row.notes || '');
+      return !notesStr.includes('marketplace');
+    })
+    .map((row: any) => {
     const invImages: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
     const firstCustomPhoto = invImages.length > 0 ? invImages[0].image_path : null;
 
@@ -614,6 +643,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
       .from('user_cards')
       .select(`
         id,
+        user_id,
         for_sale_copies,
         unit_price,
         foil_copies,
@@ -635,6 +665,25 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
         : (isFoil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur);
       const priceHuf = effectiveEur ? Math.round(effectiveEur * 400) : null;
 
+      const sId = userCardData.user_id || OWNER_ID;
+      let sellerName = sId === OWNER_ID ? 'Noel :3' : 'Community Seller';
+      let sellerAvatar = null;
+      let sellerRole = sId === OWNER_ID ? 'owner' : 'user';
+
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, role, is_admin')
+          .eq('id', sId)
+          .maybeSingle();
+
+        if (prof) {
+          sellerName = prof.display_name || (prof.role === 'owner' ? 'Noel :3' : 'Community Seller');
+          sellerAvatar = prof.avatar_url || null;
+          sellerRole = prof.role || (prof.is_admin ? 'admin' : 'user');
+        }
+      } catch (e) {}
+
       const formatted = {
         id: userCardData.id,
         condition: 'Near Mint',
@@ -646,10 +695,10 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
         is_foil: isFoil,
         cards: userCardData.cards,
         inventory_images: [],
-        seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
-        seller_name: 'Noel :3',
-        seller_avatar: null,
-        seller_role: 'owner',
+        seller_id: sId,
+        seller_name: sellerName,
+        seller_avatar: sellerAvatar,
+        seller_role: sellerRole,
       };
       setCached(cacheKey, formatted);
       return formatted;
@@ -660,7 +709,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
   const { data, error } = await supabase
     .from('inventory')
     .select(`
-      id, condition, price_huf, status, notes, is_bulk, quantity,
+      id, condition, is_foil, price_huf, status, notes, is_bulk, quantity,
       cards (
         id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
         game, energy, might, domain, tags, ability, artist,
@@ -672,12 +721,46 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     .eq('id', inventoryId)
     .single();
   if (error) throw error;
+
+  let sellerId = OWNER_ID;
+  if (data.notes) {
+    try {
+      if (typeof data.notes === 'string' && data.notes.startsWith('{')) {
+        const parsed = JSON.parse(data.notes);
+        if (parsed && typeof parsed.seller_id === 'string' && parsed.seller_id) {
+          sellerId = parsed.seller_id;
+        }
+      } else if (typeof data.notes === 'string') {
+        if (data.notes.startsWith('marketplace:')) sellerId = data.notes.replace('marketplace:', '').trim();
+        else if (data.notes.startsWith('seller:')) sellerId = data.notes.replace('seller:', '').trim();
+      }
+    } catch (e) {}
+  }
+
+  let sellerName = sellerId === OWNER_ID ? 'Noel :3' : 'Community Seller';
+  let sellerAvatar = null;
+  let sellerRole = sellerId === OWNER_ID ? 'owner' : 'user';
+
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, role, is_admin')
+      .eq('id', sellerId)
+      .maybeSingle();
+
+    if (prof) {
+      sellerName = prof.display_name || (prof.role === 'owner' ? 'Noel :3' : 'Community Seller');
+      sellerAvatar = prof.avatar_url || null;
+      sellerRole = prof.role || (prof.is_admin ? 'admin' : 'user');
+    }
+  } catch (err) {}
+
   const enriched = {
     ...data,
-    seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
-    seller_name: 'Noel :3',
-    seller_avatar: null,
-    seller_role: 'owner',
+    seller_id: sellerId,
+    seller_name: sellerName,
+    seller_avatar: sellerAvatar,
+    seller_role: sellerRole,
   };
   setCached(cacheKey, enriched);
   return enriched;
