@@ -261,29 +261,38 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               {card.seller_name || 'Noel :3'}
             </span>
             {card.seller_role === 'owner' ? (
-              <span className="text-[8px] font-black px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider">
-                👑 {lang === 'hu' ? 'Alapító' : 'Founder'}
+              <span className="text-[8px] font-black px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider inline-flex items-center gap-1">
+                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                </svg>
+                <span>{lang === 'hu' ? 'Alapító' : 'Founder'}</span>
               </span>
             ) : card.seller_badge ? (
               <span 
-                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0"
+                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
                 title={lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}
               >
-                {(card as any).seller_badge_icon || '⭐'} {lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}
+                <span>★</span>
+                <span>{lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}</span>
               </span>
             ) : null}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {typeof card.views === 'number' && card.views > 0 && (
               <span className="text-[9px] text-zinc-400 flex items-center gap-0.5" title={`${card.views} ${lang === 'hu' ? 'megtekintés' : 'views'}`}>
-                <span>👁️</span>
+                <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
                 <span>{card.views}</span>
               </span>
             )}
-            <div className="flex items-center gap-0.5 text-amber-400 font-bold text-[10px]">
-              <span>★</span>
-              <span>{card.seller_rating_avg ? card.seller_rating_avg.toFixed(1) : '5.0'}</span>
-            </div>
+            {card.seller_rating_avg !== null && card.seller_rating_avg !== undefined && (card.seller_rating_count || 0) > 0 && (
+              <div className="flex items-center gap-0.5 text-amber-400 font-bold text-[10px]">
+                <span>★</span>
+                <span>{card.seller_rating_avg.toFixed(1)}</span>
+              </div>
+            )}
           </div>
         </div>
 

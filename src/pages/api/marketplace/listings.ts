@@ -269,7 +269,7 @@ export const GET: APIRoute = async ({ url }) => {
 
       const prof = profileMap.get(sId);
       const ratingInfo = ratingsMap.get(sId);
-      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : 5.0;
+      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : null;
       const reviewCount = ratingInfo ? ratingInfo.count : 0;
       const itemsSold = salesCountMap.get(sId) || 0;
       const isOwner = sId === OWNER_ID || prof?.role === 'owner';
@@ -347,7 +347,7 @@ export const GET: APIRoute = async ({ url }) => {
 
       const prof = profileMap.get(row.user_id);
       const ratingInfo = ratingsMap.get(row.user_id);
-      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : 5.0;
+      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : null;
       const reviewCount = ratingInfo ? ratingInfo.count : 0;
 
       const isFoil = row.foil_copies > 0 && row.owned_copies === 0;

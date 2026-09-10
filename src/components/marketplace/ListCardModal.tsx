@@ -271,8 +271,11 @@ export function ListCardModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 mb-3.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 text-sm">
-              🏷️
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                <circle cx="7" cy="7" r="1" />
+              </svg>
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-black truncate" style={{ color: 'var(--text-primary)' }}>
@@ -290,7 +293,10 @@ export function ListCardModal({
             className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white transition cursor-pointer text-xs shrink-0"
             aria-label="Close"
           >
-            ✕
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -299,13 +305,19 @@ export function ListCardModal({
           {/* Feedback Messages */}
           {errorMsg && (
             <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-300 flex items-start gap-2">
-              <span className="shrink-0 text-sm">⚠️</span>
+              <svg className="w-4 h-4 shrink-0 text-red-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
               <span className="flex-1">{errorMsg}</span>
             </div>
           )}
           {successMsg && (
             <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-300 flex items-center gap-2">
-              <span>✓</span>
+              <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
               <span>{successMsg}</span>
             </div>
           )}
@@ -318,7 +330,12 @@ export function ListCardModal({
                   {lang === 'hu' ? '1. Kártya kiválasztása' : '1. Select Card'}
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-zinc-500 pointer-events-none text-xs">🔍</span>
+                  <span className="absolute left-3 top-2.5 text-zinc-500 pointer-events-none">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </span>
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -339,9 +356,12 @@ export function ListCardModal({
                     <button
                       type="button"
                       onClick={() => { setSearchQuery(''); setSearchResults([]); }}
-                      className="absolute right-2.5 top-2 text-xs text-zinc-400 hover:text-white"
+                      className="absolute right-2.5 top-2 text-zinc-400 hover:text-white"
                     >
-                      ✕
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
                     </button>
                   )}
                 </div>
@@ -481,7 +501,12 @@ export function ListCardModal({
                         : 'bg-transparent border-zinc-800 text-zinc-400 hover:bg-white/5'
                     }`}
                   >
-                    ✨ Foil
+                    <span className="inline-flex items-center justify-center gap-1">
+                      <svg className="w-3 h-3 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                      Foil
+                    </span>
                   </button>
                 </div>
               </div>
@@ -587,7 +612,10 @@ export function ListCardModal({
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs">📸</span>
+                  <svg className="w-3.5 h-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
                   <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                     {lang === 'hu' ? 'Állapotfotók' : 'Condition Photos'}
                   </span>
@@ -595,12 +623,20 @@ export function ListCardModal({
 
                 {isPriceAboveThreshold ? (
                   photos.length > 0 ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      ✓ {photos.length} {lang === 'hu' ? 'db fotó csatolva' : 'photo(s) attached'}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                      <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {photos.length} {lang === 'hu' ? 'db fotó csatolva' : 'photo(s) attached'}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                      ⚠️ {lang === 'hu' ? '5 000 Ft felett kötelező!' : 'Required over 5,000 HUF!'}
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1">
+                      <svg className="w-3 h-3 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      {lang === 'hu' ? '5 000 Ft felett kötelező!' : 'Required over 5,000 HUF!'}
                     </span>
                   )
                 ) : (
@@ -631,7 +667,10 @@ export function ListCardModal({
                         className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/80 hover:bg-red-600 text-white flex items-center justify-center text-[9px] transition cursor-pointer"
                         title="Remove photo"
                       >
-                        ✕
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                       </button>
                       <div className="absolute bottom-0 inset-x-0 bg-black/60 text-[8px] text-center font-mono py-0.5 text-zinc-300">
                         #{idx + 1}
@@ -669,7 +708,10 @@ export function ListCardModal({
                   </>
                 ) : (
                   <>
-                    <span>📷</span>
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
                     <span>
                       {photos.length > 0
                         ? (lang === 'hu' ? '+ További fotó hozzáadása' : '+ Add More Photos')
@@ -709,12 +751,18 @@ export function ListCardModal({
               </>
             ) : isMissingRequiredPhoto ? (
               <>
-                <span>⚠️</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
                 <span>{lang === 'hu' ? 'Fotó kötelező (>5 000 Ft)' : 'Photo required (>5k HUF)'}</span>
               </>
             ) : (
               <>
-                <span>✓</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
                 <span>{lang === 'hu' ? 'Hirdetés közzététele' : 'Publish Listing'}</span>
               </>
             )}

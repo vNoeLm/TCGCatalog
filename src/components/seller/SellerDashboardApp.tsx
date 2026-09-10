@@ -6,7 +6,7 @@ import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { AuthModal } from '../auth/AuthModal';
-import { getCollectorTier, getSellerTier, formatGameTitle, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
 
@@ -302,8 +302,8 @@ export function SellerDashboardApp() {
     return listings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity || 1)), 0);
   }, [listings]);
 
-  const averageRating = useMemo(() => {
-    if (sellerReviews.length === 0) return 5.0;
+  const averageRating = useMemo<number | null>(() => {
+    if (sellerReviews.length === 0) return null;
     const total = sellerReviews.reduce((sum, r) => sum + r.rating, 0);
     return total / sellerReviews.length;
   }, [sellerReviews]);
@@ -348,8 +348,10 @@ export function SellerDashboardApp() {
           className="max-w-md mx-auto my-12 p-8 text-center rounded-2xl shadow-xl border"
           style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
         >
-          <div className="w-16 h-16 rounded-2xl inline-flex items-center justify-center mb-4 border text-3xl" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-            🏪
+          <div className="w-16 h-16 rounded-2xl inline-flex items-center justify-center mb-4 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--accent)' }}>
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
+            </svg>
           </div>
           <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
             {lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}
@@ -381,7 +383,9 @@ export function SellerDashboardApp() {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/50 text-emerald-300 font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
-          <span>✓</span>
+          <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -431,14 +435,22 @@ export function SellerDashboardApp() {
                 {profile.email}
               </div>
               <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                <span className="flex items-center gap-1 text-amber-400 font-bold">
-                  <span>★</span>
-                  <span>{averageRating.toFixed(1)}</span>
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>•</span>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  {sellerReviews.length} {sellerReviews.length === 1 ? (lang === 'hu' ? 'értékelés' : 'review') : (lang === 'hu' ? 'értékelés' : 'reviews')}
-                </span>
+                {averageRating !== null ? (
+                  <>
+                    <span className="flex items-center gap-1 text-amber-400 font-bold">
+                      <span>★</span>
+                      <span>{averageRating.toFixed(1)}</span>
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>•</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      {sellerReviews.length} {lang === 'hu' ? 'értékelés' : 'reviews'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-zinc-400 font-medium">
+                    {lang === 'hu' ? 'Még nincs értékelés' : 'No ratings yet'}
+                  </span>
+                )}
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span className="text-emerald-400 font-semibold">
                   {itemsSold} {lang === 'hu' ? 'eladott lap' : 'cards sold'}
@@ -454,7 +466,9 @@ export function SellerDashboardApp() {
               onClick={() => setIsListModalOpen(true)}
               className="px-5 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
             >
-              <span className="text-base">🏷️</span>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+              </svg>
               <span>{lang === 'hu' ? '+ Új kártya hirdetése' : '+ List New Card'}</span>
             </button>
             <a
@@ -466,7 +480,9 @@ export function SellerDashboardApp() {
                 color: 'var(--text-secondary)',
               }}
             >
-              <span>🤝</span>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
               <span>{lang === 'hu' ? 'Piactér böngészése' : 'Browse Marketplace'}</span>
             </a>
           </div>
@@ -485,7 +501,9 @@ export function SellerDashboardApp() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{sellerTier.icon}</span>
+                  <span className="flex items-center" style={{ color: sellerTier.color }}>
+                    <BadgeIconSvg iconType={sellerTier.iconType} className="w-5 h-5" />
+                  </span>
                   <span className="text-sm font-black" style={{ color: sellerTier.color }}>
                     {lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}
                   </span>
@@ -502,7 +520,7 @@ export function SellerDashboardApp() {
                   ? (lang === 'hu' ? 'Hivatalos áruház tulajdonos és platform alapító.' : 'Official store owner and platform founder.')
                   : itemsSold >= 1
                   ? (lang === 'hu' ? `Kiváló közösségi eladó ${itemsSold} sikeres tranzakcióval.` : `Verified community seller with ${itemsSold} successful cards sold.`)
-                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "⭐ Hitelesített Eladó" rang feloldásához!' : 'Sell at least 1 card to unlock the "⭐ Verified Seller" badge!')}
+                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "Hitelesített Eladó" rang feloldásához!' : 'Sell at least 1 card to unlock the "Verified Seller" badge!')}
               </p>
             </div>
 
@@ -542,33 +560,29 @@ export function SellerDashboardApp() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{collectorTier.icon}</span>
+                  <span className="flex items-center" style={{ color: collectorTier.color }}>
+                    <BadgeIconSvg iconType={collectorTier.iconType} className="w-5 h-5" />
+                  </span>
                   <span className="text-sm font-black" style={{ color: collectorTier.color }}>
                     {lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}
                   </span>
                 </div>
 
-                {/* Game Switcher Tabs for Collector Badges */}
-                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/30 border border-white/5 text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setActiveBadgeGame('riftbound')}
-                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
-                      activeBadgeGame === 'riftbound' ? 'bg-amber-500 text-black font-black' : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Riftbound
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveBadgeGame('cyberpunk')}
-                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
-                      activeBadgeGame === 'cyberpunk' ? 'bg-cyan-400 text-black font-black' : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Cyberpunk
-                  </button>
-                </div>
+                {/* Game Switcher Dropdown for Collector Badges */}
+                <select
+                  value={activeBadgeGame}
+                  onChange={(e) => setActiveBadgeGame(e.target.value as 'riftbound' | 'cyberpunk')}
+                  aria-label={lang === 'hu' ? 'Játék kiválasztása' : 'Select Game'}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition outline-none cursor-pointer border shadow-sm"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <option value="riftbound">Riftbound</option>
+                  <option value="cyberpunk">Cyberpunk</option>
+                </select>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                 {lang === 'hu'
@@ -584,7 +598,7 @@ export function SellerDashboardApp() {
                   {lang === 'hu' ? 'Gyűjtői teljesítés:' : 'Catalog Completion:'}
                 </span>
                 <span className="font-mono font-black" style={{ color: collectorTier.color }}>
-                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? '🌌 MAX' : `(Cél: ${collectorTier.nextTierMin}%)`}
+                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? 'MAX (100%)' : `(Cél: ${collectorTier.nextTierMin}%)`}
                 </span>
               </div>
               <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
@@ -625,8 +639,9 @@ export function SellerDashboardApp() {
           <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
             {itemsSold} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
           </div>
-          <div className="text-[10px] mt-1 text-emerald-400 font-semibold">
-            {sellerTier.icon} {lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}
+          <div className="text-[10px] mt-1 text-emerald-400 font-semibold flex items-center gap-1">
+            <BadgeIconSvg iconType={sellerTier.iconType} className="w-3.5 h-3.5" />
+            <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
           </div>
         </div>
 
@@ -648,8 +663,11 @@ export function SellerDashboardApp() {
           <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
             {lang === 'hu' ? 'Összes megtekintés' : 'Total Views'}
           </div>
-          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate flex items-center gap-1">
-            <span>👁️</span>
+          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate flex items-center gap-1.5">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
             <span>{totalViews}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -662,8 +680,10 @@ export function SellerDashboardApp() {
           <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
             {lang === 'hu' ? 'Összes kattintás' : 'Total Clicks'}
           </div>
-          <div className="text-lg sm:text-xl font-black text-pink-400 truncate flex items-center gap-1">
-            <span>🖱️</span>
+          <div className="text-lg sm:text-xl font-black text-pink-400 truncate flex items-center gap-1.5">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+            </svg>
             <span>{totalClicks}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -678,10 +698,12 @@ export function SellerDashboardApp() {
           </div>
           <div className="text-lg sm:text-xl font-black text-amber-300 truncate flex items-center gap-1">
             <span>★</span>
-            <span>{averageRating.toFixed(1)}</span>
+            <span>{averageRating !== null ? averageRating.toFixed(1) : '—'}</span>
           </div>
           <div className="text-[10px] mt-1 text-zinc-400">
-            {sellerReviews.length} {lang === 'hu' ? 'vásárlói vélemény' : 'buyer reviews'}
+            {sellerReviews.length > 0
+              ? `${sellerReviews.length} ${lang === 'hu' ? 'vásárlói vélemény' : 'buyer reviews'}`
+              : (lang === 'hu' ? 'Még nincs értékelés' : 'No ratings yet')}
           </div>
         </div>
       </div>
@@ -697,7 +719,9 @@ export function SellerDashboardApp() {
               : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
-          <span>🏷️</span>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+          </svg>
           <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({listings.length})</span>
         </button>
 
@@ -710,7 +734,9 @@ export function SellerDashboardApp() {
               : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
-          <span>📊</span>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
           <span>{lang === 'hu' ? 'Statisztikák és kattintások' : 'Post Stats & Clicks'}</span>
         </button>
 
@@ -723,7 +749,9 @@ export function SellerDashboardApp() {
               : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
-          <span>📦</span>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
           <span>{lang === 'hu' ? 'Eladási előzmények' : 'Sales History'} ({sellerOrders.length})</span>
         </button>
 
@@ -763,8 +791,11 @@ export function SellerDashboardApp() {
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="absolute right-3 top-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                  aria-label="Clear search"
                 >
-                  ✕
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -780,7 +811,11 @@ export function SellerDashboardApp() {
             </div>
           ) : filteredListings.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <span className="text-4xl block mb-2">🏷️</span>
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+                </svg>
+              </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {searchQuery
                   ? (lang === 'hu' ? 'Nem található ilyen hirdetés' : 'No matching listings found')
@@ -818,8 +853,12 @@ export function SellerDashboardApp() {
                         <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
                       )}
                       {item.inventory_images && item.inventory_images.length > 0 && (
-                        <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow">
-                          📸 {item.inventory_images.length}
+                        <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow flex items-center gap-0.5">
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <circle cx="12" cy="13" r="3" />
+                          </svg>
+                          <span>{item.inventory_images.length}</span>
                         </span>
                       )}
                     </div>
@@ -850,11 +889,16 @@ export function SellerDashboardApp() {
                   <div className="pt-2.5 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1 text-cyan-400 font-semibold text-[11px]" title="Views">
-                        <span>👁️</span>
+                        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
                         <span>{item.views || 0}</span>
                       </span>
                       <span className="flex items-center gap-1 text-pink-400 font-semibold text-[11px]" title="Clicks">
-                        <span>🖱️</span>
+                        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                        </svg>
                         <span>{item.clicks || 0}</span>
                       </span>
                       <span className="text-[10px] text-zinc-500 font-mono">
@@ -910,8 +954,23 @@ export function SellerDashboardApp() {
                   <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
                     <th className="py-2.5 px-3">{lang === 'hu' ? 'Kártya' : 'Card'}</th>
                     <th className="py-2.5 px-3">{lang === 'hu' ? 'Ár' : 'Price'}</th>
-                    <th className="py-2.5 px-3 text-center">👁️ {lang === 'hu' ? 'Megtekintés' : 'Views'}</th>
-                    <th className="py-2.5 px-3 text-center">🖱️ {lang === 'hu' ? 'Kattintás' : 'Clicks'}</th>
+                    <th className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>{lang === 'hu' ? 'Megtekintés' : 'Views'}</span>
+                      </span>
+                    </th>
+                    <th className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center gap-1 justify-center">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                        </svg>
+                        <span>{lang === 'hu' ? 'Kattintás' : 'Clicks'}</span>
+                      </span>
+                    </th>
                     <th className="py-2.5 px-3 text-center">{lang === 'hu' ? 'Kattintási arány (CTR)' : 'CTR'}</th>
                     <th className="py-2.5 px-3 text-right">{lang === 'hu' ? 'Állapot' : 'Status'}</th>
                   </tr>
@@ -978,7 +1037,11 @@ export function SellerDashboardApp() {
             </div>
           ) : sellerOrders.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <span className="text-4xl block mb-2">📦</span>
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {lang === 'hu' ? 'Még nincs eladási előzményed' : 'No sales recorded yet'}
               </div>
@@ -1104,8 +1167,11 @@ export function SellerDashboardApp() {
                 type="button"
                 onClick={() => setEditingListing(null)}
                 className="text-xs text-zinc-400 hover:text-white cursor-pointer"
+                aria-label="Close"
               >
-                ✕
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 

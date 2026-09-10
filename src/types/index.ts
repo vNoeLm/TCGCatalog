@@ -50,7 +50,7 @@ export interface InventoryCard {
   seller_name?: string;
   seller_avatar?: string | null;
   seller_role?: UserRole;
-  seller_rating_avg?: number;
+  seller_rating_avg?: number | null;
   seller_rating_count?: number;
   is_marketplace_listing?: boolean;
   views?: number;
@@ -217,7 +217,7 @@ export interface SellerProfileSummary {
   display_name: string | null;
   avatar_url: string | null;
   role: UserRole;
-  rating_avg: number;
+  rating_avg: number | null;
   rating_count: number;
   sales_count?: number;
   is_owner?: boolean;

@@ -274,7 +274,9 @@ export function Navigation({ currentPath }: NavigationProps) {
                       e.currentTarget.style.color = 'var(--text-secondary)';
                     }}
                   >
-                    <span className="text-sm">🏪</span>
+                    <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
+                    </svg>
                     <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
                   </a>
 
@@ -559,7 +561,9 @@ export function Navigation({ currentPath }: NavigationProps) {
                   }
                 >
                   <span className="flex items-center gap-1.5">
-                    <span>🏪</span>
+                    <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
+                    </svg>
                     <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
                   </span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>

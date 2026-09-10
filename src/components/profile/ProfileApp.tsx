@@ -11,7 +11,7 @@ import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { getCardImageUrl } from '../../lib/supabase';
-import { getCollectorTier, getSellerTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg } from '../../lib/badges';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -238,7 +238,7 @@ export function ProfileApp() {
         showToast(`Error: ${error.message || 'Could not submit review'}`);
       } else if (review) {
         setReviewsByOrder(prev => ({ ...prev, [ratingModalOrder.order_number]: review }));
-        showToast(lang === 'hu' ? '✓ Köszönjük az értékelést!' : '✓ Thank you for rating the seller!');
+        showToast(lang === 'hu' ? 'Köszönjük az értékelést!' : 'Thank you for rating the seller!');
         setRatingModalOrder(null);
         setReviewComment('');
         setSelectedRating(5);
@@ -391,7 +391,7 @@ export function ProfileApp() {
 
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
   const sellerTier = useMemo(() => {
-    return getSellerTier(sellerSalesCount, 5.0, isOwner);
+    return getSellerTier(sellerSalesCount, null, isOwner);
   }, [sellerSalesCount, isOwner]);
 
   const collectorTier = useMemo(() => {
@@ -525,7 +525,10 @@ export function ProfileApp() {
             <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>⇄</span>
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
             {themeMode === 'auto' && (
-              <span className="ml-auto text-xs font-bold" style={{ color: 'var(--accent)' }}>✓ Active</span>
+              <span className="ml-auto text-xs font-bold flex items-center gap-1" style={{ color: 'var(--accent)' }}>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                Active
+              </span>
             )}
           </div>
         </button>
@@ -563,7 +566,10 @@ export function ProfileApp() {
             <span className="w-3 h-3 rounded-full bg-[#fcee0a] shadow-[0_0_8px_rgba(252,238,10,0.8)]" />
             <span className="text-xs font-bold text-[#fcee0a]">#07080a • #fcee0a</span>
             {themeMode === 'cyberpunk' && (
-              <span className="ml-auto text-xs font-bold text-[#fcee0a]">✓ Active</span>
+              <span className="ml-auto text-xs font-bold text-[#fcee0a] flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                Active
+              </span>
             )}
           </div>
         </button>
@@ -601,7 +607,10 @@ export function ProfileApp() {
             <span className="w-3 h-3 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
             <span className="text-xs font-bold text-[#fbbf24]">#040914 • #f59e0b</span>
             {themeMode === 'riftbound' && (
-              <span className="ml-auto text-xs font-bold text-[#fbbf24]">✓ Active</span>
+              <span className="ml-auto text-xs font-bold text-[#fbbf24] flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                Active
+              </span>
             )}
           </div>
         </button>
@@ -637,7 +646,10 @@ export function ProfileApp() {
             <span className="w-3 h-3 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
             <span className="text-xs font-bold text-[#60a5fa]">#090a0f • #3b82f6</span>
             {themeMode === 'dark' && (
-              <span className="ml-auto text-xs font-bold text-[#60a5fa]">✓ Active</span>
+              <span className="ml-auto text-xs font-bold text-[#60a5fa] flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                Active
+              </span>
             )}
           </div>
         </button>
@@ -802,30 +814,39 @@ export function ProfileApp() {
             </div>
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               {profile.is_owner || profile.role === 'owner' ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
-                  <span>👑</span> {t('platform_owner', lang)}
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                  </svg>
+                  <span>{t('platform_owner', lang)}</span>
                 </span>
               ) : profile.is_admin || profile.role === 'admin' ? (
                 <span 
-                  className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
                   style={{
                     background: 'var(--accent-muted)',
                     borderColor: 'var(--accent-border)',
                     color: 'var(--text-accent)'
                   }}
                 >
-                  <span>🛡️</span> {t('store_admin', lang)}
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                  <span>{t('store_admin', lang)}</span>
                 </span>
               ) : (
                 <span 
-                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-md border"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-md border"
                   style={{
                     background: 'var(--bg-surface-2)',
                     borderColor: 'var(--border-subtle)',
                     color: 'var(--text-secondary)'
                   }}
                 >
-                  <span>👤</span> {t('collector', lang)}
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>{t('collector', lang)}</span>
                 </span>
               )}
 
@@ -836,7 +857,7 @@ export function ProfileApp() {
                 style={sellerTier.badgeStyle}
                 title={lang === 'hu' ? `${sellerTier.nameHu} — Kattints az irányítópulthoz` : `${sellerTier.nameEn} — Click for Seller Dashboard`}
               >
-                <span>{sellerTier.icon}</span>
+                <BadgeIconSvg iconType={sellerTier.iconType} className="w-3 h-3" />
                 <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
               </a>
 
@@ -846,7 +867,7 @@ export function ProfileApp() {
                 style={collectorTier.badgeStyle}
                 title={lang === 'hu' ? `${collectorTier.nameHu} (${collectorTier.ownedCount}/${collectorTier.totalCount} lap)` : `${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
               >
-                <span>{collectorTier.icon}</span>
+                <BadgeIconSvg iconType={collectorTier.iconType} className="w-3 h-3" />
                 <span>{lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}</span>
                 <span className="text-[10px] opacity-75 font-mono">({collectorTier.percentage}%)</span>
               </span>
@@ -864,7 +885,9 @@ export function ProfileApp() {
               color: 'var(--text-primary)'
             }}
           >
-            <span>🏪</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
+            </svg>
             <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
           </a>
           {profile.is_admin && (
@@ -902,7 +925,9 @@ export function ProfileApp() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <span>🤝</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
               <span>{lang === 'hu' ? 'Saját Piactéri Hirdetéseim' : 'My Marketplace Listings'}</span>
               <span 
                 className="text-xs font-bold px-2 py-0.5 rounded-full border"
@@ -927,7 +952,9 @@ export function ProfileApp() {
             onClick={() => setIsListModalOpen(true)}
             className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-md flex items-center gap-2 self-start sm:self-auto bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
           >
-            <span className="text-base">🏷️</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+            </svg>
             <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
           </button>
         </div>
@@ -950,8 +977,11 @@ export function ProfileApp() {
               <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                 {lang === 'hu' ? 'Megtekintések' : 'Total Views'}
               </div>
-              <div className="text-xl font-black text-cyan-400 flex items-center gap-1">
-                <span>👁️</span>
+              <div className="text-xl font-black text-cyan-400 flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
                 <span>{myListingsTotalViews}</span>
               </div>
             </div>
@@ -959,8 +989,10 @@ export function ProfileApp() {
               <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                 {lang === 'hu' ? 'Kattintások' : 'Total Clicks'}
               </div>
-              <div className="text-xl font-black text-pink-400 flex items-center gap-1">
-                <span>🖱️</span>
+              <div className="text-xl font-black text-pink-400 flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                </svg>
                 <span>{myListingsTotalClicks}</span>
               </div>
             </div>
@@ -970,7 +1002,9 @@ export function ProfileApp() {
             href="/seller"
             className="px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-md flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 hover:opacity-90 active:scale-95 shrink-0"
           >
-            <span>🏪</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
+            </svg>
             <span>{lang === 'hu' ? 'Megnyitás: Eladói Irányítópult →' : 'Open: Seller Dashboard →'}</span>
           </a>
         </div>
@@ -985,7 +1019,11 @@ export function ProfileApp() {
             className="p-8 sm:p-10 rounded-2xl border text-center shadow-sm"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
-            <span className="text-3xl block mb-2">🏷️</span>
+            <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+              </svg>
+            </div>
             <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
               {lang === 'hu' ? 'Még nem adtál fel hirdetést a piactéren' : 'No active marketplace listings yet'}
             </div>
@@ -1021,8 +1059,12 @@ export function ProfileApp() {
                       <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
                     )}
                     {item.inventory_images && item.inventory_images.length > 0 && (
-                      <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow" title="Physical condition photos attached">
-                        📸 {item.inventory_images.length}
+                      <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow flex items-center gap-0.5" title="Physical condition photos attached">
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                        <span>{item.inventory_images.length}</span>
                       </span>
                     )}
                   </div>
@@ -1044,12 +1086,17 @@ export function ProfileApp() {
                       <span className="text-[10px] text-zinc-400">
                         ({item.quantity} {lang === 'hu' ? 'db' : 'pcs'})
                       </span>
-                      <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-0.5" title="Views">
-                        <span>👁️</span>
+                      <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1" title="Views">
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
                         <span>{item.views || 0}</span>
                       </span>
-                      <span className="text-[10px] text-pink-400 font-mono flex items-center gap-0.5" title="Clicks">
-                        <span>🖱️</span>
+                      <span className="text-[10px] text-pink-400 font-mono flex items-center gap-1" title="Clicks">
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                        </svg>
                         <span>{item.clicks || 0}</span>
                       </span>
                     </div>
@@ -1454,8 +1501,9 @@ export function ProfileApp() {
                         ) : (
                           <>
                             <div>
-                              <span className="font-bold text-emerald-400">
-                                ✓ {lang === 'hu' ? 'A rendelés kézbesítve!' : 'Order delivered!'}
+                              <span className="font-bold text-emerald-400 inline-flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                                {lang === 'hu' ? 'A rendelés kézbesítve!' : 'Order delivered!'}
                               </span>
                               <span className="text-[11px] text-zinc-400 ml-2">
                                 {lang === 'hu' ? 'Oszd meg a tapasztalatodat az eladóról.' : 'Share your feedback about the seller.'}
@@ -1612,17 +1660,17 @@ export function ProfileApp() {
                   {(() => {
                     const r = hoverRating || selectedRating;
                     if (lang === 'hu') {
-                      if (r === 5) return '🤩 5 / 5 - Kiváló élmény!';
-                      if (r === 4) return '🙂 4 / 5 - Nagyon jó!';
-                      if (r === 3) return '😐 3 / 5 - Átlagos';
-                      if (r === 2) return '🙁 2 / 5 - Nem volt az igazi';
-                      return '😠 1 / 5 - Pocsék';
+                      if (r === 5) return '5 / 5 - Kiváló élmény!';
+                      if (r === 4) return '4 / 5 - Nagyon jó!';
+                      if (r === 3) return '3 / 5 - Átlagos';
+                      if (r === 2) return '2 / 5 - Nem volt az igazi';
+                      return '1 / 5 - Pocsék';
                     }
-                    if (r === 5) return '🤩 5 / 5 - Excellent service!';
-                    if (r === 4) return '🙂 4 / 5 - Very good!';
-                    if (r === 3) return '😐 3 / 5 - Average';
-                    if (r === 2) return '🙁 2 / 5 - Poor experience';
-                    return '😠 1 / 5 - Terrible';
+                    if (r === 5) return '5 / 5 - Excellent service!';
+                    if (r === 4) return '4 / 5 - Very good!';
+                    if (r === 3) return '3 / 5 - Average';
+                    if (r === 2) return '2 / 5 - Poor experience';
+                    return '1 / 5 - Terrible';
                   })()}
                 </div>
               </div>

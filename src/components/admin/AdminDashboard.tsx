@@ -363,7 +363,7 @@ export function AdminDashboard() {
     try {
       const res = await reconcileOwnerPlaysets();
       if (res.error) throw res.error;
-      alert(`✓ Playset & Surplus Reconciliation complete!\nChecked ${res.checkedCards} cards in your collection.\nActive store surplus: ${res.surplusCards} unique cards (${res.totalForSale} copies total).`);
+      alert(`Playset & Surplus Reconciliation complete!\nChecked ${res.checkedCards} cards in your collection.\nActive store surplus: ${res.surplusCards} unique cards (${res.totalForSale} copies total).`);
       await loadInventory(0, false);
     } catch (e: any) {
       alert(`Error during reconciliation: ${e.message || 'Unknown error'}`);
@@ -567,7 +567,10 @@ export function AdminDashboard() {
         {/* Row 1: Official Store & Order Volume */}
         <div>
           <div className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
-            <span>🏪</span>
+            <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
             <span>Official Store & Fulfillment Metrics</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -606,7 +609,12 @@ export function AdminDashboard() {
         {/* Row 2: Community Marketplace & Sellers */}
         <div>
           <div className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
-            <span>🤝</span>
+            <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
             <span>Community Marketplace & Seller Metrics</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -633,8 +641,20 @@ export function AdminDashboard() {
             <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Views & Clicks Engagement</span>
               <div className="text-xl sm:text-2xl font-black mt-0.5 flex items-center gap-3">
-                <span className="text-cyan-400 flex items-center gap-1 text-lg sm:text-xl">👁️ {marketplaceStats.views}</span>
-                <span className="text-pink-400 flex items-center gap-1 text-lg sm:text-xl">🖱️ {marketplaceStats.clicks}</span>
+                <span className="text-cyan-400 flex items-center gap-1.5 text-lg sm:text-xl">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  {marketplaceStats.views}
+                </span>
+                <span className="text-pink-400 flex items-center gap-1.5 text-lg sm:text-xl">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M15 15l-2 5-9-9 9-2 2 6z" />
+                    <path d="M12 12l5 5" />
+                  </svg>
+                  {marketplaceStats.clicks}
+                </span>
               </div>
               <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
                 {marketplaceStats.views > 0 ? `${(((marketplaceStats.clicks) / marketplaceStats.views) * 100).toFixed(1)}% CTR` : '0% CTR'}

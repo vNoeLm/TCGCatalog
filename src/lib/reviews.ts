@@ -128,7 +128,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
 
   const reviews = await fetchSellerReviews(targetId);
   const ratingCount = reviews.length;
-  let ratingAvg = 5.0; // default initial score for new verified sellers
+  let ratingAvg: number | null = null;
 
   if (ratingCount > 0) {
     const sum = reviews.reduce((acc, r) => acc + r.rating, 0);

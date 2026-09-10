@@ -4,7 +4,7 @@ import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
-import { getSellerTier } from '../lib/badges';
+import { getSellerTier, BadgeIconSvg } from '../lib/badges';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
@@ -917,7 +917,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       color: 'var(--text-accent)'
                     }}
                   >
-                    ✓ {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} {t('total_copies', lang)}
+                    <span className="inline-flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                      {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} {t('total_copies', lang)}
+                    </span>
                   </span>
                 )}
               </div>
@@ -1228,30 +1231,36 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </span>
                     {(() => {
                       const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
-                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_items_sold || 0, sellerSummary?.rating_avg || 5.0, isOwner);
+                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_items_sold || 0, sellerSummary?.rating_avg ?? null, isOwner);
                       return (
                         <span
                           className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
                           style={tier.badgeStyle}
                           title={lang === 'hu' ? tier.nameHu : tier.nameEn}
                         >
-                          <span>{tier.icon}</span>
+                          <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
                           <span>{lang === 'hu' ? tier.nameHu : tier.nameEn}</span>
                         </span>
                       );
                     })()}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    <div className="flex items-center gap-1 text-amber-400 font-bold">
-                      <span>★</span>
-                      <span>{sellerSummary ? sellerSummary.rating_avg.toFixed(1) : '5.0'}</span>
-                    </div>
-                    <span>•</span>
-                    <span>
-                      {sellerSummary && sellerSummary.rating_count > 0
-                        ? `${sellerSummary.rating_count} ${sellerSummary.rating_count === 1 ? (lang === 'hu' ? 'értékelés' : 'rating') : (lang === 'hu' ? 'értékelés' : 'ratings')}`
-                        : (lang === 'hu' ? 'Új eladó' : 'New Seller')}
-                    </span>
+                    {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
+                      <>
+                        <div className="flex items-center gap-1 text-amber-400 font-bold">
+                          <span>★</span>
+                          <span>{sellerSummary.rating_avg.toFixed(1)}</span>
+                        </div>
+                        <span>•</span>
+                        <span>
+                          {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? (lang === 'hu' ? 'értékelés' : 'rating') : (lang === 'hu' ? 'értékelés' : 'ratings')}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-zinc-400 text-[11px]">
+                        {lang === 'hu' ? 'Új eladó (Még nincs értékelés)' : 'New Seller (No ratings yet)'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1350,7 +1359,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
                   title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
                 >
-                  <span>🏷️</span>
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+                  </svg>
                   <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
                 </button>
                 <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
@@ -1372,7 +1383,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
                 title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
               >
-                <span>🏷️</span>
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+                </svg>
                 <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
               </button>
               <PriceChartingButton card={card} lang={lang} />

@@ -253,7 +253,12 @@ export function MarketplaceApp() {
                 color: 'var(--text-accent)'
               }}
             >
-              🤝
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
             </div>
 
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border bg-amber-500/10 border-amber-500/30 text-amber-300">
@@ -313,7 +318,12 @@ export function MarketplaceApp() {
       >
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-2xl">🤝</span>
+            <svg className="w-6 h-6 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
             <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
               {lang === 'hu' ? 'Közösségi Piactér' : 'Community Marketplace'}
             </h1>
@@ -340,7 +350,10 @@ export function MarketplaceApp() {
             onClick={() => setIsListModalOpen(true)}
             className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
           >
-            <span className="text-base">🏷️</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+              <circle cx="7" cy="7" r="1" />
+            </svg>
             <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
           </button>
         </div>
@@ -404,7 +417,11 @@ export function MarketplaceApp() {
                           }`}
                         >
                           <span>{mode}</span>
-                          {sortMode === mode && <span>✓</span>}
+                          {sortMode === mode && (
+                            <svg className="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -448,7 +465,13 @@ export function MarketplaceApp() {
               className="rounded-3xl p-12 text-center border shadow-sm"
               style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
             >
-              <span className="text-4xl block mb-3">📦</span>
+              <div className="w-14 h-14 rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center mx-auto mb-3 text-zinc-400">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+              </div>
               <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {lang === 'hu' ? 'Nincs találat a piactéren' : 'No marketplace listings found'}
               </h3>

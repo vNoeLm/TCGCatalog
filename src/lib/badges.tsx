@@ -1,4 +1,7 @@
+import React from 'react';
 import type { Language } from './i18n';
+
+export type BadgeIconType = 'sparkle' | 'crown' | 'gem' | 'award' | 'shield' | 'star' | 'verified' | 'leaf';
 
 export interface CollectorTier {
   tier: number;
@@ -7,6 +10,7 @@ export interface CollectorTier {
   nameEn: string;
   nameHu: string;
   icon: string;
+  iconType: BadgeIconType;
   percentage: number;
   ownedCount: number;
   totalCount: number;
@@ -23,10 +27,11 @@ export interface SellerTier {
   nameEn: string;
   nameHu: string;
   icon: string;
+  iconType: BadgeIconType;
   itemsSold: number;
   minSales: number;
   nextTierSales: number;
-  ratingAvg: number;
+  ratingAvg: number | null;
   isOwner: boolean;
   color: string;
   bg: string;
@@ -61,7 +66,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Mythic ${gameTitle} Completionist`,
       nameHu: `Mitikus ${gameTitle} Teljesítő (100%)`,
-      icon: '🌌',
+      icon: '★',
+      iconType: 'sparkle',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -86,7 +92,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Master ${gameTitle} Collector`,
       nameHu: `Mester ${gameTitle} Gyűjtő`,
-      icon: '👑',
+      icon: '★',
+      iconType: 'crown',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -111,7 +118,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Diamond ${gameTitle} Collector`,
       nameHu: `Gyémánt ${gameTitle} Gyűjtő`,
-      icon: '💎',
+      icon: '★',
+      iconType: 'gem',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -136,7 +144,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Gold ${gameTitle} Collector`,
       nameHu: `Arany ${gameTitle} Gyűjtő`,
-      icon: '🥇',
+      icon: '★',
+      iconType: 'award',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -160,7 +169,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Silver ${gameTitle} Collector`,
       nameHu: `Ezüst ${gameTitle} Gyűjtő`,
-      icon: '🥈',
+      icon: '★',
+      iconType: 'shield',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -184,7 +194,8 @@ export function getCollectorTier(
       gameTitle,
       nameEn: `Bronze ${gameTitle} Collector`,
       nameHu: `Bronz ${gameTitle} Gyűjtő`,
-      icon: '🥉',
+      icon: '★',
+      iconType: 'star',
       percentage,
       ownedCount: owned,
       totalCount: total,
@@ -207,7 +218,8 @@ export function getCollectorTier(
     gameTitle,
     nameEn: `Novice ${gameTitle} Collector`,
     nameHu: `Kezdő ${gameTitle} Gyűjtő`,
-    icon: '🌱',
+    icon: '★',
+    iconType: 'leaf',
     percentage,
     ownedCount: owned,
     totalCount: total,
@@ -230,7 +242,7 @@ export function getCollectorTier(
  */
 export function getSellerTier(
   itemsSold: number = 0,
-  ratingAvg: number = 5.0,
+  ratingAvg: number | null = null,
   isOwner: boolean = false
 ): SellerTier {
   const sold = Math.max(0, itemsSold);
@@ -240,7 +252,8 @@ export function getSellerTier(
       tier: 99,
       nameEn: 'Store Founder',
       nameHu: 'Boltalapító',
-      icon: '👑',
+      icon: '★',
+      iconType: 'crown',
       itemsSold: sold,
       minSales: 0,
       nextTierSales: 0,
@@ -263,7 +276,8 @@ export function getSellerTier(
       tier: 5,
       nameEn: 'Diamond Merchant',
       nameHu: 'Gyémánt Kereskedő',
-      icon: '💎',
+      icon: '★',
+      iconType: 'gem',
       itemsSold: sold,
       minSales: 100,
       nextTierSales: 100,
@@ -286,7 +300,8 @@ export function getSellerTier(
       tier: 4,
       nameEn: 'Gold Merchant',
       nameHu: 'Arany Kereskedő',
-      icon: '🥇',
+      icon: '★',
+      iconType: 'award',
       itemsSold: sold,
       minSales: 50,
       nextTierSales: 100,
@@ -308,7 +323,8 @@ export function getSellerTier(
       tier: 3,
       nameEn: 'Silver Merchant',
       nameHu: 'Ezüst Kereskedő',
-      icon: '🥈',
+      icon: '★',
+      iconType: 'shield',
       itemsSold: sold,
       minSales: 20,
       nextTierSales: 50,
@@ -330,7 +346,8 @@ export function getSellerTier(
       tier: 2,
       nameEn: 'Bronze Merchant',
       nameHu: 'Bronz Kereskedő',
-      icon: '🥉',
+      icon: '★',
+      iconType: 'star',
       itemsSold: sold,
       minSales: 5,
       nextTierSales: 20,
@@ -352,7 +369,8 @@ export function getSellerTier(
       tier: 1,
       nameEn: 'Verified Seller',
       nameHu: 'Hitelesített Eladó',
-      icon: '⭐',
+      icon: '★',
+      iconType: 'verified',
       itemsSold: sold,
       minSales: 1,
       nextTierSales: 5,
@@ -374,7 +392,8 @@ export function getSellerTier(
     tier: 0,
     nameEn: 'New Seller',
     nameHu: 'Új Eladó',
-    icon: '🌱',
+    icon: '★',
+    iconType: 'leaf',
     itemsSold: 0,
     minSales: 0,
     nextTierSales: 1,
@@ -393,4 +412,69 @@ export function getSellerTier(
 
 export function getTierBadgeLabel(badge: CollectorTier | SellerTier, lang: Language): string {
   return lang === 'hu' ? badge.nameHu : badge.nameEn;
+}
+
+/**
+ * Renders an inline SVG icon for badge tiers without Unicode emojis.
+ */
+export function BadgeIconSvg({ iconType, className = 'w-4 h-4' }: { iconType?: BadgeIconType; className?: string }) {
+  switch (iconType) {
+    case 'crown':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+        </svg>
+      );
+    case 'sparkle':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z" />
+        </svg>
+      );
+    case 'gem':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="6 3 18 3 22 9 12 22 2 9 6 3" />
+          <line x1="11" y1="3" x2="8" y2="9" />
+          <line x1="13" y1="3" x2="16" y2="9" />
+          <line x1="2" y1="9" x2="22" y2="9" />
+          <line x1="12" y1="22" x2="8" y2="9" />
+          <line x1="12" y1="22" x2="16" y2="9" />
+        </svg>
+      );
+    case 'award':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="6" />
+          <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+        </svg>
+      );
+    case 'shield':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
+    case 'verified':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case 'leaf':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+        </svg>
+      );
+    case 'star':
+    default:
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      );
+  }
 }
