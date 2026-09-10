@@ -9,6 +9,8 @@ import { AuthModal } from '../auth/AuthModal';
 import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
+import { ListCardModal } from '../marketplace/ListCardModal';
+import { getCardImageUrl } from '../../lib/supabase';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -56,6 +58,88 @@ export function ProfileApp() {
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+
+  // User Marketplace Listings State
+  const [myListings, setMyListings] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState<boolean>(false);
+  const [isListModalOpen, setIsListModalOpen] = useState<boolean>(false);
+  const [editingListing, setEditingListing] = useState<any | null>(null);
+  const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
+  const [editQuantity, setEditQuantity] = useState<number>(1);
+  const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
+
+  const loadMyListings = async (userId?: string) => {
+    const targetUid = userId || profile?.id;
+    if (!targetUid) return;
+    setLoadingListings(true);
+    try {
+      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setMyListings(json.data || []);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load my marketplace listings:', e);
+    } finally {
+      setLoadingListings(false);
+    }
+  };
+
+  const handleUnlistCard = async (listingId: string) => {
+    if (!confirm(lang === 'hu' ? 'Biztosan törölni szeretnéd ezt a hirdetést a piactérről?' : 'Are you sure you want to remove this listing from the marketplace?')) return;
+    setUpdatingListingId(listingId);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(`/api/marketplace/listings?id=${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+      if (res.ok) {
+        setMyListings(prev => prev.filter(item => item.inventory_id !== listingId));
+        showToast(lang === 'hu' ? 'Hirdetés sikeresen törölve' : 'Listing removed successfully');
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error removing listing');
+    } finally {
+      setUpdatingListingId(null);
+    }
+  };
+
+  const handleSaveListingEdit = async (listing: any) => {
+    setUpdatingListingId(listing.inventory_id);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch('/api/marketplace/listings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          card_id: listing.card_id,
+          quantity: Math.max(1, editQuantity),
+          price_huf: Math.max(50, editPriceHuf),
+          is_foil: listing.is_foil,
+          condition: listing.condition || 'Near Mint',
+        }),
+      });
+      if (res.ok) {
+        showToast(lang === 'hu' ? 'Hirdetés sikeresen módosítva' : 'Listing updated successfully');
+        setEditingListing(null);
+        loadMyListings();
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating listing');
+    } finally {
+      setUpdatingListingId(null);
+    }
+  };
 
   useEffect(() => {
     getAllReviews().then(revs => {
@@ -195,12 +279,13 @@ export function ProfileApp() {
     async function loadData() {
       const [p, isPub] = await Promise.all([
         getCurrentProfile(),
-        getCatalogVisibility(),
+        getCatalogVisibility(true),
       ]);
       setIsStorePublic(isPub);
       if (p) {
         setProfile(p);
         setDisplayName(p.display_name || '');
+        loadMyListings(p.id);
       }
       const userOrders = await fetchUserOrders();
       setOrders(userOrders as Order[]);
@@ -210,15 +295,22 @@ export function ProfileApp() {
 
     loadData();
 
+    const handleMarketplaceEvt = () => {
+      loadMyListings();
+    };
+    window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         getCurrentProfile().then(p => {
           setProfile(p);
           setDisplayName(p?.display_name || '');
+          if (p) loadMyListings(p.id);
         });
         fetchUserOrders().then(ord => setOrders(ord as Order[]));
       } else {
         setProfile(null);
+        setMyListings([]);
         fetchUserOrders().then(ord => setOrders(ord as Order[]));
       }
     });
@@ -227,6 +319,7 @@ export function ProfileApp() {
       subscription.unsubscribe();
       window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-orders-changed', handleOrdersChange);
+      window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
     };
   }, []);
 
@@ -691,6 +784,134 @@ export function ProfileApp() {
 
       {/* Theme & Appearance Override Section */}
       {renderThemeSection()}
+
+      {/* ─── MY MARKETPLACE LISTINGS SECTION ──────────────────────── */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <span>🤝</span>
+              <span>{lang === 'hu' ? 'Saját Piactéri Hirdetéseim' : 'My Marketplace Listings'}</span>
+              <span 
+                className="text-xs font-bold px-2 py-0.5 rounded-full border"
+                style={{
+                  background: 'var(--accent-muted)',
+                  borderColor: 'var(--accent)',
+                  color: 'var(--text-accent)'
+                }}
+              >
+                {myListings.length}
+              </span>
+            </h2>
+            <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu'
+                ? 'Kezeld az eladásra kínált lapjaidat a közösségi piactéren. Állíts be egyedi árat vagy töröld a hirdetést.'
+                : 'Manage your active listings on the community marketplace. Adjust prices or unlist cards anytime.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsListModalOpen(true)}
+            className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-md flex items-center gap-2 self-start sm:self-auto bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
+          >
+            <span className="text-base">🏷️</span>
+            <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
+          </button>
+        </div>
+
+        {/* Listings Container */}
+        {loadingListings ? (
+          <div className="p-8 rounded-2xl border text-center animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="text-xs font-bold text-zinc-400">{lang === 'hu' ? 'Hirdetések betöltése…' : 'Loading listings…'}</div>
+          </div>
+        ) : myListings.length === 0 ? (
+          <div 
+            className="p-8 sm:p-10 rounded-2xl border text-center shadow-sm"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+          >
+            <span className="text-3xl block mb-2">🏷️</span>
+            <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+              {lang === 'hu' ? 'Még nem adtál fel hirdetést a piactéren' : 'No active marketplace listings yet'}
+            </div>
+            <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu'
+                ? 'Van felesleges kártyád? Hirdesd meg a piactéren és add el közvetlenül a többi játékosnak saját áron!'
+                : 'Have extra cards? List them on the marketplace and sell directly to other players at your own price!'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsListModalOpen(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
+            >
+              {lang === 'hu' ? '+ Első kártya eladása most' : '+ List Your First Card Now'}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {myListings.map((item) => (
+              <div
+                key={item.inventory_id}
+                className="p-4 rounded-2xl border flex items-center justify-between gap-3.5 shadow-sm transition hover:border-[var(--accent)]"
+                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-16 rounded-lg bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
+                    {item.image_path ? (
+                      <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
+                    )}
+                    {item.is_foil && (
+                      <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl">F</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                      {item.name}
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5">
+                      <span className="font-mono">{item.card_number}</span>
+                      <span>•</span>
+                      <span className="text-indigo-300">{item.rarity}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-400">
+                        {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                      </span>
+                      <span className="text-[10px] text-zinc-400">
+                        ({item.quantity} {lang === 'hu' ? 'db eladó' : 'for sale'})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingListing(item);
+                      setEditPriceHuf(item.price_huf || 500);
+                      setEditQuantity(item.quantity || 1);
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                  >
+                    {lang === 'hu' ? 'Módosítás' : 'Edit'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnlistCard(item.inventory_id)}
+                    disabled={updatingListingId === item.inventory_id}
+                    className="px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                  >
+                    {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Orders Section */}
       {(isStorePublic || profile.is_admin) && (
@@ -1289,6 +1510,91 @@ export function ProfileApp() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* List Card Modal */}
+      {isListModalOpen && (
+        <ListCardModal
+          isOpen={isListModalOpen}
+          onClose={() => setIsListModalOpen(false)}
+          onSuccess={() => loadMyListings()}
+          lang={lang}
+        />
+      )}
+
+      {/* Edit Listing Modal */}
+      {editingListing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div 
+            className="w-full max-w-sm rounded-2xl p-6 border shadow-2xl"
+            style={{
+              background: 'var(--bg-surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <h3 className="text-base font-black mb-1">{lang === 'hu' ? 'Hirdetés módosítása' : 'Edit Listing'}</h3>
+            <p className="text-xs text-zinc-400 mb-4 truncate">{editingListing.name} ({editingListing.card_number})</p>
+
+            <div className="space-y-3.5 mb-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1 text-zinc-300">
+                  {lang === 'hu' ? 'Eladási ár (Ft / db)' : 'Unit Price (HUF)'}
+                </label>
+                <input
+                  type="number"
+                  step={10}
+                  min={50}
+                  value={editPriceHuf}
+                  onChange={(e) => setEditPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  className="w-full px-3 py-2 rounded-xl text-sm font-black border focus:outline-none focus:border-emerald-500"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: '#34d399',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1 text-zinc-300">
+                  {lang === 'hu' ? 'Eladó darabszám' : 'Quantity for Sale'}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-3 py-2 rounded-xl text-sm font-bold border focus:outline-none"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditingListing(null)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
+              >
+                {lang === 'hu' ? 'Mégse' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveListingEdit(editingListing)}
+                disabled={updatingListingId === editingListing.inventory_id}
+                className="flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow transition cursor-pointer disabled:opacity-50"
+              >
+                {updatingListingId === editingListing.inventory_id ? '…' : (lang === 'hu' ? 'Mentés' : 'Save')}
+              </button>
+            </div>
           </div>
         </div>
       )}

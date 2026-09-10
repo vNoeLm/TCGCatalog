@@ -24,6 +24,8 @@ import { getLanguage, t, type Language } from '../lib/i18n';
 import { syncUserCardInventory } from '../lib/userCards';
 import { BuyModal } from './BuyModal';
 import { addToCart } from '../lib/cart';
+import { ListCardModal } from './marketplace/ListCardModal';
+import { AuthModal } from './auth/AuthModal';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -38,6 +40,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [lang, setLang] = useState<Language>('en');
   const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Admin Quick Edit State
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -1315,6 +1319,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </button>
                   </>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (profile) {
+                      setIsListModalOpen(true);
+                    } else {
+                      setShowAuthModal(true);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
+                  title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
+                >
+                  <span>🏷️</span>
+                  <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
+                </button>
                 <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
               </div>
             </div>
@@ -1322,6 +1341,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
           {!isInventory && (
             <div className="flex items-center gap-3 flex-wrap pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (profile) {
+                    setIsListModalOpen(true);
+                  } else {
+                    setShowAuthModal(true);
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
+                title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
+              >
+                <span>🏷️</span>
+                <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
+              </button>
               <PriceChartingButton card={card} lang={lang} />
             </div>
           )}
@@ -1343,6 +1377,28 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               quantity: stock,
               status: stock <= 0 ? 'Sold' : 'In Stock',
             }));
+          }}
+        />
+      )}
+
+      {isListModalOpen && (
+        <ListCardModal
+          isOpen={isListModalOpen}
+          onClose={() => setIsListModalOpen(false)}
+          initialCard={card}
+          lang={lang}
+        />
+      )}
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            getCurrentProfile().then(p => {
+              setProfile(p);
+              setIsListModalOpen(true);
+            });
           }}
         />
       )}

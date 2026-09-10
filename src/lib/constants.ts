@@ -83,6 +83,7 @@ export const EVENTS = {
   CART_CHANGED:         'tcg-cart-changed',
   ORDERS_CHANGED:       'tcg-orders-changed',
   STORE_INVENTORY_CHANGE: 'tcg-store-inventory-change',
+  SETTINGS_CHANGED:     'tcg-settings-changed',
 } as const;
 
 // ─── Sort Modes ────────────────────────────────────────────────────

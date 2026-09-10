@@ -1,20 +1,21 @@
 import { supabase } from './supabase';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
+import { EVENTS } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v24';
+const CACHE_VERSION = 'v25';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
-// Clear any stale caches from previous app versions
+// Clear any stale caches from previous app versions and any stale setting cache
 if (typeof window !== 'undefined') {
   try {
     Object.keys(sessionStorage).forEach(k => {
-      if (k.startsWith('tcg_cache_') && !k.startsWith(`tcg_cache_${CACHE_VERSION}_`)) {
+      if (k.includes('setting_') || (k.startsWith('tcg_cache_') && !k.startsWith(`tcg_cache_${CACHE_VERSION}_`))) {
         sessionStorage.removeItem(k);
       }
     });
@@ -704,75 +705,162 @@ export async function fetchCardOnly(cardId: string, bypassCache = false) {
 }
 
 // ─── Site Settings ─────────────────────────────────────────────────
-export async function getCatalogVisibility(): Promise<boolean> {
-  const cacheKey = 'setting_catalog_public';
-  const cached = getCached<boolean>(cacheKey);
-  if (cached !== null) return cached;
+// ─── Site Settings (Fast In-Memory Cache with Zero Stale SessionStorage) ──
+const settingsMemoryCache = new Map<string, { value: boolean; timestamp: number }>();
+const SETTINGS_CACHE_TTL_MS = 3000; // 3 seconds in-memory cache to prevent burst queries
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'catalog_public')
-    .maybeSingle();
-  if (error || !data) return false;
-  const isPublic = data?.value === 'true';
-  setCached(cacheKey, isPublic);
-  return isPublic;
+export async function getCatalogVisibility(forceRefresh = false): Promise<boolean> {
+  const cacheKey = 'catalog_public';
+  const now = Date.now();
+  const cached = settingsMemoryCache.get(cacheKey);
+  if (!forceRefresh && cached && (now - cached.timestamp < SETTINGS_CACHE_TTL_MS)) {
+    return cached.value;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'catalog_public')
+      .maybeSingle();
+
+    const isPublic = !error && data?.value === 'true';
+    settingsMemoryCache.set(cacheKey, { value: isPublic, timestamp: now });
+    return isPublic;
+  } catch (e) {
+    return false;
+  }
 }
 
 export async function setCatalogVisibility(isPublic: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('settings')
-    .upsert({ key: 'catalog_public', value: isPublic ? 'true' : 'false' });
-  if (error) throw error;
-  setCached('setting_catalog_public', isPublic);
+  settingsMemoryCache.delete('catalog_public');
+
+  // Try via server API first for reliable admin upsert
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ key: 'catalog_public', value: isPublic }),
+    });
+  } catch (e) {}
+
+  // Also direct upsert to Supabase
+  try {
+    await supabase
+      .from('settings')
+      .upsert({ key: 'catalog_public', value: isPublic ? 'true' : 'false' });
+  } catch (e) {}
+
+  settingsMemoryCache.set('catalog_public', { value: isPublic, timestamp: Date.now() });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(EVENTS.SETTINGS_CHANGED, { detail: { key: 'catalog_public', value: isPublic } }));
+  }
 }
 
-export async function getSealedVisibility(): Promise<boolean> {
-  const cacheKey = 'setting_sealed_enabled';
-  const cached = getCached<boolean>(cacheKey);
-  if (cached !== null) return cached;
+export async function getSealedVisibility(forceRefresh = false): Promise<boolean> {
+  const cacheKey = 'sealed_enabled';
+  const now = Date.now();
+  const cached = settingsMemoryCache.get(cacheKey);
+  if (!forceRefresh && cached && (now - cached.timestamp < SETTINGS_CACHE_TTL_MS)) {
+    return cached.value;
+  }
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'sealed_enabled')
-    .maybeSingle();
-  if (error || !data) return false;
-  const isEnabled = data?.value === 'true';
-  setCached(cacheKey, isEnabled);
-  return isEnabled;
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'sealed_enabled')
+      .maybeSingle();
+
+    const isEnabled = !error && data?.value === 'true';
+    settingsMemoryCache.set(cacheKey, { value: isEnabled, timestamp: now });
+    return isEnabled;
+  } catch (e) {
+    return false;
+  }
 }
 
 export async function setSealedVisibility(isEnabled: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('settings')
-    .upsert({ key: 'sealed_enabled', value: isEnabled ? 'true' : 'false' });
-  if (error) throw error;
-  setCached('setting_sealed_enabled', isEnabled);
+  settingsMemoryCache.delete('sealed_enabled');
+
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ key: 'sealed_enabled', value: isEnabled }),
+    });
+  } catch (e) {}
+
+  try {
+    await supabase
+      .from('settings')
+      .upsert({ key: 'sealed_enabled', value: isEnabled ? 'true' : 'false' });
+  } catch (e) {}
+
+  settingsMemoryCache.set('sealed_enabled', { value: isEnabled, timestamp: Date.now() });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(EVENTS.SETTINGS_CHANGED, { detail: { key: 'sealed_enabled', value: isEnabled } }));
+  }
 }
 
-export async function getMarketplaceVisibility(): Promise<boolean> {
-  const cacheKey = 'setting_marketplace_enabled';
-  const cached = getCached<boolean>(cacheKey);
-  if (cached !== null) return cached;
+export async function getMarketplaceVisibility(forceRefresh = false): Promise<boolean> {
+  const cacheKey = 'marketplace_enabled';
+  const now = Date.now();
+  const cached = settingsMemoryCache.get(cacheKey);
+  if (!forceRefresh && cached && (now - cached.timestamp < SETTINGS_CACHE_TTL_MS)) {
+    return cached.value;
+  }
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'marketplace_enabled')
-    .maybeSingle();
-  if (error || !data) return false;
-  const isEnabled = data?.value === 'true';
-  setCached(cacheKey, isEnabled);
-  return isEnabled;
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'marketplace_enabled')
+      .maybeSingle();
+
+    const isEnabled = !error && data?.value === 'true';
+    settingsMemoryCache.set(cacheKey, { value: isEnabled, timestamp: now });
+    return isEnabled;
+  } catch (e) {
+    return false;
+  }
 }
 
 export async function setMarketplaceVisibility(isEnabled: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('settings')
-    .upsert({ key: 'marketplace_enabled', value: isEnabled ? 'true' : 'false' });
-  if (error) throw error;
-  setCached('setting_marketplace_enabled', isEnabled);
+  settingsMemoryCache.delete('marketplace_enabled');
+
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ key: 'marketplace_enabled', value: isEnabled }),
+    });
+  } catch (e) {}
+
+  try {
+    await supabase
+      .from('settings')
+      .upsert({ key: 'marketplace_enabled', value: isEnabled ? 'true' : 'false' });
+  } catch (e) {}
+
+  settingsMemoryCache.set('marketplace_enabled', { value: isEnabled, timestamp: Date.now() });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(EVENTS.SETTINGS_CHANGED, { detail: { key: 'marketplace_enabled', value: isEnabled } }));
+  }
 }
 

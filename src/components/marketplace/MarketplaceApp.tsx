@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { getMarketplaceVisibility, fetchInventory } from '../../lib/api';
+import { getMarketplaceVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
 import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { CardItem } from '../CardItem';
 import { CardDetail } from '../CardDetail';
+import { FilterSidebar } from '../FilterSidebar';
+import { ListCardModal } from './ListCardModal';
 import type { UserProfile, InventoryCard, FilterState } from '../../types';
-import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
+import {
+  SETS, RARITIES, TYPES, DOMAINS, TAGS,
+  CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS,
+  STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode
+} from '../../lib/constants';
 
 const DEFAULT_FILTERS: FilterState = {
   category: "singles",
@@ -29,12 +35,26 @@ export function MarketplaceApp() {
   const [isMarketplaceEnabled, setIsMarketplaceEnabled] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
-  // Catalog / Listing State
-  const [cards, setCards] = useState<InventoryCard[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Filters State driven by global game
+  const [filters, setFilters] = useState<FilterState>(() => {
+    const savedGame = (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME)) || 'riftbound';
+    return { ...DEFAULT_FILTERS, game: savedGame };
+  });
+
+  // Search, Sort, and Grid
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGame, setSelectedGame] = useState('riftbound');
+  const [sortMode, setSortMode] = useState<SortMode>('Price (Low to High)');
+  const [sortOpen, setSortOpen] = useState(false);
+  const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
+
+  // Listings State
+  const [cards, setCards] = useState<InventoryCard[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+
+  const sortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLang(getLanguage());
@@ -46,34 +66,93 @@ export function MarketplaceApp() {
     };
     window.addEventListener(EVENTS.LANG_CHANGE, handleLangChange);
 
-    Promise.all([
-      getMarketplaceVisibility(),
-      getCurrentProfile(),
-    ]).then(([enabled, userProf]) => {
-      setIsMarketplaceEnabled(enabled);
-      setProfile(userProf);
-      setCheckingAccess(false);
-    });
+    const checkAccess = () => {
+      Promise.all([
+        getMarketplaceVisibility(true),
+        getCurrentProfile(),
+      ]).then(([enabled, userProf]) => {
+        setIsMarketplaceEnabled(enabled);
+        setProfile(userProf);
+        setCheckingAccess(false);
+      });
+    };
 
-    return () => window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
+    checkAccess();
+    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAccess);
+
+    // Global Game Sync
+    const handleGameChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ game: string }>;
+      if (customEvent.detail?.game) {
+        setFilters(prev => ({
+          ...prev,
+          game: customEvent.detail.game,
+          set: '',
+          rarities: [],
+          type: '',
+          domains: [],
+          tags: [],
+        }));
+      }
+    };
+    window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
+
+    return () => {
+      window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
+      window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAccess);
+      window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
+    };
   }, []);
 
   const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
   const canAccess = isMarketplaceEnabled || isAdmin;
+  const isCyberpunk = filters.game === 'cyberpunk';
 
-  // Load marketplace listings when access is permitted
-  useEffect(() => {
+  // Load marketplace listings
+  const fetchMarketplaceListings = async () => {
     if (!canAccess) return;
     setLoading(true);
-    fetchInventory({ ...DEFAULT_FILTERS, game: selectedGame }, searchQuery, 1, true)
-      .then(res => {
-        setCards(res.data || []);
-      })
-      .catch(err => {
-        console.warn('Marketplace fetch error:', err);
-      })
-      .finally(() => setLoading(false));
-  }, [canAccess, selectedGame, searchQuery]);
+    try {
+      const params = new URLSearchParams();
+      if (filters.game) params.set('game', filters.game);
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (filters.set) params.set('set', filters.set);
+      if (filters.rarities && filters.rarities.length > 0) params.set('rarities', filters.rarities.join(','));
+      if (filters.type) params.set('type', filters.type);
+      if (filters.domains && filters.domains.length > 0) params.set('domains', filters.domains.join(','));
+      if (filters.foilFilter) params.set('foil', 'true');
+
+      const res = await fetch(`/api/marketplace/listings?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setCards(json.data || []);
+          setTotalCount(json.count || (json.data ? json.data.length : 0));
+        }
+      }
+    } catch (err) {
+      console.warn('Marketplace fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canAccess) return;
+    const timer = setTimeout(() => {
+      fetchMarketplaceListings();
+    }, 150);
+
+    const handleMarketplaceChange = () => fetchMarketplaceListings();
+    window.addEventListener('tcg-marketplace-changed', handleMarketplaceChange);
+    window.addEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
+      window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
+    };
+  }, [canAccess, filters, searchQuery]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -85,6 +164,65 @@ export function MarketplaceApp() {
       };
     }
   }, [selectedInventoryId]);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sort listings
+  const sortedCards = useMemo(() => {
+    return [...cards].sort((a, b) => {
+      if (sortMode === 'Price (Low to High)') {
+        return (a.price_huf ?? 0) - (b.price_huf ?? 0);
+      }
+      if (sortMode === 'Price (High to Low)') {
+        return (b.price_huf ?? 0) - (a.price_huf ?? 0);
+      }
+      if (sortMode === 'Quantity (High to Low)') {
+        return (b.quantity || 0) - (a.quantity || 0);
+      }
+      if (sortMode === 'Quantity (Low to High)') {
+        return (a.quantity || 0) - (b.quantity || 0);
+      }
+      if (sortMode === 'Name (A to Z)') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortMode === 'Name (Z to A)') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      return 0;
+    });
+  }, [cards, sortMode]);
+
+  const availableSets = useMemo(() => {
+    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
+    const setNames = new Set(baseSets);
+    cards.forEach(c => {
+      if (c.set_name) setNames.add(c.set_name);
+    });
+    return Array.from(setNames);
+  }, [cards, isCyberpunk]);
+
+  const sidebar = (
+    <FilterSidebar
+      filters={filters}
+      setFilters={setFilters}
+      options={{
+        sets: availableSets,
+        rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
+        types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
+        domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
+        tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
+      }}
+    />
+  );
 
   if (checkingAccess) {
     return (
@@ -106,16 +244,6 @@ export function MarketplaceApp() {
             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7), 0 0 40px var(--accent-glow)'
           }}
         >
-          {/* Background Ambient Glow */}
-          <div 
-            className="absolute -top-24 -left-24 w-60 h-60 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{ background: 'var(--accent)' }}
-          />
-          <div 
-            className="absolute -bottom-24 -right-24 w-60 h-60 rounded-full blur-3xl opacity-15 pointer-events-none"
-            style={{ background: 'var(--accent)' }}
-          />
-
           <div className="relative z-10">
             <div 
               className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center text-3xl shadow-inner border"
@@ -143,38 +271,6 @@ export function MarketplaceApp() {
                 : 'Direct player-to-player card trading is currently being prepared. Soon you will be able to list surplus cards from your collection with verified seller ratings and buyer protection!'}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8 text-left">
-              <div className="p-3.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                <div className="text-base mb-1">⭐</div>
-                <div className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>
-                  {lang === 'hu' ? 'Eladói Értékelések' : 'Seller Ratings'}
-                </div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {lang === 'hu' ? 'Átlátható csillagos vélemények kézbesítés után.' : 'Verified feedback after order delivery.'}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                <div className="text-base mb-1">🛡️</div>
-                <div className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>
-                  {lang === 'hu' ? 'Vásárlóvédelem' : 'Buyer Protection'}
-                </div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {lang === 'hu' ? 'Biztonságos fizetés és valós állapotfotók.' : 'Secure payment & condition verification.'}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                <div className="text-base mb-1">⚡</div>
-                <div className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>
-                  {lang === 'hu' ? 'Gyors Eladás' : 'Instant Listing'}
-                </div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {lang === 'hu' ? 'Egy kattintással a saját albumodból.' : 'List straight from your collection binder.'}
-                </div>
-              </div>
-            </div>
-
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <a
                 href="/store"
@@ -182,7 +278,6 @@ export function MarketplaceApp() {
                 style={{
                   background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
                   color: 'var(--accent-contrast, #000000)',
-                  boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))'
                 }}
               >
                 {lang === 'hu' ? 'Böngéssz a Boltban' : 'Browse Official Store'}
@@ -205,12 +300,12 @@ export function MarketplaceApp() {
     );
   }
 
-  // ─── LIVE MARKETPLACE / ADMIN PREVIEW ────────────────────────────────
+  // ─── LIVE MARKETPLACE ───────────────────────────────────────────────
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
       {/* Header Banner */}
       <div 
-        className="rounded-3xl p-6 sm:p-8 border shadow-lg relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+        className="rounded-3xl p-6 sm:p-8 border shadow-lg relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)'
@@ -218,10 +313,13 @@ export function MarketplaceApp() {
       >
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-xl">🤝</span>
+            <span className="text-2xl">🤝</span>
             <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
               {lang === 'hu' ? 'Közösségi Piactér' : 'Community Marketplace'}
             </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              {isCyberpunk ? 'Cyberpunk TCG' : 'Riftbound'}
+            </span>
             {isAdmin && !isMarketplaceEnabled && (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
                 Admin Preview Mode
@@ -230,115 +328,171 @@ export function MarketplaceApp() {
           </div>
           <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
             {lang === 'hu'
-              ? 'Böngéssz és vásárolj hitelesített gyűjtők és eladók kínálatából. Minden rendelés valós értékelésekkel és vásárlóvédelemmel védett.'
+              ? 'Böngéssz és vásárolj hitelesített gyűjtők és eladók kínálatából. Minden rendelés valós eladói értékelésekkel és megbízható vásárlóvédelemmel védett.'
               : 'Browse and purchase cards from verified collectors and players. Protected by verified delivery reviews and buyer assurance.'}
           </p>
         </div>
 
-        {/* Game Switcher Tabs */}
-        <div 
-          className="flex items-center p-1 rounded-2xl border shrink-0"
-          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-        >
+        {/* Action: List Card for Sale Button */}
+        <div className="shrink-0 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setSelectedGame('riftbound')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-              selectedGame === 'riftbound'
-                ? 'bg-[var(--accent)] text-[var(--text-on-accent,#000)] shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-white'
-            }`}
+            onClick={() => setIsListModalOpen(true)}
+            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
           >
-            Riftbound
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedGame('cyberpunk')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-              selectedGame === 'cyberpunk'
-                ? 'bg-[var(--accent)] text-[var(--text-on-accent,#000)] shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-white'
-            }`}
-          >
-            Cyberpunk TCG
+            <span className="text-base">🏷️</span>
+            <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
           </button>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={lang === 'hu' ? 'Keresés név, kártyaszám vagy művész alapján…' : 'Search by card name, number, or artist…'}
-            className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border outline-none transition focus:border-[var(--accent)]"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text-primary)'
-            }}
-          />
-          <svg
-            className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </div>
-      </div>
+      {/* Main Content Layout with Responsive Filter Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
+        {/* Sidebar */}
+        <aside className="w-full lg:sticky lg:top-[88px] lg:self-start">
+          {sidebar}
+        </aside>
 
-      {/* Cards Grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="aspect-[63/88] rounded-2xl bg-zinc-900 animate-pulse border border-white/5" />
-          ))}
-        </div>
-      ) : cards.length === 0 ? (
-        <div 
-          className="rounded-3xl p-12 text-center border shadow-sm"
-          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-        >
-          <span className="text-4xl block mb-3">📦</span>
-          <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-            {lang === 'hu' ? 'Nincs találat a piactéren' : 'No marketplace listings found'}
-          </h3>
-          <p className="text-xs max-w-sm mx-auto mb-5" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu'
-              ? 'Próbálj meg más keresési kifejezést használni, vagy térj vissza később az új eladói ajánlatokért.'
-              : 'Try a different search query or check back soon for newly listed cards.'}
-          </p>
-          <a
-            href="/store"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
-            style={{
-              background: 'var(--accent-muted)',
-              borderColor: 'var(--accent)',
-              color: 'var(--text-accent)'
-            }}
-          >
-            <span>{lang === 'hu' ? 'Böngéssz a Hivatalos Boltban' : 'Browse Official Store'}</span>
-            <span>→</span>
-          </a>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-          {cards.map(card => (
-            <CardItem
-              key={card.inventory_id}
-              card={card}
-              onClick={(id) => setSelectedInventoryId(id)}
-              gridSize="normal"
-            />
-          ))}
-        </div>
-      )}
+        <main className="min-w-0">
+          {/* Search, Sort & Grid Controls */}
+          <div className="mb-5">
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
+              {/* Search Bar */}
+              <div className="flex-1 relative">
+                <svg
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={lang === 'hu' ? 'Keresés név, kártyaszám vagy művész alapján…' : 'Search by card name, number, or artist…'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-11 rounded-xl pl-10 pr-4 text-sm outline-none transition border border-zinc-700/80 bg-zinc-900/90 text-white placeholder-zinc-500 focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Sort & Grid Size Controls */}
+              <div className="flex gap-2 sm:gap-3 items-center">
+                {/* Sort Dropdown */}
+                <div className="relative flex-1 sm:w-56 sm:flex-initial shrink-0 z-40" ref={sortRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen(prev => !prev)}
+                    className="w-full h-11 px-3.5 flex items-center justify-between gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 text-xs font-semibold text-zinc-300 hover:text-white transition shadow-sm cursor-pointer select-none"
+                  >
+                    <span className="truncate">{sortMode}</span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {sortOpen && (
+                    <div className="absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl z-50 py-1 overflow-hidden">
+                      {SORT_MODES.map(mode => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => { setSortMode(mode); setSortOpen(false); }}
+                          className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                            sortMode === mode ? 'text-indigo-400 bg-zinc-800' : 'text-zinc-300 hover:bg-zinc-800/60'
+                          }`}
+                        >
+                          <span>{mode}</span>
+                          {sortMode === mode && <span>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Grid Size Switcher */}
+                <div className="flex h-11 box-border gap-1 items-center bg-zinc-900 border border-zinc-700/80 p-1 rounded-xl">
+                  {(["small", "normal", "large"] as const).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setGridSize(s)}
+                      className={`h-full px-2.5 sm:px-3 text-[11px] sm:text-xs rounded-lg transition cursor-pointer capitalize border ${
+                        gridSize === s
+                          ? 'text-white font-bold bg-zinc-800 border-zinc-500 shadow-sm'
+                          : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
+                      }`}
+                    >
+                      {t(s, lang)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-2 text-xs text-zinc-300 font-semibold">
+              {lang === 'hu' ? `${totalCount} piactéri hirdetés található` : `${totalCount} marketplace ${totalCount === 1 ? 'listing' : 'listings'} found`}
+            </p>
+          </div>
+
+          {/* Cards Grid */}
+          {loading ? (
+            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ borderRadius: 16, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
+              ))}
+            </div>
+          ) : sortedCards.length === 0 ? (
+            <div 
+              className="rounded-3xl p-12 text-center border shadow-sm"
+              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+            >
+              <span className="text-4xl block mb-3">📦</span>
+              <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Nincs találat a piactéren' : 'No marketplace listings found'}
+              </h3>
+              <p className="text-xs max-w-sm mx-auto mb-5" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? 'Próbáld meg törölni a szűrőket vagy keresési kifejezést, vagy adj fel te egy új hirdetést a "+ Kártya eladása" gombra kattintva!'
+                  : 'Try clearing filters or search term, or be the first to list a card by clicking "+ List Card for Sale"!'}
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsListModalOpen(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
+                >
+                  {lang === 'hu' ? '+ Első kártya eladása' : '+ List a Card Now'}
+                </button>
+                <a
+                  href="/store"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
+                  style={{
+                    background: 'var(--accent-muted)',
+                    borderColor: 'var(--accent)',
+                    color: 'var(--text-accent)'
+                  }}
+                >
+                  <span>{lang === 'hu' ? 'Böngéssz a Boltban' : 'Browse Official Store'}</span>
+                  <span>→</span>
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+              {sortedCards.map(card => (
+                <CardItem
+                  key={card.inventory_id}
+                  card={card}
+                  onClick={(id) => setSelectedInventoryId(id)}
+                  gridSize={gridSize}
+                />
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Card Detail Modal */}
       {selectedInventoryId && (
@@ -347,6 +501,20 @@ export function MarketplaceApp() {
           onClose={() => setSelectedInventoryId(null)}
         />
       )}
+
+      {/* List Card Modal */}
+      <ListCardModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+        onSuccess={() => fetchMarketplaceListings()}
+        lang={lang}
+      />
     </div>
   );
+}
+
+function getGridCols(size: 'small' | 'normal' | 'large') {
+  if (size === 'small') return "repeat(auto-fill, minmax(140px, 1fr))";
+  if (size === 'large') return "repeat(auto-fill, minmax(260px, 1fr))";
+  return "repeat(auto-fill, minmax(190px, 1fr))";
 }

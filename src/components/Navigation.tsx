@@ -9,6 +9,7 @@ import { CartDrawer } from './CartDrawer';
 import { BuyModal } from './BuyModal';
 import { getCartCount, type CartItem } from '../lib/cart';
 import { getLanguage, t, type Language } from '../lib/i18n';
+import { EVENTS } from '../lib/constants';
 
 interface NavigationProps {
   currentPath: string;
@@ -61,6 +62,7 @@ export function Navigation({ currentPath }: NavigationProps) {
       setCartCount(getCartCount());
     };
     window.addEventListener('tcg-cart-changed', handleCartChange);
+    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -90,6 +92,7 @@ export function Navigation({ currentPath }: NavigationProps) {
       subscription.unsubscribe();
       window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-cart-changed', handleCartChange);
+      window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);

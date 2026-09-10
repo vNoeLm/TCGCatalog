@@ -190,19 +190,25 @@ export function CatalogApp() {
   const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    Promise.all([
-      getCatalogVisibility(),
-      getSealedVisibility(),
-      getCurrentProfile(),
-    ]).then(([isPublic, sealedEnabled, profile]) => {
-      const isAdmin = !!profile?.is_admin;
-      setCanAccess(isPublic || isAdmin);
-      setIsSealedEnabled(sealedEnabled);
-      if (!sealedEnabled && filters.category === 'sealed') {
-        setFilters(prev => ({ ...prev, category: 'singles' }));
-      }
-      setAccessChecked(true);
-    });
+    const checkVisibility = () => {
+      Promise.all([
+        getCatalogVisibility(true),
+        getSealedVisibility(true),
+        getCurrentProfile(),
+      ]).then(([isPublic, sealedEnabled, profile]) => {
+        const isAdmin = !!profile?.is_admin;
+        setCanAccess(isPublic || isAdmin);
+        setIsSealedEnabled(sealedEnabled);
+        if (!sealedEnabled && filters.category === 'sealed') {
+          setFilters(prev => ({ ...prev, category: 'singles' }));
+        }
+        setAccessChecked(true);
+      });
+    };
+
+    checkVisibility();
+    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkVisibility);
+    return () => window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkVisibility);
   }, []);
 
   // Save filters & state to session storage
