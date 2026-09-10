@@ -7,6 +7,7 @@ import { getCurrentProfile } from "../lib/auth";
 import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, STORAGE_KEYS, EVENTS } from "../lib/constants";
 import { getLanguage, t, type Language } from "../lib/i18n";
 import { useSiteTheme } from "../lib/theme";
+import { matchesCardVariants } from "../lib/cardVariants";
 import type { FilterState, InventoryCard } from "../types";
 
 const DEFAULT_FILTERS: FilterState = {
@@ -219,7 +220,8 @@ export function CatalogApp() {
 
   // Sort store items
   const sortedCards = useMemo(() => {
-    return [...cards].sort((a, b) => {
+    const filtered = cards.filter(card => matchesCardVariants(card, filters));
+    return filtered.sort((a, b) => {
       if (sortMode === 'Price (Low to High)') {
         const pA = a.price_huf ?? 0;
         const pB = b.price_huf ?? 0;
@@ -266,7 +268,7 @@ export function CatalogApp() {
       }
       return 0;
     });
-  }, [cards, sortMode]);
+  }, [cards, filters, sortMode]);
 
   // Fetch initial batch whenever filters or search query change
   useEffect(() => {

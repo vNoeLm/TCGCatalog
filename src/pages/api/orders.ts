@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../../lib/supabaseServer';
+import { logOrderEvent } from '../../lib/orderLogs';
+import { persistOrderItemsSnapshot } from '../../lib/orderItems';
 import type { Order } from '../../types';
 
 export const prerender = false;
@@ -244,6 +246,22 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const orderId = newOrder.id || `ord_${newOrder.order_number}`;
+    await persistOrderItemsSnapshot(orderId, newOrder.order_number, newOrder.items || []);
+
+    await logOrderEvent({
+      orderNumber: newOrder.order_number,
+      orderId: newOrder.id,
+      eventType: 'order_created',
+      message: `Order #${newOrder.order_number} created with ${(newOrder.items || []).length} items.`,
+      severity: 'info',
+      metadata: {
+        totalPriceHuf: newOrder.total_price_huf ?? newOrder.total_huf,
+        paymentMethod: newOrder.payment_method,
+        paymentStatus: newOrder.payment_status,
+      },
+    });
+
     return new Response(JSON.stringify({ success: true, order: newOrder }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -352,6 +370,21 @@ export const PATCH: APIRoute = async ({ request }) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+
+    await logOrderEvent({
+      orderNumber,
+      orderId: updatedOrder.id,
+      eventType: nextStatus === 'Cancelled' ? 'order_cancelled' : 'order_updated',
+      message: `Order #${orderNumber} updated: status=${nextStatus}, payment_status=${newPaymentStatus}.`,
+      severity: nextStatus === 'Cancelled' ? 'warn' : 'info',
+      metadata: {
+        previousStatus: previousOrder.status,
+        newStatus: nextStatus,
+        paymentStatus: newPaymentStatus,
+        cancellationReason: updatedOrder.cancellation_reason,
+        trackingNumber: updatedOrder.tracking_number,
+      },
+    });
 
     return new Response(JSON.stringify({ success: true, order: updatedOrder }), {
       status: 200,

@@ -156,11 +156,11 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 };
 
-// DELETE: Remove an inventory item
+// DELETE: Soft delete (archive) or permanently remove an inventory item
 export const DELETE: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { id, is_surplus } = body;
+    const { id, is_surplus, permanent = false } = body;
 
     if (!id) return err('id is required.');
 
@@ -170,12 +170,25 @@ export const DELETE: APIRoute = async ({ request }) => {
         .update({ for_sale_copies: 0, is_listed_in_store: false, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) return err(error.message, 500);
-    } else {
+    } else if (permanent) {
       const { error } = await supabaseAdmin.from('inventory').delete().eq('id', id);
+      if (error) return err(error.message, 500);
+    } else {
+      // Soft-delete preserves relational integrity with order_items and historical sales
+      const { error } = await supabaseAdmin
+        .from('inventory')
+        .update({
+          is_archived: true,
+          deleted_at: new Date().toISOString(),
+          status: 'Archived',
+          quantity: 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
       if (error) return err(error.message, 500);
     }
 
-    return ok({ id, deleted: true });
+    return ok({ id, deleted: true, soft: !permanent });
   } catch (e: any) {
     return err(e?.message || 'Server error', 500);
   }

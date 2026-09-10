@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { issueSzamlazzInvoice, type SzamlazzConfig } from '../../../lib/invoicing/szamlazz';
+import { logOrderEvent } from '../../../lib/orderLogs';
 import type { Order } from '../../../types';
 
 export const prerender = false;
@@ -111,6 +112,15 @@ export const POST: APIRoute = async ({ request }) => {
         });
       } catch (e) {}
 
+      await logOrderEvent({
+        orderNumber,
+        orderId: updatedOrder.id,
+        eventType: 'invoice_issued',
+        message: `Invoice #${result.invoiceNumber || 'stub'} issued for order #${orderNumber} (${result.stubMode ? 'stub mode' : 'live'}).`,
+        severity: 'info',
+        metadata: { invoiceNumber: result.invoiceNumber, stubMode: result.stubMode },
+      });
+
       return new Response(JSON.stringify({
         success: true,
         order: updatedOrder,
@@ -122,6 +132,15 @@ export const POST: APIRoute = async ({ request }) => {
         headers: { 'Content-Type': 'application/json' },
       });
     } else {
+      await logOrderEvent({
+        orderNumber,
+        orderId: order.id,
+        eventType: 'invoice_failed',
+        message: `Invoice generation failed for order #${orderNumber}: ${result.error || result.message}`,
+        severity: 'error',
+        metadata: { error: result.error || result.message },
+      });
+
       return new Response(JSON.stringify({
         success: false,
         error: result.error || result.message,

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { createFurgefutarShipment, type FurgefutarConfig, type CourierService } from '../../../lib/shipping/furgefutar';
+import { logOrderEvent } from '../../../lib/orderLogs';
 import type { Order } from '../../../types';
 
 export const prerender = false;
@@ -114,6 +115,15 @@ export const POST: APIRoute = async ({ request }) => {
         });
       } catch (e) {}
 
+      await logOrderEvent({
+        orderNumber,
+        orderId: updatedOrder.id,
+        eventType: 'shipment_label_created',
+        message: `Shipping label created (${result.courierName || courier || 'courier'}) with tracking #${result.trackingNumber || 'stub'}.`,
+        severity: 'info',
+        metadata: { trackingNumber: result.trackingNumber, courierName: result.courierName, stubMode: result.stubMode },
+      });
+
       return new Response(JSON.stringify({
         success: true,
         order: updatedOrder,
@@ -126,6 +136,15 @@ export const POST: APIRoute = async ({ request }) => {
         headers: { 'Content-Type': 'application/json' },
       });
     } else {
+      await logOrderEvent({
+        orderNumber,
+        orderId: order.id,
+        eventType: 'shipment_label_failed',
+        message: `Shipping label generation failed for order #${orderNumber}: ${result.error || result.message}`,
+        severity: 'error',
+        metadata: { error: result.error || result.message },
+      });
+
       return new Response(JSON.stringify({
         success: false,
         error: result.error || result.message,

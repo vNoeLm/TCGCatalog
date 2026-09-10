@@ -7,6 +7,7 @@ import { CardItem } from '../CardItem';
 import { CardDetail } from '../CardDetail';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
+import { matchesCardVariants } from '../../lib/cardVariants';
 import type { UserProfile, InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
@@ -26,6 +27,11 @@ const DEFAULT_FILTERS: FilterState = {
   costMax: 10,
   stockStatus: "In Stock",
   foilFilter: false,
+  signedFilter: 'all',
+  altArtFilter: 'all',
+  overnumberedFilter: 'all',
+  spFilter: 'all',
+  baseSetFilter: 'all',
 };
 
 export function MarketplaceApp() {
@@ -176,9 +182,10 @@ export function MarketplaceApp() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sort listings
+  // Filter & sort listings
   const sortedCards = useMemo(() => {
-    return [...cards].sort((a, b) => {
+    const filtered = cards.filter(card => matchesCardVariants(card, filters));
+    return filtered.sort((a, b) => {
       if (sortMode === 'Price (Low to High)') {
         return (a.price_huf ?? 0) - (b.price_huf ?? 0);
       }
@@ -199,7 +206,7 @@ export function MarketplaceApp() {
       }
       return 0;
     });
-  }, [cards, sortMode]);
+  }, [cards, filters, sortMode]);
 
   const availableSets = useMemo(() => {
     const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
@@ -449,7 +456,7 @@ export function MarketplaceApp() {
             </div>
 
             <p className="mt-2 text-xs text-zinc-300 font-semibold">
-              {lang === 'hu' ? `${totalCount} piactéri hirdetés található` : `${totalCount} marketplace ${totalCount === 1 ? 'listing' : 'listings'} found`}
+              {lang === 'hu' ? `${sortedCards.length} piactéri hirdetés található` : `${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
             </p>
           </div>
 
@@ -519,10 +526,33 @@ export function MarketplaceApp() {
 
       {/* Card Detail Modal */}
       {selectedInventoryId && (
-        <CardDetail
-          inventoryId={selectedInventoryId}
-          onClose={() => setSelectedInventoryId(null)}
-        />
+        <div 
+          onClick={() => setSelectedInventoryId(null)}
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            zIndex: 100, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            background: 'rgba(0,0,0,0.85)', 
+            backdropFilter: 'blur(8px)', 
+            padding: '12px', 
+            overflowY: 'auto', 
+            overscrollBehavior: 'contain' 
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: 'auto' }}
+            className="w-full max-w-5xl my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+          >
+            <CardDetail
+              inventoryId={selectedInventoryId}
+              onClose={() => setSelectedInventoryId(null)}
+            />
+          </div>
+        </div>
       )}
 
       {/* List Card Modal */}
