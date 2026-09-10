@@ -23,10 +23,12 @@ function extractSellerId(notes: string | null): string | null {
   return null;
 }
 
+const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';
+
 // ─── GET: Query Marketplace Listings (with Seller Profiles, Ratings & Photos) ───
 export const GET: APIRoute = async ({ url }) => {
   try {
-    const game = url.searchParams.get('game') || 'riftbound';
+    const game = url.searchParams.get('game');
     const search = url.searchParams.get('search')?.trim().toLowerCase() || '';
     const set = url.searchParams.get('set') || '';
     const raritiesParam = url.searchParams.get('rarities') || '';
@@ -72,7 +74,6 @@ export const GET: APIRoute = async ({ url }) => {
           artist,
           market_price_eur,
           market_price_foil_eur,
-          product_type,
           sets (
             id,
             name,
@@ -150,7 +151,6 @@ export const GET: APIRoute = async ({ url }) => {
           artist,
           market_price_eur,
           market_price_foil_eur,
-          product_type,
           sets (
             id,
             name,
@@ -159,6 +159,7 @@ export const GET: APIRoute = async ({ url }) => {
         )
       `)
       .eq('is_listed_in_store', true)
+      .eq('user_id', OWNER_ID)
       .gt('for_sale_copies', 0);
 
     if (game && game !== 'all') {
@@ -209,7 +210,6 @@ export const GET: APIRoute = async ({ url }) => {
     });
 
     // Also include platform owner ID as fallback
-    const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';
     sellerIds.add(OWNER_ID);
 
     const { data: profileRows } = await supabaseAdmin
@@ -317,7 +317,7 @@ export const GET: APIRoute = async ({ url }) => {
         subtype: cardObj.subtype,
         text: cardObj.text,
         game: cardObj.game,
-        product_type: cardObj.product_type || 'single',
+        product_type: (cardObj as any)?.product_type || 'single',
         energy: cardObj.energy,
         might: cardObj.might,
         domain: cardObj.domain,
@@ -390,7 +390,7 @@ export const GET: APIRoute = async ({ url }) => {
         subtype: cardObj.subtype,
         text: cardObj.text,
         game: cardObj.game,
-        product_type: cardObj.product_type || 'single',
+        product_type: (cardObj as any)?.product_type || 'single',
         energy: cardObj.energy,
         might: cardObj.might,
         domain: cardObj.domain,
@@ -564,7 +564,7 @@ export const POST: APIRoute = async ({ request }) => {
         foil_copies: is_foil ? safeQty : 0,
         for_sale_copies: safeQty,
         unit_price: unitPriceEur,
-        is_listed_in_store: true,
+        is_listed_in_store: user.id === OWNER_ID,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,card_id' });
 
