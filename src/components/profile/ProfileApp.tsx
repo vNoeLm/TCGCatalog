@@ -110,10 +110,14 @@ export function ProfileApp() {
     }
   };
 
-  const handleSaveListingEdit = async (listing: any) => {
-    setUpdatingListingId(listing.inventory_id);
+  const handleSaveListingEdit = async (item: any) => {
+    setUpdatingListingId(item.inventory_id);
     try {
       const session = (await supabase.auth.getSession()).data.session;
+      const listingImages = item.inventory_images && item.inventory_images.length > 0
+        ? item.inventory_images.map((img: any) => img.image_path)
+        : (item.inventory_image ? [item.inventory_image] : []);
+
       const res = await fetch('/api/marketplace/listings', {
         method: 'POST',
         headers: {
@@ -121,11 +125,12 @@ export function ProfileApp() {
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          card_id: listing.card_id,
+          card_id: item.card_id,
           quantity: Math.max(1, editQuantity),
           price_huf: Math.max(50, editPriceHuf),
-          is_foil: listing.is_foil,
-          condition: listing.condition || 'Near Mint',
+          is_foil: item.is_foil,
+          condition: item.condition || 'Near Mint',
+          images: listingImages,
         }),
       });
       if (res.ok) {
@@ -848,11 +853,11 @@ export function ProfileApp() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {myListings.map((item) => (
               <div
                 key={item.inventory_id}
-                className="p-4 rounded-2xl border flex items-center justify-between gap-3.5 shadow-sm transition hover:border-[var(--accent)]"
+                className="p-3.5 rounded-2xl border flex items-center justify-between gap-3 shadow-sm transition hover:border-[var(--accent)]"
                 style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -863,24 +868,31 @@ export function ProfileApp() {
                       <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
                     )}
                     {item.is_foil && (
-                      <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl">F</span>
+                      <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
+                    )}
+                    {item.inventory_images && item.inventory_images.length > 0 && (
+                      <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow" title="Physical condition photos attached">
+                        📸 {item.inventory_images.length}
+                      </span>
                     )}
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
                       {item.name}
                     </div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5">
+                    <div className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                       <span className="font-mono">{item.card_number}</span>
                       <span>•</span>
-                      <span className="text-indigo-300">{item.rarity}</span>
+                      <span className="text-indigo-300 font-semibold">{item.rarity}</span>
+                      <span>•</span>
+                      <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-black text-emerald-400">
                         {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                       </span>
                       <span className="text-[10px] text-zinc-400">
-                        ({item.quantity} {lang === 'hu' ? 'db eladó' : 'for sale'})
+                        ({item.quantity} {lang === 'hu' ? 'db' : 'pcs'})
                       </span>
                     </div>
                   </div>
@@ -894,7 +906,7 @@ export function ProfileApp() {
                       setEditPriceHuf(item.price_huf || 500);
                       setEditQuantity(item.quantity || 1);
                     }}
-                    className="px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                   >
                     {lang === 'hu' ? 'Módosítás' : 'Edit'}
                   </button>
@@ -902,7 +914,7 @@ export function ProfileApp() {
                     type="button"
                     onClick={() => handleUnlistCard(item.inventory_id)}
                     disabled={updatingListingId === item.inventory_id}
-                    className="px-2.5 py-1 text-xs font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
                   >
                     {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
                   </button>

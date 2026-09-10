@@ -8,7 +8,21 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-// ─── GET: Query Marketplace Listings (with Seller Profiles & Ratings) ───
+// Helper to extract seller ID from notes JSON string or format "seller_id:uuid"
+function extractSellerId(notes: string | null): string | null {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    if (parsed && typeof parsed.seller_id === 'string') return parsed.seller_id;
+  } catch (e) {
+    // Not JSON, check prefix format
+    if (notes.startsWith('marketplace:')) return notes.replace('marketplace:', '').trim();
+    if (notes.startsWith('seller:')) return notes.replace('seller:', '').trim();
+  }
+  return null;
+}
+
+// ─── GET: Query Marketplace Listings (with Seller Profiles, Ratings & Photos) ───
 export const GET: APIRoute = async ({ url }) => {
   try {
     const game = url.searchParams.get('game') || 'riftbound';
@@ -24,7 +38,86 @@ export const GET: APIRoute = async ({ url }) => {
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10)));
 
-    let query = supabaseAdmin
+    // 1. Fetch from inventory table (Community marketplace listings + showcase items)
+    let invQuery = supabaseAdmin
+      .from('inventory')
+      .select(`
+        id,
+        card_id,
+        condition,
+        is_foil,
+        price_huf,
+        status,
+        notes,
+        quantity,
+        created_at,
+        updated_at,
+        cards!inner (
+          id,
+          card_number,
+          name,
+          rarity,
+          card_type,
+          cost,
+          image_path,
+          subtype,
+          text,
+          game,
+          energy,
+          might,
+          domain,
+          tags,
+          ability,
+          artist,
+          market_price_eur,
+          market_price_foil_eur,
+          product_type,
+          sets (
+            id,
+            name,
+            code
+          )
+        ),
+        inventory_images (
+          id,
+          image_path,
+          display_order
+        )
+      `)
+      .eq('status', 'In Stock')
+      .gt('quantity', 0);
+
+    if (game && game !== 'all') {
+      invQuery = invQuery.eq('cards.game', game);
+    }
+    if (search) {
+      invQuery = invQuery.or(`name.ilike.%${search}%,card_number.ilike.%${search}%,artist.ilike.%${search}%`, { foreignTable: 'cards' });
+    }
+    if (set) {
+      invQuery = invQuery.eq('cards.sets.name', set);
+    }
+    if (rarities.length > 0) {
+      invQuery = invQuery.in('cards.rarity', rarities);
+    }
+    if (type) {
+      if (type === 'Champion') {
+        invQuery = invQuery.eq('cards.subtype', 'Champion');
+      } else if (type === 'Signature Spell') {
+        invQuery = invQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+      } else {
+        invQuery = invQuery.eq('cards.card_type', type);
+      }
+    }
+    if (domains.length > 0) {
+      const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
+      invQuery = invQuery.or(orQuery, { foreignTable: 'cards' });
+    }
+    if (foil === 'true') {
+      invQuery = invQuery.eq('is_foil', true);
+    }
+
+    // 2. Fetch from user_cards table (Owner playset surplus listings)
+    let ucQuery = supabaseAdmin
       .from('user_cards')
       .select(`
         id,
@@ -57,102 +150,82 @@ export const GET: APIRoute = async ({ url }) => {
           market_price_eur,
           market_price_foil_eur,
           product_type,
-          sets!inner (
+          sets (
             id,
             name,
             code
           )
         )
-      `, { count: 'exact' })
+      `)
       .eq('is_listed_in_store', true)
       .gt('for_sale_copies', 0);
 
-    // Filter by game
     if (game && game !== 'all') {
-      query = query.eq('cards.game', game);
+      ucQuery = ucQuery.eq('cards.game', game);
     }
-
-    // Filter by specific seller (e.g. for profile "My Listings")
-    if (sellerId) {
-      query = query.eq('user_id', sellerId);
-    }
-
-    // Search by card name or number
     if (search) {
-      query = query.or(`name.ilike.%${search}%,card_number.ilike.%${search}%,artist.ilike.%${search}%`, { foreignTable: 'cards' });
+      ucQuery = ucQuery.or(`name.ilike.%${search}%,card_number.ilike.%${search}%,artist.ilike.%${search}%`, { foreignTable: 'cards' });
     }
-
-    // Filter by set
     if (set) {
-      query = query.eq('cards.sets.name', set);
+      ucQuery = ucQuery.eq('cards.sets.name', set);
     }
-
-    // Filter by rarities
     if (rarities.length > 0) {
-      query = query.in('cards.rarity', rarities);
+      ucQuery = ucQuery.in('cards.rarity', rarities);
     }
-
-    // Filter by card type
     if (type) {
       if (type === 'Champion') {
-        query = query.eq('cards.subtype', 'Champion');
+        ucQuery = ucQuery.eq('cards.subtype', 'Champion');
       } else if (type === 'Signature Spell') {
-        query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+        ucQuery = ucQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
       } else {
-        query = query.eq('cards.card_type', type);
+        ucQuery = ucQuery.eq('cards.card_type', type);
       }
     }
-
-    // Filter by domains
     if (domains.length > 0) {
       const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
-      query = query.or(orQuery, { foreignTable: 'cards' });
+      ucQuery = ucQuery.or(orQuery, { foreignTable: 'cards' });
     }
-
-    // Foil filter
     if (foil === 'true') {
-      query = query.gt('foil_copies', 0);
+      ucQuery = ucQuery.gt('foil_copies', 0);
     }
 
-    // Pagination
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to).order('updated_at', { ascending: false });
+    // Execute queries concurrently
+    const [invRes, ucRes] = await Promise.all([invQuery, ucQuery]);
 
-    const { data: rows, count, error } = await query;
+    const invRows = invRes.data || [];
+    const ucRows = ucRes.data || [];
 
-    if (error) {
-      console.error('Marketplace listings query error:', error);
-      return new Response(JSON.stringify({ success: false, error: error.message }), {
-        status: 500,
-        headers: JSON_HEADERS,
-      });
-    }
+    // Collect all seller IDs to batch fetch user profiles
+    const sellerIds = new Set<string>();
 
-    if (!rows || rows.length === 0) {
-      return new Response(JSON.stringify({ success: true, data: [], count: 0 }), {
-        status: 200,
-        headers: JSON_HEADERS,
-      });
-    }
+    invRows.forEach((r: any) => {
+      const sId = extractSellerId(r.notes);
+      if (sId) sellerIds.add(sId);
+    });
 
-    // Fetch seller profiles for all user_ids
-    const userIds = Array.from(new Set(rows.map(r => r.user_id)));
+    ucRows.forEach((r: any) => {
+      if (r.user_id) sellerIds.add(r.user_id);
+    });
+
+    // Also include platform owner ID as fallback
+    const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';
+    sellerIds.add(OWNER_ID);
+
     const { data: profileRows } = await supabaseAdmin
       .from('profiles')
       .select('id, display_name, avatar_url, role, is_admin')
-      .in('id', userIds);
+      .in('id', Array.from(sellerIds));
 
     const profileMap = new Map((profileRows || []).map(p => [p.id, p]));
 
-    // Fetch review ratings for sellers
+    // Fetch review ratings
     const { data: reviewRows } = await supabaseAdmin
       .from('seller_reviews')
       .select('seller_id, rating')
-      .in('seller_id', userIds);
+      .in('seller_id', Array.from(sellerIds));
 
     const ratingsMap = new Map<string, { total: number; count: number }>();
-    (reviewRows || []).forEach(r => {
+    (reviewRows || []).forEach((r: any) => {
       const cur = ratingsMap.get(r.seller_id) || { total: 0, count: 0 };
       cur.total += r.rating;
       cur.count += 1;
@@ -160,8 +233,71 @@ export const GET: APIRoute = async ({ url }) => {
     });
 
     const EUR_TO_HUF = 400;
+    const allFormatted: any[] = [];
 
-    const formattedListings = rows.map((row: any) => {
+    // Format inventory listings (with uploaded condition photos)
+    invRows.forEach((row: any) => {
+      const sId = extractSellerId(row.notes) || OWNER_ID;
+      if (sellerId && sId !== sellerId) return;
+
+      const prof = profileMap.get(sId);
+      const ratingInfo = ratingsMap.get(sId);
+      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : 5.0;
+      const reviewCount = ratingInfo ? ratingInfo.count : 0;
+
+      const cardObj = row.cards;
+      const invImgs: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+      const firstCustomPhoto = invImgs.length > 0 ? invImgs[0].image_path : null;
+
+      allFormatted.push({
+        inventory_id: row.id,
+        condition: row.condition || 'Near Mint',
+        is_foil: Boolean(row.is_foil),
+        price_huf: row.price_huf,
+        status: row.status,
+        notes: row.notes,
+        is_bulk: false,
+        quantity: row.quantity,
+        card_id: cardObj.id,
+        card_number: cardObj.card_number,
+        name: cardObj.name,
+        rarity: cardObj.rarity,
+        card_type: cardObj.card_type,
+        cost: cardObj.cost,
+        image_path: firstCustomPhoto || cardObj.image_path,
+        inventory_image: firstCustomPhoto,
+        inventory_images: invImgs,
+        subtype: cardObj.subtype,
+        text: cardObj.text,
+        game: cardObj.game,
+        product_type: cardObj.product_type || 'single',
+        energy: cardObj.energy,
+        might: cardObj.might,
+        domain: cardObj.domain,
+        tags: cardObj.tags,
+        ability: cardObj.ability,
+        artist: cardObj.artist,
+        market_price_eur: cardObj.market_price_eur,
+        market_price_foil_eur: cardObj.market_price_foil_eur,
+        set_id: cardObj.sets?.id,
+        set_name: cardObj.sets?.name,
+        set_code: cardObj.sets?.code,
+        sets: cardObj.sets,
+        seller_id: sId,
+        seller_name: prof?.display_name || (prof?.role === 'owner' ? 'Noel :3' : 'Community Seller'),
+        seller_avatar: prof?.avatar_url || null,
+        seller_role: prof?.role || (prof?.is_admin ? 'admin' : 'user'),
+        seller_rating_avg: avgRating,
+        seller_rating_count: reviewCount,
+        is_marketplace_listing: true,
+        created_at: row.created_at,
+      });
+    });
+
+    // Format user_cards surplus listings
+    ucRows.forEach((row: any) => {
+      if (sellerId && row.user_id !== sellerId) return;
+
       const prof = profileMap.get(row.user_id);
       const ratingInfo = ratingsMap.get(row.user_id);
       const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : 5.0;
@@ -175,7 +311,7 @@ export const GET: APIRoute = async ({ url }) => {
 
       const priceHuf = effectiveEur ? Math.round(effectiveEur * EUR_TO_HUF) : 500;
 
-      return {
+      allFormatted.push({
         inventory_id: row.id,
         condition: 'Near Mint',
         is_foil: isFoil,
@@ -191,6 +327,8 @@ export const GET: APIRoute = async ({ url }) => {
         card_type: cardObj.card_type,
         cost: cardObj.cost,
         image_path: cardObj.image_path,
+        inventory_image: null,
+        inventory_images: [],
         subtype: cardObj.subtype,
         text: cardObj.text,
         game: cardObj.game,
@@ -214,18 +352,28 @@ export const GET: APIRoute = async ({ url }) => {
         seller_rating_avg: avgRating,
         seller_rating_count: reviewCount,
         is_marketplace_listing: true,
-      };
+        created_at: row.created_at,
+      });
     });
+
+    // Sort by created_at descending
+    allFormatted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Apply pagination
+    const totalCount = allFormatted.length;
+    const startIndex = (page - 1) * pageSize;
+    const paginated = allFormatted.slice(startIndex, startIndex + pageSize);
 
     return new Response(JSON.stringify({
       success: true,
-      data: formattedListings,
-      count: count ?? formattedListings.length,
+      data: paginated,
+      count: totalCount,
     }), {
       status: 200,
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
+    console.error('Marketplace GET error:', err);
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,
@@ -254,7 +402,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { card_id, quantity, price_huf, condition, is_foil } = body;
+    const { card_id, quantity, price_huf, condition, is_foil, images } = body;
 
     if (!card_id) {
       return new Response(JSON.stringify({ success: false, error: 'card_id is required.' }), {
@@ -265,7 +413,21 @@ export const POST: APIRoute = async ({ request }) => {
 
     const safeQty = Math.max(1, parseInt(String(quantity), 10) || 1);
     const safePriceHuf = Math.max(50, parseInt(String(price_huf), 10) || 500);
-    const unitPriceEur = Math.round((safePriceHuf / 400) * 100) / 100;
+
+    // ─── VALIDATION RULE: Cards above 5,000 HUF require >= 1 condition photo ───
+    const photoList: string[] = Array.isArray(images)
+      ? images.filter((u: any) => typeof u === 'string' && u.trim().length > 0)
+      : [];
+
+    if (safePriceHuf > 5000 && photoList.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '5 000 Ft feletti lapokhoz legalább egy állapotfotó feltöltése kötelező! (At least one condition photo is required for listings above 5,000 HUF)',
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
 
     // Ensure seller profile exists in profiles table
     const { data: existingProfile } = await supabaseAdmin
@@ -286,8 +448,55 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Upsert into user_cards
-    const { data: listing, error: upsertErr } = await supabaseAdmin
+    // Insert listing into public.inventory
+    const notesPayload = JSON.stringify({
+      source: 'marketplace',
+      seller_id: user.id,
+      listed_at: new Date().toISOString(),
+    });
+
+    const { data: invRow, error: invErr } = await supabaseAdmin
+      .from('inventory')
+      .insert({
+        card_id,
+        condition: condition || 'Near Mint',
+        is_foil: Boolean(is_foil),
+        price_huf: safePriceHuf,
+        quantity: safeQty,
+        status: 'In Stock',
+        notes: notesPayload,
+      })
+      .select('id, card_id, condition, is_foil, price_huf, quantity, status')
+      .single();
+
+    if (invErr) {
+      console.error('Failed to create inventory listing:', invErr);
+      return new Response(JSON.stringify({ success: false, error: invErr.message }), {
+        status: 500,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // If photos were uploaded, save them into public.inventory_images
+    if (photoList.length > 0) {
+      const imageRecords = photoList.map((url, index) => ({
+        inventory_id: invRow.id,
+        image_path: url,
+        display_order: index + 1,
+      }));
+
+      const { error: imgErr } = await supabaseAdmin
+        .from('inventory_images')
+        .insert(imageRecords);
+
+      if (imgErr) {
+        console.warn('Failed to insert inventory_images:', imgErr);
+      }
+    }
+
+    // Also update user_cards for collection / surplus sync
+    const unitPriceEur = Math.round((safePriceHuf / 400) * 100) / 100;
+    await supabaseAdmin
       .from('user_cards')
       .upsert({
         user_id: user.id,
@@ -298,23 +507,20 @@ export const POST: APIRoute = async ({ request }) => {
         unit_price: unitPriceEur,
         is_listed_in_store: true,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,card_id' })
-      .select('id, user_id, card_id, for_sale_copies, unit_price, is_listed_in_store')
-      .single();
+      }, { onConflict: 'user_id,card_id' });
 
-    if (upsertErr) {
-      console.error('Failed to create marketplace listing:', upsertErr);
-      return new Response(JSON.stringify({ success: false, error: upsertErr.message }), {
-        status: 500,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    return new Response(JSON.stringify({ success: true, listing }), {
+    return new Response(JSON.stringify({
+      success: true,
+      listing: {
+        ...invRow,
+        images: photoList,
+      },
+    }), {
       status: 200,
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
+    console.error('Marketplace POST error:', err);
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,
@@ -350,50 +556,70 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       });
     }
 
-    // Check ownership
-    const { data: existingRow } = await supabaseAdmin
+    const isOwner = user.email === 'vnoel05@gmail.com';
+
+    // 1. Try deleting from inventory table
+    const { data: invRow } = await supabaseAdmin
+      .from('inventory')
+      .select('id, notes')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    if (invRow) {
+      const sellerId = extractSellerId(invRow.notes);
+      if (sellerId !== user.id && !isOwner) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      // Delete inventory_images first (or cascade)
+      await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
+      await supabaseAdmin.from('inventory').delete().eq('id', listingId);
+
+      return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // 2. Try unlisting from user_cards table
+    const { data: ucRow } = await supabaseAdmin
       .from('user_cards')
       .select('id, user_id')
       .eq('id', listingId)
       .maybeSingle();
 
-    if (!existingRow) {
-      return new Response(JSON.stringify({ success: false, error: 'Listing not found.' }), {
-        status: 404,
+    if (ucRow) {
+      if (ucRow.user_id !== user.id && !isOwner) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      await supabaseAdmin
+        .from('user_cards')
+        .update({
+          for_sale_copies: 0,
+          is_listed_in_store: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', listingId);
+
+      return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
+        status: 200,
         headers: JSON_HEADERS,
       });
     }
 
-    const isOwner = user.email === 'vnoel05@gmail.com';
-    if (existingRow.user_id !== user.id && !isOwner) {
-      return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
-        status: 403,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // Mark as unlisted and 0 for sale copies
-    const { error: updateErr } = await supabaseAdmin
-      .from('user_cards')
-      .update({
-        for_sale_copies: 0,
-        is_listed_in_store: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', listingId);
-
-    if (updateErr) {
-      return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
-        status: 500,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
-      status: 200,
+    return new Response(JSON.stringify({ success: false, error: 'Listing not found.' }), {
+      status: 404,
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
+    console.error('Marketplace DELETE error:', err);
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,
