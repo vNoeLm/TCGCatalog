@@ -156,28 +156,28 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         return;
       }
 
-      // 1. Try updating inventory table
-      const { data: invRows, error: invErr } = await supabase
-        .from('inventory')
-        .update({
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('Please sign in as admin to save changes.');
+      }
+
+      const res = await fetch('/api/admin/inventory-images', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          inventory_id: data.id,
           price_huf: numPrice,
           condition: editCondition,
           quantity: editQuantity > 0 ? editQuantity : 1,
-        })
-        .eq('id', data.id)
-        .select();
+        }),
+      });
 
-      // 2. If not in inventory table, try user_cards surplus
-      if (!invRows || invRows.length === 0) {
-        const effectiveEur = numPrice ? Number((numPrice / 400).toFixed(2)) : null;
-        await supabase
-          .from('user_cards')
-          .update({
-            unit_price: effectiveEur,
-            for_sale_copies: editQuantity,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', data.id);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to save inventory.');
       }
 
       setData((prev: any) => ({
@@ -207,75 +207,60 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     setAdminFeedback(null);
 
     try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('Please sign in as admin to upload photos.');
+      }
+
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
 
       const uploadRes = await fetch('/api/admin/upload-image', {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: formData,
       });
 
       if (!uploadRes.ok) {
         const errJson = await uploadRes.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Failed to upload photo.');
+        throw new Error(errJson.error || 'Failed to upload photo file.');
       }
 
       const { urls } = await uploadRes.json();
       if (urls && Array.isArray(urls) && urls.length > 0) {
-        // Ensure inventory record exists
-        let targetInvId = data.id;
-        const { data: existingInv } = await supabase
-          .from('inventory')
-          .select('id')
-          .eq('id', data.id)
-          .maybeSingle();
+        const cardObj = data.cards || data;
+        const res = await fetch('/api/admin/inventory-images', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            inventory_id: data.id,
+            card_id: cardObj.id,
+            condition: editCondition || 'Near Mint',
+            is_foil: Boolean(data.is_foil),
+            price_huf: editPriceHuf ? parseFloat(editPriceHuf) : null,
+            quantity: editQuantity || 1,
+            image_urls: urls,
+          }),
+        });
 
-        if (!existingInv) {
-          const cardObj = data.cards || data;
-          const { data: newInv, error: newInvErr } = await supabase
-            .from('inventory')
-            .insert({
-              card_id: cardObj.id,
-              condition: editCondition || 'Near Mint',
-              is_foil: data.is_foil || false,
-              price_huf: editPriceHuf ? parseFloat(editPriceHuf) : null,
-              quantity: editQuantity || 1,
-              status: 'In Stock',
-              notes: 'Showcase / Condition Listing',
-            })
-            .select('id')
-            .single();
-
-          if (newInvErr) throw newInvErr;
-          targetInvId = newInv.id;
-          setData((prev: any) => ({ ...prev, id: targetInvId }));
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Failed to link photos to inventory.');
         }
 
-        // Insert into inventory_images
+        const json = await res.json();
+        const targetInvId = json.inventory_id || data.id;
         const currentImgs = data.inventory_images || [];
-        const newImgRows = [];
-        for (let i = 0; i < urls.length; i++) {
-          const order = currentImgs.length + i + 1;
-          const { data: insRow, error: insErr } = await supabase
-            .from('inventory_images')
-            .insert({
-              inventory_id: targetInvId,
-              image_path: urls[i],
-              display_order: order,
-            })
-            .select()
-            .single();
+        const updatedInvImgs = [...currentImgs, ...(json.images || urls.map((u: string) => ({ image_path: u })))];
 
-          if (!insErr && insRow) {
-            newImgRows.push(insRow);
-          } else {
-            newImgRows.push({ image_path: urls[i], display_order: order });
-          }
-        }
-
-        const updatedInvImgs = [...currentImgs, ...newImgRows];
         setData((prev: any) => ({
           ...prev,
+          id: targetInvId,
           inventory_images: updatedInvImgs,
         }));
 
@@ -298,11 +283,27 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const handleAdminDeletePhoto = async (imagePath: string) => {
     if (!data?.id || !imagePath) return;
     try {
-      await supabase
-        .from('inventory_images')
-        .delete()
-        .eq('inventory_id', data.id)
-        .eq('image_path', imagePath);
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('Please sign in as admin to delete photos.');
+      }
+
+      const res = await fetch('/api/admin/inventory-images', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          inventory_id: data.id,
+          image_path: imagePath,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to delete photo.');
+      }
 
       const updatedImgs = (data.inventory_images || []).filter((img: any) => img.image_path !== imagePath);
       setData((prev: any) => ({
@@ -321,6 +322,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       setAdminFeedback({ type: 'success', message: 'Photo deleted.' });
     } catch (err: any) {
       console.error('Error deleting photo:', err);
+      setAdminFeedback({ type: 'error', message: err.message || 'Failed to delete photo.' });
     }
   };
 
