@@ -46,6 +46,17 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
   const hoverBorder = isCyberpunk && domainStyle ? domainStyle.border : rarityStyle.border;
   const hoverGlow = isCyberpunk && domainStyle ? domainStyle.glow : rarityStyle.glow;
 
+  const handleCardClick = () => {
+    if (card.inventory_id && (card.is_marketplace_listing || card.seller_id)) {
+      fetch('/api/marketplace/track-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_id: card.inventory_id, type: 'click' }),
+      }).catch(() => {});
+    }
+    onClick(card.inventory_id);
+  };
+
   return (
     <div
       className="rounded-2xl overflow-hidden flex flex-col h-full group/card"
@@ -67,7 +78,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
       }}
     >
       {/* Image Area — clickable link to modal */}
-      <button onClick={() => onClick(card.inventory_id)} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left [container-type:inline-size]">
+      <button onClick={handleCardClick} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left [container-type:inline-size]">
         <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5">
           {card.image_path ? (
             <img
@@ -242,22 +253,37 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
 
         {/* Seller Info Pill */}
         <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t border-white/5 text-[10px]">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-black text-[9px] shrink-0 border border-amber-400/30">
               {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
             </span>
-            <span className="font-semibold text-zinc-300 truncate" title={card.seller_name || 'Noel :3'}>
+            <span className="font-semibold text-zinc-300 truncate max-w-[90px]" title={card.seller_name || 'Noel :3'}>
               {card.seller_name || 'Noel :3'}
             </span>
-            {card.seller_role === 'owner' && (
-              <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider">
-                Owner
+            {card.seller_role === 'owner' ? (
+              <span className="text-[8px] font-black px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider">
+                👑 {lang === 'hu' ? 'Alapító' : 'Founder'}
+              </span>
+            ) : card.seller_badge ? (
+              <span 
+                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0"
+                title={lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}
+              >
+                {(card as any).seller_badge_icon || '⭐'} {lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {typeof card.views === 'number' && card.views > 0 && (
+              <span className="text-[9px] text-zinc-400 flex items-center gap-0.5" title={`${card.views} ${lang === 'hu' ? 'megtekintés' : 'views'}`}>
+                <span>👁️</span>
+                <span>{card.views}</span>
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-0.5 text-amber-400 font-bold shrink-0 text-[10px]">
-            <span>★</span>
-            <span>{card.seller_rating_avg ? card.seller_rating_avg.toFixed(1) : '5.0'}</span>
+            <div className="flex items-center gap-0.5 text-amber-400 font-bold text-[10px]">
+              <span>★</span>
+              <span>{card.seller_rating_avg ? card.seller_rating_avg.toFixed(1) : '5.0'}</span>
+            </div>
           </div>
         </div>
 

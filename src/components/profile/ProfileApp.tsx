@@ -11,6 +11,7 @@ import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { getCardImageUrl } from '../../lib/supabase';
+import { getCollectorTier, getSellerTier } from '../../lib/badges';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -68,6 +69,57 @@ export function ProfileApp() {
   const [editQuantity, setEditQuantity] = useState<number>(1);
   const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
 
+  // Collection & Badge State
+  const [collectionStats, setCollectionStats] = useState({ owned: 0, total: 1382, game: 'riftbound' });
+  const [sellerSalesCount, setSellerSalesCount] = useState(0);
+
+  const loadCollectionStats = async () => {
+    try {
+      const activeGame = (typeof window !== 'undefined' && localStorage.getItem('tcg_active_game')) || 'riftbound';
+      let collectionDict: Record<string, number> = {};
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((id: string) => { if (typeof id === 'string') collectionDict[id] = 1; });
+            } else if (parsed && typeof parsed === 'object') {
+              collectionDict = parsed;
+            }
+          } catch (e) {}
+        }
+      }
+
+      const { data: cards } = await supabase.from('cards').select('id, game');
+      if (cards) {
+        const ownedCardIds = new Set<string>();
+        Object.entries(collectionDict).forEach(([k, v]) => {
+          if (v > 0) ownedCardIds.add(k.replace('_foil', ''));
+        });
+
+        const targetGame = activeGame.toLowerCase();
+        let totalGame = 0;
+        let ownedGame = 0;
+        cards.forEach(c => {
+          const g = (c.game || 'riftbound').toLowerCase();
+          if (g === targetGame) {
+            totalGame++;
+            if (ownedCardIds.has(c.id)) ownedGame++;
+          }
+        });
+
+        setCollectionStats({
+          owned: ownedGame,
+          total: Math.max(1, totalGame),
+          game: activeGame,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to calculate collection stats:', e);
+    }
+  };
+
   const loadMyListings = async (userId?: string) => {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
@@ -77,7 +129,11 @@ export function ProfileApp() {
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
-          setMyListings(json.data || []);
+          const list = json.data || [];
+          setMyListings(list);
+          if (list.length > 0 && typeof list[0].seller_items_sold === 'number') {
+            setSellerSalesCount(list[0].seller_items_sold);
+          }
         }
       }
     } catch (e) {
@@ -292,6 +348,7 @@ export function ProfileApp() {
         setDisplayName(p.display_name || '');
         loadMyListings(p.id);
       }
+      loadCollectionStats();
       const userOrders = await fetchUserOrders();
       setOrders(userOrders as Order[]);
       setLoading(false);
@@ -302,8 +359,10 @@ export function ProfileApp() {
 
     const handleMarketplaceEvt = () => {
       loadMyListings();
+      loadCollectionStats();
     };
     window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
+    window.addEventListener('tcg-collection-change', loadCollectionStats);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -311,6 +370,7 @@ export function ProfileApp() {
           setProfile(p);
           setDisplayName(p?.display_name || '');
           if (p) loadMyListings(p.id);
+          loadCollectionStats();
         });
         fetchUserOrders().then(ord => setOrders(ord as Order[]));
       } else {
@@ -325,8 +385,21 @@ export function ProfileApp() {
       window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-orders-changed', handleOrdersChange);
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
+      window.removeEventListener('tcg-collection-change', loadCollectionStats);
     };
   }, []);
+
+  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const sellerTier = useMemo(() => {
+    return getSellerTier(sellerSalesCount, 5.0, isOwner);
+  }, [sellerSalesCount, isOwner]);
+
+  const collectorTier = useMemo(() => {
+    return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game);
+  }, [collectionStats]);
+
+  const myListingsTotalViews = useMemo(() => myListings.reduce((sum, it) => sum + (it.views || 0), 0), [myListings]);
+  const myListingsTotalClicks = useMemo(() => myListings.reduce((sum, it) => sum + (it.clicks || 0), 0), [myListings]);
 
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -727,7 +800,7 @@ export function ProfileApp() {
             <div className="text-xs sm:text-sm font-mono mt-1" style={{ color: 'var(--text-tertiary)' }}>
               {profile.email}
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               {profile.is_owner || profile.role === 'owner' ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
                   <span>👑</span> {t('platform_owner', lang)}
@@ -755,11 +828,45 @@ export function ProfileApp() {
                   <span>👤</span> {t('collector', lang)}
                 </span>
               )}
+
+              {/* Upgraded Seller Badge */}
+              <a
+                href="/seller"
+                className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border transition hover:opacity-90 cursor-pointer shadow-sm"
+                style={sellerTier.badgeStyle}
+                title={lang === 'hu' ? `${sellerTier.nameHu} — Kattints az irányítópulthoz` : `${sellerTier.nameEn} — Click for Seller Dashboard`}
+              >
+                <span>{sellerTier.icon}</span>
+                <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
+              </a>
+
+              {/* Game-Specific Upgraded Collector Badge */}
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border shadow-sm"
+                style={collectorTier.badgeStyle}
+                title={lang === 'hu' ? `${collectorTier.nameHu} (${collectorTier.ownedCount}/${collectorTier.totalCount} lap)` : `${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
+              >
+                <span>{collectorTier.icon}</span>
+                <span>{lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}</span>
+                <span className="text-[10px] opacity-75 font-mono">({collectorTier.percentage}%)</span>
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <a
+            href="/seller"
+            className="px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm border"
+            style={{
+              background: 'var(--bg-surface-2)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)'
+            }}
+          >
+            <span>🏪</span>
+            <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+          </a>
           {profile.is_admin && (
             <a
               href="/admin"
@@ -825,6 +932,49 @@ export function ProfileApp() {
           </button>
         </div>
 
+        {/* Quick Summary & Seller Dashboard CTA */}
+        <div
+          className="p-4 sm:p-5 rounded-2xl border mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center gap-6 flex-wrap">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
+              </div>
+              <div className="text-xl font-black text-indigo-400">
+                {myListings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                {lang === 'hu' ? 'Megtekintések' : 'Total Views'}
+              </div>
+              <div className="text-xl font-black text-cyan-400 flex items-center gap-1">
+                <span>👁️</span>
+                <span>{myListingsTotalViews}</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                {lang === 'hu' ? 'Kattintások' : 'Total Clicks'}
+              </div>
+              <div className="text-xl font-black text-pink-400 flex items-center gap-1">
+                <span>🖱️</span>
+                <span>{myListingsTotalClicks}</span>
+              </div>
+            </div>
+          </div>
+
+          <a
+            href="/seller"
+            className="px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-md flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 hover:opacity-90 active:scale-95 shrink-0"
+          >
+            <span>🏪</span>
+            <span>{lang === 'hu' ? 'Megnyitás: Eladói Irányítópult →' : 'Open: Seller Dashboard →'}</span>
+          </a>
+        </div>
+
         {/* Listings Container */}
         {loadingListings ? (
           <div className="p-8 rounded-2xl border text-center animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
@@ -887,12 +1037,20 @@ export function ProfileApp() {
                       <span>•</span>
                       <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <div className="mt-1 flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-black text-emerald-400">
                         {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                       </span>
                       <span className="text-[10px] text-zinc-400">
                         ({item.quantity} {lang === 'hu' ? 'db' : 'pcs'})
+                      </span>
+                      <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-0.5" title="Views">
+                        <span>👁️</span>
+                        <span>{item.views || 0}</span>
+                      </span>
+                      <span className="text-[10px] text-pink-400 font-mono flex items-center gap-0.5" title="Clicks">
+                        <span>🖱️</span>
+                        <span>{item.clicks || 0}</span>
                       </span>
                     </div>
                   </div>

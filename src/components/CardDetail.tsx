@@ -4,6 +4,7 @@ import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
+import { getSellerTier } from '../lib/badges';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
@@ -334,6 +335,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     
     if (resolvedInvId) {
       setLoading(true);
+      fetch('/api/marketplace/track-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_id: resolvedInvId, type: 'view' }),
+      }).catch(() => {});
       fetchCardDetail(resolvedInvId)
         .then(row => {
           setData(row);
@@ -1220,9 +1226,20 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
                       {sellerSummary?.display_name || data?.seller_name || 'Noel :3'}
                     </span>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      {sellerSummary?.is_owner || sellerSummary?.role === 'owner' ? 'Store Owner' : 'Verified Seller'}
-                    </span>
+                    {(() => {
+                      const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
+                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_items_sold || 0, sellerSummary?.rating_avg || 5.0, isOwner);
+                      return (
+                        <span
+                          className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
+                          style={tier.badgeStyle}
+                          title={lang === 'hu' ? tier.nameHu : tier.nameEn}
+                        >
+                          <span>{tier.icon}</span>
+                          <span>{lang === 'hu' ? tier.nameHu : tier.nameEn}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     <div className="flex items-center gap-1 text-amber-400 font-bold">

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getSellerTier } from '../../../lib/badges';
 
 export const prerender = false;
 
@@ -232,6 +233,32 @@ export const GET: APIRoute = async ({ url }) => {
       ratingsMap.set(r.seller_id, cur);
     });
 
+    // Fetch store orders to count sales per seller
+    const { data: storeOrdersRow } = await supabaseAdmin
+      .from('settings')
+      .select('value')
+      .eq('key', 'store_orders')
+      .maybeSingle();
+
+    const salesCountMap = new Map<string, number>();
+    if (storeOrdersRow?.value) {
+      try {
+        const allOrders = JSON.parse(storeOrdersRow.value);
+        if (Array.isArray(allOrders)) {
+          allOrders.forEach((ord: any) => {
+            if (ord.status !== 'Cancelled') {
+              const sId = ord.seller_id || OWNER_ID;
+              const current = salesCountMap.get(sId) || 0;
+              const itemCount = Array.isArray(ord.items)
+                ? ord.items.reduce((s: number, it: any) => s + (it.quantity || 1), 0)
+                : 1;
+              salesCountMap.set(sId, current + itemCount);
+            }
+          });
+        }
+      } catch (e) {}
+    }
+
     const EUR_TO_HUF = 400;
     const allFormatted: any[] = [];
 
@@ -244,6 +271,19 @@ export const GET: APIRoute = async ({ url }) => {
       const ratingInfo = ratingsMap.get(sId);
       const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : 5.0;
       const reviewCount = ratingInfo ? ratingInfo.count : 0;
+      const itemsSold = salesCountMap.get(sId) || 0;
+      const isOwner = sId === OWNER_ID || prof?.role === 'owner';
+      const sellerTier = getSellerTier(itemsSold, avgRating, isOwner);
+
+      let views = 0;
+      let clicks = 0;
+      try {
+        if (row.notes && row.notes.startsWith('{')) {
+          const parsed = JSON.parse(row.notes);
+          views = typeof parsed.views === 'number' ? parsed.views : 0;
+          clicks = typeof parsed.clicks === 'number' ? parsed.clicks : 0;
+        }
+      } catch (e) {}
 
       const cardObj = row.cards;
       const invImgs: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
@@ -258,6 +298,13 @@ export const GET: APIRoute = async ({ url }) => {
         notes: row.notes,
         is_bulk: false,
         quantity: row.quantity,
+        views,
+        clicks,
+        seller_badge: sellerTier.nameEn,
+        seller_badge_hu: sellerTier.nameHu,
+        seller_badge_icon: sellerTier.icon,
+        seller_tier: sellerTier.tier,
+        seller_items_sold: itemsSold,
         card_id: cardObj.id,
         card_number: cardObj.card_number,
         name: cardObj.name,
@@ -311,6 +358,10 @@ export const GET: APIRoute = async ({ url }) => {
 
       const priceHuf = effectiveEur ? Math.round(effectiveEur * EUR_TO_HUF) : 500;
 
+      const itemsSold = salesCountMap.get(row.user_id) || 0;
+      const isOwner = row.user_id === OWNER_ID || prof?.role === 'owner';
+      const sellerTier = getSellerTier(itemsSold, avgRating, isOwner);
+
       allFormatted.push({
         inventory_id: row.id,
         condition: 'Near Mint',
@@ -320,6 +371,13 @@ export const GET: APIRoute = async ({ url }) => {
         notes: null,
         is_bulk: false,
         quantity: row.for_sale_copies,
+        views: 0,
+        clicks: 0,
+        seller_badge: sellerTier.nameEn,
+        seller_badge_hu: sellerTier.nameHu,
+        seller_badge_icon: sellerTier.icon,
+        seller_tier: sellerTier.tier,
+        seller_items_sold: itemsSold,
         card_id: cardObj.id,
         card_number: cardObj.card_number,
         name: cardObj.name,
@@ -448,10 +506,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Insert listing into public.inventory
     const notesPayload = JSON.stringify({
       source: 'marketplace',
       seller_id: user.id,
+      views: 0,
+      clicks: 0,
       listed_at: new Date().toISOString(),
     });
 

@@ -50,13 +50,21 @@ export function generateOrderNumber(): string {
 
 /**
  * Get all orders for the current user or guest session.
- * Combines localStorage with Supabase cloud user_metadata.
+ * Strictly isolates orders by user ID and email to prevent cross-account contamination.
  */
 export async function fetchUserOrders(): Promise<Order[]> {
+  const user = await getCurrentUser();
+  const userStorageKey = user ? `${ORDERS_STORAGE_KEY}_${user.id}` : ORDERS_STORAGE_KEY;
+
   const localOrders: Order[] = [];
   if (typeof window !== 'undefined') {
     try {
-      const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
+      // 1. Try user-scoped storage key first
+      let raw = localStorage.getItem(userStorageKey);
+      // Fallback to shared legacy key if user-scoped key is empty
+      if (!raw && user) {
+        raw = localStorage.getItem(ORDERS_STORAGE_KEY);
+      }
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
@@ -68,19 +76,37 @@ export async function fetchUserOrders(): Promise<Order[]> {
     }
   }
 
-  // If user is authenticated, merge cloud orders from user_metadata
-  const user = await getCurrentUser();
   const orderMap = new Map<string, Order>();
+
+  // Filter localOrders strictly for this user
   localOrders.forEach(ord => {
-    const key = ord.order_number || ord.id;
-    if (key) orderMap.set(key, ord);
+    if (user) {
+      const isMyUserId = ord.user_id === user.id;
+      const isMyEmail = Boolean(user.email && ord.customer_info?.email && ord.customer_info.email.toLowerCase() === user.email.toLowerCase());
+      // ONLY add if it belongs to this user or is an unassociated guest order with matching email
+      if (isMyUserId || isMyEmail) {
+        const key = ord.order_number || ord.id;
+        if (key) orderMap.set(key, { ...ord, user_id: ord.user_id || user.id });
+      }
+    } else {
+      // Guest session: only orders with no user_id
+      if (!ord.user_id) {
+        const key = ord.order_number || ord.id;
+        if (key) orderMap.set(key, ord);
+      }
+    }
   });
 
+  // If user is authenticated, merge cloud orders from user_metadata
   if (user && user.user_metadata?.saved_orders && Array.isArray(user.user_metadata.saved_orders)) {
     const cloudOrders: Order[] = user.user_metadata.saved_orders;
     cloudOrders.forEach(ord => {
-      const key = ord.order_number || ord.id;
-      if (key) orderMap.set(key, ord);
+      const isMyUserId = !ord.user_id || ord.user_id === user.id;
+      const isMyEmail = Boolean(user.email && ord.customer_info?.email && ord.customer_info.email.toLowerCase() === user.email.toLowerCase());
+      if (isMyUserId || isMyEmail) {
+        const key = ord.order_number || ord.id;
+        if (key) orderMap.set(key, { ...ord, user_id: user.id });
+      }
     });
   }
 
@@ -97,22 +123,28 @@ export async function fetchUserOrders(): Promise<Order[]> {
       if (Array.isArray(allStoreOrders)) {
         allStoreOrders.forEach(stOrd => {
           const key = stOrd.order_number || stOrd.id;
-          if (orderMap.has(key)) {
-            const existing = orderMap.get(key)!;
-            const isPaid = stOrd.payment_status === 'paid' || existing.payment_status === 'paid';
-            const resolvedPaymentStatus = isPaid ? 'paid' : (stOrd.payment_status || existing.payment_status);
-            const resolvedStatus = isPaid && (stOrd.status === 'Pending' || existing.status === 'Pending')
-              ? 'Processing'
-              : (stOrd.status !== 'Pending' ? stOrd.status : existing.status);
+          if (user) {
+            const isMyUserId = stOrd.user_id === user.id;
+            const isMyEmail = Boolean(user.email && stOrd.customer_info?.email && stOrd.customer_info.email.toLowerCase() === user.email.toLowerCase());
+            if (isMyUserId || isMyEmail) {
+              const existing = orderMap.get(key) || stOrd;
+              const isPaid = stOrd.payment_status === 'paid' || existing.payment_status === 'paid';
+              const resolvedPaymentStatus = isPaid ? 'paid' : (stOrd.payment_status || existing.payment_status);
+              const resolvedStatus = isPaid && (stOrd.status === 'Pending' || existing.status === 'Pending')
+                ? 'Processing'
+                : (stOrd.status !== 'Pending' ? stOrd.status : existing.status);
 
-            orderMap.set(key, {
-              ...existing,
-              ...stOrd,
-              payment_status: resolvedPaymentStatus,
-              status: resolvedStatus,
-            });
-          } else if (user && stOrd.user_id === user.id) {
-            orderMap.set(key, stOrd);
+              orderMap.set(key, {
+                ...existing,
+                ...stOrd,
+                user_id: user.id,
+                payment_status: resolvedPaymentStatus,
+                status: resolvedStatus,
+              });
+            }
+          } else if (orderMap.has(key)) {
+            const existing = orderMap.get(key)!;
+            orderMap.set(key, { ...existing, ...stOrd });
           }
         });
       }
@@ -124,10 +156,14 @@ export async function fetchUserOrders(): Promise<Order[]> {
   const merged = Array.from(orderMap.values());
   merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // Self-heal local storage with latest merged order statuses
-  if (typeof window !== 'undefined' && merged.length > 0) {
+  // Save back only this user's verified orders to their user-scoped storage key
+  if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(merged));
+      localStorage.setItem(userStorageKey, JSON.stringify(merged));
+      // If user is logged in, purge legacy shared key if it had cross-user data
+      if (user && localStorage.getItem(ORDERS_STORAGE_KEY)) {
+        localStorage.removeItem(ORDERS_STORAGE_KEY);
+      }
     } catch (e) {}
   }
 
@@ -297,13 +333,14 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
       }
     }
 
-    // ── 2. Persist in Local Storage ──
+    // ── 2. Persist in Local Storage (User-scoped) ──
     if (typeof window !== 'undefined') {
       try {
-        const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
+        const userKey = user ? `${ORDERS_STORAGE_KEY}_${user.id}` : ORDERS_STORAGE_KEY;
+        const raw = localStorage.getItem(userKey);
         const existing: Order[] = raw ? JSON.parse(raw) : [];
         const updated = [newOrder, ...existing.filter(o => o.order_number !== newOrder.order_number)];
-        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updated));
+        localStorage.setItem(userKey, JSON.stringify(updated));
       } catch (e) {
         console.error('Failed to save order to localStorage:', e);
       }

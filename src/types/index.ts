@@ -53,6 +53,9 @@ export interface InventoryCard {
   seller_rating_avg?: number;
   seller_rating_count?: number;
   is_marketplace_listing?: boolean;
+  views?: number;
+  clicks?: number;
+  seller_badge?: string;
 }
 
 export interface CatalogCard {
@@ -173,6 +176,7 @@ export interface Order {
   invoice_number?: string | null;
   invoice_status?: 'none' | 'pending' | 'issued' | 'failed' | null;
   invoice_url?: string | null;
+  shipping_method?: string | null;
   payment_method?: string | null;
   payment_status?: 'pending' | 'paid' | 'refunded' | null;
   payment_id?: string | null;
@@ -215,5 +219,6 @@ export interface SellerProfileSummary {
   role: UserRole;
   rating_avg: number;
   rating_count: number;
+  sales_count?: number;
   is_owner?: boolean;
 }

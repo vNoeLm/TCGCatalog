@@ -1,0 +1,1187 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../../lib/supabase';
+import { getCurrentProfile } from '../../lib/auth';
+import { getCardImageUrl } from '../../lib/supabase';
+import { getLanguage, t, type Language } from '../../lib/i18n';
+import { useSiteTheme } from '../../lib/theme';
+import { ListCardModal } from '../marketplace/ListCardModal';
+import { AuthModal } from '../auth/AuthModal';
+import { getCollectorTier, getSellerTier, formatGameTitle, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getAllReviews } from '../../lib/reviews';
+import type { UserProfile, Order, SellerReview } from '../../types';
+
+export function SellerDashboardApp() {
+  const { theme: effectiveTheme } = useSiteTheme();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [lang, setLang] = useState<Language>('en');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Listings State
+  const [listings, setListings] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [editingListing, setEditingListing] = useState<any | null>(null);
+  const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
+  const [editQuantity, setEditQuantity] = useState<number>(1);
+  const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
+
+  // Collection & Badges State
+  const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
+  const [gameCardCounts, setGameCardCounts] = useState<{ riftbound: number; cyberpunk: number }>({
+    riftbound: 1382,
+    cyberpunk: 151,
+  });
+  const [userGameOwned, setUserGameOwned] = useState<{ riftbound: number; cyberpunk: number }>({
+    riftbound: 0,
+    cyberpunk: 0,
+  });
+
+  // Seller Sales & Rating State
+  const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
+  const [activeTab, setActiveTab] = useState<'listings' | 'analytics' | 'sales' | 'reviews'>('listings');
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Load User Collection and Card Catalog Game Distribution
+  const loadCollectionStats = async () => {
+    try {
+      // 1. Get user collection from localStorage
+      let collectionDict: Record<string, number> = {};
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((id: string) => { if (typeof id === 'string') collectionDict[id] = 1; });
+            } else if (parsed && typeof parsed === 'object') {
+              collectionDict = parsed;
+            }
+          } catch (e) {}
+        }
+      }
+
+      // 2. Fetch cards mapping (id, game)
+      const { data: cards, error } = await supabase.from('cards').select('id, game');
+      if (!error && cards) {
+        let totalRift = 0;
+        let totalCyber = 0;
+        let ownedRift = 0;
+        let ownedCyber = 0;
+
+        const ownedCardIds = new Set<string>();
+        Object.entries(collectionDict).forEach(([key, count]) => {
+          if (count > 0) {
+            const cleanId = key.replace('_foil', '');
+            ownedCardIds.add(cleanId);
+          }
+        });
+
+        cards.forEach(c => {
+          const g = (c.game || 'riftbound').toLowerCase();
+          if (g === 'cyberpunk') {
+            totalCyber++;
+            if (ownedCardIds.has(c.id)) ownedCyber++;
+          } else {
+            totalRift++;
+            if (ownedCardIds.has(c.id)) ownedRift++;
+          }
+        });
+
+        setGameCardCounts({
+          riftbound: Math.max(1, totalRift),
+          cyberpunk: Math.max(1, totalCyber),
+        });
+        setUserGameOwned({
+          riftbound: ownedRift,
+          cyberpunk: ownedCyber,
+        });
+      }
+    } catch (err) {
+      console.warn('Error computing collection stats:', err);
+    }
+  };
+
+  // Load Seller Listings
+  const loadSellerListings = async (userId?: string) => {
+    const targetUid = userId || profile?.id;
+    if (!targetUid) return;
+    setLoadingListings(true);
+    try {
+      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setListings(json.data || []);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load seller listings:', e);
+    } finally {
+      setLoadingListings(false);
+    }
+  };
+
+  // Load Seller Sales History
+  const loadSellerSales = async (userId?: string) => {
+    const targetUid = userId || profile?.id;
+    if (!targetUid) return;
+    setLoadingOrders(true);
+    try {
+      // Fetch all orders from settings store_orders or api/orders
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const json = await res.json();
+        const allOrders: Order[] = json.orders || [];
+        // Filter orders that belong to this seller
+        const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com';
+        const mySales = allOrders.filter(o => {
+          if (o.seller_id === targetUid) return true;
+          if (isOwner && (!o.seller_id || o.seller_id === 'platform-owner' || o.seller_id === targetUid)) return true;
+          return false;
+        });
+        setSellerOrders(mySales);
+      }
+    } catch (e) {
+      console.warn('Failed to load seller orders:', e);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  // Load Seller Reviews
+  const loadSellerReviews = async (userId?: string) => {
+    const targetUid = userId || profile?.id;
+    if (!targetUid) return;
+    try {
+      const revs = await getAllReviews();
+      const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com';
+      const mine = revs.filter(r => {
+        if (r.seller_id === targetUid) return true;
+        if (isOwner && (!r.seller_id || r.seller_id === 'platform-owner')) return true;
+        return false;
+      });
+      setSellerReviews(mine);
+    } catch (e) {
+      console.warn('Failed to load seller reviews:', e);
+    }
+  };
+
+  useEffect(() => {
+    setLang(getLanguage());
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lang: Language }>;
+      if (customEvent.detail?.lang) {
+        setLang(customEvent.detail.lang);
+      }
+    };
+    window.addEventListener('tcg-lang-change', handleLangChange);
+
+    getCurrentProfile().then(p => {
+      setProfile(p);
+      setLoading(false);
+      if (p) {
+        loadSellerListings(p.id);
+        loadSellerSales(p.id);
+        loadSellerReviews(p.id);
+      }
+    });
+
+    loadCollectionStats();
+
+    const handleMarketplaceEvt = () => {
+      loadSellerListings();
+      loadCollectionStats();
+    };
+    window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
+    window.addEventListener('tcg-collection-change', loadCollectionStats);
+
+    return () => {
+      window.removeEventListener('tcg-lang-change', handleLangChange);
+      window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
+      window.removeEventListener('tcg-collection-change', loadCollectionStats);
+    };
+  }, []);
+
+  // Actions: Unlist & Edit
+  const handleUnlistCard = async (listingId: string) => {
+    if (!confirm(lang === 'hu' ? 'Biztosan törölni szeretnéd ezt a hirdetést a piactérről?' : 'Are you sure you want to remove this listing?')) return;
+    setUpdatingListingId(listingId);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(`/api/marketplace/listings?id=${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+      if (res.ok) {
+        setListings(prev => prev.filter(item => item.inventory_id !== listingId));
+        showToast(lang === 'hu' ? 'Hirdetés sikeresen törölve' : 'Listing removed successfully');
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error removing listing');
+    } finally {
+      setUpdatingListingId(null);
+    }
+  };
+
+  const handleSaveListingEdit = async (item: any) => {
+    setUpdatingListingId(item.inventory_id);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const listingImages = item.inventory_images && item.inventory_images.length > 0
+        ? item.inventory_images.map((img: any) => img.image_path)
+        : (item.inventory_image ? [item.inventory_image] : []);
+
+      const res = await fetch('/api/marketplace/listings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          card_id: item.card_id,
+          quantity: Math.max(1, editQuantity),
+          price_huf: Math.max(50, editPriceHuf),
+          is_foil: item.is_foil,
+          condition: item.condition || 'Near Mint',
+          images: listingImages,
+        }),
+      });
+      if (res.ok) {
+        showToast(lang === 'hu' ? 'Hirdetés sikeresen módosítva' : 'Listing updated successfully');
+        setEditingListing(null);
+        loadSellerListings();
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating listing');
+    } finally {
+      setUpdatingListingId(null);
+    }
+  };
+
+  // Calculated Statistics
+  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const itemsSold = useMemo(() => {
+    return sellerOrders.reduce((sum, ord) => {
+      if (ord.status === 'Cancelled') return sum;
+      const count = Array.isArray(ord.items)
+        ? ord.items.reduce((s, it) => s + (it.quantity || 1), 0)
+        : 1;
+      return sum + count;
+    }, 0);
+  }, [sellerOrders]);
+
+  const totalRevenueHuf = useMemo(() => {
+    return sellerOrders.reduce((sum, ord) => {
+      if (ord.status === 'Cancelled') return sum;
+      return sum + (ord.total_price_huf ?? ord.total_huf ?? 0);
+    }, 0);
+  }, [sellerOrders]);
+
+  const totalViews = useMemo(() => {
+    return listings.reduce((sum, item) => sum + (item.views || 0), 0);
+  }, [listings]);
+
+  const totalClicks = useMemo(() => {
+    return listings.reduce((sum, item) => sum + (item.clicks || 0), 0);
+  }, [listings]);
+
+  const totalListedValueHuf = useMemo(() => {
+    return listings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity || 1)), 0);
+  }, [listings]);
+
+  const averageRating = useMemo(() => {
+    if (sellerReviews.length === 0) return 5.0;
+    const total = sellerReviews.reduce((sum, r) => sum + r.rating, 0);
+    return total / sellerReviews.length;
+  }, [sellerReviews]);
+
+  // Seller Tier Calculation
+  const sellerTier: SellerTier = useMemo(() => {
+    return getSellerTier(itemsSold, averageRating, isOwner);
+  }, [itemsSold, averageRating, isOwner]);
+
+  // Collector Tier Calculation (Game-Specific)
+  const collectorTier: CollectorTier = useMemo(() => {
+    const owned = activeBadgeGame === 'cyberpunk' ? userGameOwned.cyberpunk : userGameOwned.riftbound;
+    const total = activeBadgeGame === 'cyberpunk' ? gameCardCounts.cyberpunk : gameCardCounts.riftbound;
+    return getCollectorTier(owned, total, activeBadgeGame);
+  }, [activeBadgeGame, userGameOwned, gameCardCounts]);
+
+  const filteredListings = useMemo(() => {
+    if (!searchQuery.trim()) return listings;
+    const q = searchQuery.toLowerCase().trim();
+    return listings.filter(it =>
+      (it.name || '').toLowerCase().includes(q) ||
+      (it.card_number || '').toLowerCase().includes(q) ||
+      (it.rarity || '').toLowerCase().includes(q) ||
+      (it.set_name || '').toLowerCase().includes(q)
+    );
+  }, [listings, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <span className="font-bold text-base animate-pulse" style={{ color: 'var(--text-accent)' }}>
+          {lang === 'hu' ? 'Irányítópult betöltése…' : 'Loading seller dashboard…'}
+        </span>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+        <div
+          className="max-w-md mx-auto my-12 p-8 text-center rounded-2xl shadow-xl border"
+          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="w-16 h-16 rounded-2xl inline-flex items-center justify-center mb-4 border text-3xl" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+            🏪
+          </div>
+          <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
+            {lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}
+          </h2>
+          <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu'
+              ? 'Jelentkezz be, hogy kezeld a hirdetéseidet, nyomon kövesd a megtekintéseket, kattintásokat és a megszerzett eladói jelvényeidet!'
+              : 'Sign in to manage your marketplace listings, view click & visitor stats, and unlock upgraded seller badges!'}
+          </p>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="px-6 py-3 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent, #000)',
+              boxShadow: '0 0 16px var(--accent-glow)',
+            }}
+          >
+            {t('sign_in', lang)}
+          </button>
+          {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 1400, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/50 text-emerald-300 font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
+          <span>✓</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ─── Top Header: Identity & Badges ─────────────────────────── */}
+      <div
+        className="rounded-2xl p-6 sm:p-7 mb-6 border shadow-sm"
+        style={{
+          background: 'var(--bg-surface)',
+          borderColor: 'var(--border)',
+          boxShadow: 'var(--shadow-card)',
+        }}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          {/* Seller Identity */}
+          <div className="flex items-center gap-4 sm:gap-5">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.display_name || 'Seller'}
+                className="w-16 h-16 rounded-2xl object-cover border"
+                style={{ borderColor: 'var(--border)' }}
+              />
+            ) : (
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border"
+                style={{
+                  background: 'var(--bg-surface-2)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--accent)',
+                }}
+              >
+                {(profile.display_name || profile.email || 'S')[0].toUpperCase()}
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
+                  {profile.display_name || 'Seller'}
+                </h1>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
+                  ID: {profile.id.slice(0, 8)}…
+                </span>
+              </div>
+              <div className="text-xs sm:text-sm font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                {profile.email}
+              </div>
+              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                <span className="flex items-center gap-1 text-amber-400 font-bold">
+                  <span>★</span>
+                  <span>{averageRating.toFixed(1)}</span>
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>•</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {sellerReviews.length} {sellerReviews.length === 1 ? (lang === 'hu' ? 'értékelés' : 'review') : (lang === 'hu' ? 'értékelés' : 'reviews')}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>•</span>
+                <span className="text-emerald-400 font-semibold">
+                  {itemsSold} {lang === 'hu' ? 'eladott lap' : 'cards sold'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Action Button */}
+          <div className="flex items-center gap-3 self-start lg:self-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => setIsListModalOpen(true)}
+              className="px-5 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
+            >
+              <span className="text-base">🏷️</span>
+              <span>{lang === 'hu' ? '+ Új kártya hirdetése' : '+ List New Card'}</span>
+            </button>
+            <a
+              href="/marketplace"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1.5"
+              style={{
+                background: 'var(--bg-surface-2)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <span>🤝</span>
+              <span>{lang === 'hu' ? 'Piactér böngészése' : 'Browse Marketplace'}</span>
+            </a>
+          </div>
+        </div>
+
+        {/* ─── DYNAMIC UPGRADED BADGES BANNER ─── */}
+        <div className="mt-6 pt-5 border-t grid grid-cols-1 md:grid-cols-2 gap-4" style={{ borderColor: 'var(--border-subtle)' }}>
+          {/* 1. SELLER BADGE */}
+          <div
+            className="p-4 rounded-xl border flex flex-col justify-between"
+            style={{
+              background: 'var(--bg-surface-2)',
+              borderColor: sellerTier.border,
+            }}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{sellerTier.icon}</span>
+                  <span className="text-sm font-black" style={{ color: sellerTier.color }}>
+                    {lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}
+                  </span>
+                </div>
+                <span
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider"
+                  style={sellerTier.badgeStyle}
+                >
+                  {itemsSold >= 1 ? (lang === 'hu' ? 'Hitelesítve' : 'Verified') : (lang === 'hu' ? 'Új eladó' : 'Level 0')}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                {sellerTier.isOwner
+                  ? (lang === 'hu' ? 'Hivatalos áruház tulajdonos és platform alapító.' : 'Official store owner and platform founder.')
+                  : itemsSold >= 1
+                  ? (lang === 'hu' ? `Kiváló közösségi eladó ${itemsSold} sikeres tranzakcióval.` : `Verified community seller with ${itemsSold} successful cards sold.`)
+                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "⭐ Hitelesített Eladó" rang feloldásához!' : 'Sell at least 1 card to unlock the "⭐ Verified Seller" badge!')}
+              </p>
+            </div>
+
+            {/* Sales Progress Bar */}
+            {!sellerTier.isOwner && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    {lang === 'hu' ? 'Következő kereskedő rang:' : 'Next merchant tier:'}
+                  </span>
+                  <span className="font-mono" style={{ color: sellerTier.color }}>
+                    {itemsSold} / {sellerTier.nextTierSales} {lang === 'hu' ? 'eladás' : 'sales'}
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.round((itemsSold / Math.max(1, sellerTier.nextTierSales)) * 100))}%`,
+                      background: sellerTier.color,
+                      boxShadow: `0 0 10px ${sellerTier.color}`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. GAME-SPECIFIC COLLECTOR BADGE */}
+          <div
+            className="p-4 rounded-xl border flex flex-col justify-between"
+            style={{
+              background: 'var(--bg-surface-2)',
+              borderColor: collectorTier.border,
+            }}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{collectorTier.icon}</span>
+                  <span className="text-sm font-black" style={{ color: collectorTier.color }}>
+                    {lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}
+                  </span>
+                </div>
+
+                {/* Game Switcher Tabs for Collector Badges */}
+                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/30 border border-white/5 text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setActiveBadgeGame('riftbound')}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                      activeBadgeGame === 'riftbound' ? 'bg-amber-500 text-black font-black' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Riftbound
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveBadgeGame('cyberpunk')}
+                    className={`px-2 py-0.5 rounded transition cursor-pointer ${
+                      activeBadgeGame === 'cyberpunk' ? 'bg-cyan-400 text-black font-black' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Cyberpunk
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? `Egyedi kártyák a gyűjteményedben a(z) ${formatGameTitle(activeBadgeGame)} játékkatalógusból: ${collectorTier.ownedCount} / ${collectorTier.totalCount} db (${collectorTier.percentage}%).`
+                  : `Unique cards owned in your ${formatGameTitle(activeBadgeGame)} catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
+              </p>
+            </div>
+
+            {/* Collector Progress Bar */}
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {lang === 'hu' ? 'Gyűjtői teljesítés:' : 'Catalog Completion:'}
+                </span>
+                <span className="font-mono font-black" style={{ color: collectorTier.color }}>
+                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? '🌌 MAX' : `(Cél: ${collectorTier.nextTierMin}%)`}
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, collectorTier.percentage)}%`,
+                    background: collectorTier.color,
+                    boxShadow: `0 0 10px ${collectorTier.color}`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Performance Metrics Grid ───────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {/* Total Revenue */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Összes bevétel' : 'Total Earnings'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-emerald-400 truncate">
+            {totalRevenueHuf.toLocaleString()} Ft
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {sellerOrders.length} {lang === 'hu' ? 'rendelés' : 'orders'}
+          </div>
+        </div>
+
+        {/* Items Sold */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Eladott lapok' : 'Cards Sold'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
+            {itemsSold} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+          </div>
+          <div className="text-[10px] mt-1 text-emerald-400 font-semibold">
+            {sellerTier.icon} {lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}
+          </div>
+        </div>
+
+        {/* Active Listings */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
+            {listings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {totalListedValueHuf.toLocaleString()} Ft {lang === 'hu' ? 'érték' : 'value'}
+          </div>
+        </div>
+
+        {/* Total Views */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Összes megtekintés' : 'Total Views'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate flex items-center gap-1">
+            <span>👁️</span>
+            <span>{totalViews}</span>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0'} {lang === 'hu' ? '/ hirdetés' : '/ post'}
+          </div>
+        </div>
+
+        {/* Total Clicks */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Összes kattintás' : 'Total Clicks'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-pink-400 truncate flex items-center gap-1">
+            <span>🖱️</span>
+            <span>{totalClicks}</span>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : '0'}% CTR
+          </div>
+        </div>
+
+        {/* Seller Rating */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu' ? 'Értékelés' : 'Rating'}
+          </div>
+          <div className="text-lg sm:text-xl font-black text-amber-300 truncate flex items-center gap-1">
+            <span>★</span>
+            <span>{averageRating.toFixed(1)}</span>
+          </div>
+          <div className="text-[10px] mt-1 text-zinc-400">
+            {sellerReviews.length} {lang === 'hu' ? 'vásárlói vélemény' : 'buyer reviews'}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Navigation Tabs ────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b pb-3 mb-6" style={{ borderColor: 'var(--border-subtle)' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('listings')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'listings'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <span>🏷️</span>
+          <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({listings.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'analytics'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <span>📊</span>
+          <span>{lang === 'hu' ? 'Statisztikák és kattintások' : 'Post Stats & Clicks'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('sales')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'sales'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <span>📦</span>
+          <span>{lang === 'hu' ? 'Eladási előzmények' : 'Sales History'} ({sellerOrders.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('reviews')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'reviews'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <span>★</span>
+          <span>{lang === 'hu' ? 'Vásárlói értékelések' : 'Reviews'} ({sellerReviews.length})</span>
+        </button>
+      </div>
+
+      {/* ─── TAB 1: ACTIVE LISTINGS ─────────────────────────────────── */}
+      {activeTab === 'listings' && (
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="relative max-w-sm w-full">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={lang === 'hu' ? 'Keresés saját hirdetéseim között…' : 'Search your listings…'}
+                className="w-full px-3.5 py-2 rounded-xl text-xs font-bold outline-none border transition"
+                style={{
+                  background: 'var(--bg-input)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
+              {filteredListings.length} {lang === 'hu' ? 'találat' : 'items'}
+            </div>
+          </div>
+
+          {loadingListings ? (
+            <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Hirdetések betöltése…' : 'Loading listings…'}</div>
+            </div>
+          ) : filteredListings.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-4xl block mb-2">🏷️</span>
+              <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {searchQuery
+                  ? (lang === 'hu' ? 'Nem található ilyen hirdetés' : 'No matching listings found')
+                  : (lang === 'hu' ? 'Még nincsenek aktív hirdetéseid' : 'No active marketplace listings')}
+              </div>
+              <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? 'Hirdess meg egy lapot és kezdd el növelni az eladói rangodat!'
+                  : 'List a card for sale to start building your verified seller tier!'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsListModalOpen(true)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
+              >
+                {lang === 'hu' ? '+ Első kártya eladása' : '+ List Your First Card'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {filteredListings.map((item) => (
+                <div
+                  key={item.inventory_id}
+                  className="p-4 rounded-2xl border flex flex-col justify-between gap-3 shadow-sm transition hover:border-[var(--accent)]"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
+                      {item.image_path ? (
+                        <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
+                      )}
+                      {item.is_foil && (
+                        <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
+                      )}
+                      {item.inventory_images && item.inventory_images.length > 0 && (
+                        <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow">
+                          📸 {item.inventory_images.length}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                        {item.name}
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono">{item.card_number}</span>
+                        <span>•</span>
+                        <span className="text-indigo-300 font-semibold">{item.rarity}</span>
+                        <span>•</span>
+                        <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-emerald-400">
+                          {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                        </span>
+                        <span className="text-xs text-zinc-400">
+                          ({item.quantity} {lang === 'hu' ? 'db készleten' : 'in stock'})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Views / Clicks Bar */}
+                  <div className="pt-2.5 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1 text-cyan-400 font-semibold text-[11px]" title="Views">
+                        <span>👁️</span>
+                        <span>{item.views || 0}</span>
+                      </span>
+                      <span className="flex items-center gap-1 text-pink-400 font-semibold text-[11px]" title="Clicks">
+                        <span>🖱️</span>
+                        <span>{item.clicks || 0}</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        {item.views > 0 ? `${(((item.clicks || 0) / item.views) * 100).toFixed(0)}% CTR` : '0% CTR'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingListing(item);
+                          setEditPriceHuf(item.price_huf || 500);
+                          setEditQuantity(item.quantity || 1);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                      >
+                        {lang === 'hu' ? 'Ár / db' : 'Edit'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUnlistCard(item.inventory_id)}
+                        disabled={updatingListingId === item.inventory_id}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                      >
+                        {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB 2: ANALYTICS & POST CLICKS ─────────────────────────── */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
+              {lang === 'hu' ? 'Hirdetési Statisztikák és Érdeklődés' : 'Listing Engagement & Click Analysis'}
+            </h3>
+            <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu'
+                ? 'Itt láthatod, hogy melyik lapjaidat nézték meg és kattintották a legtöbbször a piactéren.'
+                : 'Track which card listings receive the highest engagement and click-through rates.'}
+            </p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
+                    <th className="py-2.5 px-3">{lang === 'hu' ? 'Kártya' : 'Card'}</th>
+                    <th className="py-2.5 px-3">{lang === 'hu' ? 'Ár' : 'Price'}</th>
+                    <th className="py-2.5 px-3 text-center">👁️ {lang === 'hu' ? 'Megtekintés' : 'Views'}</th>
+                    <th className="py-2.5 px-3 text-center">🖱️ {lang === 'hu' ? 'Kattintás' : 'Clicks'}</th>
+                    <th className="py-2.5 px-3 text-center">{lang === 'hu' ? 'Kattintási arány (CTR)' : 'CTR'}</th>
+                    <th className="py-2.5 px-3 text-right">{lang === 'hu' ? 'Állapot' : 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {listings.map((item) => {
+                    const views = item.views || 0;
+                    const clicks = item.clicks || 0;
+                    const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
+                    return (
+                      <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-11 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
+                              {item.image_path ? (
+                                <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</div>
+                              <div className="text-[10px] text-zinc-400 font-mono">{item.card_number} • {item.rarity}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">
+                          {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono font-bold text-cyan-400">
+                          {views}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono font-bold text-pink-400">
+                          {clicks}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            Number(ctr) >= 10 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-300'
+                          }`}>
+                            {ctr}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                            {lang === 'hu' ? 'Aktív' : 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 3: SALES HISTORY ───────────────────────────────────── */}
+      {activeTab === 'sales' && (
+        <div className="space-y-4">
+          {loadingOrders ? (
+            <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Rendelések betöltése…' : 'Loading sales…'}</div>
+            </div>
+          ) : sellerOrders.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-4xl block mb-2">📦</span>
+              <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Még nincs eladási előzményed' : 'No sales recorded yet'}
+              </div>
+              <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? 'Amikor egy másik játékos megvásárolja az egyik hirdetett kártyádat, az eladás itt fog megjelenni.'
+                  : 'When another collector purchases one of your listed cards, your order details and delivery info will appear here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sellerOrders.map((ord) => (
+                <div
+                  key={ord.order_number}
+                  className="p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-mono font-black" style={{ color: 'var(--text-primary)' }}>
+                        #{ord.order_number}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        ord.status === 'Delivered'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : ord.status === 'Cancelled'
+                          ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      }`}>
+                        {ord.status}
+                      </span>
+                      <span className="text-[11px] text-zinc-500">
+                        {new Date(ord.created_at).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-zinc-300">
+                      {ord.items && ord.items.length > 0
+                        ? ord.items.map(it => `${it.quantity}x ${it.card_name}`).join(', ')
+                        : (lang === 'hu' ? 'Kártya tétel' : 'Card item')}
+                    </div>
+
+                    {ord.customer_info && (
+                      <div className="text-[11px] text-zinc-500 mt-1">
+                        {lang === 'hu' ? 'Vásárló:' : 'Buyer:'} {ord.customer_info.name || ord.customer_info.email || 'Customer'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-black text-emerald-400 font-mono">
+                      {(ord.total_price_huf ?? ord.total_huf ?? 0).toLocaleString()} Ft
+                    </div>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">
+                      {ord.shipping_method || 'Standard Shipping'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB 4: REVIEWS ─────────────────────────────────────────── */}
+      {activeTab === 'reviews' && (
+        <div className="space-y-4">
+          {sellerReviews.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-4xl block mb-2">★</span>
+              <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Még nem kaptál vásárlói értékelést' : 'No reviews received yet'}
+              </div>
+              <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? 'A sikeresen kézbesített rendeléseid után a vevők 1-5 csillagos értékelést és szöveges véleményt hagyhatnak.'
+                  : 'After orders are delivered, buyers can leave 1-5 star ratings and feedback for your seller profile.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sellerReviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="p-4 rounded-2xl border flex flex-col gap-2"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400 font-black">{'★'.repeat(rev.rating)}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {rev.buyer_name || 'Verified Buyer'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-500">
+                      {new Date(rev.created_at).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                    </span>
+                  </div>
+                  {rev.comment && (
+                    <p className="text-xs leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>
+                      "{rev.comment}"
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Edit Modal */}
+      {editingListing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className="w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Hirdetés módosítása' : 'Edit Listing'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingListing(null)}
+                className="text-xs text-zinc-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  {lang === 'hu' ? 'Ár (HUF)' : 'Price (HUF)'}
+                </label>
+                <input
+                  type="number"
+                  min="50"
+                  value={editPriceHuf}
+                  onChange={(e) => setEditPriceHuf(Math.max(50, parseInt(e.target.value, 10) || 50))}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  {lang === 'hu' ? 'Darabszám' : 'Quantity'}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingListing(null)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              >
+                {t('cancel', lang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveListingEdit(editingListing)}
+                disabled={updatingListingId === editingListing.inventory_id}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
+              >
+                {updatingListingId === editingListing.inventory_id ? '…' : (lang === 'hu' ? 'Mentés' : 'Save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* List Card Modal */}
+      {isListModalOpen && (
+        <ListCardModal
+          isOpen={isListModalOpen}
+          onClose={() => setIsListModalOpen(false)}
+          onSuccess={() => {
+            setIsListModalOpen(false);
+            loadSellerListings();
+            showToast(lang === 'hu' ? 'Kártya sikeresen meghirdetve!' : 'Card successfully listed!');
+          }}
+          lang={lang}
+        />
+      )}
+    </div>
+  );
+}

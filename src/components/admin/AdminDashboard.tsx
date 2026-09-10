@@ -76,6 +76,17 @@ export function AdminDashboard() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingSealed, setSavingSealed] = useState(false);
   const [savingMarketplace, setSavingMarketplace] = useState(false);
+  const [marketplaceListings, setMarketplaceListings] = useState<any[]>([]);
+
+  const loadMarketplaceStats = async () => {
+    try {
+      const res = await fetch('/api/marketplace/listings');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) setMarketplaceListings(json.data || []);
+      }
+    } catch (e) {}
+  };
 
   // ─── 1. Auth Check ──────────────────────────────────────────────
   useEffect(() => {
@@ -284,13 +295,21 @@ export function AdminDashboard() {
       loadInventory(0, false);
       loadSettings();
       loadOrders();
+      loadMarketplaceStats();
     }
 
     const handleOrdersChange = () => {
-      if (profile?.is_admin) loadOrders();
+      if (profile?.is_admin) {
+        loadOrders();
+        loadMarketplaceStats();
+      }
     };
     window.addEventListener(EVENTS.ORDERS_CHANGED, handleOrdersChange);
-    return () => window.removeEventListener(EVENTS.ORDERS_CHANGED, handleOrdersChange);
+    window.addEventListener('tcg-marketplace-changed', loadMarketplaceStats);
+    return () => {
+      window.removeEventListener(EVENTS.ORDERS_CHANGED, handleOrdersChange);
+      window.removeEventListener('tcg-marketplace-changed', loadMarketplaceStats);
+    };
   }, [profile]);
 
   // ─── 4. Actions: Update / Delete Inventory Listing (via secure API) ───
@@ -398,6 +417,33 @@ export function AdminDashboard() {
       .filter(o => o.status !== 'Cancelled')
       .reduce((sum, o) => sum + (o.total_price_huf ?? o.total_huf ?? 0), 0);
   }, [orders]);
+
+  const totalUnitsSold = useMemo(() => {
+    return orders.reduce((sum, o) => {
+      if (o.status === 'Cancelled') return sum;
+      const count = Array.isArray(o.items)
+        ? o.items.reduce((s, it) => s + (it.quantity || 1), 0)
+        : 1;
+      return sum + count;
+    }, 0);
+  }, [orders]);
+
+  const activeOrdersCount = useMemo(() => {
+    return orders.filter(o => o.status !== 'Cancelled').length;
+  }, [orders]);
+
+  const averageOrderValue = useMemo(() => {
+    return activeOrdersCount > 0 ? Math.round(totalOrdersRevenue / activeOrdersCount) : 0;
+  }, [totalOrdersRevenue, activeOrdersCount]);
+
+  const marketplaceStats = useMemo(() => {
+    const totalListings = marketplaceListings.length;
+    const sellers = new Set(marketplaceListings.map(it => it.seller_id).filter(Boolean)).size;
+    const totalVal = marketplaceListings.reduce((sum, it) => sum + ((it.price_huf || 0) * (it.quantity || 1)), 0);
+    const views = marketplaceListings.reduce((sum, it) => sum + (it.views || 0), 0);
+    const clicks = marketplaceListings.reduce((sum, it) => sum + (it.clicks || 0), 0);
+    return { totalListings, sellers, totalVal, views, clicks };
+  }, [marketplaceListings]);
 
 
   if (checkingAuth) {
@@ -517,30 +563,84 @@ export function AdminDashboard() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-7">
-        <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Total Listings</span>
-          <div className="text-2xl sm:text-3xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>{totalItemsCount}</div>
-          <span className="text-[11px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>Unique catalog cards</span>
-        </div>
-        <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>In Stock Listings</span>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">{inStockCount}</div>
-          <span className="text-[11px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>Active product rows</span>
-        </div>
-        <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Total Stock Quantity</span>
-          <div className="text-2xl sm:text-3xl font-black mt-1" style={{ color: 'var(--accent)' }}>
-            {inventoryList.filter(i => i.status === 'In Stock').reduce((sum, item) => sum + (item.quantity || 1), 0)}
+      <div className="space-y-4 mb-7">
+        {/* Row 1: Official Store & Order Volume */}
+        <div>
+          <div className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
+            <span>🏪</span>
+            <span>Official Store & Fulfillment Metrics</span>
           </div>
-          <span className="text-[11px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>Available copies for sale</span>
-        </div>
-        <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Active Inventory Value</span>
-          <div className="text-2xl sm:text-3xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
-            {totalValueHuf.toLocaleString()} <span className="text-sm font-semibold" style={{ color: 'var(--text-tertiary)' }}>HUF</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>In-Stock Store Listings</span>
+              <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{inStockCount} <span className="text-xs font-normal text-zinc-400">/ {totalItemsCount}</span></div>
+              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>{inventoryList.filter(i => i.status === 'In Stock').reduce((sum, item) => sum + (item.quantity || 1), 0)} copies available</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Active Inventory Value</span>
+              <div className="text-xl sm:text-2xl font-black mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {totalValueHuf.toLocaleString()} <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>HUF</span>
+              </div>
+              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>≈ €{(eurHufRate > 0 ? (totalValueHuf / eurHufRate).toFixed(2) : '0.00')}</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Total Orders Revenue</span>
+              <div className="text-xl sm:text-2xl font-black mt-0.5" style={{ color: 'var(--accent)' }}>
+                {totalOrdersRevenue.toLocaleString()} <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>HUF</span>
+              </div>
+              <span className="text-[10px] mt-0.5 block text-emerald-400 font-semibold">{activeOrdersCount} paid/active orders</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>AOV & Total Copies Sold</span>
+              <div className="text-xl sm:text-2xl font-black mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {averageOrderValue.toLocaleString()} <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>HUF</span>
+              </div>
+              <span className="text-[10px] mt-0.5 block text-amber-400 font-mono font-semibold">{totalUnitsSold} total items delivered</span>
+            </div>
           </div>
-          <span className="text-[11px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>≈ €{(eurHufRate > 0 ? (totalValueHuf / eurHufRate).toFixed(2) : '0.00')} (Rate: 1€ = {eurHufRate} Ft)</span>
+        </div>
+
+        {/* Row 2: Community Marketplace & Sellers */}
+        <div>
+          <div className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
+            <span>🤝</span>
+            <span>Community Marketplace & Seller Metrics</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Marketplace Listings</span>
+              <div className="text-xl sm:text-2xl font-black text-indigo-400 mt-0.5">{marketplaceStats.totalListings}</div>
+              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>Active user-to-user posts</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Marketplace Listed Value</span>
+              <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">
+                {marketplaceStats.totalVal.toLocaleString()} <span className="text-xs font-semibold text-zinc-400">HUF</span>
+              </div>
+              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>Combined community value</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Active Sellers</span>
+              <div className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5">{marketplaceStats.sellers}</div>
+              <span className="text-[10px] mt-0.5 block text-emerald-400 font-semibold">Verified badges enabled</span>
+            </div>
+
+            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Views & Clicks Engagement</span>
+              <div className="text-xl sm:text-2xl font-black mt-0.5 flex items-center gap-3">
+                <span className="text-cyan-400 flex items-center gap-1 text-lg sm:text-xl">👁️ {marketplaceStats.views}</span>
+                <span className="text-pink-400 flex items-center gap-1 text-lg sm:text-xl">🖱️ {marketplaceStats.clicks}</span>
+              </div>
+              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>
+                {marketplaceStats.views > 0 ? `${(((marketplaceStats.clicks) / marketplaceStats.views) * 100).toFixed(1)}% CTR` : '0% CTR'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

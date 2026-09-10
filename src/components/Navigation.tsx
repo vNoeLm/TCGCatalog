@@ -260,6 +260,24 @@ export function Navigation({ currentPath }: NavigationProps) {
                     {t('my_profile', lang)}
                   </a>
 
+                  <a
+                    href="/seller"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-muted)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
+                  >
+                    <span className="text-sm">🏪</span>
+                    <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+                  </a>
+
                   {userProfile.is_admin && (
                     <a
                       href="/admin"
@@ -517,6 +535,33 @@ export function Navigation({ currentPath }: NavigationProps) {
                   }
                 >
                   <span>{lang === 'hu' ? 'Piactér' : 'Marketplace'}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                </a>
+              )}
+
+              {userProfile && (
+                <a
+                  href="/seller"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
+                    isActive('/seller')
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🏪</span>
+                    <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+                  </span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}
