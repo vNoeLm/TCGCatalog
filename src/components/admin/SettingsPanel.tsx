@@ -7,19 +7,25 @@ import type { FurgefutarConfig, CourierService } from '../../lib/shipping/furgef
 interface SettingsPanelProps {
   isStorePublic: boolean;
   isSealedEnabled: boolean;
+  isMarketplaceEnabled: boolean;
   savingSettings: boolean;
   savingSealed: boolean;
+  savingMarketplace: boolean;
   onToggleStoreVisibility: () => Promise<void>;
   onToggleSealedVisibility: () => Promise<void>;
+  onToggleMarketplaceVisibility: () => Promise<void>;
 }
 
 export function SettingsPanel({
   isStorePublic,
   isSealedEnabled,
+  isMarketplaceEnabled,
   savingSettings,
   savingSealed,
+  savingMarketplace,
   onToggleStoreVisibility,
   onToggleSealedVisibility,
+  onToggleMarketplaceVisibility,
 }: SettingsPanelProps) {
   // Számlázz.hu Automation State
   const [szamlazzConfig, setSzamlazzConfig] = useState<SzamlazzConfig>({
@@ -144,6 +150,26 @@ export function SettingsPanel({
             }`}
           >
             {savingSealed ? 'Saving…' : isSealedEnabled ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-xl mb-4 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+          <div>
+            <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Community Marketplace Visibility</div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Allow registered collectors to browse and buy user-to-user marketplace listings. When disabled, only administrators can preview the marketplace.
+            </div>
+          </div>
+          <button
+            onClick={onToggleMarketplaceVisibility}
+            disabled={savingMarketplace}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer border ${
+              isMarketplaceEnabled
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            {savingMarketplace ? 'Saving…' : isMarketplaceEnabled ? 'Enabled' : 'Disabled'}
           </button>
         </div>
 

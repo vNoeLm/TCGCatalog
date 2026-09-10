@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { getCatalogVisibility } from '../lib/api';
+import { getCatalogVisibility, getMarketplaceVisibility } from '../lib/api';
 import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
@@ -16,6 +16,7 @@ interface NavigationProps {
 
 export function Navigation({ currentPath }: NavigationProps) {
   const [showStore, setShowStore] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -29,12 +30,14 @@ export function Navigation({ currentPath }: NavigationProps) {
 
   const checkAuthAndVisibility = async () => {
     try {
-      const [isPublic, profile] = await Promise.all([
+      const [isPublic, isMkt, profile] = await Promise.all([
         getCatalogVisibility(),
+        getMarketplaceVisibility(),
         getCurrentProfile(),
       ]);
       setUserProfile(profile);
       setShowStore(isPublic || (!!profile && profile.is_admin));
+      setShowMarketplace(isMkt || (!!profile && profile.is_admin));
     } catch (e) {
     } finally {
       setLoading(false);
@@ -63,13 +66,15 @@ export function Navigation({ currentPath }: NavigationProps) {
       if (session) {
         getCurrentProfile().then(p => {
           setUserProfile(p);
-          getCatalogVisibility().then(isPub => {
+          Promise.all([getCatalogVisibility(), getMarketplaceVisibility()]).then(([isPub, isMkt]) => {
             setShowStore(isPub || (!!p && p.is_admin));
+            setShowMarketplace(isMkt || (!!p && p.is_admin));
           });
         });
       } else {
         setUserProfile(null);
         getCatalogVisibility().then(isPub => setShowStore(isPub));
+        getMarketplaceVisibility().then(isMkt => setShowMarketplace(isMkt));
       }
     });
 
@@ -130,6 +135,10 @@ export function Navigation({ currentPath }: NavigationProps) {
         ) : showStore ? (
           <NavLink href="/store" label={t('store', lang)} />
         ) : null}
+
+        {!loading && showMarketplace && (
+          <NavLink href="/marketplace" label={lang === 'hu' ? 'Piactér' : 'Marketplace'} />
+        )}
 
         {/* Language Selector */}
         <LanguageSelector />
@@ -481,6 +490,30 @@ export function Navigation({ currentPath }: NavigationProps) {
                   }
                 >
                   <span>{t('store', lang)}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                </a>
+              )}
+
+              {showMarketplace && (
+                <a
+                  href="/marketplace"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
+                    isActive('/marketplace')
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
+                >
+                  <span>{lang === 'hu' ? 'Piactér' : 'Marketplace'}</span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}

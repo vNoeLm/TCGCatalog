@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { CatalogCard, UserProfile } from '../types';
+import type { CatalogCard, UserProfile, SellerProfileSummary } from '../types';
 import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache } from '../lib/api';
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
+import { fetchSellerRatingSummary } from '../lib/reviews';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
@@ -49,6 +50,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const adminPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
+  const [sellerSummary, setSellerSummary] = useState<SellerProfileSummary | null>(null);
+
+  useEffect(() => {
+    if (data?.seller_id || isInventory) {
+      fetchSellerRatingSummary(data?.seller_id).then(s => setSellerSummary(s));
+    }
+  }, [data?.seller_id, isInventory]);
 
   useEffect(() => {
     setLang(getLanguage());
@@ -1173,6 +1181,67 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   {data.notes}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Seller Profile Card */}
+          {isInventory && (
+            <div 
+              className="rounded-2xl p-4 mb-4 border flex items-center justify-between gap-3 shadow-sm"
+              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {sellerSummary?.avatar_url ? (
+                  <img
+                    src={sellerSummary.avatar_url}
+                    alt={sellerSummary.display_name || 'Seller'}
+                    className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shrink-0"
+                  />
+                ) : (
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0 border"
+                    style={{
+                      background: 'var(--accent-muted)',
+                      borderColor: 'var(--accent)',
+                      color: 'var(--text-accent)',
+                    }}
+                  >
+                    {sellerSummary?.display_name ? sellerSummary.display_name[0].toUpperCase() : 'N'}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                      {sellerSummary?.display_name || data?.seller_name || 'Noel :3'}
+                    </span>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      {sellerSummary?.is_owner || sellerSummary?.role === 'owner' ? 'Store Owner' : 'Verified Seller'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    <div className="flex items-center gap-1 text-amber-400 font-bold">
+                      <span>★</span>
+                      <span>{sellerSummary ? sellerSummary.rating_avg.toFixed(1) : '5.0'}</span>
+                    </div>
+                    <span>•</span>
+                    <span>
+                      {sellerSummary && sellerSummary.rating_count > 0
+                        ? `${sellerSummary.rating_count} ${sellerSummary.rating_count === 1 ? (lang === 'hu' ? 'értékelés' : 'rating') : (lang === 'hu' ? 'értékelés' : 'ratings')}`
+                        : (lang === 'hu' ? 'Új eladó' : 'New Seller')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  <span>{lang === 'hu' ? 'Vevővédelem' : 'Buyer Protection'}</span>
+                </div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">{lang === 'hu' ? 'Feladás 24 órán belül' : 'Dispatches in 24h'}</div>
+              </div>
             </div>
           )}
 

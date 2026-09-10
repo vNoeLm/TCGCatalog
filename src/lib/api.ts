@@ -338,6 +338,10 @@ export async function fetchOwnerStoreInventory(
         set_name: row.cards.sets.name,
         set_code: row.cards.sets.code,
         sets: row.cards.sets,
+        seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
+        seller_name: 'Noel :3',
+        seller_avatar: null,
+        seller_role: 'owner',
       };
     });
 
@@ -539,6 +543,10 @@ export async function fetchLegacyInventory(
       set_name: row.cards.sets.name,
       set_code: row.cards.sets.code,
       sets: row.cards.sets,
+      seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
+      seller_name: 'Noel :3',
+      seller_avatar: null,
+      seller_role: 'owner',
     };
   });
 
@@ -637,6 +645,10 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
         is_foil: isFoil,
         cards: userCardData.cards,
         inventory_images: [],
+        seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
+        seller_name: 'Noel :3',
+        seller_avatar: null,
+        seller_role: 'owner',
       };
       setCached(cacheKey, formatted);
       return formatted;
@@ -659,8 +671,15 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     .eq('id', inventoryId)
     .single();
   if (error) throw error;
-  setCached(cacheKey, data);
-  return data;
+  const enriched = {
+    ...data,
+    seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
+    seller_name: 'Noel :3',
+    seller_avatar: null,
+    seller_role: 'owner',
+  };
+  setCached(cacheKey, enriched);
+  return enriched;
 }
 
 export async function fetchCardOnly(cardId: string, bypassCache = false) {
@@ -731,5 +750,29 @@ export async function setSealedVisibility(isEnabled: boolean): Promise<void> {
     .upsert({ key: 'sealed_enabled', value: isEnabled ? 'true' : 'false' });
   if (error) throw error;
   setCached('setting_sealed_enabled', isEnabled);
+}
+
+export async function getMarketplaceVisibility(): Promise<boolean> {
+  const cacheKey = 'setting_marketplace_enabled';
+  const cached = getCached<boolean>(cacheKey);
+  if (cached !== null) return cached;
+
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'marketplace_enabled')
+    .maybeSingle();
+  if (error || !data) return false;
+  const isEnabled = data?.value === 'true';
+  setCached(cacheKey, isEnabled);
+  return isEnabled;
+}
+
+export async function setMarketplaceVisibility(isEnabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ key: 'marketplace_enabled', value: isEnabled ? 'true' : 'false' });
+  if (error) throw error;
+  setCached('setting_marketplace_enabled', isEnabled);
 }
 

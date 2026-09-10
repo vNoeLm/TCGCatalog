@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility } from '../../lib/api';
+import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility, getMarketplaceVisibility, setMarketplaceVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
 import { reconcileOwnerPlaysets } from '../../lib/userCards';
 import { fetchStoreOrders, updateOrderStatus, updateOrderPayment, purgeAllOrders } from '../../lib/orders';
@@ -72,8 +72,10 @@ export function AdminDashboard() {
   // Settings State
   const [isStorePublic, setIsStorePublic] = useState(false);
   const [isSealedEnabled, setIsSealedEnabled] = useState(false);
+  const [isMarketplaceEnabled, setIsMarketplaceEnabled] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingSealed, setSavingSealed] = useState(false);
+  const [savingMarketplace, setSavingMarketplace] = useState(false);
 
   // ─── 1. Auth Check ──────────────────────────────────────────────
   useEffect(() => {
@@ -186,12 +188,27 @@ export function AdminDashboard() {
   };
 
   const loadSettings = async () => {
-    const [isPub, isSealed] = await Promise.all([
+    const [isPub, isSealed, isMarketplace] = await Promise.all([
       getCatalogVisibility(),
       getSealedVisibility(),
+      getMarketplaceVisibility(),
     ]);
     setIsStorePublic(isPub);
     setIsSealedEnabled(isSealed);
+    setIsMarketplaceEnabled(isMarketplace);
+  };
+
+  const handleToggleMarketplaceVisibility = async () => {
+    setSavingMarketplace(true);
+    try {
+      const nextVal = !isMarketplaceEnabled;
+      await setMarketplaceVisibility(nextVal);
+      setIsMarketplaceEnabled(nextVal);
+    } catch (e: any) {
+      alert(`Failed to update marketplace visibility: ${e?.message || 'Unknown error'}`);
+    } finally {
+      setSavingMarketplace(false);
+    }
   };
 
   const loadOrders = async () => {
@@ -675,10 +692,13 @@ export function AdminDashboard() {
         <SettingsPanel
           isStorePublic={isStorePublic}
           isSealedEnabled={isSealedEnabled}
+          isMarketplaceEnabled={isMarketplaceEnabled}
           savingSettings={savingSettings}
           savingSealed={savingSealed}
+          savingMarketplace={savingMarketplace}
           onToggleStoreVisibility={handleToggleStoreVisibility}
           onToggleSealedVisibility={handleToggleSealedVisibility}
+          onToggleMarketplaceVisibility={handleToggleMarketplaceVisibility}
         />
       )}
     </div>

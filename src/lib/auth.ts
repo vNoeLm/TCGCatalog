@@ -90,6 +90,43 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
   };
 }
 
+let cachedOwnerProfile: UserProfile | null = null;
+export async function getStoreOwnerProfile(): Promise<UserProfile> {
+  if (cachedOwnerProfile) return cachedOwnerProfile;
+
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, display_name, avatar_url, role, is_admin')
+      .eq('role', 'owner')
+      .maybeSingle();
+
+    if (data) {
+      cachedOwnerProfile = {
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name || 'Noel :3',
+        avatar_url: data.avatar_url,
+        role: 'owner',
+        is_admin: true,
+        is_owner: true,
+      };
+      return cachedOwnerProfile;
+    }
+  } catch (e) {}
+
+  cachedOwnerProfile = {
+    id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
+    email: 'vnoel05@gmail.com',
+    display_name: 'Noel :3',
+    avatar_url: null,
+    role: 'owner',
+    is_admin: true,
+    is_owner: true,
+  };
+  return cachedOwnerProfile;
+}
+
 export async function updateProfile(updates: Partial<UserProfile>) {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');

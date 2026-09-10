@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
 import { getCatalogVisibility } from '../../lib/api';
 import { cancelOrder } from '../../lib/orders';
-import type { UserProfile, Order } from '../../types';
+import { getAllReviews, submitSellerReview } from '../../lib/reviews';
+import type { UserProfile, Order, SellerReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
 import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
@@ -46,6 +47,62 @@ export function ProfileApp() {
   };
   const toggleOrderExpand = (order: Order) => {
     setExpandedOrders(prev => ({ ...prev, [order.order_number]: !isOrderExpanded(order) }));
+  };
+
+  // Seller Rating State
+  const [reviewsByOrder, setReviewsByOrder] = useState<Record<string, SellerReview>>({});
+  const [ratingModalOrder, setRatingModalOrder] = useState<Order | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number>(5);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+
+  useEffect(() => {
+    getAllReviews().then(revs => {
+      const map: Record<string, SellerReview> = {};
+      revs.forEach(r => {
+        if (r.order_number) map[r.order_number] = r;
+      });
+      setReviewsByOrder(map);
+    });
+
+    const handleReviewed = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.review?.order_number) {
+        setReviewsByOrder(prev => ({ ...prev, [detail.review.order_number]: detail.review }));
+      }
+    };
+    window.addEventListener('tcg-seller-reviewed', handleReviewed);
+    return () => window.removeEventListener('tcg-seller-reviewed', handleReviewed);
+  }, []);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingModalOrder) return;
+    setIsSubmittingReview(true);
+    try {
+      const { review, error } = await submitSellerReview({
+        orderId: ratingModalOrder.id,
+        orderNumber: ratingModalOrder.order_number,
+        sellerId: ratingModalOrder.seller_id,
+        rating: selectedRating,
+        comment: reviewComment,
+      });
+
+      if (error) {
+        showToast(`Error: ${error.message || 'Could not submit review'}`);
+      } else if (review) {
+        setReviewsByOrder(prev => ({ ...prev, [ratingModalOrder.order_number]: review }));
+        showToast(lang === 'hu' ? '✓ Köszönjük az értékelést!' : '✓ Thank you for rating the seller!');
+        setRatingModalOrder(null);
+        setReviewComment('');
+        setSelectedRating(5);
+      }
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   const handleOpenPayment = async (order: Order) => {
@@ -979,6 +1036,56 @@ export function ProfileApp() {
                         </div>
                       </div>
                     )}
+
+                    {/* Post-Delivery Rating Section */}
+                    {isDelivered && (
+                      <div
+                        className="pt-3 mt-3 border-t flex items-center justify-between flex-wrap gap-2 text-xs"
+                        style={{ borderColor: 'var(--border-subtle)' }}
+                      >
+                        {reviewsByOrder[order.order_number] ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center text-amber-400 font-bold text-sm tracking-widest">
+                              {'★'.repeat(reviewsByOrder[order.order_number].rating)}
+                              <span className="text-zinc-600">{'★'.repeat(5 - reviewsByOrder[order.order_number].rating)}</span>
+                            </span>
+                            <span className="text-zinc-300 font-bold">
+                              {lang === 'hu' ? 'Értékelted az eladót' : 'You rated this seller'}:
+                            </span>
+                            {reviewsByOrder[order.order_number].comment ? (
+                              <span className="italic text-zinc-400">
+                                &ldquo;{reviewsByOrder[order.order_number].comment}&rdquo;
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400">({reviewsByOrder[order.order_number].rating}/5)</span>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <span className="font-bold text-emerald-400">
+                                ✓ {lang === 'hu' ? 'A rendelés kézbesítve!' : 'Order delivered!'}
+                              </span>
+                              <span className="text-[11px] text-zinc-400 ml-2">
+                                {lang === 'hu' ? 'Oszd meg a tapasztalatodat az eladóról.' : 'Share your feedback about the seller.'}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRatingModalOrder(order);
+                                setSelectedRating(5);
+                                setReviewComment('');
+                              }}
+                              className="px-3.5 py-1.5 rounded-lg font-bold transition cursor-pointer border flex items-center gap-1.5 text-xs bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 active:scale-95 shadow-sm"
+                            >
+                              <span>★</span>
+                              <span>{lang === 'hu' ? 'Eladó Értékelése' : 'Rate Seller'}</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                     </div>
                     )} {/* end expanded */}
                   </div>
@@ -1032,6 +1139,156 @@ export function ProfileApp() {
               onPaymentSuccess={handleProfilePaymentSuccess}
               onCancel={() => setPayingOrder(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Rate Seller Modal */}
+      {ratingModalOrder && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRatingModalOrder(null);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md rounded-2xl p-6 sm:p-7 shadow-2xl border transition-all my-8 max-h-[90vh] overflow-y-auto"
+            style={{
+              background: 'var(--bg-surface)',
+              borderColor: 'var(--border)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px var(--accent-glow)',
+            }}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setRatingModalOrder(null)}
+              aria-label="Close review modal"
+              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center transition border cursor-pointer hover:bg-white/10 active:scale-95"
+              style={{
+                background: 'var(--bg-surface-2)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-secondary)',
+              }}
+              title={t('close', lang)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <div className="text-center mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
+                ★
+              </div>
+              <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Értékeld az Eladót' : 'Rate Your Seller'}
+              </h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? `Rendelés #${ratingModalOrder.order_number} sikeresen kézbesítve`
+                  : `Order #${ratingModalOrder.order_number} successfully delivered`}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="space-y-5">
+              {/* Star Rating Selector */}
+              <div className="text-center">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  {lang === 'hu' ? 'Hány csillagot adsz?' : 'Overall Rating'}
+                </label>
+                <div className="flex items-center justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map(star => {
+                    const active = (hoverRating || selectedRating) >= star;
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSelectedRating(star)}
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        className={`text-3xl sm:text-4xl transition-transform cursor-pointer p-1 active:scale-125 ${
+                          active ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] scale-110' : 'text-zinc-600 hover:text-amber-400/60'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-xs font-bold text-amber-300">
+                  {(() => {
+                    const r = hoverRating || selectedRating;
+                    if (lang === 'hu') {
+                      if (r === 5) return '🤩 5 / 5 - Kiváló élmény!';
+                      if (r === 4) return '🙂 4 / 5 - Nagyon jó!';
+                      if (r === 3) return '😐 3 / 5 - Átlagos';
+                      if (r === 2) return '🙁 2 / 5 - Nem volt az igazi';
+                      return '😠 1 / 5 - Pocsék';
+                    }
+                    if (r === 5) return '🤩 5 / 5 - Excellent service!';
+                    if (r === 4) return '🙂 4 / 5 - Very good!';
+                    if (r === 3) return '😐 3 / 5 - Average';
+                    if (r === 2) return '🙁 2 / 5 - Poor experience';
+                    return '😠 1 / 5 - Terrible';
+                  })()}
+                </div>
+              </div>
+
+              {/* Review Feedback Comment */}
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                  {lang === 'hu' ? 'Visszajelzés / Megjegyzés (opcionális)' : 'Feedback / Review (Optional)'}
+                </label>
+                <textarea
+                  rows={3}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder={
+                    lang === 'hu'
+                      ? 'Pl.: Gyors szállítás, a kártyák hibátlan állapotban érkeztek!'
+                      : 'E.g.: Super fast shipping, cards arrived in perfect condition!'
+                  }
+                  className="w-full text-xs rounded-xl p-3 border outline-none transition focus:border-[var(--accent)]"
+                  style={{
+                    background: 'var(--bg-input, #09090b)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRatingModalOrder(null)}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs border transition cursor-pointer"
+                  style={{
+                    background: 'var(--bg-surface-2)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  {t('cancel', lang)}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
+                  style={{
+                    background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
+                    color: 'var(--accent-contrast, #000000)',
+                    boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
+                  }}
+                >
+                  {isSubmittingReview
+                    ? (lang === 'hu' ? 'Küldés…' : 'Submitting…')
+                    : (lang === 'hu' ? 'Értékelés Beküldése' : 'Submit Rating')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

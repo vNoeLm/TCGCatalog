@@ -46,6 +46,13 @@ export interface InventoryCard {
   last_price_updated_at?: string | null;
   inventory_images?: Array<{ image_path: string; display_order?: number }>;
   inventory_image?: string | null;
+  seller_id?: string;
+  seller_name?: string;
+  seller_avatar?: string | null;
+  seller_role?: UserRole;
+  seller_rating_avg?: number;
+  seller_rating_count?: number;
+  is_marketplace_listing?: boolean;
 }
 
 export interface CatalogCard {
@@ -175,6 +182,8 @@ export interface Order {
   items: OrderItem[];
   created_at: string;
   updated_at: string;
+  seller_id?: string;
+  seller_rating?: SellerReview | null;
   customer_info?: {
     name?: string;
     email?: string;
@@ -184,4 +193,27 @@ export interface Order {
     postal_code?: string;
     country?: string;
   };
+}
+
+export interface SellerReview {
+  id: string;
+  order_id?: string;
+  order_number: string;
+  buyer_id: string;
+  buyer_name?: string | null;
+  buyer_avatar?: string | null;
+  seller_id: string;
+  rating: number; // 1 to 5
+  comment?: string | null;
+  created_at: string;
+}
+
+export interface SellerProfileSummary {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  role: UserRole;
+  rating_avg: number;
+  rating_count: number;
+  is_owner?: boolean;
 }

@@ -228,7 +228,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         </p>
 
         {/* Bottom Spec Bar (Number · Type · Rarity) evenly distributed across row */}
-        <div className={`grid grid-cols-3 items-center w-full text-zinc-300 font-mono ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2.5'}`}>
+        <div className={`grid grid-cols-3 items-center w-full text-zinc-300 font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`}>
           <span className="truncate text-left">
             {isSealed ? card.condition : formatCleanCardNumber(card.card_number)}
           </span>
@@ -240,8 +240,29 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           </span>
         </div>
 
+        {/* Seller Info Pill */}
+        <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t border-white/5 text-[10px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-black text-[9px] shrink-0 border border-amber-400/30">
+              {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
+            </span>
+            <span className="font-semibold text-zinc-300 truncate" title={card.seller_name || 'Noel :3'}>
+              {card.seller_name || 'Noel :3'}
+            </span>
+            {card.seller_role === 'owner' && (
+              <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider">
+                Owner
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5 text-amber-400 font-bold shrink-0 text-[10px]">
+            <span>★</span>
+            <span>{card.seller_rating_avg ? card.seller_rating_avg.toFixed(1) : '5.0'}</span>
+          </div>
+        </div>
+
         {/* Price + Buy */}
-        <div className={`mt-auto flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2.5'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className={`mt-auto flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-emerald-400`}>
               {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}
