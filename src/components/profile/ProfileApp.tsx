@@ -9,8 +9,6 @@ import { AuthModal } from '../auth/AuthModal';
 import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
-import { ListCardModal } from '../marketplace/ListCardModal';
-import { getCardImageUrl } from '../../lib/supabase';
 import { getCollectorTier, getSellerTier, BadgeIconSvg } from '../../lib/badges';
 
 export function ProfileApp() {
@@ -60,14 +58,27 @@ export function ProfileApp() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
-  // User Marketplace Listings State
-  const [myListings, setMyListings] = useState<any[]>([]);
-  const [loadingListings, setLoadingListings] = useState<boolean>(false);
-  const [isListModalOpen, setIsListModalOpen] = useState<boolean>(false);
-  const [editingListing, setEditingListing] = useState<any | null>(null);
-  const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
-  const [editQuantity, setEditQuantity] = useState<number>(1);
-  const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
+  // Developer Preferences
+  const [showApiNav, setShowApiNav] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tcg_show_api_nav') === 'true';
+    }
+    return false;
+  });
+
+  const handleToggleShowApiNav = () => {
+    const next = !showApiNav;
+    setShowApiNav(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tcg_show_api_nav', next ? 'true' : 'false');
+      window.dispatchEvent(new CustomEvent('tcg-nav-pref-changed', { detail: { showApiNav: next } }));
+    }
+    showToast(
+      next
+        ? (lang === 'hu' ? 'API gomb bekapcsolva a fejlécben' : 'API button enabled in navigation')
+        : (lang === 'hu' ? 'API gomb elrejtve a fejlécből' : 'API button hidden from navigation')
+    );
+  };
 
   // Collection & Badge State
   const [collectionStats, setCollectionStats] = useState({ owned: 0, total: 1382, game: 'riftbound' });
@@ -120,85 +131,19 @@ export function ProfileApp() {
     }
   };
 
-  const loadMyListings = async (userId?: string) => {
+  const loadSellerSalesCount = async (userId?: string) => {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
-    setLoadingListings(true);
     try {
-      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}`);
+      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}&limit=1`);
       if (res.ok) {
         const json = await res.json();
-        if (json.success) {
-          const list = json.data || [];
-          setMyListings(list);
-          if (list.length > 0 && typeof list[0].seller_items_sold === 'number') {
-            setSellerSalesCount(list[0].seller_items_sold);
-          }
+        if (json.success && json.data && json.data.length > 0 && typeof json.data[0].seller_items_sold === 'number') {
+          setSellerSalesCount(json.data[0].seller_items_sold);
         }
       }
     } catch (e) {
-      console.warn('Failed to load my marketplace listings:', e);
-    } finally {
-      setLoadingListings(false);
-    }
-  };
-
-  const handleUnlistCard = async (listingId: string) => {
-    if (!confirm(lang === 'hu' ? 'Biztosan törölni szeretnéd ezt a hirdetést a piactérről?' : 'Are you sure you want to remove this listing from the marketplace?')) return;
-    setUpdatingListingId(listingId);
-    try {
-      const session = (await supabase.auth.getSession()).data.session;
-      const res = await fetch(`/api/marketplace/listings?id=${listingId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
-      if (res.ok) {
-        setMyListings(prev => prev.filter(item => item.inventory_id !== listingId));
-        showToast(lang === 'hu' ? 'Hirdetés sikeresen törölve' : 'Listing removed successfully');
-        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-      }
-    } catch (e: any) {
-      showToast(e?.message || 'Error removing listing');
-    } finally {
-      setUpdatingListingId(null);
-    }
-  };
-
-  const handleSaveListingEdit = async (item: any) => {
-    setUpdatingListingId(item.inventory_id);
-    try {
-      const session = (await supabase.auth.getSession()).data.session;
-      const listingImages = item.inventory_images && item.inventory_images.length > 0
-        ? item.inventory_images.map((img: any) => img.image_path)
-        : (item.inventory_image ? [item.inventory_image] : []);
-
-      const res = await fetch('/api/marketplace/listings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          card_id: item.card_id,
-          quantity: Math.max(1, editQuantity),
-          price_huf: Math.max(50, editPriceHuf),
-          is_foil: item.is_foil,
-          condition: item.condition || 'Near Mint',
-          images: listingImages,
-        }),
-      });
-      if (res.ok) {
-        showToast(lang === 'hu' ? 'Hirdetés sikeresen módosítva' : 'Listing updated successfully');
-        setEditingListing(null);
-        loadMyListings();
-        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-      }
-    } catch (e: any) {
-      showToast(e?.message || 'Error updating listing');
-    } finally {
-      setUpdatingListingId(null);
+      console.warn('Failed to load seller sales count:', e);
     }
   };
 
@@ -346,7 +291,7 @@ export function ProfileApp() {
       if (p) {
         setProfile(p);
         setDisplayName(p.display_name || '');
-        loadMyListings(p.id);
+        loadSellerSalesCount(p.id);
       }
       loadCollectionStats();
       const userOrders = await fetchUserOrders();
@@ -358,7 +303,7 @@ export function ProfileApp() {
     loadData();
 
     const handleMarketplaceEvt = () => {
-      loadMyListings();
+      loadSellerSalesCount();
       loadCollectionStats();
     };
     window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
@@ -369,13 +314,12 @@ export function ProfileApp() {
         getCurrentProfile().then(p => {
           setProfile(p);
           setDisplayName(p?.display_name || '');
-          if (p) loadMyListings(p.id);
+          if (p) loadSellerSalesCount(p.id);
           loadCollectionStats();
         });
         fetchUserOrders().then(ord => setOrders(ord as Order[]));
       } else {
         setProfile(null);
-        setMyListings([]);
         fetchUserOrders().then(ord => setOrders(ord as Order[]));
       }
     });
@@ -397,9 +341,6 @@ export function ProfileApp() {
   const collectorTier = useMemo(() => {
     return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game);
   }, [collectionStats]);
-
-  const myListingsTotalViews = useMemo(() => myListings.reduce((sum, it) => sum + (it.views || 0), 0), [myListings]);
-  const myListingsTotalClicks = useMemo(() => myListings.reduce((sum, it) => sum + (it.clicks || 0), 0), [myListings]);
 
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -657,10 +598,124 @@ export function ProfileApp() {
     </div>
   );
 
+  const renderDeveloperSection = () => (
+    <div
+      className="rounded-2xl p-6 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+      }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div>
+          <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <svg className="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
+            </svg>
+            <span>{lang === 'hu' ? 'Fejlesztői Beállítások' : 'Developer Preferences'}</span>
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full border"
+              style={{
+                background: 'var(--accent-muted)',
+                borderColor: 'var(--accent-border)',
+                color: 'var(--accent)',
+              }}
+            >
+              REST API v1
+            </span>
+          </h2>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {lang === 'hu'
+              ? 'Kapcsold be a fejlesztői funkciókat, mint például a REST API elérést a navigációban.'
+              : 'Configure developer features such as showing the REST API explorer link in the navigation bar.'}
+          </p>
+        </div>
+
+        <a
+          href="/api-docs"
+          className="text-xs font-bold px-3.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 self-start sm:self-auto hover:text-white"
+          style={{
+            background: 'var(--bg-surface-2)',
+            borderColor: 'var(--border)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <span>{lang === 'hu' ? 'API Dokumentáció' : 'View API Docs'}</span>
+          <span className="text-xs">→</span>
+        </a>
+      </div>
+
+      <div
+        className="p-4 rounded-xl flex items-center justify-between gap-4 border"
+        style={{
+          background: 'var(--bg-input)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
+            style={{
+              background: showApiNav ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-surface-2)',
+              borderColor: showApiNav ? 'rgba(99, 102, 241, 0.4)' : 'var(--border-subtle)',
+              color: showApiNav ? '#818cf8' : 'var(--text-secondary)',
+            }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'API gomb a fejlécben' : 'Show API in Navigation'}
+              </span>
+              <span
+                className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  showApiNav
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    : 'bg-zinc-500/15 border-zinc-500/30 text-zinc-400'
+                }`}
+              >
+                {showApiNav
+                  ? (lang === 'hu' ? 'Bekapcsolva' : 'Enabled')
+                  : (lang === 'hu' ? 'Kikapcsolva' : 'Disabled')}
+              </span>
+            </div>
+            <p className="text-xs mt-0.5 leading-relaxed truncate" style={{ color: 'var(--text-muted)' }}>
+              {lang === 'hu'
+                ? 'Közvetlen hivatkozás megjelenítése az asztali és mobil menüben az API dokumentációhoz (alapértelmezés szerint kikapcsolva).'
+                : 'Display direct link to the REST API documentation in the top navigation bar and mobile drawer (off by default).'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showApiNav}
+          onClick={handleToggleShowApiNav}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            showApiNav ? 'bg-indigo-600' : 'bg-zinc-700'
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+              showApiNav ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+
   if (!profile) {
     return (
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
         {renderThemeSection()}
+        {renderDeveloperSection()}
 
         <div 
           className="max-w-md mx-auto my-12 p-8 text-center rounded-2xl shadow-xl border"
@@ -920,215 +975,8 @@ export function ProfileApp() {
       {/* Theme & Appearance Override Section */}
       {renderThemeSection()}
 
-      {/* ─── MY MARKETPLACE LISTINGS SECTION ──────────────────────── */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span>{lang === 'hu' ? 'Saját Piactéri Hirdetéseim' : 'My Marketplace Listings'}</span>
-              <span 
-                className="text-xs font-bold px-2 py-0.5 rounded-full border"
-                style={{
-                  background: 'var(--accent-muted)',
-                  borderColor: 'var(--accent)',
-                  color: 'var(--text-accent)'
-                }}
-              >
-                {myListings.length}
-              </span>
-            </h2>
-            <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu'
-                ? 'Kezeld az eladásra kínált lapjaidat a közösségi piactéren. Állíts be egyedi árat vagy töröld a hirdetést.'
-                : 'Manage your active listings on the community marketplace. Adjust prices or unlist cards anytime.'}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsListModalOpen(true)}
-            className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-md flex items-center gap-2 self-start sm:self-auto bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
-            </svg>
-            <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
-          </button>
-        </div>
-
-        {/* Quick Summary & Seller Dashboard CTA */}
-        <div
-          className="p-4 sm:p-5 rounded-2xl border mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
-          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-6 flex-wrap">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
-              </div>
-              <div className="text-xl font-black text-indigo-400">
-                {myListings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                {lang === 'hu' ? 'Megtekintések' : 'Total Views'}
-              </div>
-              <div className="text-xl font-black text-cyan-400 flex items-center gap-1.5">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span>{myListingsTotalViews}</span>
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                {lang === 'hu' ? 'Kattintások' : 'Total Clicks'}
-              </div>
-              <div className="text-xl font-black text-pink-400 flex items-center gap-1.5">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
-                </svg>
-                <span>{myListingsTotalClicks}</span>
-              </div>
-            </div>
-          </div>
-
-          <a
-            href="/seller"
-            className="px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-md flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 hover:opacity-90 active:scale-95 shrink-0"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
-            </svg>
-            <span>{lang === 'hu' ? 'Megnyitás: Eladói Irányítópult →' : 'Open: Seller Dashboard →'}</span>
-          </a>
-        </div>
-
-        {/* Listings Container */}
-        {loadingListings ? (
-          <div className="p-8 rounded-2xl border text-center animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-            <div className="text-xs font-bold text-zinc-400">{lang === 'hu' ? 'Hirdetések betöltése…' : 'Loading listings…'}</div>
-          </div>
-        ) : myListings.length === 0 ? (
-          <div 
-            className="p-8 sm:p-10 rounded-2xl border text-center shadow-sm"
-            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-          >
-            <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
-              </svg>
-            </div>
-            <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-              {lang === 'hu' ? 'Még nem adtál fel hirdetést a piactéren' : 'No active marketplace listings yet'}
-            </div>
-            <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu'
-                ? 'Van felesleges kártyád? Hirdesd meg a piactéren és add el közvetlenül a többi játékosnak saját áron!'
-                : 'Have extra cards? List them on the marketplace and sell directly to other players at your own price!'}
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsListModalOpen(true)}
-              className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
-            >
-              {lang === 'hu' ? '+ Első kártya eladása most' : '+ List Your First Card Now'}
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {myListings.map((item) => (
-              <div
-                key={item.inventory_id}
-                className="p-3.5 rounded-2xl border flex items-center justify-between gap-3 shadow-sm transition hover:border-[var(--accent)]"
-                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-12 h-16 rounded-lg bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
-                    {item.image_path ? (
-                      <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
-                    )}
-                    {item.is_foil && (
-                      <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
-                    )}
-                    {item.inventory_images && item.inventory_images.length > 0 && (
-                      <span className="absolute top-0 left-0 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1 rounded-br shadow flex items-center gap-0.5" title="Physical condition photos attached">
-                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                          <circle cx="12" cy="13" r="3" />
-                        </svg>
-                        <span>{item.inventory_images.length}</span>
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                      {item.name}
-                    </div>
-                    <div className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono">{item.card_number}</span>
-                      <span>•</span>
-                      <span className="text-indigo-300 font-semibold">{item.rarity}</span>
-                      <span>•</span>
-                      <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-black text-emerald-400">
-                        {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
-                      </span>
-                      <span className="text-[10px] text-zinc-400">
-                        ({item.quantity} {lang === 'hu' ? 'db' : 'pcs'})
-                      </span>
-                      <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1" title="Views">
-                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        <span>{item.views || 0}</span>
-                      </span>
-                      <span className="text-[10px] text-pink-400 font-mono flex items-center gap-1" title="Clicks">
-                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
-                        </svg>
-                        <span>{item.clicks || 0}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingListing(item);
-                      setEditPriceHuf(item.price_huf || 500);
-                      setEditQuantity(item.quantity || 1);
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
-                  >
-                    {lang === 'hu' ? 'Módosítás' : 'Edit'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleUnlistCard(item.inventory_id)}
-                    disabled={updatingListingId === item.inventory_id}
-                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
-                  >
-                    {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Developer Preferences Section */}
+      {renderDeveloperSection()}
 
       {/* Orders Section */}
       {(isStorePublic || profile.is_admin) && (
@@ -1728,91 +1576,6 @@ export function ProfileApp() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* List Card Modal */}
-      {isListModalOpen && (
-        <ListCardModal
-          isOpen={isListModalOpen}
-          onClose={() => setIsListModalOpen(false)}
-          onSuccess={() => loadMyListings()}
-          lang={lang}
-        />
-      )}
-
-      {/* Edit Listing Modal */}
-      {editingListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div 
-            className="w-full max-w-sm rounded-2xl p-6 border shadow-2xl"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <h3 className="text-base font-black mb-1">{lang === 'hu' ? 'Hirdetés módosítása' : 'Edit Listing'}</h3>
-            <p className="text-xs text-zinc-400 mb-4 truncate">{editingListing.name} ({editingListing.card_number})</p>
-
-            <div className="space-y-3.5 mb-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1 text-zinc-300">
-                  {lang === 'hu' ? 'Eladási ár (Ft / db)' : 'Unit Price (HUF)'}
-                </label>
-                <input
-                  type="number"
-                  step={10}
-                  min={50}
-                  value={editPriceHuf}
-                  onChange={(e) => setEditPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  className="w-full px-3 py-2 rounded-xl text-sm font-black border focus:outline-none focus:border-emerald-500"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: '#34d399',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1 text-zinc-300">
-                  {lang === 'hu' ? 'Eladó darabszám' : 'Quantity for Sale'}
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full px-3 py-2 rounded-xl text-sm font-bold border focus:outline-none"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setEditingListing(null)}
-                className="flex-1 py-2 rounded-xl text-xs font-bold border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
-              >
-                {lang === 'hu' ? 'Mégse' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveListingEdit(editingListing)}
-                disabled={updatingListingId === editingListing.inventory_id}
-                className="flex-1 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow transition cursor-pointer disabled:opacity-50"
-              >
-                {updatingListingId === editingListing.inventory_id ? '…' : (lang === 'hu' ? 'Mentés' : 'Save')}
-              </button>
-            </div>
           </div>
         </div>
       )}

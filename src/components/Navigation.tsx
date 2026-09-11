@@ -27,6 +27,7 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [cartCount, setCartCount] = useState(0);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [checkoutCartItems, setCheckoutCartItems] = useState<CartItem[] | null>(null);
+  const [showApiNav, setShowApiNav] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -64,6 +65,17 @@ export function Navigation({ currentPath }: NavigationProps) {
     window.addEventListener('tcg-cart-changed', handleCartChange);
     window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
 
+    setShowApiNav(typeof window !== 'undefined' && localStorage.getItem('tcg_show_api_nav') === 'true');
+    const handleNavPrefChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ showApiNav?: boolean }>;
+      if (typeof customEvent.detail?.showApiNav === 'boolean') {
+        setShowApiNav(customEvent.detail.showApiNav);
+      } else {
+        setShowApiNav(localStorage.getItem('tcg_show_api_nav') === 'true');
+      }
+    };
+    window.addEventListener('tcg-nav-pref-changed', handleNavPrefChange);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         getCurrentProfile().then(p => {
@@ -93,6 +105,7 @@ export function Navigation({ currentPath }: NavigationProps) {
       window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-cart-changed', handleCartChange);
       window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
+      window.removeEventListener('tcg-nav-pref-changed', handleNavPrefChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -143,7 +156,9 @@ export function Navigation({ currentPath }: NavigationProps) {
           <NavLink href="/marketplace" label={lang === 'hu' ? 'Piactér' : 'Marketplace'} />
         )}
 
-        <NavLink href="/api-docs" label="API" />
+        {showApiNav && (
+          <NavLink href="/api-docs" label="API" />
+        )}
 
         {/* Language Selector */}
         <LanguageSelector />
@@ -543,30 +558,32 @@ export function Navigation({ currentPath }: NavigationProps) {
                 </a>
               )}
 
-              <a
-                href="/api-docs"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
-                style={
-                  isActive('/api-docs')
-                    ? {
-                        background: 'var(--accent-muted)',
-                        borderColor: 'var(--accent)',
-                        color: 'var(--text-accent)'
-                      }
-                    : {
-                        background: 'var(--bg-surface-2)',
-                        borderColor: 'var(--border-subtle)',
-                        color: 'var(--text-secondary)'
-                      }
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span>API Docs</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1</span>
-                </div>
-                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
-              </a>
+              {showApiNav && (
+                <a
+                  href="/api-docs"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
+                    isActive('/api-docs')
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <span>API Docs</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1</span>
+                  </div>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                </a>
+              )}
 
               {userProfile && (
                 <a
