@@ -5,13 +5,14 @@ import { getCurrentProfile } from '../../lib/auth';
 import { reconcileOwnerPlaysets } from '../../lib/userCards';
 import { fetchStoreOrders, updateOrderStatus, updateOrderPayment, purgeAllOrders } from '../../lib/orders';
 import { getEurToHufRate } from '../../lib/currency';
-import { EVENTS } from '../../lib/constants';
+import { EVENTS, OWNER_ID } from '../../lib/constants';
 import type { CatalogCard, UserProfile, Order } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
 import { InventoryPanel } from './InventoryPanel';
 import { OrdersPanel } from './OrdersPanel';
 import { AddProductForm } from './AddProductForm';
 import { SettingsPanel } from './SettingsPanel';
+import { ApiKeysPanel } from './ApiKeysPanel';
 
 // ─── Types ────────────────────────────────────────────────────────
 export interface InventoryItem {
@@ -52,7 +53,7 @@ export function AdminDashboard() {
   const eurHufRate = getEurToHufRate();
 
   // Store & Inventory State
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'settings' | 'api-keys'>('inventory');
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [loadingInventory, setLoadingInventory] = useState(true);
   const [inventoryPage, setInventoryPage] = useState(0);
@@ -135,6 +136,7 @@ export function AdminDashboard() {
             sets ( id, name, code )
           )
         `)
+        .eq('user_id', OWNER_ID)
         .eq('is_listed_in_store', true)
         .gt('for_sale_copies', 0)
         .order('updated_at', { ascending: false })
@@ -165,7 +167,7 @@ export function AdminDashboard() {
         };
       });
 
-      // Fetch legacy inventory items
+      // Fetch legacy inventory items (excluding community marketplace listings)
       const { data: legacyData, error: legacyErr } = await supabase
         .from('inventory')
         .select(`
@@ -175,12 +177,18 @@ export function AdminDashboard() {
             sets ( id, name, code )
           )
         `)
+        .or('notes.is.null,notes.not.ilike.*marketplace*')
         .order('updated_at', { ascending: false })
         .range(from, to);
 
       if (legacyErr && import.meta.env.DEV) console.warn('Dashboard inventory query warning:', legacyErr);
 
-      const legacyItems: InventoryItem[] = (legacyData || []).map((item: any) => ({ ...item, is_surplus: false }));
+      const legacyItems: InventoryItem[] = (legacyData || [])
+        .filter((item: any) => {
+          const notesStr = String(item.notes || '');
+          return !notesStr.includes('marketplace');
+        })
+        .map((item: any) => ({ ...item, is_surplus: false }));
       const newItems = [...surplusItems, ...legacyItems];
 
       setHasMoreInventory(newItems.length >= INVENTORY_PAGE_SIZE);
@@ -763,6 +771,25 @@ export function AdminDashboard() {
           </svg>
           <span>Store Settings</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('api-keys')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border shrink-0 ${
+            activeTab === 'api-keys'
+              ? 'shadow-sm'
+              : 'hover:text-white hover:border-[var(--border-hover)]'
+          }`}
+          style={
+            activeTab === 'api-keys'
+              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }
+              : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+          }
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 2l-2 2m-1-1l-3 3m2 2l-3 3m-2-2l-2 2m-1-1l-4 4a5 5 0 1 1-7-7l4-4" />
+          </svg>
+          <span>API Keys</span>
+        </button>
       </div>
 
       {/* TAB 1: INVENTORY TABLE */}
@@ -820,6 +847,11 @@ export function AdminDashboard() {
           onToggleSealedVisibility={handleToggleSealedVisibility}
           onToggleMarketplaceVisibility={handleToggleMarketplaceVisibility}
         />
+      )}
+
+      {/* TAB 5: API KEYS MANAGEMENT */}
+      {activeTab === 'api-keys' && (
+        <ApiKeysPanel />
       )}
     </div>
   );

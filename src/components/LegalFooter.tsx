@@ -108,6 +108,17 @@ export function LegalFooter() {
 
               <div className="h-3.5 w-px bg-zinc-800" />
 
+              <a
+                href="/api-docs"
+                className="text-[11px] font-bold text-zinc-400 hover:text-emerald-400 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
+                title="Public REST API & Developer Documentation"
+              >
+                <span>API Docs</span>
+                <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1</span>
+              </a>
+
+              <div className="h-3.5 w-px bg-zinc-800" />
+
               <button
                 type="button"
                 onClick={() => handleToggle(true)}
