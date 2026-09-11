@@ -19,9 +19,9 @@ export const GET: APIRoute = async ({ request }) => {
   const baseUrl = new URL(request.url).origin;
 
   const data = {
-    name: 'TCG Vault Educational REST API',
+    name: 'TCG Vault REST API',
     version: '1.0.0',
-    description: 'A friendly, high-performance RESTful API for learning web APIs, building card game applications, and exploring Riftbound & Cyberpunk TCG card collections.',
+    description: 'A high-performance RESTful API for integrating card catalog data, expansion set collections, and game applications across Riftbound & Cyberpunk TCG.',
     documentation: `${baseUrl}/api-docs`,
     authenticated: authResult.valid,
     key_info: authResult.keyData ? { name: authResult.keyData.name } : null,

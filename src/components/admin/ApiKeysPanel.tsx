@@ -165,7 +165,7 @@ export function ApiKeysPanel() {
               </span>
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              When <strong>Protected Mode</strong> is active, all card catalog requests must provide a valid API key via <code className="text-emerald-400">x-api-key</code>, Bearer token, or <code className="text-emerald-400">?api_key=</code>. Switch to Public Mode if you want classmates to test without passing credentials.
+              When <strong>Protected Mode</strong> is active, all card catalog requests must provide a valid API key via <code className="text-emerald-400">x-api-key</code>, Bearer token, or <code className="text-emerald-400">?api_key=</code>. Switch to Public Mode if you want to allow open, unauthenticated requests.
             </p>
           </div>
 
@@ -199,7 +199,7 @@ export function ApiKeysPanel() {
               <h3 className="text-sm font-black uppercase tracking-wider text-zinc-100">Interactive Docs</h3>
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Share the student documentation page with your classmates. Includes an in-browser request tester and code generator for JavaScript, Python, and cURL.
+              Access the developer documentation portal. Includes an in-browser request tester and code generator for C#, JavaScript, Python, and cURL.
             </p>
           </div>
 
@@ -234,7 +234,7 @@ export function ApiKeysPanel() {
             type="text"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="e.g. Classmate Alex, Web Dev Lab 1, Teacher Demo..."
+            placeholder="e.g. C# Client App, Frontend Service, Partner Integration..."
             className="w-full flex-1 px-3.5 py-2 text-xs rounded-xl border focus:outline-none transition"
             style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />

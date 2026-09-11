@@ -19,7 +19,7 @@ export interface ApiSettings {
 const DEFAULT_KEY: ApiKeyItem = {
   id: 'key_default_demo_2026',
   key: 'tcg_live_tcgvault_demo_2026',
-  name: 'Classroom Demo Key',
+  name: 'Default Development Key',
   created_at: new Date().toISOString(),
   is_active: true,
   requests_count: 0,
@@ -202,7 +202,7 @@ export async function validateApiKey(request: Request): Promise<AuthValidationRe
     return {
       valid: false,
       statusCode: 401,
-      error: "Authentication failed: Invalid API key. Please check your key or request one from your instructor/administrator. View documentation at /api-docs.",
+      error: "Authentication failed: Invalid API key. Please verify your credentials or generate a new key in the admin dashboard. View documentation at /api-docs.",
     };
   }
 
