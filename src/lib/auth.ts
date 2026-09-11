@@ -218,7 +218,33 @@ export async function saveCollectionToCloud(collection: Record<string, number>) 
 export async function loadCollectionFromCloud(): Promise<Record<string, number> | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  return (user.user_metadata?.saved_collection as Record<string, number>) || null;
+
+  // 1. Check user_metadata in auth.users
+  const metaCollection = user.user_metadata?.saved_collection as Record<string, number> | undefined;
+  if (metaCollection && Object.keys(metaCollection).length > 0) {
+    return metaCollection;
+  }
+
+  // 2. Fallback: check public.user_cards table
+  try {
+    const { data: rows } = await supabase
+      .from('user_cards')
+      .select('card_id, owned_copies, foil_copies')
+      .eq('user_id', user.id);
+
+    if (rows && rows.length > 0) {
+      const dict: Record<string, number> = {};
+      rows.forEach(r => {
+        if (r.owned_copies > 0) dict[r.card_id] = r.owned_copies;
+        if (r.foil_copies > 0) dict[`${r.card_id}_foil`] = r.foil_copies;
+      });
+      if (Object.keys(dict).length > 0) return dict;
+    }
+  } catch (e) {
+    console.warn('Failed to load collection from user_cards fallback:', e);
+  }
+
+  return null;
 }
 
 // ─── User Orders ──────────────────────────────────────────────────

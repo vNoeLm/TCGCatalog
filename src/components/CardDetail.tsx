@@ -131,8 +131,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     localStorage.setItem("tcg_collection", JSON.stringify(next));
     window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-    // Only the store owner syncs surplus inventory to database in background
-    if (profile?.role === 'owner') {
+    // Sync inventory/collection to database in background for authenticated users
+    if (profile) {
       const regularCount = isFoil ? (next[targetCardId] || 0) : (updated <= 0 ? 0 : updated);
       const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${targetCardId}_foil`] || 0);
       const cardObj = isInventory ? data?.cards : data;

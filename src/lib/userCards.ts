@@ -59,40 +59,43 @@ export interface SyncCardParams {
  */
 export async function syncUserCardInventory(params: SyncCardParams): Promise<{ data: UserCard | null; error: any }> {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== 'owner') {
-    // Only the platform owner can list surplus cards in the store.
-    // Regular users track their collection purely in local state and user_metadata cloud backup.
+  if (!profile) {
     return { data: null, error: null };
   }
 
   const { cardId, ownedCopies, foilCopies, cardRarity, customUnitPrice, cardMarketPriceEur } = params;
   const safeOwned = Math.max(0, ownedCopies || 0);
   const safeFoil = Math.max(0, foilCopies || 0);
+  const isOwner = profile.role === 'owner';
 
-  const { forSaleCopies, isListedInStore } = calculateSurplus(safeOwned, safeFoil, profile.role, cardRarity);
-
-  // If there is no surplus for sale, ensure any previous row for this card is removed from store inventory
-  if (forSaleCopies <= 0 || !isListedInStore) {
+  // If user owns 0 copies in total, remove row from user_cards
+  if (safeOwned <= 0 && safeFoil <= 0) {
     const { error: delError } = await supabase
       .from('user_cards')
       .delete()
       .eq('user_id', profile.id)
       .eq('card_id', cardId);
 
-    clearStoreCache();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+    if (isOwner) {
+      clearStoreCache();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+      }
     }
 
     return { data: null, error: delError };
   }
 
-  // Active surplus listing: assign price
+  const { forSaleCopies, isListedInStore } = calculateSurplus(safeOwned, safeFoil, profile.role, cardRarity);
+
+  // Active surplus listing price (owner only)
   let unitPrice: number | null = null;
-  if (typeof customUnitPrice === 'number') {
-    unitPrice = customUnitPrice;
-  } else if (typeof cardMarketPriceEur === 'number') {
-    unitPrice = cardMarketPriceEur;
+  if (isOwner) {
+    if (typeof customUnitPrice === 'number') {
+      unitPrice = customUnitPrice;
+    } else if (typeof cardMarketPriceEur === 'number') {
+      unitPrice = cardMarketPriceEur;
+    }
   }
 
   const payload = {
@@ -100,9 +103,9 @@ export async function syncUserCardInventory(params: SyncCardParams): Promise<{ d
     card_id: cardId,
     owned_copies: safeOwned,
     foil_copies: safeFoil,
-    for_sale_copies: forSaleCopies,
+    for_sale_copies: isOwner ? forSaleCopies : 0,
     unit_price: unitPrice,
-    is_listed_in_store: true,
+    is_listed_in_store: isOwner ? isListedInStore : false,
     updated_at: new Date().toISOString(),
   };
 
@@ -114,7 +117,7 @@ export async function syncUserCardInventory(params: SyncCardParams): Promise<{ d
 
   if (error) {
     console.error('Failed to sync user_cards record:', error);
-  } else {
+  } else if (isOwner) {
     clearStoreCache();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
@@ -157,10 +160,11 @@ export async function bulkSyncCollectionToUserCards(
   marketPrices: Record<string, number> = {}
 ): Promise<{ successCount: number; error: any }> {
   const profile = await getCurrentProfile();
-  if (!profile || profile.role !== 'owner') {
-    // Only the store owner can list surplus cards in the store.
+  if (!profile) {
     return { successCount: 0, error: null };
   }
+
+  const isOwner = profile.role === 'owner';
 
   // Group by card_id (separating regular and foil keys)
   const cardMap = new Map<string, { owned: number; foil: number }>();
@@ -182,12 +186,12 @@ export async function bulkSyncCollectionToUserCards(
   });
 
   const upsertRows: any[] = [];
-  const surplusCardIds = new Set<string>();
+  const activeCardIds = new Set<string>();
 
   for (const [cardId, { owned, foil }] of cardMap.entries()) {
-    const { forSaleCopies, isListedInStore } = calculateSurplus(owned, foil, profile.role);
-    if (forSaleCopies > 0 && isListedInStore) {
-      surplusCardIds.add(cardId);
+    if (isOwner) {
+      const { forSaleCopies, isListedInStore } = calculateSurplus(owned, foil, profile.role);
+      activeCardIds.add(cardId);
       const unitPrice = marketPrices[cardId] || null;
       upsertRows.push({
         user_id: profile.id,
@@ -196,26 +200,40 @@ export async function bulkSyncCollectionToUserCards(
         foil_copies: foil,
         for_sale_copies: forSaleCopies,
         unit_price: unitPrice,
-        is_listed_in_store: true,
+        is_listed_in_store: isListedInStore,
         updated_at: new Date().toISOString(),
       });
+    } else {
+      if (owned > 0 || foil > 0) {
+        activeCardIds.add(cardId);
+        upsertRows.push({
+          user_id: profile.id,
+          card_id: cardId,
+          owned_copies: owned,
+          foil_copies: foil,
+          for_sale_copies: 0,
+          unit_price: null,
+          is_listed_in_store: false,
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
-  // 1. Delete any previous user_cards for this owner that no longer have surplus
+  // 1. Delete any previous user_cards for this user that are no longer in the collection
   const { data: existingRows } = await supabase
     .from('user_cards')
     .select('id, card_id')
     .eq('user_id', profile.id);
 
   if (existingRows && existingRows.length > 0) {
-    const idsToDelete = existingRows.filter(r => !surplusCardIds.has(r.card_id)).map(r => r.id);
+    const idsToDelete = existingRows.filter(r => !activeCardIds.has(r.card_id)).map(r => r.id);
     if (idsToDelete.length > 0) {
       await supabase.from('user_cards').delete().in('id', idsToDelete);
     }
   }
 
-  // 2. Upsert only active surplus items
+  // 2. Upsert items
   if (upsertRows.length > 0) {
     const { error } = await supabase
       .from('user_cards')
@@ -227,9 +245,11 @@ export async function bulkSyncCollectionToUserCards(
     }
   }
 
-  clearStoreCache();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+  if (isOwner) {
+    clearStoreCache();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tcg-store-inventory-change'));
+    }
   }
 
   return { successCount: upsertRows.length, error: null };

@@ -258,7 +258,7 @@ export function CardListApp() {
     }
   }, [sortMode, isInitialized]);
 
-  // Load collection from localStorage (supports array migration & quantity object)
+  // Load collection from localStorage & keep synchronized via tcg-collection-change events
   useEffect(() => {
     const saved = localStorage.getItem("tcg_user_collection") || localStorage.getItem("tcg_collection");
     if (saved) {
@@ -284,7 +284,109 @@ export function CardListApp() {
         console.error("Failed to load collection", e);
       }
     }
+
+    const handleColChange = (e: Event) => {
+      const custom = e as CustomEvent<{ collection: Record<string, number> }>;
+      if (custom.detail?.collection) {
+        setCollection(custom.detail.collection);
+      }
+    };
+    window.addEventListener('tcg-collection-change', handleColChange);
+    return () => {
+      window.removeEventListener('tcg-collection-change', handleColChange);
+    };
   }, []);
+
+  // Sync collection with cloud backup on login / mount for authenticated users
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let isMounted = true;
+    (async () => {
+      try {
+        const cloudData = await loadCollectionFromCloud();
+        if (!isMounted) return;
+
+        if (cloudData && Object.keys(cloudData).length > 0) {
+          setCollection(prev => {
+            const merged: Record<string, number> = { ...prev };
+            let updated = false;
+
+            // Union merge: take the highest count for each card
+            Object.entries(cloudData).forEach(([k, cloudCount]) => {
+              const localCount = merged[k] || 0;
+              const best = Math.max(localCount, cloudCount);
+              if (best > 0) {
+                if (merged[k] !== best) updated = true;
+                merged[k] = best;
+              }
+            });
+
+            // Also check if any local cards were not in cloud
+            Object.entries(prev).forEach(([k, localCount]) => {
+              const cloudCount = cloudData[k] || 0;
+              if (localCount > cloudCount) updated = true;
+            });
+
+            if (updated) {
+              localStorage.setItem("tcg_user_collection", JSON.stringify(merged));
+              localStorage.setItem("tcg_collection", JSON.stringify(merged));
+              window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: merged } }));
+              // Save merged union back to cloud in background
+              saveCollectionToCloud(merged).catch(() => {});
+            }
+
+            return merged;
+          });
+        } else {
+          // Cloud is empty but local has cards: auto-backup to cloud
+          setCollection(prev => {
+            if (Object.keys(prev).length > 0) {
+              saveCollectionToCloud(prev).catch(() => {});
+            }
+            return prev;
+          });
+        }
+      } catch (e) {
+        console.warn('Auto cloud sync on auth:', e);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
+
+  // Debounced auto-save to cloud for authenticated users (2.5s debounce)
+  const cloudDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isInitialCollectionLoad = useRef(true);
+
+  useEffect(() => {
+    if (isInitialCollectionLoad.current) {
+      isInitialCollectionLoad.current = false;
+      return;
+    }
+    if (!currentUser) return;
+    if (Object.keys(collection).length === 0) return;
+
+    if (cloudDebounceTimer.current) {
+      clearTimeout(cloudDebounceTimer.current);
+    }
+
+    cloudDebounceTimer.current = setTimeout(async () => {
+      try {
+        await saveCollectionToCloud(collection);
+      } catch (e) {
+        console.warn('Debounced cloud save warning:', e);
+      }
+    }, 2500);
+
+    return () => {
+      if (cloudDebounceTimer.current) {
+        clearTimeout(cloudDebounceTimer.current);
+      }
+    };
+  }, [collection, currentUser]);
 
   const updateCardCount = (cardId: string, isFoil: boolean, delta: number) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
@@ -301,8 +403,8 @@ export function CardListApp() {
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-      // Only the store owner syncs surplus inventory to database in background
-      if (currentUserProfile?.role === 'owner') {
+      // Sync inventory/collection to database in background for authenticated users
+      if (currentUser) {
         const regularCount = isFoil ? (next[cardId] || 0) : (updated <= 0 ? 0 : updated);
         const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${cardId}_foil`] || 0);
         const cardObj = cards.find(c => c.id === cardId);
@@ -335,8 +437,8 @@ export function CardListApp() {
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-      // Only the store owner syncs surplus inventory to database in background
-      if (currentUserProfile?.role === 'owner') {
+      // Sync inventory/collection to database in background for authenticated users
+      if (currentUser) {
         const regularCount = isFoil ? (next[cardId] || 0) : newCount;
         const foilCount = isFoil ? newCount : (next[`${cardId}_foil`] || 0);
         const cardObj = cards.find(c => c.id === cardId);
@@ -379,28 +481,6 @@ export function CardListApp() {
             const existingIds = new Set(sameGame.map(c => c.id));
             const newCards = (data || []).filter(c => !existingIds.has(c.id));
             return newCards.length > 0 ? [...sameGame, ...newCards] : (sameGame.length > 0 ? sameGame : (data || []));
-          });
-        }
-
-        // Auto-clean stale/deleted card IDs from collection in localStorage
-        if (data && data.length > 0) {
-          const validIdSet = new Set(data.map(c => c.id));
-          setCollection(prev => {
-            let hasStale = false;
-            const next: Record<string, number> = {};
-            Object.entries(prev).forEach(([key, count]) => {
-              const baseId = key.endsWith('_foil') ? key.replace(/_foil$/, '') : key;
-              if (validIdSet.has(baseId) && count > 0) {
-                next[key] = count;
-              } else {
-                hasStale = true;
-              }
-            });
-            if (hasStale) {
-              localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-              localStorage.setItem("tcg_collection", JSON.stringify(next));
-            }
-            return hasStale ? next : prev;
           });
         }
 
