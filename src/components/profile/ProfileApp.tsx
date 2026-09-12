@@ -58,27 +58,6 @@ export function ProfileApp() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
 
-  // Developer Preferences
-  const [showApiNav, setShowApiNav] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tcg_show_api_nav') === 'true';
-    }
-    return false;
-  });
-
-  const handleToggleShowApiNav = () => {
-    const next = !showApiNav;
-    setShowApiNav(next);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tcg_show_api_nav', next ? 'true' : 'false');
-      window.dispatchEvent(new CustomEvent('tcg-nav-pref-changed', { detail: { showApiNav: next } }));
-    }
-    showToast(
-      next
-        ? (lang === 'hu' ? 'API gomb bekapcsolva a fejlécben' : 'API button enabled in navigation')
-        : (lang === 'hu' ? 'API gomb elrejtve a fejlécből' : 'API button hidden from navigation')
-    );
-  };
 
   // Collection & Badge State
   const [collectionStats, setCollectionStats] = useState({ owned: 0, total: 1382, game: 'riftbound' });
@@ -598,124 +577,10 @@ export function ProfileApp() {
     </div>
   );
 
-  const renderDeveloperSection = () => (
-    <div
-      className="rounded-2xl p-6 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
-      style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-      }}
-    >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div>
-          <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <svg className="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" />
-            </svg>
-            <span>{lang === 'hu' ? 'Fejlesztői Beállítások' : 'Developer Preferences'}</span>
-            <span
-              className="text-xs font-bold px-2 py-0.5 rounded-full border"
-              style={{
-                background: 'var(--accent-muted)',
-                borderColor: 'var(--accent-border)',
-                color: 'var(--accent)',
-              }}
-            >
-              REST API v1
-            </span>
-          </h2>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu'
-              ? 'Kapcsold be a fejlesztői funkciókat, mint például a REST API elérést a navigációban.'
-              : 'Configure developer features such as showing the REST API explorer link in the navigation bar.'}
-          </p>
-        </div>
-
-        <a
-          href="/api-docs"
-          className="text-xs font-bold px-3.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 self-start sm:self-auto hover:text-white"
-          style={{
-            background: 'var(--bg-surface-2)',
-            borderColor: 'var(--border)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <span>{lang === 'hu' ? 'API Dokumentáció' : 'View API Docs'}</span>
-          <span className="text-xs">→</span>
-        </a>
-      </div>
-
-      <div
-        className="p-4 rounded-xl flex items-center justify-between gap-4 border"
-        style={{
-          background: 'var(--bg-input)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
-            style={{
-              background: showApiNav ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-surface-2)',
-              borderColor: showApiNav ? 'rgba(99, 102, 241, 0.4)' : 'var(--border-subtle)',
-              color: showApiNav ? '#818cf8' : 'var(--text-secondary)',
-            }}
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'API gomb a fejlécben' : 'Show API in Navigation'}
-              </span>
-              <span
-                className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                  showApiNav
-                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                    : 'bg-zinc-500/15 border-zinc-500/30 text-zinc-400'
-                }`}
-              >
-                {showApiNav
-                  ? (lang === 'hu' ? 'Bekapcsolva' : 'Enabled')
-                  : (lang === 'hu' ? 'Kikapcsolva' : 'Disabled')}
-              </span>
-            </div>
-            <p className="text-xs mt-0.5 leading-relaxed truncate" style={{ color: 'var(--text-muted)' }}>
-              {lang === 'hu'
-                ? 'Közvetlen hivatkozás megjelenítése az asztali és mobil menüben az API dokumentációhoz (alapértelmezés szerint kikapcsolva).'
-                : 'Display direct link to the REST API documentation in the top navigation bar and mobile drawer (off by default).'}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          role="switch"
-          aria-checked={showApiNav}
-          onClick={handleToggleShowApiNav}
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            showApiNav ? 'bg-indigo-600' : 'bg-zinc-700'
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-              showApiNav ? 'translate-x-5' : 'translate-x-0'
-            }`}
-          />
-        </button>
-      </div>
-    </div>
-  );
-
   if (!profile) {
     return (
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
         {renderThemeSection()}
-        {renderDeveloperSection()}
 
         <div 
           className="max-w-md mx-auto my-12 p-8 text-center rounded-2xl shadow-xl border"
@@ -975,8 +840,6 @@ export function ProfileApp() {
       {/* Theme & Appearance Override Section */}
       {renderThemeSection()}
 
-      {/* Developer Preferences Section */}
-      {renderDeveloperSection()}
 
       {/* Orders Section */}
       {(isStorePublic || profile.is_admin) && (

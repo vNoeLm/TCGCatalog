@@ -23,8 +23,7 @@ import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { getLanguage, t, type Language } from '../lib/i18n';
 import { syncUserCardInventory } from '../lib/userCards';
-import { BuyModal } from './BuyModal';
-import { addToCart } from '../lib/cart';
+import { HoldRequestModal } from './marketplace/HoldRequestModal';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { AuthModal } from './auth/AuthModal';
 
@@ -39,8 +38,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [isInventory, setIsInventory] = useState(false);
   const [collection, setCollection] = useState<Record<string, number>>({});
   const [lang, setLang] = useState<Language>('en');
-  const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
-  const [addedToCart, setAddedToCart] = useState(false);
+  const [isHoldModalOpen, setIsHoldModalOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -386,6 +385,58 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const parsedDomains = parseDomains(card.domain);
   const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
   const isAvailable = data.status === 'In Stock';
+
+  const isSeller = Boolean(
+    profile && (
+      profile.id === data?.seller_id ||
+      profile.id === data?.user_id ||
+      (typeof data?.notes === 'string' && data.notes.includes(profile.id)) ||
+      profile.role === 'owner' ||
+      profile.is_owner ||
+      profile.email === 'vnoel05@gmail.com'
+    )
+  );
+
+  const handleSellerChangeStatus = async (newStatus: 'In Stock' | 'On Hold' | 'Sold') => {
+    if (!data?.id) return;
+    setIsUpdatingStatus(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        setShowAuthModal(true);
+        return;
+      }
+
+      const res = await fetch('/api/marketplace/listings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: data.id,
+          status: newStatus,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (!res.ok || !resJson.success) {
+        alert(resJson.error || 'Failed to update listing status');
+      } else {
+        setData((prev: any) => ({
+          ...prev,
+          status: newStatus,
+          quantity: newStatus === 'Sold' ? 0 : (prev.quantity <= 0 ? 1 : prev.quantity),
+        }));
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Error updating status');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const allThumbs: Array<{ url: string; label: string }> = [];
   const invImgs: any[] = (data.inventory_images ?? []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
@@ -1296,63 +1347,112 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${
-                  isAvailable 
-                    ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40' 
-                    : 'bg-amber-950/40 text-amber-300 border-amber-500/40'
-                }`}>
-                  {data.status === 'In Stock' ? `${data.quantity || 1} ${t('in_stock', lang)}` : data.status}
-                </span>
-                {isAvailable && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        addToCart({
-                          inventoryId: data.id,
-                          card,
-                          condition: data.condition || 'Near Mint',
-                          isFoil: Boolean(data.is_foil),
-                          priceHuf: data.price_huf || 0,
-                          quantity: 1,
-                          maxStock: Math.max(1, data.quantity || 1),
-                        });
-                        setAddedToCart(true);
-                        setTimeout(() => setAddedToCart(false), 2000);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border"
-                      style={{
-                        background: addedToCart ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
-                        borderColor: addedToCart ? 'var(--accent)' : 'var(--border)',
-                        color: addedToCart ? 'var(--text-accent)' : 'var(--text-primary)',
-                      }}
-                    >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="9" cy="21" r="1"/>
-                        <circle cx="20" cy="21" r="1"/>
-                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                      </svg>
-                      <span>{addedToCart ? t('added_to_cart', lang) : t('add_to_cart', lang)}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsBuyModalOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                      style={{
-                        background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
-                        color: 'var(--accent-contrast, #000000)',
-                        boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
-                      }}
-                    >
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      <span>{t('buy_now', lang)}</span>
-                    </button>
-                  </>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {/* Status Badges */}
+                {data.status === 'In Stock' && (
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-emerald-950/40 text-emerald-300 border-emerald-500/40 inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                    <span>{lang === 'hu' ? 'Elérhető' : 'Available'}</span>
+                  </span>
                 )}
+                {data.status === 'On Hold' && (
+                  <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/50 inline-flex items-center gap-1.5 uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <span>{lang === 'hu' ? 'JEGELVE (On Hold)' : 'ON HOLD'}</span>
+                  </span>
+                )}
+                {data.status === 'Sold' && (
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-zinc-800 text-zinc-400 border-zinc-700 inline-flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>{lang === 'hu' ? 'ELADVA' : 'SOLD'}</span>
+                  </span>
+                )}
+
+                {/* Primary Buyer Action: Request Hold */}
+                {data.status === 'In Stock' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsHoldModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    style={{
+                      background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
+                      color: 'var(--accent-contrast, #000000)',
+                      boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
+                    }}
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                    <span>{lang === 'hu' ? 'Jegelés Kérése' : 'Request Hold'}</span>
+                  </button>
+                )}
+
+                {/* Seller Quick Action Controls */}
+                {isSeller && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {data.status === 'In Stock' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('On Hold')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition cursor-pointer"
+                          title={lang === 'hu' ? 'Kártya jegelése kézzel' : 'Manually put on hold'}
+                        >
+                          {lang === 'hu' ? 'Jegelés' : 'Put on Hold'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('Sold')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
+                          title={lang === 'hu' ? 'Eladás megerősítése' : 'Confirm sale'}
+                        >
+                          {lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}
+                        </button>
+                      </>
+                    )}
+                    {data.status === 'On Hold' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('In Stock')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 transition cursor-pointer"
+                          title={lang === 'hu' ? 'Jegelés visszavonása' : 'Release hold back to available'}
+                        >
+                          {lang === 'hu' ? 'Jegelés feloldása' : 'Release Hold'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('Sold')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
+                          title={lang === 'hu' ? 'Eladás megerősítése' : 'Confirm sale'}
+                        >
+                          {lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}
+                        </button>
+                      </>
+                    )}
+                    {data.status === 'Sold' && (
+                      <button
+                        type="button"
+                        disabled={isUpdatingStatus}
+                        onClick={() => handleSellerChangeStatus('In Stock')}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                        title={lang === 'hu' ? 'Újrahirdetés elérhetőként' : 'Relist as in stock'}
+                      >
+                        {lang === 'hu' ? 'Újrahirdetés' : 'Relist'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1372,6 +1472,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 </button>
                 <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
               </div>
+
+              {data.status === 'On Hold' && (
+                <p className="text-xs text-amber-300/80 mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                  {lang === 'hu'
+                    ? 'Ez a lap jelenleg jegelve van egy vásárló számára, és átadás/fizetés alatt áll.'
+                    : 'This item is currently on hold for another buyer while handover/payment is arranged.'}
+                </p>
+              )}
             </div>
           )}
 
@@ -1400,21 +1508,20 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         </div>
       </div>
 
-      {isBuyModalOpen && (
-        <BuyModal
-          isOpen={isBuyModalOpen}
-          onClose={() => setIsBuyModalOpen(false)}
+      {isHoldModalOpen && (
+        <HoldRequestModal
+          isOpen={isHoldModalOpen}
+          onClose={() => setIsHoldModalOpen(false)}
           card={card}
           inventoryItem={data}
           profile={profile}
           lang={lang}
-          onOrderPlaced={(remainingStock) => {
-            const stock = remainingStock ?? 0;
+          onRequestSubmitted={() => {
             setData((prev: any) => ({
               ...prev,
-              quantity: stock,
-              status: stock <= 0 ? 'Sold' : 'In Stock',
+              status: 'On Hold',
             }));
+            window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
           }}
         />
       )}

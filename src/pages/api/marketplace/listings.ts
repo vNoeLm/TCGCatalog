@@ -85,9 +85,23 @@ export const GET: APIRoute = async ({ url }) => {
           image_path,
           display_order
         )
-      `)
-      .eq('status', 'In Stock')
-      .gt('quantity', 0);
+      `);
+
+    const statusParam = url.searchParams.get('status');
+
+    if (sellerId) {
+      if (statusParam && statusParam !== 'all') {
+        invQuery = invQuery.eq('status', statusParam);
+      }
+    } else {
+      if (statusParam === 'in_stock') {
+        invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
+      } else if (statusParam === 'on_hold') {
+        invQuery = invQuery.eq('status', 'On Hold');
+      } else {
+        invQuery = invQuery.in('status', ['In Stock', 'On Hold']);
+      }
+    }
 
     if (game && game !== 'all') {
       invQuery = invQuery.eq('cards.game', game);
@@ -679,6 +693,136 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     });
   } catch (err: any) {
     console.error('Marketplace DELETE error:', err);
+    return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
+      status: 500,
+      headers: JSON_HEADERS,
+    });
+  }
+};
+
+// ─── PATCH: Quick Edit Price / Quantity / Status (In Stock, On Hold, Sold) ───
+export const PATCH: APIRoute = async ({ request }) => {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const body = await request.json().catch(() => null);
+    if (!body || !body.id) {
+      return new Response(JSON.stringify({ success: false, error: 'Missing listing id.' }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const { id, price_huf, quantity, status, condition } = body;
+    const isOwner = user.email === 'vnoel05@gmail.com';
+
+    // 1. Try inventory table
+    const { data: invRow } = await supabaseAdmin
+      .from('inventory')
+      .select('id, notes, status, quantity, price_huf')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (invRow) {
+      const sellerId = extractSellerId(invRow.notes);
+      if (sellerId !== user.id && !isOwner) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      const updates: any = {};
+      if (typeof price_huf === 'number') updates.price_huf = price_huf;
+      if (typeof quantity === 'number') updates.quantity = quantity;
+      if (status) {
+        updates.status = status;
+        if (status === 'Sold') updates.quantity = 0;
+        else if (status === 'In Stock' && invRow.quantity <= 0) updates.quantity = 1;
+      }
+      if (condition) updates.condition = condition;
+
+      const { data: updated, error: updateErr } = await supabaseAdmin
+        .from('inventory')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
+          status: 500,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, listing: updated }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // 2. Try user_cards table
+    const { data: ucRow } = await supabaseAdmin
+      .from('user_cards')
+      .select('id, user_id, for_sale_copies, unit_price')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (ucRow) {
+      if (ucRow.user_id !== user.id && !isOwner) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (typeof price_huf === 'number') updates.unit_price = Math.round((price_huf / 400) * 100) / 100;
+      if (typeof quantity === 'number') updates.for_sale_copies = quantity;
+      if (status === 'Sold') updates.for_sale_copies = 0;
+
+      const { data: updated, error: updateErr } = await supabaseAdmin
+        .from('user_cards')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
+          status: 500,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, listing: updated }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    return new Response(JSON.stringify({ success: false, error: 'Listing not found.' }), {
+      status: 404,
+      headers: JSON_HEADERS,
+    });
+  } catch (err: any) {
+    console.error('Marketplace PATCH error:', err);
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,

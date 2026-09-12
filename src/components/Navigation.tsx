@@ -5,9 +5,6 @@ import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { LanguageSelector } from './LanguageSelector';
-import { CartDrawer } from './CartDrawer';
-import { BuyModal } from './BuyModal';
-import { getCartCount, type CartItem } from '../lib/cart';
 import { getLanguage, t, type Language } from '../lib/i18n';
 import { EVENTS } from '../lib/constants';
 
@@ -24,10 +21,6 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lang, setLang] = useState<Language>('en');
-  const [cartCount, setCartCount] = useState(0);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [checkoutCartItems, setCheckoutCartItems] = useState<CartItem[] | null>(null);
-  const [showApiNav, setShowApiNav] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -58,23 +51,7 @@ export function Navigation({ currentPath }: NavigationProps) {
     };
     window.addEventListener('tcg-lang-change', handleLangChange);
 
-    setCartCount(getCartCount());
-    const handleCartChange = () => {
-      setCartCount(getCartCount());
-    };
-    window.addEventListener('tcg-cart-changed', handleCartChange);
     window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
-
-    setShowApiNav(typeof window !== 'undefined' && localStorage.getItem('tcg_show_api_nav') === 'true');
-    const handleNavPrefChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ showApiNav?: boolean }>;
-      if (typeof customEvent.detail?.showApiNav === 'boolean') {
-        setShowApiNav(customEvent.detail.showApiNav);
-      } else {
-        setShowApiNav(localStorage.getItem('tcg_show_api_nav') === 'true');
-      }
-    };
-    window.addEventListener('tcg-nav-pref-changed', handleNavPrefChange);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
@@ -103,9 +80,7 @@ export function Navigation({ currentPath }: NavigationProps) {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('tcg-lang-change', handleLangChange);
-      window.removeEventListener('tcg-cart-changed', handleCartChange);
       window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
-      window.removeEventListener('tcg-nav-pref-changed', handleNavPrefChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -156,53 +131,12 @@ export function Navigation({ currentPath }: NavigationProps) {
           <NavLink href="/marketplace" label={lang === 'hu' ? 'Piactér' : 'Marketplace'} />
         )}
 
-        {showApiNav && (
-          <NavLink href="/api-docs" label="API" />
+        {userProfile && (
+          <NavLink href="/seller" label={lang === 'hu' ? 'Eladói Pult' : 'Seller Hub'} />
         )}
 
         {/* Language Selector */}
         <LanguageSelector />
-
-        {/* Shopping Cart Button */}
-        <button
-          type="button"
-          onClick={() => setIsCartOpen(true)}
-          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer border ${
-            isCartOpen
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)]'
-              : 'bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white'
-          }`}
-          title={t('cart', lang)}
-          aria-label={cartCount > 0 ? `${t('cart', lang)} (${cartCount} items)` : t('cart', lang)}
-        >
-          <svg
-            className="w-4 h-4 shrink-0"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ color: cartCount > 0 ? 'var(--text-accent)' : 'inherit' }}
-          >
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-          </svg>
-          <span className="hidden md:inline">{t('cart', lang)}</span>
-          {cartCount > 0 && (
-            <span
-              className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black leading-tight border"
-              style={{
-                background: 'var(--accent)',
-                color: 'var(--text-on-accent, #000)',
-                borderColor: 'var(--accent-border)',
-              }}
-            >
-              {cartCount}
-            </span>
-          )}
-        </button>
 
         {/* Auth Section */}
         <div className="relative" ref={dropdownRef}>
@@ -353,45 +287,7 @@ export function Navigation({ currentPath }: NavigationProps) {
 
       {/* Mobile Controls (< 640px) */}
       <div className="flex sm:hidden items-center gap-2">
-        {/* Mobile Cart Button */}
-        <button
-          type="button"
-          onClick={() => setIsCartOpen(true)}
-          className={`relative h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border ${
-            isCartOpen
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)]'
-              : 'bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white'
-          }`}
-          title={t('cart', lang)}
-          aria-label={cartCount > 0 ? `${t('cart', lang)} (${cartCount} items)` : t('cart', lang)}
-        >
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ color: cartCount > 0 ? 'var(--text-accent)' : 'inherit' }}
-          >
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-          </svg>
-          {cartCount > 0 && (
-            <span
-              className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black leading-tight border"
-              style={{
-                background: 'var(--accent)',
-                color: 'var(--text-on-accent, #000)',
-                borderColor: 'var(--accent-border)',
-              }}
-            >
-              {cartCount}
-            </span>
-          )}
-        </button>
+
 
         {/* Mobile Hamburger Button */}
         <button
@@ -558,32 +454,6 @@ export function Navigation({ currentPath }: NavigationProps) {
                 </a>
               )}
 
-              {showApiNav && (
-                <a
-                  href="/api-docs"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
-                  style={
-                    isActive('/api-docs')
-                      ? {
-                          background: 'var(--accent-muted)',
-                          borderColor: 'var(--accent)',
-                          color: 'var(--text-accent)'
-                        }
-                      : {
-                          background: 'var(--bg-surface-2)',
-                          borderColor: 'var(--border-subtle)',
-                          color: 'var(--text-secondary)'
-                        }
-                  }
-                >
-                  <div className="flex items-center gap-2">
-                    <span>API Docs</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1</span>
-                  </div>
-                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
-                </a>
-              )}
 
               {userProfile && (
                 <a
@@ -676,31 +546,7 @@ export function Navigation({ currentPath }: NavigationProps) {
         />
       )}
 
-      {/* Slide-over Shopping Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onCheckout={(items) => {
-          setIsCartOpen(false);
-          setCheckoutCartItems(items);
-        }}
-        lang={lang}
-      />
 
-      {/* Multi-Item Checkout Modal */}
-      {checkoutCartItems && (
-        <BuyModal
-          isOpen={Boolean(checkoutCartItems)}
-          onClose={() => setCheckoutCartItems(null)}
-          cartItems={checkoutCartItems}
-          profile={userProfile}
-          lang={lang}
-          onOrderPlaced={() => {
-            setCheckoutCartItems(null);
-            setCartCount(getCartCount());
-          }}
-        />
-      )}
     </>
   );
 }

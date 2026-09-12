@@ -52,6 +52,7 @@ export function MarketplaceApp() {
   const [sortMode, setSortMode] = useState<SortMode>('Price (Low to High)');
   const [sortOpen, setSortOpen] = useState(false);
   const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'on_hold'>('all');
 
   // Listings State
   const [cards, setCards] = useState<InventoryCard[]>([]);
@@ -127,6 +128,7 @@ export function MarketplaceApp() {
       if (filters.type) params.set('type', filters.type);
       if (filters.domains && filters.domains.length > 0) params.set('domains', filters.domains.join(','));
       if (filters.foilFilter) params.set('foil', 'true');
+      if (statusFilter !== 'all') params.set('status', statusFilter);
 
       const res = await fetch(`/api/marketplace/listings?${params.toString()}`);
       if (res.ok) {
@@ -158,7 +160,7 @@ export function MarketplaceApp() {
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
       window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
     };
-  }, [canAccess, filters, searchQuery]);
+  }, [canAccess, filters, searchQuery, statusFilter]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -345,8 +347,8 @@ export function MarketplaceApp() {
           </div>
           <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
             {lang === 'hu'
-              ? 'Böngéssz és vásárolj hitelesített gyűjtők és eladók kínálatából. Minden rendelés valós eladói értékelésekkel és megbízható vásárlóvédelemmel védett.'
-              : 'Browse and purchase cards from verified collectors and players. Protected by verified delivery reviews and buyer assurance.'}
+              ? 'Böngéssz közvetlen játékosok közötti hirdetések között. Kérj jegelést a kiszemelt lapra, és egyeztessetek átadást (Foxpost, személyes átvétel, posta) közvetlenül az eladóval!'
+              : 'Browse community classifieds from fellow players. Request a hold on cards and arrange delivery or personal pickup directly with the seller!'}
           </p>
         </div>
 
@@ -455,7 +457,30 @@ export function MarketplaceApp() {
               </div>
             </div>
 
-            <p className="mt-2 text-xs text-zinc-300 font-semibold">
+            {/* Status Filter Pills */}
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <span className="text-xs font-bold text-zinc-400">{lang === 'hu' ? 'Állapot:' : 'Status:'}</span>
+              {[
+                { id: 'all', label: lang === 'hu' ? 'Mind' : 'All' },
+                { id: 'in_stock', label: lang === 'hu' ? 'Csak elérhető' : 'Available only' },
+                { id: 'on_hold', label: lang === 'hu' ? 'Jegelve' : 'On Hold' },
+              ].map(pill => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setStatusFilter(pill.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                    statusFilter === pill.id
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-2.5 text-xs text-zinc-300 font-semibold">
               {lang === 'hu' ? `${sortedCards.length} piactéri hirdetés található` : `${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
             </p>
           </div>

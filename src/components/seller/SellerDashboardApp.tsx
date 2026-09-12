@@ -43,7 +43,12 @@ export function SellerDashboardApp() {
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
-  const [activeTab, setActiveTab] = useState<'listings' | 'analytics' | 'sales' | 'reviews'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews'>('listings');
+
+  // Hold Requests State (HardverApró Classifieds Model)
+  const [holdRequests, setHoldRequests] = useState<any[]>([]);
+  const [loadingHolds, setLoadingHolds] = useState(false);
+  const [processingHoldId, setProcessingHoldId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -175,6 +180,26 @@ export function SellerDashboardApp() {
     }
   };
 
+  // Load Hold Requests (Jegelések)
+  const loadHoldRequests = async (userId?: string) => {
+    const targetUid = userId || profile?.id;
+    if (!targetUid) return;
+    setLoadingHolds(true);
+    try {
+      const res = await fetch(`/api/marketplace/hold-request?seller_id=${targetUid}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setHoldRequests(json.data || []);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load hold requests:', e);
+    } finally {
+      setLoadingHolds(false);
+    }
+  };
+
   useEffect(() => {
     setLang(getLanguage());
     const handleLangChange = (e: Event) => {
@@ -192,6 +217,7 @@ export function SellerDashboardApp() {
         loadSellerListings(p.id);
         loadSellerSales(p.id);
         loadSellerReviews(p.id);
+        loadHoldRequests(p.id);
       }
     });
 
@@ -199,6 +225,7 @@ export function SellerDashboardApp() {
 
     const handleMarketplaceEvt = () => {
       loadSellerListings();
+      loadHoldRequests();
       loadCollectionStats();
     };
     window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
@@ -271,8 +298,94 @@ export function SellerDashboardApp() {
     }
   };
 
+  // Hold Request Management Actions
+  const handleHoldAction = async (requestId: string, action: 'hold' | 'confirm_sale' | 'release' | 'reject') => {
+    const confirmPrompt =
+      action === 'confirm_sale'
+        ? (lang === 'hu' ? 'Biztosan megerősíted a sikeres eladást? A tétel véglegesen Eladva állapotba kerül, és növeli az eladási rangodat.' : 'Confirm this sale? The card will be marked as Sold and your verified sales count will increase.')
+        : action === 'hold'
+        ? (lang === 'hu' ? 'Jóváhagyod a kártya jegelését erre a vevőre?' : 'Approve holding this card for the buyer?')
+        : action === 'release'
+        ? (lang === 'hu' ? 'Biztosan feloldod a jegelést? A kártya újra elérhető lesz a piactéren.' : 'Release this hold? The card will become In Stock again.')
+        : (lang === 'hu' ? 'Biztosan elutasítod ezt a jegelési kérést?' : 'Reject this hold request?');
+
+    if (!confirm(confirmPrompt)) return;
+
+    setProcessingHoldId(requestId);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch('/api/marketplace/hold-request', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          action,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        showToast(
+          action === 'confirm_sale'
+            ? (lang === 'hu' ? 'Eladás sikeresen megerősítve és rögzítve!' : 'Sale successfully confirmed and recorded!')
+            : action === 'hold'
+            ? (lang === 'hu' ? 'Kártya jegelve a vevőnek.' : 'Card marked as on hold.')
+            : action === 'release'
+            ? (lang === 'hu' ? 'Jegelés feloldva, kártya újra elérhető.' : 'Hold released, card back in stock.')
+            : (lang === 'hu' ? 'Kérés elutasítva.' : 'Hold request rejected.')
+        );
+        loadHoldRequests();
+        loadSellerListings();
+        loadSellerSales();
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      } else {
+        showToast(json.error || 'Action failed');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error processing request');
+    } finally {
+      setProcessingHoldId(null);
+    }
+  };
+
+  // Direct Listing Status Change (In Stock, On Hold, Sold)
+  const handleListingStatusChange = async (inventoryId: string, newStatus: 'In Stock' | 'On Hold' | 'Sold') => {
+    setUpdatingListingId(inventoryId);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch('/api/marketplace/listings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          inventory_id: inventoryId,
+          status: newStatus,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        showToast(lang === 'hu' ? `Állapot frissítve: ${newStatus}` : `Status updated to ${newStatus}`);
+        loadSellerListings();
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      } else {
+        showToast(json.error || 'Failed to update status');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating status');
+    } finally {
+      setUpdatingListingId(null);
+    }
+  };
+
   // Calculated Statistics
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const pendingHoldCount = useMemo(() => {
+    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held').length;
+  }, [holdRequests]);
   const itemsSold = useMemo(() => {
     return sellerOrders.reduce((sum, ord) => {
       if (ord.status === 'Cancelled') return sum;
@@ -697,7 +810,9 @@ export function SellerDashboardApp() {
             {lang === 'hu' ? 'Értékelés' : 'Rating'}
           </div>
           <div className="text-lg sm:text-xl font-black text-amber-300 truncate flex items-center gap-1">
-            <span>★</span>
+            <svg className="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
             <span>{averageRating !== null ? averageRating.toFixed(1) : '—'}</span>
           </div>
           <div className="text-[10px] mt-1 text-zinc-400">
@@ -709,7 +824,7 @@ export function SellerDashboardApp() {
       </div>
 
       {/* ─── Navigation Tabs ────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b pb-3 mb-6" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="flex items-center gap-2 border-b pb-3 mb-6 flex-wrap" style={{ borderColor: 'var(--border-subtle)' }}>
         <button
           type="button"
           onClick={() => setActiveTab('listings')}
@@ -723,6 +838,31 @@ export function SellerDashboardApp() {
             <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
           </svg>
           <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({listings.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('holds')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'holds'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="2" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+          </svg>
+          <span>{lang === 'hu' ? 'Jegelések & Kérések' : 'Holds & Inquiries'}</span>
+          {pendingHoldCount > 0 ? (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-zinc-950 shadow-sm ml-1">
+              {pendingHoldCount}
+            </span>
+          ) : (
+            <span className="text-[10px] text-zinc-500 ml-0.5">({holdRequests.length})</span>
+          )}
         </button>
 
         <button
@@ -764,7 +904,9 @@ export function SellerDashboardApp() {
               : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
-          <span>★</span>
+          <svg className="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
           <span>{lang === 'hu' ? 'Vásárlói értékelések' : 'Reviews'} ({sellerReviews.length})</span>
         </button>
       </div>
@@ -864,8 +1006,23 @@ export function SellerDashboardApp() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                        {item.name}
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                          {item.name}
+                        </div>
+                        {item.status === 'On Hold' ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                            {lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}
+                          </span>
+                        ) : item.status === 'Sold' ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0">
+                            {lang === 'hu' ? 'ELADVA' : 'SOLD'}
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                            {lang === 'hu' ? 'ELÉRHETŐ' : 'IN STOCK'}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">{item.card_number}</span>
@@ -906,7 +1063,51 @@ export function SellerDashboardApp() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Status quick toggle */}
+                      {item.status === 'On Hold' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleListingStatusChange(item.inventory_id, 'Sold')}
+                            disabled={updatingListingId === item.inventory_id}
+                            className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40 disabled:opacity-50"
+                            title={lang === 'hu' ? 'Eladás megerősítése' : 'Mark as Sold'}
+                          >
+                            {lang === 'hu' ? 'Eladva' : 'Sold'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
+                            disabled={updatingListingId === item.inventory_id}
+                            className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
+                            title={lang === 'hu' ? 'Jegelés feloldása' : 'Release hold'}
+                          >
+                            {lang === 'hu' ? 'Feloldás' : 'Release'}
+                          </button>
+                        </>
+                      ) : item.status === 'Sold' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
+                          disabled={updatingListingId === item.inventory_id}
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
+                          title={lang === 'hu' ? 'Újrahirdetés elérhetőként' : 'Relist as in stock'}
+                        >
+                          {lang === 'hu' ? 'Újrahirdetés' : 'Relist'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleListingStatusChange(item.inventory_id, 'On Hold')}
+                          disabled={updatingListingId === item.inventory_id}
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 disabled:opacity-50"
+                          title={lang === 'hu' ? 'Jegelés beállítása' : 'Put on hold'}
+                        >
+                          {lang === 'hu' ? 'Jegelés' : 'Hold'}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -914,7 +1115,7 @@ export function SellerDashboardApp() {
                           setEditPriceHuf(item.price_huf || 500);
                           setEditQuantity(item.quantity || 1);
                         }}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                       >
                         {lang === 'hu' ? 'Ár / db' : 'Edit'}
                       </button>
@@ -922,7 +1123,7 @@ export function SellerDashboardApp() {
                         type="button"
                         onClick={() => handleUnlistCard(item.inventory_id)}
                         disabled={updatingListingId === item.inventory_id}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
                       >
                         {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
                       </button>
@@ -930,6 +1131,280 @@ export function SellerDashboardApp() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB: HOLDS & INQUIRIES (JEGELÉSEK & KÉRÉSEK) ─────────── */}
+      {activeTab === 'holds' && (
+        <div className="space-y-4">
+          <div className="p-5 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
+                  {lang === 'hu' ? 'Beérkezett Jegelési Kérések & Átadás' : 'Incoming Card Holds & Handover'}
+                </h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  {lang === 'hu'
+                    ? 'A vásárlók itt kérik a lapjaid jegelését a választott átvételi móddal (Foxpost, Packeta, Személyes átvétel stb.). Egyeztesd velük a részleteket, jegeld a lapot, majd az átadás után erősítsd meg az eladást!'
+                    : 'Buyers request cards on hold here with their preferred handover method (Foxpost, Packeta, Personal, etc.). Coordinate details, hold the card, and confirm the sale once completed.'}
+                </p>
+              </div>
+              <div className="text-xs font-bold shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                {holdRequests.length} {lang === 'hu' ? 'kérés összesen' : 'total requests'}
+              </div>
+            </div>
+          </div>
+
+          {loadingHolds ? (
+            <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Jegelések betöltése…' : 'Loading hold requests…'}</div>
+            </div>
+          ) : holdRequests.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="2" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+                </svg>
+              </div>
+              <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'hu' ? 'Még nincs aktív jegelési kérés' : 'No hold requests yet'}
+              </div>
+              <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
+                {lang === 'hu'
+                  ? 'Amikor egy érdeklődő a piactéren a "Jegelés kérése" gombra kattint valamelyik hirdetésednél, az itt fog megjelenni a megadott elérhetőségeivel és az átvételi móddal.'
+                  : 'When an interested collector requests a hold on one of your cards, the inquiry and contact details will appear here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {holdRequests.map((req) => {
+                const cardName = req.card?.name || req.inventory?.card?.name || (lang === 'hu' ? 'Kártya tétel' : 'Card item');
+                const cardNumber = req.card?.card_number || req.inventory?.card?.card_number || '';
+                const cardRarity = req.card?.rarity || req.inventory?.card?.rarity || '';
+                const cardImage = req.card?.image_path || req.inventory?.card?.image_path;
+                const priceHuf = req.inventory?.price_huf;
+                const isHeld = req.status === 'held';
+                const isPending = req.status === 'pending';
+                const isConfirmed = req.status === 'confirmed';
+                const isCancelled = req.status === 'cancelled' || req.status === 'rejected';
+
+                const handoverBadge = (() => {
+                  switch (req.handover_method) {
+                    case 'foxpost': return { label: 'Foxpost csomagautomata', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
+                    case 'packeta': return { label: 'Packeta átvevőhely', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
+                    case 'personal': return { label: lang === 'hu' ? 'Személyes átvétel' : 'Personal pickup', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
+                    case 'post': return { label: lang === 'hu' ? 'Magyar Posta' : 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
+                    default: return { label: lang === 'hu' ? 'Egyéb egyeztetés' : 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
+                  }
+                })();
+
+                return (
+                  <div
+                    key={req.id}
+                    className={`p-5 rounded-2xl border transition-all ${
+                      isHeld
+                        ? 'border-amber-500/40 bg-amber-950/10'
+                        : isPending
+                        ? 'border-indigo-500/30 bg-indigo-950/10'
+                        : isConfirmed
+                        ? 'border-emerald-500/30 bg-emerald-950/10'
+                        : 'border-zinc-800 bg-zinc-900/30 opacity-70'
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      {/* Left: Card thumbnail + basic info */}
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
+                          {cardImage ? (
+                            <img src={getCardImageUrl(cardImage)} alt={cardName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
+                          )}
+                          {req.inventory?.is_foil && (
+                            <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
+                              {cardName}
+                            </span>
+                            {/* Status badge */}
+                            {isPending && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                                </svg>
+                                <span>{lang === 'hu' ? 'Függőben' : 'Pending'}</span>
+                              </span>
+                            )}
+                            {isHeld && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                  <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
+                                </svg>
+                                <span>{lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}</span>
+                              </span>
+                            )}
+                            {isConfirmed && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>{lang === 'hu' ? 'ELADVA & RÖGZÍTVE' : 'SOLD & CONFIRMED'}</span>
+                              </span>
+                            )}
+                            {isCancelled && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                {lang === 'hu' ? 'Törölve / Lezárva' : 'Cancelled / Closed'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-zinc-400 mt-1 flex items-center gap-2 flex-wrap">
+                            {cardNumber && <span className="font-mono">{cardNumber}</span>}
+                            {cardRarity && <span>• <span className="text-indigo-300 font-semibold">{cardRarity}</span></span>}
+                            {req.inventory?.condition && <span>• <span className="text-zinc-300">{req.inventory.condition}</span></span>}
+                            {priceHuf && (
+                              <span className="text-emerald-400 font-black font-mono ml-1">
+                                {priceHuf.toLocaleString()} Ft
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-zinc-500 mt-1">
+                            {lang === 'hu' ? 'Kérés időpontja:' : 'Requested at:'}{' '}
+                            {new Date(req.created_at).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
+                        {isPending && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleHoldAction(req.id, 'hold')}
+                              disabled={processingHoldId === req.id}
+                              className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-md flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
+                              </svg>
+                              <span>{lang === 'hu' ? 'Jegelés jóváhagyása' : 'Approve Hold'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHoldAction(req.id, 'reject')}
+                              disabled={processingHoldId === req.id}
+                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 disabled:opacity-50"
+                            >
+                              <span>{lang === 'hu' ? 'Elutasítás' : 'Reject'}</span>
+                            </button>
+                          </>
+                        )}
+
+                        {isHeld && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleHoldAction(req.id, 'confirm_sale')}
+                              disabled={processingHoldId === req.id}
+                              className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                              <span>{lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHoldAction(req.id, 'release')}
+                              disabled={processingHoldId === req.id}
+                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 disabled:opacity-50"
+                            >
+                              <span>{lang === 'hu' ? 'Jegelés feloldása' : 'Release Hold'}</span>
+                            </button>
+                          </>
+                        )}
+
+                        {isConfirmed && (
+                          <div className="text-xs font-black text-emerald-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>{lang === 'hu' ? 'Sikeres eladás rögzítve' : 'Sale Confirmed & Completed'}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle details: Buyer info & Handover */}
+                    <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {/* Buyer Contact Details */}
+                      <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                          {lang === 'hu' ? 'Érdeklődő / Vevő adatai' : 'Buyer Contact'}
+                        </div>
+                        <div className="text-xs font-bold text-zinc-200">
+                          {req.buyer_name}
+                        </div>
+                        <div className="text-xs text-zinc-400 flex items-center gap-2 flex-wrap">
+                          <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
+                            </svg>
+                            <span>{req.buyer_email}</span>
+                          </a>
+                          {req.buyer_phone && (
+                            <a href={`tel:${req.buyer_phone}`} className="text-emerald-300 hover:underline flex items-center gap-1">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                              </svg>
+                              <span>{req.buyer_phone}</span>
+                            </a>
+                          )}
+                          {req.buyer_discord && (
+                            <span className="text-cyan-300 flex items-center gap-1 font-mono text-[11px]">
+                              <span>Discord:</span>
+                              <span className="font-bold">{req.buyer_discord}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Handover Method & Note */}
+                      <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                          {lang === 'hu' ? 'Kért átvétel / szállítás' : 'Requested Handover'}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${handoverBadge.color}`}>
+                            {handoverBadge.label}
+                          </span>
+                          {req.handover_location && (
+                            <span className="text-xs text-zinc-300 font-medium">
+                              {req.handover_location}
+                            </span>
+                          )}
+                        </div>
+                        {req.buyer_note && (
+                          <div className="text-xs text-zinc-400 italic pt-1">
+                            "{req.buyer_note}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1111,7 +1586,11 @@ export function SellerDashboardApp() {
         <div className="space-y-4">
           {sellerReviews.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <span className="text-4xl block mb-2">★</span>
+              <div className="w-10 h-10 mx-auto mb-2 text-zinc-500">
+                <svg className="w-full h-full fill-current" viewBox="0 0 24 24">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {lang === 'hu' ? 'Még nem kaptál vásárlói értékelést' : 'No reviews received yet'}
               </div>
@@ -1131,7 +1610,13 @@ export function SellerDashboardApp() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-black">{'★'.repeat(rev.rating)}</span>
+                      <div className="flex items-center gap-0.5 text-amber-400">
+                        {Array.from({ length: rev.rating }).map((_, i) => (
+                          <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                          </svg>
+                        ))}
+                      </div>
                       <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
                         {rev.buyer_name || 'Verified Buyer'}
                       </span>

@@ -207,6 +207,29 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             );
           })()}
         </div>
+
+        {/* HardverApro Status Overlay Banners */}
+        {card.status === 'On Hold' && (
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 py-1 px-2 bg-black/85 backdrop-blur-md border-y border-amber-500/70 shadow-[0_0_20px_rgba(245,158,11,0.5)] flex items-center justify-center gap-1.5 z-20">
+            <svg className="w-3 h-3 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span className="text-[11px] font-black tracking-widest text-amber-300 uppercase">
+              {lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}
+            </span>
+          </div>
+        )}
+        {card.status === 'Sold' && (
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 py-1 px-2 bg-black/85 backdrop-blur-md border-y border-rose-500/70 shadow-[0_0_20px_rgba(244,63,94,0.5)] flex items-center justify-center gap-1.5 z-20">
+            <svg className="w-3 h-3 text-rose-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span className="text-[11px] font-black tracking-widest text-rose-300 uppercase">
+              {lang === 'hu' ? 'ELADVA' : 'SOLD'}
+            </span>
+          </div>
+        )}
       </button>
 
       {/* Info section */}
@@ -304,9 +327,15 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             </span>
             <span style={{
               display: 'block', fontSize: isSmall ? 9 : 10, fontWeight: 700, marginTop: 1,
-              color: card.status === 'In Stock' ? '#86efac' : card.status === 'Reserved' ? '#fde68a' : '#71717a',
+              color: card.status === 'In Stock' ? '#86efac' : (card.status === 'On Hold' || card.status === 'Reserved') ? '#fbbf24' : '#f87171',
             }}>
-              {card.status === 'In Stock' ? `${card.quantity || 1} ${t('in_stock', lang)}` : (card.status === 'Reserved' && lang === 'hu' ? 'Lefoglalva' : card.status)}
+              {card.status === 'In Stock' 
+                ? `${card.quantity || 1} ${t('in_stock', lang)}` 
+                : (card.status === 'On Hold' || card.status === 'Reserved')
+                ? (lang === 'hu' ? 'Jegelve' : 'On Hold')
+                : (card.status === 'Sold')
+                ? (lang === 'hu' ? 'Eladva' : 'Sold')
+                : card.status}
             </span>
           </div>
           <button
