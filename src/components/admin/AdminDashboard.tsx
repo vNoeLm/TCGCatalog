@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility, getMarketplaceVisibility, setMarketplaceVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
-import { reconcileOwnerPlaysets } from '../../lib/userCards';
 import { fetchStoreOrders, updateOrderStatus, updateOrderPayment, purgeAllOrders } from '../../lib/orders';
 import { getEurToHufRate } from '../../lib/currency';
 import { EVENTS, OWNER_ID } from '../../lib/constants';
@@ -124,50 +123,7 @@ export function AdminDashboard() {
       const from = page * INVENTORY_PAGE_SIZE;
       const to = from + INVENTORY_PAGE_SIZE - 1;
 
-      // Fetch surplus user_cards listings
-      const { data: userCardsData, error: userCardsErr } = await supabase
-        .from('user_cards')
-        .select(`
-          id, owned_copies, foil_copies, for_sale_copies, unit_price,
-          is_listed_in_store, created_at, updated_at,
-          cards (
-            id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
-            market_price_eur, market_price_foil_eur,
-            sets ( id, name, code )
-          )
-        `)
-        .eq('user_id', OWNER_ID)
-        .eq('is_listed_in_store', true)
-        .gt('for_sale_copies', 0)
-        .order('updated_at', { ascending: false })
-        .range(from, to);
-
-      if (userCardsErr && import.meta.env.DEV) console.warn('Dashboard user_cards query warning:', userCardsErr);
-
-      const surplusItems: InventoryItem[] = (userCardsData || []).map((row: any) => {
-        const isRowFoil = row.foil_copies > 0 && row.owned_copies === 0;
-        const effectiveEur = typeof row.unit_price === 'number'
-          ? row.unit_price
-          : (isRowFoil ? (row.cards?.market_price_foil_eur ?? row.cards?.market_price_eur) : row.cards?.market_price_eur);
-        const priceHuf = effectiveEur ? Math.round(effectiveEur * eurHufRate) : 0;
-
-        return {
-          id: row.id,
-          is_surplus: true,
-          condition: 'Near Mint',
-          is_foil: isRowFoil,
-          price_huf: priceHuf,
-          status: row.for_sale_copies > 0 ? 'In Stock' : 'Out of Stock',
-          notes: `Owner Playset Surplus (${row.owned_copies} owned, ${row.for_sale_copies} for sale)`,
-          is_bulk: false,
-          quantity: row.for_sale_copies,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          cards: row.cards,
-        };
-      });
-
-      // Fetch legacy inventory items (excluding community marketplace listings)
+      // Fetch inventory items (excluding community marketplace listings)
       const { data: legacyData, error: legacyErr } = await supabase
         .from('inventory')
         .select(`
@@ -183,13 +139,12 @@ export function AdminDashboard() {
 
       if (legacyErr && import.meta.env.DEV) console.warn('Dashboard inventory query warning:', legacyErr);
 
-      const legacyItems: InventoryItem[] = (legacyData || [])
+      const newItems: InventoryItem[] = (legacyData || [])
         .filter((item: any) => {
           const notesStr = String(item.notes || '');
           return !notesStr.includes('marketplace');
         })
         .map((item: any) => ({ ...item, is_surplus: false }));
-      const newItems = [...surplusItems, ...legacyItems];
 
       setHasMoreInventory(newItems.length >= INVENTORY_PAGE_SIZE);
       setInventoryPage(page);
@@ -369,12 +324,10 @@ export function AdminDashboard() {
   const handleReconcilePlaysets = async () => {
     setIsReconciling(true);
     try {
-      const res = await reconcileOwnerPlaysets();
-      if (res.error) throw res.error;
-      alert(`Playset & Surplus Reconciliation complete!\nChecked ${res.checkedCards} cards in your collection.\nActive store surplus: ${res.surplusCards} unique cards (${res.totalForSale} copies total).`);
       await loadInventory(0, false);
+      alert('Inventory reloaded and synchronized successfully.');
     } catch (e: any) {
-      alert(`Error during reconciliation: ${e.message || 'Unknown error'}`);
+      alert(`Error reloading inventory: ${e.message || 'Unknown error'}`);
     } finally {
       setIsReconciling(false);
     }

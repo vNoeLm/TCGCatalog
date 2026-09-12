@@ -246,187 +246,13 @@ export async function fetchCardsCatalog(
 }
 
 export async function fetchOwnerStoreInventory(
-  filters: FilterState,
-  searchQuery: string,
-  page: number = 1,
-  bypassCache = false
+  _filters: FilterState,
+  _searchQuery: string,
+  _page: number = 1,
+  _bypassCache = false
 ): Promise<{ data: InventoryCard[]; count: number | null }> {
-  try {
-    const cacheKey = `owner_store_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}_p${page}`;
-    if (!bypassCache) {
-      const cached = getCached<{ data: InventoryCard[]; count: number | null }>(cacheKey);
-      if (cached) return cached;
-    }
-
-    let query = supabase
-      .from('user_cards')
-      .select(`
-        id,
-        owned_copies,
-        foil_copies,
-        for_sale_copies,
-        unit_price,
-        is_listed_in_store,
-        created_at,
-        updated_at,
-        cards!inner (
-          id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-          game, energy, might, domain, tags, ability, artist,
-          sets!inner (
-            id, name, code
-          )
-        )
-      `, { count: 'exact' })
-      .eq('user_id', OWNER_ID)
-      .eq('is_listed_in_store', true)
-      .gt('for_sale_copies', 0);
-
-    if (searchQuery.trim() !== '') {
-      query = query.or(`name.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`, { foreignTable: 'cards' });
-    }
-
-    // Category filter (singles vs sealed products)
-    if (filters.category === 'sealed') {
-      query = query.or('card_type.eq.Sealed,rarity.eq.Sealed', { foreignTable: 'cards' });
-      if (filters.sealedTypes && filters.sealedTypes.length > 0) {
-        const typeOr = filters.sealedTypes.map(st => `subtype.ilike.%${st}%,name.ilike.%${st}%`).join(',');
-        query = query.or(typeOr, { foreignTable: 'cards' });
-      }
-    } else if (filters.category === 'singles') {
-      query = query.neq('cards.card_type', 'Sealed').neq('cards.rarity', 'Sealed');
-    }
-
-    // Multi-game filter
-    const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
-    query = query.eq('cards.game', targetGame);
-
-    if (filters.set) {
-      const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
-      const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
-      if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
-        query = query.eq('cards.sets.name', filters.set);
-      }
-    }
-    if (filters.rarities && filters.rarities.length > 0) {
-      const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
-      const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
-      if (cleanRarities.length > 0) {
-        query = query.in('cards.rarity', cleanRarities);
-      }
-    }
-    if (filters.type) {
-      if (targetGame === 'riftbound') {
-        if (filters.type === 'Champion') {
-          query = query.eq('cards.subtype', 'Champion');
-        } else if (filters.type === 'Signature Spell') {
-          query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-        } else if (filters.type === 'Token') {
-          query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
-        } else {
-          query = query.eq('cards.card_type', filters.type);
-        }
-      } else {
-        query = query.eq('cards.card_type', filters.type);
-      }
-    }
-    if (filters.domains && filters.domains.length > 0) {
-      const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
-      const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
-      if (cleanDomains.length > 0) {
-        const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
-        query = query.or(orQuery, { foreignTable: 'cards' });
-      }
-    }
-    if (filters.costMin > 1) {
-      query = query.gte('cards.cost', filters.costMin);
-    }
-    if (filters.costMax < 10) {
-      query = query.lte('cards.cost', filters.costMax);
-    }
-
-    if (filters.foilFilter) {
-      query = query.gt('foil_copies', 0);
-    }
-
-    // Pagination
-    const pageSize = STORE_PAGE_SIZE;
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to).order('created_at', { ascending: false });
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      // Table or column might not be present in remote DB yet
-      return { data: [], count: 0 };
-    }
-
-    const EUR_TO_HUF = 400;
-
-    let mappedData: InventoryCard[] = (data || []).map((row: any) => {
-      const isFoil = row.foil_copies > 0 && row.owned_copies === 0;
-      const effectiveEurPrice = typeof row.unit_price === 'number'
-        ? row.unit_price
-        : (isFoil ? (row.cards.market_price_foil_eur ?? row.cards.market_price_eur) : row.cards.market_price_eur);
-
-      const priceHuf = effectiveEurPrice ? Math.round(effectiveEurPrice * EUR_TO_HUF) : null;
-
-      return {
-        inventory_id: row.id,
-        condition: 'Near Mint',
-        is_foil: isFoil,
-        price_huf: priceHuf,
-        status: 'In Stock',
-        notes: null,
-        is_bulk: false,
-        quantity: row.for_sale_copies,
-        card_id: row.cards.id,
-        card_number: row.cards.card_number,
-        name: row.cards.name,
-        rarity: row.cards.rarity,
-        card_type: row.cards.card_type,
-        cost: row.cards.cost,
-        image_path: row.cards.image_path,
-        subtype: row.cards.subtype,
-        text: row.cards.text,
-        game: row.cards.game,
-        product_type: row.cards.product_type || 'single',
-        metadata: row.cards.metadata || {},
-        energy: row.cards.energy,
-        might: row.cards.might,
-        domain: row.cards.domain,
-        tags: row.cards.tags,
-        ability: row.cards.ability,
-        artist: row.cards.artist,
-        market_price_eur: row.cards.market_price_eur ?? null,
-        market_price_foil_eur: row.cards.market_price_foil_eur ?? null,
-        last_price_updated_at: row.cards.last_price_updated_at ?? null,
-        set_id: row.cards.sets.id,
-        set_name: row.cards.sets.name,
-        set_code: row.cards.sets.code,
-        sets: row.cards.sets,
-        seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
-        seller_name: 'Noel :3',
-        seller_avatar: null,
-        seller_role: 'owner',
-      };
-    });
-
-    if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
-      mappedData = mappedData.filter(card => {
-        const meta = getCyberpunkMeta(card);
-        const isEddiable = Boolean(meta?.is_eddiable);
-        return filters.eddiableFilter === 'sellable' ? isEddiable : !isEddiable;
-      });
-    }
-
-    const finalCount = typeof count === 'number' ? count : mappedData.length;
-    const result = { data: mappedData, count: finalCount };
-    setCached(cacheKey, result);
-    return result;
-  } catch (err) {
-    return { data: [], count: 0 };
-  }
+  // Deprecated: user_cards table is retired. All marketplace & store listings are in public.inventory.
+  return { data: [], count: 0 };
 }
 
 export async function fetchLegacyInventory(
@@ -649,42 +475,7 @@ export async function fetchInventory(
   page: number = 1,
   bypassCache = false
 ): Promise<{ data: InventoryCard[]; count: number | null }> {
-  const cacheKey = `unified_inv_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}_p${page}`;
-  if (!bypassCache) {
-    const cached = getCached<{ data: InventoryCard[]; count: number | null }>(cacheKey);
-    if (cached) return cached;
-  }
-
-  // Concurrently fetch manual inventory and owner playset surplus listings
-  const [legacyResult, ownerResult] = await Promise.all([
-    fetchLegacyInventory(filters, searchQuery, page, bypassCache),
-    fetchOwnerStoreInventory(filters, searchQuery, page, bypassCache),
-  ]);
-
-  // Combine both sources, putting manual listings first
-  const seenIds = new Set<string>();
-  const combined: InventoryCard[] = [];
-
-  // 1. Add manual listings from inventory table (including Showcase cards, singles, and sealed products)
-  for (const item of legacyResult.data) {
-    if (!seenIds.has(item.inventory_id)) {
-      seenIds.add(item.inventory_id);
-      combined.push(item);
-    }
-  }
-
-  // 2. Add owner surplus listings from user_cards table
-  for (const item of ownerResult.data) {
-    if (!seenIds.has(item.inventory_id)) {
-      seenIds.add(item.inventory_id);
-      combined.push(item);
-    }
-  }
-
-  const totalCount = (legacyResult.count || 0) + (ownerResult.count || 0);
-  const result = { data: combined, count: totalCount };
-  setCached(cacheKey, result);
-  return result;
+  return fetchLegacyInventory(filters, searchQuery, page, bypassCache);
 }
 
 // ─── Public: Card Detail (product page) ───────────────────────────
@@ -695,75 +486,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     if (cached) return cached;
   }
 
-  // 1. Try querying user_cards (owner store surplus listings)
-  try {
-    const { data: userCardData } = await supabase
-      .from('user_cards')
-      .select(`
-        id,
-        user_id,
-        for_sale_copies,
-        unit_price,
-        foil_copies,
-        owned_copies,
-        cards (
-          id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-          game, energy, might, domain, tags, ability, artist, market_price_eur, market_price_foil_eur,
-          sets ( id, name, code )
-        )
-      `)
-      .eq('id', inventoryId)
-      .maybeSingle();
-
-    if (userCardData && userCardData.cards) {
-      const isFoil = userCardData.foil_copies > 0 && userCardData.owned_copies === 0;
-      const cardObj: any = userCardData.cards;
-      const effectiveEur = typeof userCardData.unit_price === 'number'
-        ? userCardData.unit_price
-        : (isFoil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur);
-      const priceHuf = effectiveEur ? Math.round(effectiveEur * 400) : null;
-
-      const sId = userCardData.user_id || OWNER_ID;
-      let sellerName = sId === OWNER_ID ? 'Noel :3' : 'Community Seller';
-      let sellerAvatar = null;
-      let sellerRole = sId === OWNER_ID ? 'owner' : 'user';
-
-      try {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, role, is_admin')
-          .eq('id', sId)
-          .maybeSingle();
-
-        if (prof) {
-          sellerName = prof.display_name || (prof.role === 'owner' ? 'Noel :3' : 'Community Seller');
-          sellerAvatar = prof.avatar_url || null;
-          sellerRole = prof.role || (prof.is_admin ? 'admin' : 'user');
-        }
-      } catch (e) {}
-
-      const formatted = {
-        id: userCardData.id,
-        condition: 'Near Mint',
-        price_huf: priceHuf,
-        status: userCardData.for_sale_copies > 0 ? 'In Stock' : 'Out of Stock',
-        notes: null,
-        is_bulk: false,
-        quantity: userCardData.for_sale_copies,
-        is_foil: isFoil,
-        cards: userCardData.cards,
-        inventory_images: [],
-        seller_id: sId,
-        seller_name: sellerName,
-        seller_avatar: sellerAvatar,
-        seller_role: sellerRole,
-      };
-      setCached(cacheKey, formatted);
-      return formatted;
-    }
-  } catch (err) {}
-
-  // 2. Query legacy inventory table
+  // Query inventory table
   const { data, error } = await supabase
     .from('inventory')
     .select(`
@@ -771,8 +494,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
       cards (
         id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
         game, energy, might, domain, tags, ability, artist,
-        sets ( name, code ),
-        card_images ( image_path, display_order )
+        sets ( name, code )
       ),
       inventory_images ( image_path, display_order )
     `)

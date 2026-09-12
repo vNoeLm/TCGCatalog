@@ -22,7 +22,6 @@ import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { getLanguage, t, type Language } from '../lib/i18n';
-import { syncUserCardInventory } from '../lib/userCards';
 import { HoldRequestModal } from './marketplace/HoldRequestModal';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { AuthModal } from './auth/AuthModal';
@@ -129,20 +128,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     localStorage.setItem("tcg_user_collection", JSON.stringify(next));
     localStorage.setItem("tcg_collection", JSON.stringify(next));
     window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
-
-    // Sync inventory/collection to database in background for authenticated users
-    if (profile) {
-      const regularCount = isFoil ? (next[targetCardId] || 0) : (updated <= 0 ? 0 : updated);
-      const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${targetCardId}_foil`] || 0);
-      const cardObj = isInventory ? data?.cards : data;
-      syncUserCardInventory({
-        cardId: targetCardId,
-        ownedCopies: regularCount,
-        foilCopies: foilCount,
-        cardRarity: cardObj?.rarity,
-        cardMarketPriceEur: cardObj?.market_price_eur,
-      }).catch(err => console.warn('Background card sync in detail:', err));
-    }
   };
 
   // ── Admin Quick Edit Handlers ──

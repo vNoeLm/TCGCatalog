@@ -120,16 +120,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       const { new_status } = body;
       if (!new_status) return err('new_status is required.');
 
-      if (is_surplus) {
-        const { error } = await supabaseAdmin
-          .from('user_cards')
-          .update({ is_listed_in_store: new_status === 'In Stock', updated_at: new Date().toISOString() })
-          .eq('id', id);
-        if (error) return err(error.message, 500);
-      } else {
-        const { error } = await supabaseAdmin.from('inventory').update({ status: new_status }).eq('id', id);
-        if (error) return err(error.message, 500);
-      }
+      const { error } = await supabaseAdmin.from('inventory').update({ status: new_status }).eq('id', id);
+      if (error) return err(error.message, 500);
       return ok({ id, status: body.new_status });
     }
 
@@ -137,16 +129,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       const { new_price_huf } = body;
       if (typeof new_price_huf !== 'number') return err('new_price_huf must be a number.');
 
-      if (is_surplus) {
-        const { error } = await supabaseAdmin
-          .from('user_cards')
-          .update({ unit_price: Number((new_price_huf / 400).toFixed(2)), updated_at: new Date().toISOString() })
-          .eq('id', id);
-        if (error) return err(error.message, 500);
-      } else {
-        const { error } = await supabaseAdmin.from('inventory').update({ price_huf: new_price_huf }).eq('id', id);
-        if (error) return err(error.message, 500);
-      }
+      const { error } = await supabaseAdmin.from('inventory').update({ price_huf: new_price_huf }).eq('id', id);
+      if (error) return err(error.message, 500);
       return ok({ id, price_huf: new_price_huf });
     }
 
@@ -160,17 +144,11 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { id, is_surplus, permanent = false } = body;
+    const { id, permanent = false } = body;
 
     if (!id) return err('id is required.');
 
-    if (is_surplus) {
-      const { error } = await supabaseAdmin
-        .from('user_cards')
-        .update({ for_sale_copies: 0, is_listed_in_store: false, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) return err(error.message, 500);
-    } else if (permanent) {
+    if (permanent) {
       const { error } = await supabaseAdmin.from('inventory').delete().eq('id', id);
       if (error) return err(error.message, 500);
     } else {

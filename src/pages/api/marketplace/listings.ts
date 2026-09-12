@@ -136,84 +136,8 @@ export const GET: APIRoute = async ({ url }) => {
       invQuery = invQuery.eq('is_foil', true);
     }
 
-    // 2. Fetch from user_cards table (Owner playset surplus listings)
-    let ucQuery = supabaseAdmin
-      .from('user_cards')
-      .select(`
-        id,
-        user_id,
-        card_id,
-        owned_copies,
-        foil_copies,
-        for_sale_copies,
-        unit_price,
-        is_listed_in_store,
-        created_at,
-        updated_at,
-        cards!inner (
-          id,
-          card_number,
-          name,
-          rarity,
-          card_type,
-          cost,
-          image_path,
-          subtype,
-          text,
-          game,
-          energy,
-          might,
-          domain,
-          tags,
-          ability,
-          artist,
-          market_price_eur,
-          market_price_foil_eur,
-          sets (
-            id,
-            name,
-            code
-          )
-        )
-      `)
-      .eq('is_listed_in_store', true)
-      .eq('user_id', OWNER_ID)
-      .gt('for_sale_copies', 0);
-
-    if (game && game !== 'all') {
-      ucQuery = ucQuery.eq('cards.game', game);
-    }
-    if (search) {
-      ucQuery = ucQuery.or(`name.ilike.%${search}%,card_number.ilike.%${search}%,artist.ilike.%${search}%`, { foreignTable: 'cards' });
-    }
-    if (set) {
-      ucQuery = ucQuery.eq('cards.sets.name', set);
-    }
-    if (rarities.length > 0) {
-      ucQuery = ucQuery.in('cards.rarity', rarities);
-    }
-    if (type) {
-      if (type === 'Champion') {
-        ucQuery = ucQuery.eq('cards.subtype', 'Champion');
-      } else if (type === 'Signature Spell') {
-        ucQuery = ucQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-      } else {
-        ucQuery = ucQuery.eq('cards.card_type', type);
-      }
-    }
-    if (domains.length > 0) {
-      const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
-      ucQuery = ucQuery.or(orQuery, { foreignTable: 'cards' });
-    }
-    if (foil === 'true') {
-      ucQuery = ucQuery.gt('foil_copies', 0);
-    }
-
-    // Execute queries concurrently
-    const [invRes, ucRes] = await Promise.all([invQuery, ucQuery]);
-
+    const invRes = await invQuery;
     const invRows = invRes.data || [];
-    const ucRows = ucRes.data || [];
 
     // Collect all seller IDs to batch fetch user profiles
     const sellerIds = new Set<string>();
@@ -221,10 +145,6 @@ export const GET: APIRoute = async ({ url }) => {
     invRows.forEach((r: any) => {
       const sId = extractSellerId(r.notes);
       if (sId) sellerIds.add(sId);
-    });
-
-    ucRows.forEach((r: any) => {
-      if (r.user_id) sellerIds.add(r.user_id);
     });
 
     // Also include platform owner ID as fallback
@@ -356,79 +276,6 @@ export const GET: APIRoute = async ({ url }) => {
         set_code: cardObj.sets?.code,
         sets: cardObj.sets,
         seller_id: sId,
-        seller_name: prof?.display_name || (prof?.role === 'owner' ? 'Noel :3' : 'Community Seller'),
-        seller_avatar: prof?.avatar_url || null,
-        seller_role: prof?.role || (prof?.is_admin ? 'admin' : 'user'),
-        seller_rating_avg: avgRating,
-        seller_rating_count: reviewCount,
-        is_marketplace_listing: true,
-        created_at: row.created_at,
-      });
-    });
-
-    // Format user_cards surplus listings
-    ucRows.forEach((row: any) => {
-      if (sellerId && row.user_id !== sellerId) return;
-
-      const prof = profileMap.get(row.user_id);
-      const ratingInfo = ratingsMap.get(row.user_id);
-      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : null;
-      const reviewCount = ratingInfo ? ratingInfo.count : 0;
-
-      const isFoil = row.foil_copies > 0 && row.owned_copies === 0;
-      const cardObj = row.cards;
-      const effectiveEur = typeof row.unit_price === 'number'
-        ? row.unit_price
-        : (isFoil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur);
-
-      const priceHuf = effectiveEur ? Math.round(effectiveEur * EUR_TO_HUF) : 500;
-
-      const itemsSold = salesCountMap.get(row.user_id) || 0;
-      const isOwner = row.user_id === OWNER_ID || prof?.role === 'owner';
-      const sellerTier = getSellerTier(itemsSold, avgRating, isOwner);
-
-      allFormatted.push({
-        inventory_id: row.id,
-        condition: 'Near Mint',
-        is_foil: isFoil,
-        price_huf: priceHuf,
-        status: 'In Stock',
-        notes: null,
-        is_bulk: false,
-        quantity: row.for_sale_copies,
-        views: 0,
-        clicks: 0,
-        seller_badge: sellerTier.nameEn,
-        seller_badge_hu: sellerTier.nameHu,
-        seller_badge_icon: sellerTier.icon,
-        seller_tier: sellerTier.tier,
-        seller_items_sold: itemsSold,
-        card_id: cardObj.id,
-        card_number: cardObj.card_number,
-        name: cardObj.name,
-        rarity: cardObj.rarity,
-        card_type: cardObj.card_type,
-        cost: cardObj.cost,
-        image_path: cardObj.image_path,
-        inventory_image: null,
-        inventory_images: [],
-        subtype: cardObj.subtype,
-        text: cardObj.text,
-        game: cardObj.game,
-        product_type: (cardObj as any)?.product_type || 'single',
-        energy: cardObj.energy,
-        might: cardObj.might,
-        domain: cardObj.domain,
-        tags: cardObj.tags,
-        ability: cardObj.ability,
-        artist: cardObj.artist,
-        market_price_eur: cardObj.market_price_eur,
-        market_price_foil_eur: cardObj.market_price_foil_eur,
-        set_id: cardObj.sets?.id,
-        set_name: cardObj.sets?.name,
-        set_code: cardObj.sets?.code,
-        sets: cardObj.sets,
-        seller_id: row.user_id,
         seller_name: prof?.display_name || (prof?.role === 'owner' ? 'Noel :3' : 'Community Seller'),
         seller_avatar: prof?.avatar_url || null,
         seller_role: prof?.role || (prof?.is_admin ? 'admin' : 'user'),
@@ -583,21 +430,6 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // Also update user_cards for collection / surplus sync
-    const unitPriceEur = Math.round((safePriceHuf / 400) * 100) / 100;
-    await supabaseAdmin
-      .from('user_cards')
-      .upsert({
-        user_id: user.id,
-        card_id,
-        owned_copies: is_foil ? 0 : safeQty,
-        foil_copies: is_foil ? safeQty : 0,
-        for_sale_copies: safeQty,
-        unit_price: unitPriceEur,
-        is_listed_in_store: user.id === OWNER_ID,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,card_id' });
-
     return new Response(JSON.stringify({
       success: true,
       listing: {
@@ -664,36 +496,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       // Delete inventory_images first (or cascade)
       await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
       await supabaseAdmin.from('inventory').delete().eq('id', listingId);
-
-      return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
-        status: 200,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // 2. Try unlisting from user_cards table
-    const { data: ucRow } = await supabaseAdmin
-      .from('user_cards')
-      .select('id, user_id')
-      .eq('id', listingId)
-      .maybeSingle();
-
-    if (ucRow) {
-      if (ucRow.user_id !== user.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
-          status: 403,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      await supabaseAdmin
-        .from('user_cards')
-        .update({
-          for_sale_copies: 0,
-          is_listed_in_store: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', listingId);
 
       return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
         status: 200,
@@ -775,46 +577,6 @@ export const PATCH: APIRoute = async ({ request }) => {
 
       const { data: updated, error: updateErr } = await supabaseAdmin
         .from('inventory')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateErr) {
-        return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, listing: updated }), {
-        status: 200,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // 2. Try user_cards table
-    const { data: ucRow } = await supabaseAdmin
-      .from('user_cards')
-      .select('id, user_id, for_sale_copies, unit_price')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (ucRow) {
-      if (ucRow.user_id !== user.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
-          status: 403,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      const updates: any = { updated_at: new Date().toISOString() };
-      if (typeof price_huf === 'number') updates.unit_price = Math.round((price_huf / 400) * 100) / 100;
-      if (typeof quantity === 'number') updates.for_sale_copies = quantity;
-      if (status === 'Sold') updates.for_sale_copies = 0;
-
-      const { data: updated, error: updateErr } = await supabaseAdmin
-        .from('user_cards')
         .update(updates)
         .eq('id', id)
         .select()

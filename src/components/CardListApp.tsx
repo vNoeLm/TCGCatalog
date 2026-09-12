@@ -9,7 +9,6 @@ import { resolveCard } from "./deck-builder/deckSerializer";
 import { getLanguage, t, type Language } from "../lib/i18n";
 import { supabase } from "../lib/supabase";
 import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
-import { syncUserCardInventory, bulkSyncCollectionToUserCards } from "../lib/userCards";
 import { useSiteTheme } from "../lib/theme";
 
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -395,7 +394,7 @@ export function CardListApp() {
       } catch (e) {
         console.warn('Debounced cloud save warning:', e);
       }
-    }, 2500);
+    }, 1500);
 
     return () => {
       if (cloudDebounceTimer.current) {
@@ -419,20 +418,6 @@ export function CardListApp() {
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
 
-      // Sync inventory/collection to database in background for authenticated users
-      if (currentUser) {
-        const regularCount = isFoil ? (next[cardId] || 0) : (updated <= 0 ? 0 : updated);
-        const foilCount = isFoil ? (updated <= 0 ? 0 : updated) : (next[`${cardId}_foil`] || 0);
-        const cardObj = cards.find(c => c.id === cardId);
-        syncUserCardInventory({
-          cardId,
-          ownedCopies: regularCount,
-          foilCopies: foilCount,
-          cardRarity: cardObj?.rarity,
-          cardMarketPriceEur: cardObj?.market_price_eur,
-        }).catch(err => console.warn('Background card sync:', err));
-      }
-
       return next;
     });
   };
@@ -441,30 +426,14 @@ export function CardListApp() {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
     setCollection(prev => {
       const next = { ...prev };
-      let newCount = 0;
       if (next[targetKey] && next[targetKey] > 0) {
         delete next[targetKey];
-        newCount = 0;
       } else {
         next[targetKey] = 1;
-        newCount = 1;
       }
       localStorage.setItem("tcg_user_collection", JSON.stringify(next));
       localStorage.setItem("tcg_collection", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
-
-      // Sync inventory/collection to database in background for authenticated users
-      if (currentUser) {
-        const regularCount = isFoil ? (next[cardId] || 0) : newCount;
-        const foilCount = isFoil ? newCount : (next[`${cardId}_foil`] || 0);
-        const cardObj = cards.find(c => c.id === cardId);
-        syncUserCardInventory({
-          cardId,
-          ownedCopies: regularCount,
-          foilCopies: foilCount,
-          cardMarketPriceEur: cardObj?.market_price_eur,
-        }).catch(err => console.warn('Background card sync:', err));
-      }
 
       return next;
     });
@@ -916,16 +885,6 @@ export function CardListApp() {
     try {
       const { error: authError } = await saveCollectionToCloud(collection);
       if (authError) throw authError;
-
-      // Only platform owner synchronizes surplus to public store inventory
-      if (currentUserProfile?.role === 'owner') {
-        const priceMap: Record<string, number> = {};
-        cards.forEach(c => {
-          if (c.market_price_eur) priceMap[c.id] = c.market_price_eur;
-        });
-        const { error: surplusError } = await bulkSyncCollectionToUserCards(collection, priceMap);
-        if (surplusError) console.warn('Surplus sync warning:', surplusError);
-      }
 
       showToast(`${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
