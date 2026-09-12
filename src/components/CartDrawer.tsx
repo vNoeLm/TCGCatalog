@@ -323,7 +323,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
               {t('cart_empty_desc', lang)}
             </p>
             <a
-              href="/store"
+              href="/marketplace"
               onClick={onClose}
               className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition border cursor-pointer"
               style={{
@@ -332,7 +332,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 color: 'var(--text-accent)',
               }}
             >
-              {lang === 'hu' ? 'Bolt böngészése' : 'Browse Store'}
+              {lang === 'hu' ? 'Piactér böngészése' : 'Browse Marketplace'}
             </a>
           </div>
         ) : (

@@ -40,6 +40,13 @@ export function ListCardModal({
   const [quantity, setQuantity] = useState(1);
   const [priceHuf, setPriceHuf] = useState<number>(500);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [allowedHandovers, setAllowedHandovers] = useState<string[]>([
+    'personal',
+    'foxpost',
+    'packeta',
+    'posta',
+    'other',
+  ]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -227,6 +234,7 @@ export function ListCardModal({
           condition,
           is_foil: isFoil,
           images: photos,
+          handover_methods: allowedHandovers,
         }),
       });
 
@@ -720,6 +728,68 @@ export function ListCardModal({
                   </>
                 )}
               </button>
+            </div>
+
+            {/* 5. Supported Handover Methods Selector */}
+            <div className="p-3 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                    {lang === 'hu' ? 'Vállalt átadási / szállítási módok *' : 'Supported Handover Methods *'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-400">
+                  {allowedHandovers.length} {lang === 'hu' ? 'kiválasztva' : 'selected'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'personal', label: lang === 'hu' ? 'Személyes átvétel' : 'Personal pickup', desc: lang === 'hu' ? 'Kézbe' : 'In person' },
+                  { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Csomagautomata' : 'Parcel locker' },
+                  { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Átvevőhely' : 'Pickup point' },
+                  { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Postai levél' : 'Post' },
+                  { id: 'other', label: lang === 'hu' ? 'Egyéb egyeztetés' : 'Other arrangement', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
+                ].map((m) => {
+                  const isChecked = allowedHandovers.includes(m.id);
+                  return (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => {
+                        if (isChecked && allowedHandovers.length === 1) return;
+                        setAllowedHandovers(prev =>
+                          isChecked ? prev.filter(x => x !== m.id) : [...prev, m.id]
+                        );
+                      }}
+                      className={`p-2 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        isChecked
+                          ? 'bg-amber-500/15 border-amber-500/60 shadow-sm'
+                          : 'border-zinc-800 bg-zinc-950/40 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-bold ${isChecked ? 'text-amber-300' : 'text-zinc-400'}`}>
+                          {m.label}
+                        </span>
+                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] border ${
+                          isChecked ? 'bg-amber-500 text-zinc-950 border-amber-500 font-black' : 'border-zinc-700 bg-zinc-900 text-transparent'
+                        }`}>
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 mt-1">
+                        {m.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </form>
         </div>

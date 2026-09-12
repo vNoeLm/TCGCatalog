@@ -91,15 +91,19 @@ export const GET: APIRoute = async ({ url }) => {
 
     if (sellerId) {
       if (statusParam && statusParam !== 'all') {
-        invQuery = invQuery.eq('status', statusParam);
+        if (statusParam === 'on_hold' || statusParam === 'On Hold' || statusParam === 'Reserved') {
+          invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
+        } else {
+          invQuery = invQuery.eq('status', statusParam);
+        }
       }
     } else {
       if (statusParam === 'in_stock') {
         invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
       } else if (statusParam === 'on_hold') {
-        invQuery = invQuery.eq('status', 'On Hold');
+        invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
       } else {
-        invQuery = invQuery.in('status', ['In Stock', 'On Hold']);
+        invQuery = invQuery.in('status', ['In Stock', 'Reserved', 'On Hold']);
       }
     }
 
@@ -291,11 +295,15 @@ export const GET: APIRoute = async ({ url }) => {
 
       let views = 0;
       let clicks = 0;
+      let handoverMethods = ['personal', 'foxpost', 'packeta', 'posta', 'other'];
       try {
         if (row.notes && row.notes.startsWith('{')) {
           const parsed = JSON.parse(row.notes);
           views = typeof parsed.views === 'number' ? parsed.views : 0;
           clicks = typeof parsed.clicks === 'number' ? parsed.clicks : 0;
+          if (Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
+            handoverMethods = parsed.handover_methods;
+          }
         }
       } catch (e) {}
 
@@ -303,12 +311,15 @@ export const GET: APIRoute = async ({ url }) => {
       const invImgs: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
       const firstCustomPhoto = invImgs.length > 0 ? invImgs[0].image_path : null;
 
+      const displayStatus = (row.status === 'Reserved' || row.status === 'On Hold') ? 'On Hold' : row.status;
+
       allFormatted.push({
         inventory_id: row.id,
         condition: row.condition || 'Near Mint',
         is_foil: Boolean(row.is_foil),
         price_huf: row.price_huf,
-        status: row.status,
+        status: displayStatus,
+        handover_methods: handoverMethods,
         notes: row.notes,
         is_bulk: false,
         quantity: row.quantity,
@@ -474,7 +485,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { card_id, quantity, price_huf, condition, is_foil, images } = body;
+    const { card_id, quantity, price_huf, condition, is_foil, images, handover_methods } = body;
 
     if (!card_id) {
       return new Response(JSON.stringify({ success: false, error: 'card_id is required.' }), {
@@ -520,9 +531,14 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const safeHandoverMethods = Array.isArray(handover_methods) && handover_methods.length > 0
+      ? handover_methods
+      : ['personal', 'foxpost', 'packeta', 'posta', 'other'];
+
     const notesPayload = JSON.stringify({
       source: 'marketplace',
       seller_id: user.id,
+      handover_methods: safeHandoverMethods,
       views: 0,
       clicks: 0,
       listed_at: new Date().toISOString(),
@@ -629,8 +645,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       });
     }
 
-    const isOwner = user.email === 'vnoel05@gmail.com';
-
     // 1. Try deleting from inventory table
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
@@ -640,7 +654,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
     if (invRow) {
       const sellerId = extractSellerId(invRow.notes);
-      if (sellerId !== user.id && !isOwner) {
+      if (sellerId !== user.id) {
         return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
           status: 403,
           headers: JSON_HEADERS,
@@ -665,7 +679,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       .maybeSingle();
 
     if (ucRow) {
-      if (ucRow.user_id !== user.id && !isOwner) {
+      if (ucRow.user_id !== user.id) {
         return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
           status: 403,
           headers: JSON_HEADERS,
@@ -729,7 +743,6 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     const { id, price_huf, quantity, status, condition } = body;
-    const isOwner = user.email === 'vnoel05@gmail.com';
 
     // 1. Try inventory table
     const { data: invRow } = await supabaseAdmin
@@ -740,8 +753,8 @@ export const PATCH: APIRoute = async ({ request }) => {
 
     if (invRow) {
       const sellerId = extractSellerId(invRow.notes);
-      if (sellerId !== user.id && !isOwner) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+      if (sellerId !== user.id) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
           status: 403,
           headers: JSON_HEADERS,
         });
@@ -751,9 +764,11 @@ export const PATCH: APIRoute = async ({ request }) => {
       if (typeof price_huf === 'number') updates.price_huf = price_huf;
       if (typeof quantity === 'number') updates.quantity = quantity;
       if (status) {
-        updates.status = status;
-        if (status === 'Sold') updates.quantity = 0;
-        else if (status === 'In Stock' && invRow.quantity <= 0) updates.quantity = 1;
+        // Map 'On Hold' to 'Reserved' for database check constraint safety
+        const dbStatus = (status === 'On Hold' || status === 'Reserved') ? 'Reserved' : status;
+        updates.status = dbStatus;
+        if (dbStatus === 'Sold') updates.quantity = 0;
+        else if (dbStatus === 'In Stock' && invRow.quantity <= 0) updates.quantity = 1;
       }
       if (condition) updates.condition = condition;
 
@@ -785,8 +800,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       .maybeSingle();
 
     if (ucRow) {
-      if (ucRow.user_id !== user.id && !isOwner) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+      if (ucRow.user_id !== user.id) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
           status: 403,
           headers: JSON_HEADERS,
         });

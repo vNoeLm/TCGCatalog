@@ -226,7 +226,7 @@ export const POST: APIRoute = async ({ request }) => {
           headers: JSON_HEADERS,
         });
       }
-      if (invRow.status === 'On Hold') {
+      if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
         return new Response(JSON.stringify({
           success: false,
           error: 'Ez a lap jelenleg jegelve van egy másik vevő számára!',
@@ -256,8 +256,7 @@ export const POST: APIRoute = async ({ request }) => {
       buyer_name: buyer_name.trim(),
       buyer_email: buyer_email.trim(),
       buyer_phone: buyer_phone?.trim() || undefined,
-      buyer_discord: buyer_discord?.trim() || undefined,
-      preferred_handover: preferred_handover || 'foxpost',
+      preferred_handover: preferred_handover || 'pickup',
       handover_details: handover_details?.trim() || undefined,
       message: message?.trim() || undefined,
       status: 'pending',
@@ -285,10 +284,16 @@ export const POST: APIRoute = async ({ request }) => {
       await saveFallbackHoldRequests(currentList);
     }
 
+    // ── CRUCIAL: Immediately put the inventory item on hold in the database so all users see it & it persists across page reload! ──
+    await supabaseAdmin
+      .from('inventory')
+      .update({ status: 'Reserved' })
+      .eq('id', inventory_id);
+
     return new Response(JSON.stringify({
       success: true,
       data: insertedDb || newRecord,
-      message: 'Jegelési kérés sikeresen elküldve az eladónak!',
+      message: 'Jegelési kérés sikeresen rögzítve és elküldve!',
     }), {
       status: 201,
       headers: JSON_HEADERS,
@@ -361,8 +366,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    // Permission check: Must be the seller, the buyer (for cancel), or platform owner
-    const isSeller = currentReq.seller_id === user.id || isOwner;
+    // Permission check: Must be the authentic seller, or the buyer (for cancel)
+    const isSeller = currentReq.seller_id === user.id;
     const isBuyer = currentReq.buyer_id === user.id;
 
     if (!isSeller && (!isBuyer || action !== 'release')) {
@@ -373,11 +378,11 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     let newStatus: HoldRequestRecord['status'] = currentReq.status;
-    let newInventoryStatus: 'In Stock' | 'On Hold' | 'Sold' = 'In Stock';
+    let newInventoryStatus: 'In Stock' | 'Reserved' | 'Sold' = 'In Stock';
 
     if (action === 'hold') {
       newStatus = 'held';
-      newInventoryStatus = 'On Hold';
+      newInventoryStatus = 'Reserved';
     } else if (action === 'release') {
       newStatus = 'cancelled';
       newInventoryStatus = 'In Stock';

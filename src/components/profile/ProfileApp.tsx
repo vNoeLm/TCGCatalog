@@ -959,7 +959,7 @@ export function ProfileApp() {
                   : t('no_orders_status', lang)}
               </p>
               <a
-                href="/store"
+                href="/marketplace"
                 className="inline-block px-5 py-2.5 font-black rounded-xl text-xs transition shadow-md"
                 style={{
                   background: 'var(--accent)',
@@ -967,7 +967,7 @@ export function ProfileApp() {
                   boxShadow: '0 0 16px var(--accent-glow)'
                 }}
               >
-                {t('browse_store', lang)}
+                {lang === 'hu' ? 'Böngéssz a Piactéren' : 'Browse Marketplace'}
               </a>
             </div>
           ) : (

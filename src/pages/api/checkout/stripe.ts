@@ -37,7 +37,7 @@ export const POST: APIRoute = async ({ request, url }) => {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY || (import.meta as any).env?.STRIPE_SECRET_KEY;
     const origin = url.origin;
     const defaultSuccessUrl = `${origin}/checkout/success?order_number=${encodeURIComponent(orderNumber)}&gateway=stripe&session_id={CHECKOUT_SESSION_ID}`;
-    const defaultCancelUrl = `${origin}/store?order_cancelled=${encodeURIComponent(orderNumber)}`;
+    const defaultCancelUrl = `${origin}/marketplace?order_cancelled=${encodeURIComponent(orderNumber)}`;
 
     // ── LIVE / TEST STRIPE API MODE ──
     if (stripeSecretKey) {

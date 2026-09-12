@@ -121,12 +121,6 @@ export function Navigation({ currentPath }: NavigationProps) {
       <nav className="hidden sm:flex items-center gap-2">
         <NavLink href="/" label={t('catalog', lang)} />
 
-        {loading ? (
-          <div className="w-16 h-7 rounded-lg bg-zinc-900 animate-pulse" />
-        ) : showStore ? (
-          <NavLink href="/store" label={t('store', lang)} />
-        ) : null}
-
         {!loading && showMarketplace && (
           <NavLink href="/marketplace" label={lang === 'hu' ? 'Piactér' : 'Marketplace'} />
         )}
@@ -406,29 +400,6 @@ export function Navigation({ currentPath }: NavigationProps) {
                 <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 
-              {showStore && (
-                <a
-                  href="/store"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
-                  style={
-                    isActive('/store')
-                      ? {
-                          background: 'var(--accent-muted)',
-                          borderColor: 'var(--accent)',
-                          color: 'var(--text-accent)'
-                        }
-                      : {
-                          background: 'var(--bg-surface-2)',
-                          borderColor: 'var(--border-subtle)',
-                          color: 'var(--text-secondary)'
-                        }
-                  }
-                >
-                  <span>{t('store', lang)}</span>
-                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
-                </a>
-              )}
 
               {showMarketplace && (
                 <a

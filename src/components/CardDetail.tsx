@@ -386,14 +386,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
   const isAvailable = data.status === 'In Stock';
 
+  // Strictly only the actual user who created this listing is considered the seller
   const isSeller = Boolean(
-    profile && (
+    profile && data && (
       profile.id === data?.seller_id ||
-      profile.id === data?.user_id ||
-      (typeof data?.notes === 'string' && data.notes.includes(profile.id)) ||
-      profile.role === 'owner' ||
-      profile.is_owner ||
-      profile.email === 'vnoel05@gmail.com'
+      profile.id === data?.user_id
     )
   );
 
@@ -1083,152 +1080,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           )}
 
-          {/* ── Admin & Owner Quick Edit Panel (Store only) ── */}
-          {isAdmin && isInventory && (
-            <div className="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-500/40 rounded-2xl p-4 sm:p-5 mb-4 shadow-lg">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-500/20">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                  </svg>
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
-                    Store Management (Admin & Owner)
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                  Live Edit
-                </span>
-              </div>
-
-              {adminFeedback && (
-                <div className={`mb-3 p-2.5 rounded-lg text-xs font-semibold flex items-center justify-between ${
-                  adminFeedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-red-500/20 text-red-300 border border-red-500/40'
-                }`}>
-                  <span>{adminFeedback.message}</span>
-                  <button type="button" onClick={() => setAdminFeedback(null)} className="ml-2 text-zinc-400 hover:text-white cursor-pointer">✕</button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                {/* Price input */}
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    Store Price (HUF)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={editPriceHuf}
-                      onChange={(e) => setEditPriceHuf(e.target.value)}
-                      placeholder="e.g. 2500"
-                      min="0"
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono focus:border-amber-400 outline-none transition"
-                    />
-                    {editPriceHuf && !isNaN(Number(editPriceHuf)) && (
-                      <span className="absolute right-3 top-2.5 text-[10px] text-zinc-500">
-                        ≈ €{(Number(editPriceHuf) / 400).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Condition input */}
-                <div>
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    Condition
-                  </label>
-                  <select
-                    value={editCondition}
-                    onChange={(e) => setEditCondition(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
-                  >
-                    <option value="Mint" className="bg-zinc-900 text-zinc-100">Mint</option>
-                    <option value="Near Mint" className="bg-zinc-900 text-zinc-100">Near Mint (NM)</option>
-                    <option value="Lightly Played" className="bg-zinc-900 text-zinc-100">Lightly Played (LP)</option>
-                    <option value="Moderately Played" className="bg-zinc-900 text-zinc-100">Moderately Played (MP)</option>
-                    <option value="Heavily Played" className="bg-zinc-900 text-zinc-100">Heavily Played (HP)</option>
-                    <option value="Damaged" className="bg-zinc-900 text-zinc-100">Damaged (DMG)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Photo Management */}
-              <div className="mb-3 pt-2 border-t border-zinc-800">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-amber-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                      <circle cx="12" cy="13" r="4"/>
-                    </svg>
-                    <span>Physical Condition Photos ({data?.inventory_images?.length || 0})</span>
-                  </label>
-                  <input
-                    type="file"
-                    ref={adminPhotoInputRef}
-                    accept="image/*"
-                    multiple
-                    onChange={handleAdminUploadPhotos}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => adminPhotoInputRef.current?.click()}
-                    disabled={isUploadingPhoto}
-                    className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="5" x2="12" y2="19"/>
-                      <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    <span>{isUploadingPhoto ? 'Uploading…' : 'Add Photos'}</span>
-                  </button>
-                </div>
-
-                {data?.inventory_images && data.inventory_images.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto py-1">
-                    {data.inventory_images.map((img: any, idx: number) => (
-                      <div key={idx} className="relative group shrink-0 w-12 h-16 rounded-lg overflow-hidden border border-zinc-700 bg-zinc-900 shadow">
-                        <img src={getCardImageUrl(img.image_path)} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleAdminDeletePhoto(img.image_path)}
-                          title="Delete photo"
-                          className="absolute top-0.5 right-0.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black cursor-pointer shadow opacity-80 group-hover:opacity-100 transition"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Save button */}
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={handleAdminSaveDetails}
-                  disabled={isSavingAdmin}
-                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-zinc-950 font-black text-xs rounded-xl shadow-md transition transform active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isSavingAdmin ? (
-                    'Saving…'
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17 21 17 13 7 13 7 21"/>
-                        <polyline points="7 3 7 8 15 8"/>
-                      </svg>
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Condition + notes (Inventory only) */}
           {isInventory && (
             <div 
@@ -1321,16 +1172,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 </div>
               </div>
-
-              <div className="text-right shrink-0">
-                <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                  <span>{lang === 'hu' ? 'Vevővédelem' : 'Buyer Protection'}</span>
-                </div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">{lang === 'hu' ? 'Feladás 24 órán belül' : 'Dispatches in 24h'}</div>
-              </div>
             </div>
           )}
 
@@ -1355,7 +1196,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <span>{lang === 'hu' ? 'Elérhető' : 'Available'}</span>
                   </span>
                 )}
-                {data.status === 'On Hold' && (
+                {(data.status === 'On Hold' || data.status === 'Reserved') && (
                   <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/50 inline-flex items-center gap-1.5 uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.25)]">
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -1417,7 +1258,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         </button>
                       </>
                     )}
-                    {data.status === 'On Hold' && (
+                    {(data.status === 'On Hold' || data.status === 'Reserved') && (
                       <>
                         <button
                           type="button"
@@ -1514,6 +1355,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           onClose={() => setIsHoldModalOpen(false)}
           card={card}
           inventoryItem={data}
+          handoverMethods={data?.handover_methods}
           profile={profile}
           lang={lang}
           onRequestSubmitted={() => {

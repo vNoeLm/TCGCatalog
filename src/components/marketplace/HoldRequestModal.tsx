@@ -11,6 +11,7 @@ export interface HoldRequestModalProps {
   inventoryItem: any;
   profile: UserProfile | null;
   lang: Language;
+  handoverMethods?: string[];
   onRequestSubmitted?: () => void;
 }
 
@@ -21,16 +22,30 @@ export function HoldRequestModal({
   inventoryItem,
   profile,
   lang,
+  handoverMethods,
   onRequestSubmitted,
 }: HoldRequestModalProps) {
   if (!isOpen) return null;
 
-  const [handoverMethod, setHandoverMethod] = useState<'foxpost' | 'packeta' | 'pickup' | 'posta' | 'other'>('foxpost');
+  const ALL_HANDOVER_METHODS = [
+    { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Automata' : 'Locker' },
+    { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Csomagpont' : 'Pickup' },
+    { id: 'pickup', label: lang === 'hu' ? 'Személyes' : 'In-person', desc: lang === 'hu' ? 'Átvétel' : 'Pickup' },
+    { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Ajánlott levél' : 'Post' },
+    { id: 'other', label: lang === 'hu' ? 'Egyéb' : 'Other', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
+  ];
+
+  const availableMethods = (handoverMethods && handoverMethods.length > 0)
+    ? ALL_HANDOVER_METHODS.filter((m) => handoverMethods.includes(m.id))
+    : ALL_HANDOVER_METHODS;
+
+  const [handoverMethod, setHandoverMethod] = useState<string>(
+    availableMethods[0]?.id || 'foxpost'
+  );
   const [handoverDetails, setHandoverDetails] = useState('');
   const [buyerName, setBuyerName] = useState(profile?.display_name || '');
   const [buyerEmail, setBuyerEmail] = useState(profile?.email || '');
   const [buyerPhone, setBuyerPhone] = useState('');
-  const [buyerDiscord, setBuyerDiscord] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -75,7 +90,6 @@ export function HoldRequestModal({
         buyer_name: buyerName.trim(),
         buyer_email: buyerEmail.trim(),
         buyer_phone: buyerPhone.trim() || undefined,
-        buyer_discord: buyerDiscord.trim() || undefined,
         preferred_handover: handoverMethod,
         handover_details: handoverDetails.trim() || undefined,
         message: message.trim() || undefined,
@@ -216,20 +230,6 @@ export function HoldRequestModal({
           </div>
         </div>
 
-        {/* Info Banner */}
-        <div className="mb-5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-start gap-2.5">
-          <svg className="w-4 h-4 shrink-0 mt-0.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <p className="leading-relaxed">
-            {lang === 'hu'
-              ? 'A platform nem von le közvetlen bankkártyás összeget. A jegelés kérésével az eladó félreteszi számodra a kártyát, a fizetést és az átadást pedig közvetlenül egyeztetitek (pl. Foxpost, személyes átvétel, banki utalás).'
-              : 'The platform operates as a classifieds intermediary. When you request a hold, the seller reserves the card for you, and you finalize delivery and payment directly.'}
-          </p>
-        </div>
-
         {errorMsg && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
             <svg className="w-4 h-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -258,17 +258,11 @@ export function HoldRequestModal({
               {lang === 'hu' ? 'Preferált átvételi mód' : 'Preferred Handover Method'}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[
-                { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Automata' : 'Locker' },
-                { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Csomagpont' : 'Pickup' },
-                { id: 'pickup', label: lang === 'hu' ? 'Személyes' : 'In-person', desc: lang === 'hu' ? 'Átvétel' : 'Pickup' },
-                { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Ajánlott levél' : 'Post' },
-                { id: 'other', label: lang === 'hu' ? 'Egyéb' : 'Other', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
-              ].map((m) => (
+              {availableMethods.map((m) => (
                 <button
                   type="button"
                   key={m.id}
-                  onClick={() => setHandoverMethod(m.id as any)}
+                  onClick={() => setHandoverMethod(m.id)}
                   className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
                     handoverMethod === m.id
                       ? 'bg-amber-500/15 border-amber-500/60 shadow-sm'
@@ -338,31 +332,17 @@ export function HoldRequestModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'Telefonszám (opcionális)' : 'Phone (optional)'}
-              </label>
-              <input
-                type="tel"
-                value={buyerPhone}
-                onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="+36 20 123 4567"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'Discord / Közösségi azonosító' : 'Discord username (optional)'}
-              </label>
-              <input
-                type="text"
-                value={buyerDiscord}
-                onChange={(e) => setBuyerDiscord(e.target.value)}
-                placeholder="username#0000"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
+              {lang === 'hu' ? 'Telefonszám (opcionális)' : 'Phone (optional)'}
+            </label>
+            <input
+              type="tel"
+              value={buyerPhone}
+              onChange={(e) => setBuyerPhone(e.target.value)}
+              placeholder="+36 20 123 4567"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+            />
           </div>
 
           {/* Note / Message */}

@@ -1371,12 +1371,6 @@ export function SellerDashboardApp() {
                               <span>{req.buyer_phone}</span>
                             </a>
                           )}
-                          {req.buyer_discord && (
-                            <span className="text-cyan-300 flex items-center gap-1 font-mono text-[11px]">
-                              <span>Discord:</span>
-                              <span className="font-bold">{req.buyer_discord}</span>
-                            </span>
-                          )}
                         </div>
                       </div>
 

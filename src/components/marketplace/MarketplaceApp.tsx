@@ -287,14 +287,14 @@ export function MarketplaceApp() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <a
-                href="/store"
+                href="/"
                 className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95"
                 style={{
                   background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
                   color: 'var(--accent-contrast, #000000)',
                 }}
               >
-                {lang === 'hu' ? 'Böngéssz a Boltban' : 'Browse Official Store'}
+                {lang === 'hu' ? 'Böngéssz a Katalógusban' : 'Browse Catalog'}
               </a>
               <a
                 href="/"
@@ -521,7 +521,7 @@ export function MarketplaceApp() {
                   {lang === 'hu' ? '+ Első kártya eladása' : '+ List a Card Now'}
                 </button>
                 <a
-                  href="/store"
+                  href="/"
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
                   style={{
                     background: 'var(--accent-muted)',
@@ -529,7 +529,7 @@ export function MarketplaceApp() {
                     color: 'var(--text-accent)'
                   }}
                 >
-                  <span>{lang === 'hu' ? 'Böngéssz a Boltban' : 'Browse Official Store'}</span>
+                  <span>{lang === 'hu' ? 'Böngéssz a Katalógusban' : 'Browse Catalog'}</span>
                   <span>→</span>
                 </a>
               </div>

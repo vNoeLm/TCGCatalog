@@ -723,12 +723,16 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
   if (error) throw error;
 
   let sellerId = OWNER_ID;
+  let handoverMethods: string[] = ['personal', 'foxpost', 'packeta', 'posta', 'other'];
   if (data.notes) {
     try {
       if (typeof data.notes === 'string' && data.notes.startsWith('{')) {
         const parsed = JSON.parse(data.notes);
         if (parsed && typeof parsed.seller_id === 'string' && parsed.seller_id) {
           sellerId = parsed.seller_id;
+        }
+        if (parsed && Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
+          handoverMethods = parsed.handover_methods;
         }
       } else if (typeof data.notes === 'string') {
         if (data.notes.startsWith('marketplace:')) sellerId = data.notes.replace('marketplace:', '').trim();
@@ -755,8 +759,12 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     }
   } catch (err) {}
 
+  const normalizedStatus = (data.status === 'Reserved' || data.status === 'On Hold') ? 'On Hold' : data.status;
+
   const enriched = {
     ...data,
+    status: normalizedStatus,
+    handover_methods: handoverMethods,
     seller_id: sellerId,
     seller_name: sellerName,
     seller_avatar: sellerAvatar,

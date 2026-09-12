@@ -334,7 +334,7 @@ export function PaymentSuccessView({
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
-            href="/store"
+            href="/marketplace"
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm border transition text-center hover:opacity-90 active:scale-95"
             style={{
               background: 'var(--accent)',
@@ -342,7 +342,7 @@ export function PaymentSuccessView({
               color: '#fff',
             }}
           >
-            {lang === 'hu' ? '← Vissza a bolthoz' : '← Back to Store'}
+            {lang === 'hu' ? '← Vissza a piactérre' : '← Back to Marketplace'}
           </a>
           <a
             href="/profile"
