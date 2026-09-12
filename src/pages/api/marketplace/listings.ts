@@ -23,7 +23,7 @@ function extractSellerId(notes: string | null): string | null {
   return null;
 }
 
-const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';
+import { OWNER_ID } from '../../../lib/constants';
 
 // ─── GET: Query Marketplace Listings (with Seller Profiles, Ratings & Photos) ───
 export const GET: APIRoute = async ({ url }) => {
@@ -735,14 +735,15 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.id) {
+    const id = body?.id || body?.inventory_id;
+    if (!body || !id) {
       return new Response(JSON.stringify({ success: false, error: 'Missing listing id.' }), {
         status: 400,
         headers: JSON_HEADERS,
       });
     }
 
-    const { id, price_huf, quantity, status, condition } = body;
+    const { price_huf, quantity, status, condition } = body;
 
     // 1. Try inventory table
     const { data: invRow } = await supabaseAdmin

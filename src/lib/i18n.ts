@@ -193,6 +193,13 @@ export const translations = {
 
     // Export & Import Modals
     export_collection: "Export Collection",
+    export_missing_cards: "Export Missing Cards",
+    tab_owned_cards: "Owned Cards",
+    tab_missing_cards: "Missing Cards (Want-List)",
+    copy_missing_formatted: "Copy Detailed Want-List",
+    copy_missing_simple: "Copy Simple Want-List",
+    download_missing_txt: "Download Text File (.txt)",
+    download_missing_json: "Download JSON File (.json)",
     import_collection: "Import Collection",
     copy_formatted_list: "Copy Formatted Card List",
     copy_simple_list: "Copy Simple Card Names",
@@ -467,6 +474,13 @@ export const translations = {
 
     // Export & Import Modals
     export_collection: "Gyűjtemény exportálása",
+    export_missing_cards: "Hiányzó kártyák exportálása",
+    tab_owned_cards: "Birtokolt kártyák",
+    tab_missing_cards: "Hiányzó kártyák (Keresési lista)",
+    copy_missing_formatted: "Részletes keresési lista másolása",
+    copy_missing_simple: "Egyszerű lista másolása",
+    download_missing_txt: "Szöveges fájl letöltése (.txt)",
+    download_missing_json: "JSON fájl letöltése (.json)",
     import_collection: "Gyűjtemény importálása",
     copy_formatted_list: "Formázott lista másolása",
     copy_simple_list: "Egyszerű kártyanevek másolása",

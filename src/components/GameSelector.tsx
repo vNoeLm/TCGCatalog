@@ -62,6 +62,14 @@ export function GameSelector() {
     const targetGame = GAMES.find(g => g.id === gameId);
     if (!targetGame || targetGame.active === false) return;
 
+    // If game changed, remove cached stale filters so previous game's filters don't leak
+    if (gameId !== activeGame) {
+      try {
+        sessionStorage.removeItem('catalogFilters');
+        sessionStorage.removeItem(STORAGE_KEYS.INVENTORY_FILTERS);
+      } catch (e) {}
+    }
+
     setActiveGame(gameId);
     setIsOpen(false);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_GAME, gameId);

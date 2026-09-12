@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
-import { EVENTS, OWNER_ID } from './constants';
+import { EVENTS, OWNER_ID, SETS, CYBERPUNK_SETS, DOMAINS, CYBERPUNK_COLORS, RARITIES, CYBERPUNK_RARITIES } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
@@ -140,22 +140,50 @@ export async function fetchCardsCatalog(
   const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
   query = query.eq('game', targetGame);
 
-  if (filters.set) query = query.eq('sets.name', filters.set);
-  if (filters.rarities && filters.rarities.length > 0) query = query.in('rarity', filters.rarities);
+  // Validate set against active game so an incompatible set from another game never breaks results
+  let validSet: string | null = null;
+  if (filters.set) {
+    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
+    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
+    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
+      validSet = filters.set;
+      query = query.eq('sets.name', validSet);
+    }
+  }
+
+  // Validate rarities against active game
+  if (filters.rarities && filters.rarities.length > 0) {
+    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
+    if (cleanRarities.length > 0) {
+      query = query.in('rarity', cleanRarities);
+    }
+  }
+
   if (filters.type) {
-    if (filters.type === 'Champion') {
-      query = query.eq('subtype', 'Champion');
-    } else if (filters.type === 'Signature Spell') {
-      query = query.eq('card_type', 'Spell').ilike('subtype', '%Signature%');
-    } else if (filters.type === 'Token') {
-      query = query.or('card_type.eq.Token,subtype.ilike.%Token%');
+    if (targetGame === 'riftbound') {
+      if (filters.type === 'Champion') {
+        query = query.eq('subtype', 'Champion');
+      } else if (filters.type === 'Signature Spell') {
+        query = query.eq('card_type', 'Spell').ilike('subtype', '%Signature%');
+      } else if (filters.type === 'Token') {
+        query = query.or('card_type.eq.Token,subtype.ilike.%Token%');
+      } else {
+        query = query.eq('card_type', filters.type);
+      }
     } else {
       query = query.eq('card_type', filters.type);
     }
   }
+
+  // Validate domains against active game
   if (filters.domains && filters.domains.length > 0) {
-    const orQuery = filters.domains.map(c => `domain.ilike.%${c}%`).join(',');
-    query = query.or(orQuery);
+    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
+    if (cleanDomains.length > 0) {
+      const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
+      query = query.or(orQuery);
+    }
   }
 
   if (filters.tags && filters.tags.length > 0) {
@@ -200,8 +228,8 @@ export async function fetchCardsCatalog(
     };
   });
 
-  if (filters.set) {
-    mappedData = mappedData.filter(card => card.set_name === filters.set);
+  if (validSet) {
+    mappedData = mappedData.filter(card => card.set_name === validSet);
   }
 
   if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
@@ -269,30 +297,45 @@ export async function fetchOwnerStoreInventory(
     }
 
     // Multi-game filter
-    if (filters.game && filters.game !== 'all') {
-      query = query.eq('cards.game', filters.game);
-    }
+    const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
+    query = query.eq('cards.game', targetGame);
 
     if (filters.set) {
-      query = query.eq('cards.sets.name', filters.set);
+      const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
+      const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
+      if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
+        query = query.eq('cards.sets.name', filters.set);
+      }
     }
     if (filters.rarities && filters.rarities.length > 0) {
-      query = query.in('cards.rarity', filters.rarities);
+      const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+      const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
+      if (cleanRarities.length > 0) {
+        query = query.in('cards.rarity', cleanRarities);
+      }
     }
     if (filters.type) {
-      if (filters.type === 'Champion') {
-        query = query.eq('cards.subtype', 'Champion');
-      } else if (filters.type === 'Signature Spell') {
-        query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-      } else if (filters.type === 'Token') {
-        query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
+      if (targetGame === 'riftbound') {
+        if (filters.type === 'Champion') {
+          query = query.eq('cards.subtype', 'Champion');
+        } else if (filters.type === 'Signature Spell') {
+          query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+        } else if (filters.type === 'Token') {
+          query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
+        } else {
+          query = query.eq('cards.card_type', filters.type);
+        }
       } else {
         query = query.eq('cards.card_type', filters.type);
       }
     }
     if (filters.domains && filters.domains.length > 0) {
-      const orQuery = filters.domains.map(c => `domain.ilike.%${c}%`).join(',');
-      query = query.or(orQuery, { foreignTable: 'cards' });
+      const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+      const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
+      if (cleanDomains.length > 0) {
+        const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery, { foreignTable: 'cards' });
+      }
     }
     if (filters.costMin > 1) {
       query = query.gte('cards.cost', filters.costMin);
@@ -429,30 +472,45 @@ export async function fetchLegacyInventory(
   }
 
   // Multi-game filter
-  if (filters.game && filters.game !== 'all') {
-    query = query.eq('cards.game', filters.game);
-  }
+  const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
+  query = query.eq('cards.game', targetGame);
 
   if (filters.set) {
-    query = query.eq('cards.sets.name', filters.set);
+    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
+    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
+    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
+      query = query.eq('cards.sets.name', filters.set);
+    }
   }
   if (filters.rarities && filters.rarities.length > 0) {
-    query = query.in('cards.rarity', filters.rarities);
+    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
+    if (cleanRarities.length > 0) {
+      query = query.in('cards.rarity', cleanRarities);
+    }
   }
   if (filters.type) {
-    if (filters.type === 'Champion') {
-      query = query.eq('cards.subtype', 'Champion');
-    } else if (filters.type === 'Signature Spell') {
-      query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-    } else if (filters.type === 'Token') {
-      query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
+    if (targetGame === 'riftbound') {
+      if (filters.type === 'Champion') {
+        query = query.eq('cards.subtype', 'Champion');
+      } else if (filters.type === 'Signature Spell') {
+        query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+      } else if (filters.type === 'Token') {
+        query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
+      } else {
+        query = query.eq('cards.card_type', filters.type);
+      }
     } else {
       query = query.eq('cards.card_type', filters.type);
     }
   }
   if (filters.domains && filters.domains.length > 0) {
-    const orQuery = filters.domains.map(c => `domain.ilike.%${c}%`).join(',');
-    query = query.or(orQuery, { foreignTable: 'cards' });
+    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
+    if (cleanDomains.length > 0) {
+      const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
+      query = query.or(orQuery, { foreignTable: 'cards' });
+    }
   }
   if (filters.costMin > 1) {
     query = query.gte('cards.cost', filters.costMin);

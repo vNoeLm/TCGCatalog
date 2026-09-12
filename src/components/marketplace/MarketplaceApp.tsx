@@ -52,12 +52,13 @@ export function MarketplaceApp() {
   const [sortMode, setSortMode] = useState<SortMode>('Price (Low to High)');
   const [sortOpen, setSortOpen] = useState(false);
   const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'on_hold'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'on_hold'>('in_stock');
 
   // Listings State
   const [cards, setCards] = useState<InventoryCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
 
@@ -130,16 +131,22 @@ export function MarketplaceApp() {
       if (filters.foilFilter) params.set('foil', 'true');
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
+      setFetchError(null);
       const res = await fetch(`/api/marketplace/listings?${params.toString()}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
           setCards(json.data || []);
           setTotalCount(json.count || (json.data ? json.data.length : 0));
+        } else {
+          setFetchError(json.error || 'Failed to load marketplace listings.');
         }
+      } else {
+        setFetchError(lang === 'hu' ? 'Nem sikerült betölteni a piactéri hirdetéseket.' : 'Failed to load marketplace listings.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Marketplace fetch error:', err);
+      setFetchError(err?.message || (lang === 'hu' ? 'Hálózati hiba történt.' : 'Network error loading listings.'));
     } finally {
       setLoading(false);
     }
@@ -491,6 +498,32 @@ export function MarketplaceApp() {
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} style={{ borderRadius: 16, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
               ))}
+            </div>
+          ) : fetchError ? (
+            <div 
+              className="rounded-3xl p-12 text-center border shadow-sm"
+              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-3 text-rose-400">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold mb-1 text-rose-300">
+                {lang === 'hu' ? 'Hiba történt a hirdetések betöltésekor' : 'Error loading marketplace listings'}
+              </h3>
+              <p className="text-xs max-w-sm mx-auto mb-5 text-zinc-400">
+                {fetchError}
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchMarketplaceListings()}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+              >
+                {lang === 'hu' ? 'Újrapróbálkozás' : 'Retry'}
+              </button>
             </div>
           ) : sortedCards.length === 0 ? (
             <div 

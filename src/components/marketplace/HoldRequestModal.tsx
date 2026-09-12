@@ -25,8 +25,6 @@ export function HoldRequestModal({
   handoverMethods,
   onRequestSubmitted,
 }: HoldRequestModalProps) {
-  if (!isOpen) return null;
-
   const ALL_HANDOVER_METHODS = [
     { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Automata' : 'Locker' },
     { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Csomagpont' : 'Pickup' },
@@ -50,6 +48,15 @@ export function HoldRequestModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  if (!isOpen) return null;
 
   const priceHuf = inventoryItem?.price_huf || 0;
   const sellerName = inventoryItem?.seller_name || 'Community Seller';
@@ -122,7 +129,7 @@ export function HoldRequestModal({
         onRequestSubmitted();
       }
 
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
         onClose();
       }, 2000);
     } catch (err: any) {

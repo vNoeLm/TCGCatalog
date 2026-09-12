@@ -186,7 +186,12 @@ export function SellerDashboardApp() {
     if (!targetUid) return;
     setLoadingHolds(true);
     try {
-      const res = await fetch(`/api/marketplace/hold-request?seller_id=${targetUid}`);
+      const session = (await supabase.auth.getSession()).data.session;
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`/api/marketplace/hold-request?seller_id=${targetUid}`, { headers });
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -266,30 +271,27 @@ export function SellerDashboardApp() {
     setUpdatingListingId(item.inventory_id);
     try {
       const session = (await supabase.auth.getSession()).data.session;
-      const listingImages = item.inventory_images && item.inventory_images.length > 0
-        ? item.inventory_images.map((img: any) => img.image_path)
-        : (item.inventory_image ? [item.inventory_image] : []);
 
       const res = await fetch('/api/marketplace/listings', {
-        method: 'POST',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          card_id: item.card_id,
-          quantity: Math.max(1, editQuantity),
+          id: item.inventory_id,
           price_huf: Math.max(50, editPriceHuf),
-          is_foil: item.is_foil,
-          condition: item.condition || 'Near Mint',
-          images: listingImages,
+          quantity: Math.max(1, editQuantity),
         }),
       });
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         showToast(lang === 'hu' ? 'Hirdetés sikeresen módosítva' : 'Listing updated successfully');
         setEditingListing(null);
         loadSellerListings();
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      } else {
+        showToast(json.error || 'Failed to update listing');
       }
     } catch (e: any) {
       showToast(e?.message || 'Error updating listing');
@@ -321,7 +323,7 @@ export function SellerDashboardApp() {
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          request_id: requestId,
+          id: requestId,
           action,
         }),
       });
@@ -362,7 +364,7 @@ export function SellerDashboardApp() {
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          inventory_id: inventoryId,
+          id: inventoryId,
           status: newStatus,
         }),
       });
@@ -1183,21 +1185,23 @@ export function SellerDashboardApp() {
           ) : (
             <div className="space-y-4">
               {holdRequests.map((req) => {
-                const cardName = req.card?.name || req.inventory?.card?.name || (lang === 'hu' ? 'Kártya tétel' : 'Card item');
-                const cardNumber = req.card?.card_number || req.inventory?.card?.card_number || '';
-                const cardRarity = req.card?.rarity || req.inventory?.card?.rarity || '';
-                const cardImage = req.card?.image_path || req.inventory?.card?.image_path;
-                const priceHuf = req.inventory?.price_huf;
+                const cardName = req.card_name || (lang === 'hu' ? 'Kártya tétel' : 'Card item');
+                const cardNumber = req.card_number || '';
+                const cardRarity = '';
+                const cardImage = req.image_path;
+                const priceHuf = req.price_huf;
                 const isHeld = req.status === 'held';
                 const isPending = req.status === 'pending';
-                const isConfirmed = req.status === 'confirmed';
+                const isConfirmed = req.status === 'confirmed' || req.status === 'completed';
                 const isCancelled = req.status === 'cancelled' || req.status === 'rejected';
 
                 const handoverBadge = (() => {
-                  switch (req.handover_method) {
+                  switch (req.preferred_handover || req.handover_method) {
                     case 'foxpost': return { label: 'Foxpost csomagautomata', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
                     case 'packeta': return { label: 'Packeta átvevőhely', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
+                    case 'pickup':
                     case 'personal': return { label: lang === 'hu' ? 'Személyes átvétel' : 'Personal pickup', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
+                    case 'posta':
                     case 'post': return { label: lang === 'hu' ? 'Magyar Posta' : 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
                     default: return { label: lang === 'hu' ? 'Egyéb egyeztetés' : 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
                   }
@@ -1383,15 +1387,15 @@ export function SellerDashboardApp() {
                           <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${handoverBadge.color}`}>
                             {handoverBadge.label}
                           </span>
-                          {req.handover_location && (
+                          {(req.handover_details || req.handover_location) && (
                             <span className="text-xs text-zinc-300 font-medium">
-                              {req.handover_location}
+                              {req.handover_details || req.handover_location}
                             </span>
                           )}
                         </div>
-                        {req.buyer_note && (
+                        {(req.message || req.buyer_note) && (
                           <div className="text-xs text-zinc-400 italic pt-1">
-                            "{req.buyer_note}"
+                            "{req.message || req.buyer_note}"
                           </div>
                         )}
                       </div>

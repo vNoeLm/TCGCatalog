@@ -358,7 +358,11 @@ export function ListCardModal({
                     }}
                   />
                   {searching && (
-                    <div className="absolute right-3 top-2 text-xs text-zinc-400 animate-spin">⟳</div>
+                    <div className="absolute right-3 top-2.5 text-zinc-400">
+                      <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                        <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                      </svg>
+                    </div>
                   )}
                   {searchQuery && !searching && (
                     <button
@@ -711,7 +715,9 @@ export function ListCardModal({
               >
                 {isUploadingPhoto ? (
                   <>
-                    <span className="animate-spin text-xs">⟳</span>
+                    <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                      <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                    </svg>
                     <span>{lang === 'hu' ? 'Fotók feltöltése folyamatban…' : 'Uploading photos…'}</span>
                   </>
                 ) : (
@@ -816,7 +822,9 @@ export function ListCardModal({
           >
             {submitting ? (
               <>
-                <span className="animate-spin">⟳</span>
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                </svg>
                 <span>{lang === 'hu' ? 'Közzététel…' : 'Publishing…'}</span>
               </>
             ) : isMissingRequiredPhoto ? (

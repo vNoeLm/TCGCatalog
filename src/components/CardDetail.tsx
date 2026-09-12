@@ -336,11 +336,29 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     
     if (resolvedInvId) {
       setLoading(true);
-      fetch('/api/marketplace/track-click', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory_id: resolvedInvId, type: 'view' }),
-      }).catch(() => {});
+      const storageKey = `tcg_viewed_${resolvedInvId}`;
+      let alreadyViewed = false;
+      try {
+        alreadyViewed = Boolean(sessionStorage.getItem(storageKey));
+      } catch (e) {}
+
+      if (!alreadyViewed) {
+        try {
+          sessionStorage.setItem(storageKey, '1');
+        } catch (e) {}
+
+        supabase.auth.getSession().then(({ data: sessionData }) => {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (sessionData?.session?.access_token) {
+            headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+          }
+          fetch('/api/marketplace/track-click', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ inventory_id: resolvedInvId, type: 'view' }),
+          }).catch(() => {});
+        }).catch(() => {});
+      }
       fetchCardDetail(resolvedInvId)
         .then(row => {
           setData(row);
@@ -1294,23 +1312,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (profile) {
-                      setIsListModalOpen(true);
-                    } else {
-                      setShowAuthModal(true);
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
-                  title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
-                  </svg>
-                  <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
-                </button>
                 <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
               </div>
 

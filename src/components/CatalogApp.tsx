@@ -66,11 +66,13 @@ export function CatalogApp() {
       if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
         initialGame = savedGame;
       }
-      const savedFilters = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
+      const savedFilters = sessionStorage.getItem(`inventoryFilters_${initialGame}`) || sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
       if (savedFilters) {
         try {
           const parsed = JSON.parse(savedFilters);
-          return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+          if (!parsed.game || parsed.game === initialGame) {
+            return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+          }
         } catch (e) {}
       }
     }
@@ -136,36 +138,41 @@ export function CatalogApp() {
     const savedSort = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_SORT);
     if (savedSort) setSortMode(savedSort as any);
 
-    const savedGame = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
-    const savedFilters = sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
+    const savedGame = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME) || 'riftbound';
+    const savedFilters = sessionStorage.getItem(`inventoryFilters_${savedGame}`) || sessionStorage.getItem(STORAGE_KEYS.INVENTORY_FILTERS);
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
-        if (savedGame) parsed.game = savedGame;
-        setFilters(prev => ({ ...prev, ...parsed }));
+        if (!parsed.game || parsed.game === savedGame) {
+          setFilters({ ...DEFAULT_FILTERS, ...parsed, game: savedGame });
+        } else {
+          setFilters({ ...DEFAULT_FILTERS, game: savedGame });
+        }
       } catch (e) {
         if (import.meta.env.DEV) console.warn('Filter state parse error, resetting to defaults:', e);
         sessionStorage.removeItem(STORAGE_KEYS.INVENTORY_FILTERS);
+        setFilters({ ...DEFAULT_FILTERS, game: savedGame });
       }
-    } else if (savedGame) {
-      setFilters(prev => ({ ...prev, game: savedGame }));
+    } else {
+      setFilters({ ...DEFAULT_FILTERS, game: savedGame });
     }
     
     setIsInitialized(true);
 
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
-      if (customEvent.detail?.game) {
-        setFilters(prev => ({
-          ...prev,
-          game: customEvent.detail.game,
-          set: '',
-          rarities: [],
-          type: '',
-          domains: [],
-          tags: [],
-          eddiableFilter: 'all',
-        }));
+      const newGame = customEvent.detail?.game;
+      if (newGame) {
+        setSearchQuery('');
+        const freshFilters: FilterState = {
+          ...DEFAULT_FILTERS,
+          game: newGame,
+        };
+        setFilters(freshFilters);
+        try {
+          sessionStorage.setItem(STORAGE_KEYS.INVENTORY_FILTERS, JSON.stringify(freshFilters));
+          sessionStorage.setItem(`inventoryFilters_${newGame}`, JSON.stringify(freshFilters));
+        } catch (e) {}
         setPage(1);
       }
     };
@@ -213,7 +220,14 @@ export function CatalogApp() {
   }, []);
 
   // Save filters & state to session storage
-  useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_FILTERS, JSON.stringify(filters)); }, [filters, isInitialized]);
+  useEffect(() => {
+    if (isInitialized) {
+      sessionStorage.setItem(STORAGE_KEYS.INVENTORY_FILTERS, JSON.stringify(filters));
+      if (filters.game) {
+        sessionStorage.setItem(`inventoryFilters_${filters.game}`, JSON.stringify(filters));
+      }
+    }
+  }, [filters, isInitialized]);
   useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_SEARCH, searchQuery); }, [searchQuery, isInitialized]);
   useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_GRID, gridSize); }, [gridSize, isInitialized]);
   useEffect(() => { if (isInitialized) sessionStorage.setItem(STORAGE_KEYS.INVENTORY_SORT, sortMode); }, [sortMode, isInitialized]);

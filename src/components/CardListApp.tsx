@@ -72,11 +72,14 @@ export function CardListApp() {
       if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
         initialGame = savedGame;
       }
-      const savedFilters = sessionStorage.getItem('catalogFilters');
+      const savedFilters = sessionStorage.getItem(`catalogFilters_${initialGame}`) || sessionStorage.getItem('catalogFilters');
       if (savedFilters) {
         try {
           const parsed = JSON.parse(savedFilters);
-          return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+          // Only restore filters if they belong to the same active game
+          if (!parsed.game || parsed.game === initialGame) {
+            return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+          }
         } catch (e) {}
       }
     }
@@ -102,6 +105,7 @@ export function CardListApp() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -178,16 +182,21 @@ export function CardListApp() {
       setSortMode(normalizedSort as any);
     }
 
-    const savedGame = localStorage.getItem('tcg_active_game');
-    const savedFilters = sessionStorage.getItem('catalogFilters');
+    const savedGame = localStorage.getItem('tcg_active_game') || 'riftbound';
+    const savedFilters = sessionStorage.getItem(`catalogFilters_${savedGame}`) || sessionStorage.getItem('catalogFilters');
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
-        if (savedGame) parsed.game = savedGame;
-        setFilters(prev => ({ ...prev, ...parsed }));
-      } catch (e) {}
-    } else if (savedGame) {
-      setFilters(prev => ({ ...prev, game: savedGame }));
+        if (!parsed.game || parsed.game === savedGame) {
+          setFilters({ ...DEFAULT_FILTERS, ...parsed, game: savedGame });
+        } else {
+          setFilters({ ...DEFAULT_FILTERS, game: savedGame });
+        }
+      } catch (e) {
+        setFilters({ ...DEFAULT_FILTERS, game: savedGame });
+      }
+    } else {
+      setFilters({ ...DEFAULT_FILTERS, game: savedGame });
     }
     
     setIsInitialized(true);
@@ -195,19 +204,21 @@ export function CardListApp() {
     // Listen for game change events from top navbar
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
-      if (customEvent.detail?.game) {
+      const newGame = customEvent.detail?.game;
+      if (newGame) {
         setAllCards([]);
         setSearchQuery('');
-        setFilters(prev => ({
-          ...prev,
-          game: customEvent.detail.game,
-          set: '',
-          rarities: [],
-          type: '',
-          domains: [],
-          tags: [],
-          eddiableFilter: 'all',
-        }));
+        setCollectionFilter("All");
+        // Completely reset all game-specific filters to clean defaults for the new game
+        const freshFilters: FilterState = {
+          ...DEFAULT_FILTERS,
+          game: newGame,
+        };
+        setFilters(freshFilters);
+        try {
+          sessionStorage.setItem('catalogFilters', JSON.stringify(freshFilters));
+          sessionStorage.setItem(`catalogFilters_${newGame}`, JSON.stringify(freshFilters));
+        } catch (err) {}
         setPage(1);
       }
     };
@@ -230,7 +241,12 @@ export function CardListApp() {
   // Save filters to session storage
   useEffect(() => {
     if (isInitialized) {
-      sessionStorage.setItem('catalogFilters', JSON.stringify(filters));
+      try {
+        sessionStorage.setItem('catalogFilters', JSON.stringify(filters));
+        if (filters.game) {
+          sessionStorage.setItem(`catalogFilters_${filters.game}`, JSON.stringify(filters));
+        }
+      } catch (e) {}
     }
   }, [filters, isInitialized]);
 
@@ -911,12 +927,183 @@ export function CardListApp() {
         if (surplusError) console.warn('Surplus sync warning:', surplusError);
       }
 
-      showToast(`☁️ ${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
+      showToast(`${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
       showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`);
     } finally {
       setSavingToCloud(false);
     }
+  };
+
+  // ── Missing Cards Export Helpers (Respects currently selected filters) ──
+  const getMissingCards = () => {
+    return relevantCards.filter(card => {
+      const regularQty = collection[card.id] || 0;
+      const foilQty = collection[`${card.id}_foil`] || 0;
+      return showFoilOnly ? foilQty === 0 : (regularQty === 0 && foilQty === 0);
+    });
+  };
+
+  const getActiveFilterDescription = () => {
+    const parts: string[] = [];
+    if (filters.set) parts.push(filters.set);
+    if (baseSetFilter === 'only') parts.push(lang === 'hu' ? 'Csak Alapszett' : 'Base Set Only');
+    if (showFoilOnly) parts.push(lang === 'hu' ? 'Csak Fóliás' : 'Foil Only');
+    if (filters.rarities && filters.rarities.length > 0) parts.push(filters.rarities.join(', '));
+    if (filters.type) parts.push(filters.type);
+    if (filters.domains && filters.domains.length > 0) parts.push(filters.domains.join(', '));
+    if (filters.tags && filters.tags.length > 0) parts.push(filters.tags.join(', '));
+    if (signedFilter && signedFilter !== 'all') parts.push(signedFilter === 'only' ? 'Signed' : 'Non-signed');
+    if (altArtFilter && altArtFilter !== 'all') parts.push(altArtFilter === 'only' ? 'Alt Art' : 'Standard Art');
+    if (overnumberedFilter && overnumberedFilter !== 'all') parts.push(overnumberedFilter === 'only' ? 'Overnumbered' : 'Standard Num');
+    if (spFilter && spFilter !== 'all') parts.push(spFilter === 'only' ? 'SP' : 'Non-SP');
+    if (searchQuery.trim()) parts.push(`"${searchQuery.trim()}"`);
+    return parts.length > 0 ? parts.join(' • ') : (lang === 'hu' ? 'Összes kártya' : 'All Cards');
+  };
+
+  const exportMissingCardsToText = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      return lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrők alapján!' : 'No missing cards for the selected filters!';
+    }
+
+    const bySet: Record<string, CatalogCard[]> = {};
+    missing.forEach(c => {
+      const sName = c.sets?.name || c.set_name || 'Other / Promos';
+      if (!bySet[sName]) bySet[sName] = [];
+      bySet[sName].push(c);
+    });
+
+    const filterDesc = getActiveFilterDescription();
+    const lines: string[] = [
+      `// TCG Vault - ${lang === 'hu' ? 'Hiányzó Kártyák / Keresési Lista' : 'Missing Cards / Want List'} (${missing.length} ${lang === 'hu' ? 'kártya' : 'cards'})`,
+      `// ${lang === 'hu' ? 'Szűrők' : 'Filters'}: ${filterDesc}`,
+      `// ${lang === 'hu' ? 'Exportálva' : 'Exported'}: ${new Date().toLocaleDateString()}`,
+      '',
+    ];
+
+    Object.keys(bySet).sort().forEach(setName => {
+      const items = bySet[setName];
+      lines.push(`// === ${setName} (${items.length} ${lang === 'hu' ? 'hiányzó' : 'missing'}) ===`);
+      items.sort((a, b) => {
+        const numA = a.card_number || '';
+        const numB = b.card_number || '';
+        if (numA && numB) return numA.localeCompare(numB, undefined, { numeric: true });
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      items.forEach(c => {
+        const code = c.sets?.code || c.set_code || '';
+        const num = c.card_number || '';
+        let idTag = '';
+        if (num) {
+          if (code && !num.toLowerCase().startsWith(code.toLowerCase())) {
+            idTag = ` (${code}-${num})`;
+          } else {
+            idTag = ` (${num})`;
+          }
+        }
+        const rarityTag = c.rarity ? ` - ${c.rarity}` : '';
+        lines.push(`1x ${c.name}${idTag}${rarityTag}`);
+      });
+      lines.push('');
+    });
+
+    return lines.join('\n').trim();
+  };
+
+  const exportMissingCardsToSimpleText = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      return lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrők alapján!' : 'No missing cards for the selected filters!';
+    }
+    const sorted = [...missing].sort((a, b) => {
+      const numA = a.card_number || '';
+      const numB = b.card_number || '';
+      if (numA && numB) return numA.localeCompare(numB, undefined, { numeric: true });
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    return sorted.map(c => `1x ${c.name}${c.card_number ? ` (${c.card_number})` : ''}`).join('\n');
+  };
+
+  const handleCopyMissingText = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      return;
+    }
+    const text = exportMissingCardsToText();
+    navigator.clipboard.writeText(text);
+    showToast(lang === 'hu' ? `✓ ${missing.length} hiányzó kártya a vágólapra másolva!` : `✓ Copied ${missing.length} missing cards to clipboard!`);
+    setShowExportModal(false);
+  };
+
+  const handleCopyMissingSimpleText = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      return;
+    }
+    const text = exportMissingCardsToSimpleText();
+    navigator.clipboard.writeText(text);
+    showToast(lang === 'hu' ? `✓ ${missing.length} hiányzó kártya a vágólapra másolva!` : `✓ Copied ${missing.length} missing cards to clipboard!`);
+    setShowExportModal(false);
+  };
+
+  const handleDownloadMissingTxt = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      return;
+    }
+    const text = exportMissingCardsToText();
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeSet = (filters.set || filters.game || 'all').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    link.download = `tcg_vault_missing_${safeSet}_${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(lang === 'hu' ? `✓ Letöltve: ${missing.length} hiányzó kártya (.txt)` : `✓ Downloaded ${missing.length} missing cards (.txt)`);
+    setShowExportModal(false);
+  };
+
+  const handleDownloadMissingJson = () => {
+    const missing = getMissingCards();
+    if (missing.length === 0) {
+      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      return;
+    }
+    const dataObj = {
+      title: 'TCG Vault - Missing Cards',
+      game: filters.game || 'riftbound',
+      filter: getActiveFilterDescription(),
+      exportedAt: new Date().toISOString(),
+      missingCount: missing.length,
+      cards: missing.map(c => ({
+        id: c.id,
+        name: c.name,
+        cardNumber: c.card_number,
+        rarity: c.rarity,
+        setName: c.sets?.name || c.set_name || null,
+        setCode: c.sets?.code || c.set_code || null,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeSet = (filters.set || filters.game || 'all').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    link.download = `tcg_vault_missing_${safeSet}_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(lang === 'hu' ? `✓ Letöltve: ${missing.length} hiányzó kártya (.json)` : `✓ Downloaded ${missing.length} missing cards (.json)`);
+    setShowExportModal(false);
   };
 
   const handleRestoreFromCloud = async () => {
@@ -1321,8 +1508,11 @@ export function CardListApp() {
                 </a>
 
                 <button
-                  onClick={() => setShowExportModal(true)}
-                  title="Export or copy collection"
+                  onClick={() => {
+                    setExportTab(collectionFilter === 'Missing' ? 'missing' : 'owned');
+                    setShowExportModal(true);
+                  }}
+                  title={lang === 'hu' ? 'Gyűjtemény vagy hiányzó kártyák exportálása' : 'Export collection or missing cards'}
                   className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
                   {t('export', lang)}
@@ -1471,140 +1661,313 @@ export function CardListApp() {
             style={{ touchAction: 'auto' }}
             className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-zinc-100">{t('export_collection', lang)}</h3>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-black text-zinc-100">
+                {exportTab === 'owned' ? t('export_collection', lang) : t('export_missing_cards', lang)}
+              </h3>
               <button
                 onClick={() => setShowExportModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
+                title={lang === 'hu' ? 'Bezárás' : 'Close'}
               >
-                ✕
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
-            <p className="text-xs text-zinc-400 mb-4">
-              {lang === 'hu'
-                ? `Mentsd el ${totalOwnedCopies} birtokolt kártyádat (${uniqueOwnedKeys.length} egyedi) felhőfiókodba, másolj formázott szöveges listát vagy tölts le biztonsági mentést.`
-                : `Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
-            </p>
 
-            {/* Cloud Database Save Section */}
-            <div className="mb-4 pb-4 border-b border-zinc-800">
-              {currentUser ? (
-                <button
-                  type="button"
-                  onClick={handleSaveToCloud}
-                  disabled={savingToCloud}
-                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group shadow-lg shadow-indigo-950/30"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
-                      <svg className="w-5 h-5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            {/* Modal Tabs: Owned vs Missing */}
+            <div className="flex rounded-xl p-1 bg-zinc-950 border border-zinc-800 mb-4">
+              <button
+                type="button"
+                onClick={() => setExportTab('owned')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  exportTab === 'owned'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <span>{t('tab_owned_cards', lang)}</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-700/60 text-zinc-300">
+                  {totalOwnedCopies}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportTab('missing')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  exportTab === 'missing'
+                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <span>{t('tab_missing_cards', lang)}</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-black">
+                  {getMissingCards().length}
+                </span>
+              </button>
+            </div>
+
+            {/* TAB 1: OWNED COLLECTION EXPORT */}
+            {exportTab === 'owned' && (
+              <>
+                <p className="text-xs text-zinc-400 mb-4">
+                  {lang === 'hu'
+                    ? `Mentsd el ${totalOwnedCopies} birtokolt kártyádat (${uniqueOwnedKeys.length} egyedi) felhőfiókodba, másolj formázott szöveges listát vagy tölts le biztonsági mentést.`
+                    : `Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
+                </p>
+
+                {/* Cloud Database Save Section */}
+                <div className="mb-4 pb-4 border-b border-zinc-800">
+                  {currentUser ? (
+                    <button
+                      type="button"
+                      onClick={handleSaveToCloud}
+                      disabled={savingToCloud}
+                      className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group shadow-lg shadow-indigo-950/30"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                          <svg className="w-5 h-5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                            <span>{t('save_to_cloud', lang)}</span>
+                            <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
+                          </div>
+                          <div className="text-xs text-indigo-200/70 mt-0.5">
+                            {lang === 'hu' ? `Gyűjtemény mentése (${totalOwnedCopies} kártya) a fiókod adatbázisába` : `Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2 flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span>{savingToCloud ? t('saving', lang) : t('save', lang)}</span>
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400">
+                          <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-zinc-300 truncate">
+                            {lang === 'hu' ? 'Jelentkezz be a felhőbe mentéshez' : 'Sign in to save to database'}
+                          </div>
+                          <div className="text-[11px] text-zinc-500 truncate">
+                            {lang === 'hu' ? 'Szinkronizáld és készíts biztonsági mentést a fiókodba' : 'Sync and backup your collection to your cloud account'}
+                          </div>
+                        </div>
+                      </div>
+                      <a
+                        href="/login"
+                        className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition border border-zinc-700 shrink-0"
+                      >
+                        {t('sign_in', lang)}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2.5 mb-4">
+                  {/* Option 1: Copy Detailed Text List */}
+                  <button
+                    onClick={handleCopyCollectionText}
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        {t('copy_formatted_list', lang)}
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        {lang === 'hu' ? 'Szettek szerint csoportosított lista darabszámmal és fóliás jelöléssel' : 'Grouped by set with quantities, card numbers, names, and foil tags'}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                  </button>
+
+                  {/* Option 2: Copy Simple List */}
+                  <button
+                    onClick={handleCopySimpleText}
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        {t('copy_simple_list', lang)}
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        {lang === 'hu' ? 'Tömör lista darabszámmal (pl. 3x Jinx, Demolitionist [Foil])' : 'Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])'}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                  </button>
+
+                  {/* Option 3: Download JSON Backup */}
+                  <button
+                    onClick={handleDownloadJson}
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        {t('download_json_backup', lang)}
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        {lang === 'hu' ? 'Teljes JSON mentési fájl eszközre mentéshez vagy más böngészőbe importáláshoz' : 'Full JSON backup file to save on your device or import on another browser'}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                  </button>
+
+                  {/* Option 4: Copy Raw JSON */}
+                  <button
+                    onClick={handleCopyJson}
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        {t('copy_raw_json', lang)}
+                      </div>
+                      <div className="text-xs text-zinc-400 mt-0.5">
+                        {lang === 'hu' ? 'Kártya azonosítók tömbje importáláshoz' : 'Array of card IDs for quick pasting into the Import modal'}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* TAB 2: MISSING CARDS EXPORT */}
+            {exportTab === 'missing' && (
+              <>
+                <p className="text-xs text-zinc-400 mb-3">
+                  {lang === 'hu'
+                    ? 'Exportáld az aktuálisan kiválasztott szűrőknek megfelelő hiányzó kártyák listáját cserekereséshez vagy vásárláshoz.'
+                    : 'Export the missing cards that match your currently active filters for trading or shopping want-lists.'}
+                </p>
+
+                {/* Filter Context Box */}
+                <div className="p-3.5 rounded-xl bg-amber-950/25 border border-amber-500/35 mb-4 space-y-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    <span>{lang === 'hu' ? 'Aktuális szűrőfeltételek' : 'Currently Applied Filters'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 font-semibold">
+                      {getActiveFilterDescription()}
+                    </span>
+                    <span className="text-zinc-300 font-medium">
+                      {lang === 'hu'
+                        ? `${getMissingCards().length} hiányzó kártya (${relevantTotal} lapból)`
+                        : `${getMissingCards().length} missing cards (out of ${relevantTotal})`}
+                    </span>
+                  </div>
+                </div>
+
+                {getMissingCards().length === 0 ? (
+                  <div className="py-8 px-4 text-center rounded-xl bg-emerald-950/20 border border-emerald-500/30 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-2 text-emerald-400">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
-                        <span>{t('save_to_cloud', lang)}</span>
-                        <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
-                      </div>
-                      <div className="text-xs text-indigo-200/70 mt-0.5">
-                        {lang === 'hu' ? `Gyűjtemény mentése (${totalOwnedCopies} kártya) a fiókod adatbázisába` : `Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
-                      </div>
+                    <div className="text-sm font-bold text-emerald-300">
+                      {lang === 'hu' ? 'Nincs hiányzó kártya!' : 'No missing cards!'}
+                    </div>
+                    <div className="text-xs text-zinc-400 mt-1">
+                      {lang === 'hu'
+                        ? 'A kiválasztott szűrők alapján minden kártya már szerepel a gyűjteményedben.'
+                        : 'You already own every card that matches your current filter selection.'}
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
-                    {savingToCloud ? t('saving', lang) : `${t('save', lang)} ☁️`}
-                  </span>
-                </button>
-              ) : (
-                <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400 text-sm">
-                      ☁️
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-zinc-300 truncate">
-                        {lang === 'hu' ? 'Jelentkezz be a felhőbe mentéshez' : 'Sign in to save to database'}
+                ) : (
+                  <div className="flex flex-col gap-2.5 mb-4">
+                    {/* Missing Option 1: Copy Detailed Want-List */}
+                    <button
+                      onClick={handleCopyMissingText}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          {t('copy_missing_formatted', lang)}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          {lang === 'hu'
+                            ? 'Szettek szerint csoportosított lista névvel, kártyaszámmal és ritkasággal'
+                            : 'Grouped by set with card numbers, names, and rarities'}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-zinc-500 truncate">
-                        {lang === 'hu' ? 'Szinkronizáld és készíts biztonsági mentést a fiókodba' : 'Sync and backup your collection to your cloud account'}
+                      <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
+                    </button>
+
+                    {/* Missing Option 2: Copy Simple Want-List */}
+                    <button
+                      onClick={handleCopyMissingSimpleText}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          {t('copy_missing_simple', lang)}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          {lang === 'hu'
+                            ? 'Tömör lista (pl. 1x Jinx [VEN-042]), ideális Discordra vagy keresési posztokhoz'
+                            : 'Compact list (e.g. 1x Jinx [VEN-042]), ideal for Discord or trade posts'}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <a
-                    href="/login"
-                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition border border-zinc-700 shrink-0"
-                  >
-                    {t('sign_in', lang)}
-                  </a>
-                </div>
-              )}
-            </div>
+                      <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
+                    </button>
 
-            <div className="flex flex-col gap-2.5 mb-4">
-              {/* Option 1: Copy Detailed Text List */}
-              <button
-                onClick={handleCopyCollectionText}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
-              >
-                <div>
-                  <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    {t('copy_formatted_list', lang)}
-                  </div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {lang === 'hu' ? 'Szettek szerint csoportosított lista darabszámmal és fóliás jelöléssel' : 'Grouped by set with quantities, card numbers, names, and foil tags'}
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
-              </button>
+                    {/* Missing Option 3: Download TXT File */}
+                    <button
+                      onClick={handleDownloadMissingTxt}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          {t('download_missing_txt', lang)}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          {lang === 'hu'
+                            ? 'Formázott keresési lista letöltése .txt szövegfájlként'
+                            : 'Formatted want-list file to save on your device'}
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                    </button>
 
-              {/* Option 2: Copy Simple List */}
-              <button
-                onClick={handleCopySimpleText}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
-              >
-                <div>
-                  <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    {t('copy_simple_list', lang)}
+                    {/* Missing Option 4: Download JSON File */}
+                    <button
+                      onClick={handleDownloadMissingJson}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                          {t('download_missing_json', lang)}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          {lang === 'hu'
+                            ? 'Strukturált JSON adatfájl kártya azonosítókkal és adatokkal'
+                            : 'Structured JSON data with card IDs, numbers, sets, and rarities'}
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                    </button>
                   </div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {lang === 'hu' ? 'Tömör lista darabszámmal (pl. 3x Jinx, Demolitionist [Foil])' : 'Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])'}
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
-              </button>
-
-              {/* Option 3: Download JSON Backup */}
-              <button
-                onClick={handleDownloadJson}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
-              >
-                <div>
-                  <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    {t('download_json_backup', lang)}
-                  </div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {lang === 'hu' ? 'Teljes JSON mentési fájl eszközre mentéshez vagy más böngészőbe importáláshoz' : 'Full JSON backup file to save on your device or import on another browser'}
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
-              </button>
-
-              {/* Option 4: Copy Raw JSON */}
-              <button
-                onClick={handleCopyJson}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
-              >
-                <div>
-                  <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                    {t('copy_raw_json', lang)}
-                  </div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {lang === 'hu' ? 'Kártya azonosítók tömbje importáláshoz' : 'Array of card IDs for quick pasting into the Import modal'}
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
-              </button>
-            </div>
+                )}
+              </>
+            )}
 
             <div className="flex justify-end pt-2">
               <button

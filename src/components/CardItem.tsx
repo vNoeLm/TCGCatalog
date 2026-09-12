@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
-import { getCardImageUrl } from "../lib/supabase";
+import { getCardImageUrl, supabase } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
@@ -48,11 +48,29 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
 
   const handleCardClick = () => {
     if (card.inventory_id && (card.is_marketplace_listing || card.seller_id)) {
-      fetch('/api/marketplace/track-click', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory_id: card.inventory_id, type: 'click' }),
-      }).catch(() => {});
+      const storageKey = `tcg_clicked_${card.inventory_id}`;
+      let alreadyClicked = false;
+      try {
+        alreadyClicked = Boolean(sessionStorage.getItem(storageKey));
+      } catch (e) {}
+
+      if (!alreadyClicked) {
+        try {
+          sessionStorage.setItem(storageKey, '1');
+        } catch (e) {}
+
+        supabase.auth.getSession().then(({ data }) => {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (data.session?.access_token) {
+            headers['Authorization'] = `Bearer ${data.session.access_token}`;
+          }
+          fetch('/api/marketplace/track-click', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ inventory_id: card.inventory_id, type: 'click' }),
+          }).catch(() => {});
+        }).catch(() => {});
+      }
     }
     onClick(card.inventory_id);
   };

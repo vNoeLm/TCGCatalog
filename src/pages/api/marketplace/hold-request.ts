@@ -8,7 +8,7 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-const OWNER_ID = 'd47ca466-6520-46ec-aff2-718732f1baf7';
+import { OWNER_ID } from '../../../lib/constants';
 
 export interface HoldRequestRecord {
   id: string;
@@ -128,9 +128,40 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
 // ─── GET: Fetch Hold Requests ──────────────────────────────────────────
 export const GET: APIRoute = async ({ url, request }) => {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
+
     const sellerId = url.searchParams.get('seller_id');
     const buyerId = url.searchParams.get('buyer_id');
     const inventoryId = url.searchParams.get('inventory_id');
+
+    // Only allow querying requests if the caller is the seller or the buyer (or the platform owner)
+    if (sellerId && sellerId !== user.id && user.id !== OWNER_ID) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+        status: 403,
+        headers: JSON_HEADERS,
+      });
+    }
+    if (buyerId && buyerId !== user.id && user.id !== OWNER_ID) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
+        status: 403,
+        headers: JSON_HEADERS,
+      });
+    }
 
     // Try primary table first
     const { data: dbData, error: dbErr } = await supabaseAdmin
@@ -150,12 +181,13 @@ export const GET: APIRoute = async ({ url, request }) => {
     let filtered = allRequests;
     if (sellerId) {
       filtered = filtered.filter(r => r.seller_id === sellerId);
-    }
-    if (buyerId) {
+    } else if (buyerId) {
       filtered = filtered.filter(r => r.buyer_id === buyerId);
-    }
-    if (inventoryId) {
-      filtered = filtered.filter(r => r.inventory_id === inventoryId);
+    } else if (inventoryId) {
+      filtered = filtered.filter(r => r.inventory_id === inventoryId && (r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID));
+    } else {
+      // If neither specified, only show requests where caller is seller or buyer
+      filtered = filtered.filter(r => r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID);
     }
 
     return new Response(JSON.stringify({ success: true, data: filtered }), {
@@ -212,29 +244,69 @@ export const POST: APIRoute = async ({ request }) => {
     // Verify inventory item is available (not already Sold or On Hold)
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
-      .select('id, status, quantity')
+      .select('id, status, quantity, notes')
       .eq('id', inventory_id)
       .maybeSingle();
 
-    if (invRow) {
-      if (invRow.status === 'Sold' || (invRow.quantity && invRow.quantity <= 0)) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Ez a lap már eladásra került!',
-        }), {
-          status: 400,
-          headers: JSON_HEADERS,
-        });
-      }
-      if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Ez a lap jelenleg jegelve van egy másik vevő számára!',
-        }), {
-          status: 400,
-          headers: JSON_HEADERS,
-        });
-      }
+    if (!invRow) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'A kártya tétel nem található a rendszerben!',
+      }), {
+        status: 404,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    if (invRow.status === 'Sold' || (invRow.quantity && invRow.quantity <= 0)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Ez a lap már eladásra került!',
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Ez a lap jelenleg jegelve van egy másik vevő számára!',
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // Extract genuine verified seller_id from the database record rather than trusting client body
+    let verifiedSellerId = seller_id;
+    if (invRow.notes) {
+      try {
+        const parsedNotes = typeof invRow.notes === 'string' && invRow.notes.startsWith('{')
+          ? JSON.parse(invRow.notes)
+          : null;
+        if (parsedNotes?.seller_id) {
+          verifiedSellerId = parsedNotes.seller_id;
+        }
+      } catch (e) {}
+    }
+
+    // ── CRUCIAL: Atomic check-and-lock to prevent race conditions (double hold) ──
+    const { data: lockedRows, error: lockErr } = await supabaseAdmin
+      .from('inventory')
+      .update({ status: 'Reserved' })
+      .eq('id', inventory_id)
+      .in('status', ['In Stock', 'Available'])
+      .select('id');
+
+    if (lockErr || !lockedRows || lockedRows.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'A lapot épp az imént jegelte vagy vásárolta meg egy másik felhasználó!',
+      }), {
+        status: 409,
+        headers: JSON_HEADERS,
+      });
     }
 
     // Get optional authenticated user token
@@ -251,7 +323,7 @@ export const POST: APIRoute = async ({ request }) => {
     const newRecord: HoldRequestRecord = {
       id: crypto.randomUUID(),
       inventory_id,
-      seller_id,
+      seller_id: verifiedSellerId,
       buyer_id: buyerId,
       buyer_name: buyer_name.trim(),
       buyer_email: buyer_email.trim(),
@@ -283,12 +355,6 @@ export const POST: APIRoute = async ({ request }) => {
       currentList.unshift(newRecord);
       await saveFallbackHoldRequests(currentList);
     }
-
-    // ── CRUCIAL: Immediately put the inventory item on hold in the database so all users see it & it persists across page reload! ──
-    await supabaseAdmin
-      .from('inventory')
-      .update({ status: 'Reserved' })
-      .eq('id', inventory_id);
 
     return new Response(JSON.stringify({
       success: true,
@@ -328,14 +394,15 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.id || !body.action) {
+    const id = body?.id || body?.request_id;
+    if (!body || !id || !body.action) {
       return new Response(JSON.stringify({ success: false, error: 'Missing id or action.' }), {
         status: 400,
         headers: JSON_HEADERS,
       });
     }
 
-    const { id, action, rejection_reason } = body;
+    const { action, rejection_reason } = body;
     // Actions:
     // 'hold': Seller accepts hold -> inventory.status = 'On Hold', request.status = 'held'
     // 'release': Seller releases hold -> inventory.status = 'In Stock', request.status = 'cancelled'
