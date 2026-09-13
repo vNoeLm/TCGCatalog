@@ -614,7 +614,7 @@ export function OrdersPanel({
                         className="text-[11px] font-bold px-2.5 py-1 rounded-lg border uppercase tracking-wider"
                         style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                       >
-                        Payment: {ord.payment_method || 'Stripe'}
+                        Payment: {ord.payment_method === 'stripe' ? 'Stripe' : ord.payment_method === 'barion' ? 'Barion' : ord.payment_method === 'cash_or_transfer' ? 'Cash / Direct Transfer' : ord.payment_method || 'Unknown'}
                       </span>
                     </div>
 

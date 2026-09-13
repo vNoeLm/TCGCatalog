@@ -135,6 +135,18 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     ratingAvg = Math.round((sum / ratingCount) * 10) / 10;
   }
 
+  // Number of distinct completed sales (not total cards sold) — this is what gates seller tier.
+  let salesCount = 0;
+  try {
+    const res = await fetch(`/api/marketplace/listings?seller_id=${targetId}&limit=1`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0 && typeof json.data[0].seller_sales_count === 'number') {
+        salesCount = json.data[0].seller_sales_count;
+      }
+    }
+  } catch (e) {}
+
   return {
     id: targetId,
     display_name: targetDisplayName,
@@ -142,6 +154,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     role: targetRole,
     rating_avg: ratingAvg,
     rating_count: ratingCount,
+    sales_count: salesCount,
     is_owner: isOwner,
   };
 }

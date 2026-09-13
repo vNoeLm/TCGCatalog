@@ -178,7 +178,12 @@ export const GET: APIRoute = async ({ url }) => {
       .eq('key', 'store_orders')
       .maybeSingle();
 
-    const salesCountMap = new Map<string, number>();
+    // Two distinct stats, deliberately kept separate: `distinctSalesMap` counts completed
+    // transactions (orders) per seller — this is what should gate seller tier, so a single
+    // buyer purchasing 100 cards in one order doesn't vault a seller to the top tier.
+    // `itemsSoldMap` counts total units moved, purely informational ("Cards Sold").
+    const distinctSalesMap = new Map<string, number>();
+    const itemsSoldMap = new Map<string, number>();
     if (storeOrdersRow?.value) {
       try {
         const allOrders = JSON.parse(storeOrdersRow.value);
@@ -186,11 +191,11 @@ export const GET: APIRoute = async ({ url }) => {
           allOrders.forEach((ord: any) => {
             if (ord.status !== 'Cancelled') {
               const sId = ord.seller_id || OWNER_ID;
-              const current = salesCountMap.get(sId) || 0;
+              distinctSalesMap.set(sId, (distinctSalesMap.get(sId) || 0) + 1);
               const itemCount = Array.isArray(ord.items)
                 ? ord.items.reduce((s: number, it: any) => s + (it.quantity || 1), 0)
                 : 1;
-              salesCountMap.set(sId, current + itemCount);
+              itemsSoldMap.set(sId, (itemsSoldMap.get(sId) || 0) + itemCount);
             }
           });
         }
@@ -209,9 +214,10 @@ export const GET: APIRoute = async ({ url }) => {
       const ratingInfo = ratingsMap.get(sId);
       const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : null;
       const reviewCount = ratingInfo ? ratingInfo.count : 0;
-      const itemsSold = salesCountMap.get(sId) || 0;
+      const salesCount = distinctSalesMap.get(sId) || 0;
+      const itemsSold = itemsSoldMap.get(sId) || 0;
       const isOwner = sId === OWNER_ID || prof?.role === 'owner';
-      const sellerTier = getSellerTier(itemsSold, avgRating, isOwner);
+      const sellerTier = getSellerTier(salesCount, avgRating, isOwner);
 
       let views = 0;
       let clicks = 0;
@@ -249,6 +255,7 @@ export const GET: APIRoute = async ({ url }) => {
         seller_badge_hu: sellerTier.nameHu,
         seller_badge_icon: sellerTier.icon,
         seller_tier: sellerTier.tier,
+        seller_sales_count: salesCount,
         seller_items_sold: itemsSold,
         card_id: cardObj.id,
         card_number: cardObj.card_number,
