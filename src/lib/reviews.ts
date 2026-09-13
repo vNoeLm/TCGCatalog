@@ -102,6 +102,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
   let targetAvatar: string | null = null;
   let targetRole: UserRole = 'user';
   let isOwner = false;
+  let targetCreatedAt: string | null = null;
 
   if (!targetId) {
     const owner = await getStoreOwnerProfile();
@@ -115,7 +116,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, role')
+        .select('id, display_name, avatar_url, role, created_at')
         .eq('id', targetId)
         .maybeSingle();
 
@@ -124,6 +125,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
         targetAvatar = data.avatar_url;
         targetRole = data.role as UserRole;
         isOwner = data.role === 'owner';
+        targetCreatedAt = (data as any).created_at || null;
       }
     } catch (e) {}
   }
@@ -158,6 +160,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     rating_count: ratingCount,
     sales_count: salesCount,
     is_owner: isOwner,
+    created_at: targetCreatedAt,
   };
 }
 

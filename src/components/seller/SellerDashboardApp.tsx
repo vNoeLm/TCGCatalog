@@ -6,7 +6,7 @@ import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { AuthModal } from '../auth/AuthModal';
-import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
 
@@ -574,6 +574,7 @@ export function SellerDashboardApp() {
                 <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
                   {profile.display_name || 'Seller'}
                 </h1>
+                {isOwner && <SiteOwnerTag />}
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1"
                   style={sellerTier.badgeStyle}
@@ -671,16 +672,14 @@ export function SellerDashboardApp() {
                 </span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {sellerTier.isOwner
-                  ? ('Official store owner and platform founder.')
-                  : completedSalesCount >= 1
-                  ? (`Verified community seller with ${completedSalesCount} completed sales.`)
-                  : ('Complete at least 1 sale to unlock the "Verified Seller" badge!')}
+                {completedSalesCount >= 1
+                  ? `Verified community seller with ${completedSalesCount} completed sales.`
+                  : 'Complete at least 1 sale to unlock the "Verified Seller" badge!'}
               </p>
             </div>
 
             {/* Sales Progress Bar */}
-            {!sellerTier.isOwner && (
+            {sellerTier.nextTierSales > completedSalesCount && (
               <div className="mt-4">
                 <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
                   <span style={{ color: 'var(--text-secondary)' }}>
@@ -1449,7 +1448,13 @@ export function SellerDashboardApp() {
                           Buyer Contact
                         </div>
                         <div className="text-xs font-bold text-zinc-200">
-                          {req.buyer_name}
+                          {req.buyer_id ? (
+                            <a href={`/user?id=${req.buyer_id}`} className="hover:underline">
+                              {req.buyer_name}
+                            </a>
+                          ) : (
+                            req.buyer_name
+                          )}
                         </div>
                         <div className="text-xs text-zinc-400 flex items-center gap-2 flex-wrap">
                           <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
@@ -1700,9 +1705,19 @@ export function SellerDashboardApp() {
                           </svg>
                         ))}
                       </div>
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {rev.buyer_name || 'Verified Buyer'}
-                      </span>
+                      {rev.buyer_id ? (
+                        <a
+                          href={`/user?id=${rev.buyer_id}`}
+                          className="text-xs font-bold hover:underline"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {rev.buyer_name || 'Verified Buyer'}
+                        </a>
+                      ) : (
+                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {rev.buyer_name || 'Verified Buyer'}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-mono text-zinc-500">
                       {new Date(rev.created_at).toLocaleDateString('en-US')}

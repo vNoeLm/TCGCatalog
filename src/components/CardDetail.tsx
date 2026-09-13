@@ -4,7 +4,7 @@ import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache, getDisp
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
-import { getSellerTier, BadgeIconSvg } from '../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../lib/badges';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
@@ -1133,21 +1133,35 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                      {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
-                    </span>
+                    {data?.seller_id ? (
+                      <a
+                        href={`/user?id=${data.seller_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-sm font-black truncate hover:underline"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
+                      </a>
+                    ) : (
+                      <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                        {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
+                      </span>
+                    )}
                     {(() => {
                       const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
                       const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner);
                       return (
-                        <span
-                          className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
-                          style={tier.badgeStyle}
-                          title={tier.nameEn}
-                        >
-                          <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                          <span>{tier.nameEn}</span>
-                        </span>
+                        <>
+                          {isOwner && <SiteOwnerTag />}
+                          <span
+                            className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
+                            style={tier.badgeStyle}
+                            title={tier.nameEn}
+                          >
+                            <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
+                            <span>{tier.nameEn}</span>
+                          </span>
+                        </>
                       );
                     })()}
                   </div>

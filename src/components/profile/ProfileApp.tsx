@@ -7,7 +7,7 @@ import type { UserProfile, Order, SellerReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
 import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
-import { getCollectorTier, getSellerTier, BadgeIconSvg } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -35,13 +35,12 @@ export function ProfileApp() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('All');
   const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [cancellingOrderNumber, setCancellingOrderNumber] = useState<string | null>(null);
-  // Per-order expand state: Cancelled/Delivered start collapsed
+  // Per-order expand state. Finished orders (Delivered/Cancelled) start collapsed —
+  // only orders still in flight are worth showing open by default.
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
 
   const isOrderExpanded = (order: Order): boolean => {
     if (order.order_number in expandedOrders) return expandedOrders[order.order_number];
-    // Keep Delivered orders expanded if they haven't been reviewed yet
-    if (order.status === 'Delivered' && !reviewsByOrder[order.order_number]) return true;
     return order.status !== 'Cancelled' && order.status !== 'Delivered';
   };
   const toggleOrderExpand = (order: Order) => {
@@ -746,6 +745,8 @@ export function ProfileApp() {
                 </span>
               )}
 
+              {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5" />}
+
               {/* Upgraded Seller Badge */}
               <a
                 href="/seller"
@@ -1077,6 +1078,46 @@ export function ProfileApp() {
                       </div>
                     )}
 
+                    {/* Order details */}
+                    {(() => {
+                      const totalUnits = (order.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
+                      const rows: { label: string; value: React.ReactNode }[] = [
+                        { label: 'Placed', value: new Date(order.created_at).toLocaleString() },
+                      ];
+                      if (order.updated_at && order.updated_at !== order.created_at) {
+                        rows.push({ label: 'Last updated', value: new Date(order.updated_at).toLocaleString() });
+                      }
+                      rows.push({ label: 'Items', value: `${totalUnits} card${totalUnits === 1 ? '' : 's'}` });
+                      if (order.shipping_method) rows.push({ label: 'Handover', value: order.shipping_method });
+                      if (order.shipping_name) rows.push({ label: 'Recipient', value: order.shipping_name });
+                      if (order.shipping_address) rows.push({ label: 'Address / pickup', value: order.shipping_address });
+                      if (order.courier_name) rows.push({ label: 'Courier', value: order.courier_name });
+                      if (order.customer_info?.email) rows.push({ label: 'Contact email', value: order.customer_info.email });
+                      if (order.customer_info?.phone) rows.push({ label: 'Contact phone', value: order.customer_info.phone });
+                      if (order.invoice_number) rows.push({ label: 'Invoice', value: order.invoice_number });
+                      if (order.cancelled_at) rows.push({ label: 'Cancelled', value: new Date(order.cancelled_at).toLocaleString() });
+                      if (order.cancellation_reason) rows.push({ label: 'Reason', value: order.cancellation_reason });
+                      if (order.notes) rows.push({ label: 'Notes', value: order.notes });
+
+                      return (
+                        <div
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 p-3.5 rounded-xl border mb-3.5 text-xs"
+                          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                        >
+                          {rows.map((row) => (
+                            <div key={row.label} className="flex items-start justify-between gap-3">
+                              <span className="shrink-0 font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                                {row.label}
+                              </span>
+                              <span className="text-right break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
+                                {row.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
                     {/* Items List */}
                     <div className="flex flex-col gap-2.5">
                       {(order.items || []).map((item, idx) => (
@@ -1110,7 +1151,7 @@ export function ProfileApp() {
                               {item.card_name}
                             </div>
                             <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {item.condition} {item.is_foil ? '• Foil' : ''} {item.set_name ? `• ${item.set_name}` : ''}
+                              {item.card_number ? `${item.card_number} • ` : ''}{item.condition} {item.is_foil ? '• Foil' : ''} {item.set_name ? `• ${item.set_name}` : ''}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">

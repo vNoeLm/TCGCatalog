@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAllReviews } from '../../lib/reviews';
 import type { SellerReview, SellerProfileSummary } from '../../types';
-import { getSellerTier, BadgeIconSvg } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 
 interface SellerReviewsModalProps {
   isOpen: boolean;
@@ -88,21 +88,34 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h2 className="text-lg font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                {sellerSummary?.display_name || 'Seller Reviews'}
-              </h2>
+              {sellerSummary?.id ? (
+                <a
+                  href={`/user?id=${sellerSummary.id}`}
+                  className="text-lg font-black truncate hover:underline"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {sellerSummary.display_name || 'Seller Reviews'}
+                </a>
+              ) : (
+                <h2 className="text-lg font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                  {sellerSummary?.display_name || 'Seller Reviews'}
+                </h2>
+              )}
               {sellerSummary && (() => {
                 const isOwner = Boolean(sellerSummary.is_owner || sellerSummary.role === 'owner');
                 const tier = getSellerTier(sellerSummary.sales_count, sellerSummary.rating_avg, isOwner);
                 return (
-                  <span
-                    className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
-                    style={tier.badgeStyle}
-                    title={tier.nameEn}
-                  >
-                    <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                    <span>{tier.nameEn}</span>
-                  </span>
+                  <>
+                    {isOwner && <SiteOwnerTag />}
+                    <span
+                      className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
+                      style={tier.badgeStyle}
+                      title={tier.nameEn}
+                    >
+                      <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
+                      <span>{tier.nameEn}</span>
+                    </span>
+                  </>
                 );
               })()}
             </div>
