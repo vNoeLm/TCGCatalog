@@ -104,6 +104,8 @@ export interface FilterState {
   spFilter?: 'all' | 'only' | 'none';
   baseSetFilter?: 'all' | 'only';
   eddiableFilter?: 'all' | 'sellable' | 'non_sellable';
+  /** Restrict results to one seller's listings, e.g. from their public profile. */
+  sellerId?: string;
   page?: number;
   pageSize?: number;
   sort?: string;

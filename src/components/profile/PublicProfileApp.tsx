@@ -4,9 +4,6 @@ import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews'
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import type { SellerProfileSummary, SellerReview } from '../../types';
 
-const fmtHuf = (n: number) =>
-  new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
-
 export function PublicProfileApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SellerProfileSummary | null>(null);
@@ -122,34 +119,50 @@ export function PublicProfileApp() {
               </span>
             </div>
 
-            <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-              {summary.rating_count > 0 && summary.rating_avg !== null ? (
-                <span className="flex items-center gap-1 text-amber-400 font-bold">
-                  <span>★</span>
-                  <span>{summary.rating_avg.toFixed(1)}</span>
-                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                    ({summary.rating_count} {summary.rating_count === 1 ? 'review' : 'reviews'})
-                  </span>
-                </span>
-              ) : (
-                <span style={{ color: 'var(--text-tertiary)' }}>No ratings yet</span>
-              )}
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span className="text-emerald-400 font-semibold">{summary.sales_count || 0} sales made</span>
+            <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                {summary.rating_count > 0 && summary.rating_avg !== null ? (
+                  <>
+                    <span className="text-amber-400">★</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{summary.rating_avg.toFixed(1)}</span>
+                    <span>({summary.rating_count})</span>
+                  </>
+                ) : (
+                  'No ratings yet'
+                )}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-emerald-300"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+              >
+                {summary.sales_count || 0} sales made
+              </span>
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-indigo-300"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+              >
+                {listings.length} listed now
+              </span>
               {memberSince && (
-                <>
-                  <span style={{ color: 'var(--text-muted)' }}>•</span>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Member since {memberSince}</span>
-                </>
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
+                >
+                  Member since {memberSince}
+                </span>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Listings */}
+      {/* Listings — a single entry point into the Marketplace, filtered to this seller,
+          rather than duplicating the marketplace's own card grid here. */}
       <h2 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
-        Cards for sale ({listings.length})
+        Cards for sale
       </h2>
       {listings.length === 0 ? (
         <div
@@ -161,41 +174,42 @@ export function PublicProfileApp() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-          {listings.map((l) => (
-            <a
-              key={l.inventory_id}
-              href={`/card?id=${l.inventory_id}`}
-              className="rounded-xl border overflow-hidden transition hover:-translate-y-0.5 cursor-pointer flex flex-col"
-              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-            >
-              <div className="aspect-[3/4] bg-zinc-950 flex items-center justify-center overflow-hidden">
+        <a
+          href={`/marketplace?seller_id=${userId}`}
+          className="rounded-2xl border p-4 mb-8 flex items-center gap-4 transition hover:-translate-y-0.5 cursor-pointer"
+          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex -space-x-6 shrink-0">
+            {listings.slice(0, 3).map((l, i) => (
+              <div
+                key={l.inventory_id}
+                className="w-14 h-20 rounded-lg overflow-hidden border-2 bg-zinc-950 flex items-center justify-center shrink-0"
+                style={{ borderColor: 'var(--bg-surface)', zIndex: 3 - i }}
+              >
                 {l.image_path ? (
                   <img src={getCardImageUrl(l.image_path)} alt={l.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-[10px] font-mono text-zinc-500">TCG</span>
+                  <span className="text-[9px] font-mono text-zinc-500">TCG</span>
                 )}
               </div>
-              <div className="p-2.5 flex-1 flex flex-col gap-1">
-                <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                  {l.name}
-                </div>
-                <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                  {l.card_number} • {l.condition}
-                  {l.is_foil ? ' • Foil' : ''}
-                </div>
-                <div className="flex items-center justify-between mt-auto pt-1">
-                  <span className="text-sm font-black text-emerald-400">{fmtHuf(l.price_huf || 0)}</span>
-                  {l.status !== 'In Stock' && (
-                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      On Hold
-                    </span>
-                  )}
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
+            ))}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
+              {listings.length} card{listings.length === 1 ? '' : 's'} for sale
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Browse {displayName}'s listings in the Marketplace
+            </div>
+          </div>
+          <svg
+            className="w-5 h-5 shrink-0"
+            style={{ color: 'var(--text-tertiary)' }}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </a>
       )}
 
       {/* Reviews */}
