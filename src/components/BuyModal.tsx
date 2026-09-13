@@ -12,7 +12,6 @@ import {
   verifyStockAvailability,
 } from '../lib/cart';
 import { formatCleanCardNumber } from '../lib/formatGameText';
-import { t, type Language } from '../lib/i18n';
 import { PaymentGatewaySheet } from './checkout/PaymentGatewaySheet';
 
 const fmt = (n: number) =>
@@ -27,7 +26,6 @@ interface BuyModalProps {
   // Multi-item cart mode:
   cartItems?: CartItem[];
   profile: UserProfile | null;
-  lang: Language;
   onOrderPlaced: (remainingStock?: number) => void;
 }
 
@@ -38,7 +36,7 @@ export function BuyModal({
   inventoryItem,
   cartItems,
   profile,
-  lang,
+  
   onOrderPlaced,
 }: BuyModalProps) {
   const isMultiItem = Boolean(cartItems && cartItems.length > 0);
@@ -160,24 +158,22 @@ export function BuyModal({
     setError(null);
 
     if (!shippingName.trim()) {
-      setError(lang === 'hu' ? 'Kérjük, add meg a teljes nevedet!' : 'Please enter your full name.');
+      setError('Please enter your full name.');
       return;
     }
     if (!contactEmail.trim()) {
-      setError(lang === 'hu' ? 'Kérjük, add meg az email címedet!' : 'Please enter your email address.');
+      setError('Please enter your email address.');
       return;
     }
     if (!postalCode.trim() || !city.trim() || !streetAddress.trim() || !houseNumber.trim()) {
       setError(
-        lang === 'hu'
-          ? 'Kérjük, töltsd ki a teljes szállítási címet (irányítószám, város, utca, házszám)!'
-          : 'Please complete the full shipping address (postal code, city, street, house number).'
+        'Please complete the full shipping address (postal code, city, street, house number).'
       );
       return;
     }
 
     if (!isMultiItem && quantity > maxStock) {
-      setError(t('insufficient_stock', lang));
+      setError("Selected quantity exceeds available stock.");
       return;
     }
 
@@ -206,11 +202,11 @@ export function BuyModal({
           const names = stockCheck.unavailableItems
             .map(it =>
               it.availableQty > 0
-                ? `"${it.name}" (${it.availableQty} ${t('items_count', lang)})`
-                : `"${it.name}" (${t('out_of_stock', lang as any) || 'out of stock'})`
+                ? `"${it.name}" (${it.availableQty} ${"items"})`
+                : `"${it.name}" (${"Out of Stock"})`
             )
             .join(', ');
-          setError(`${t('order_reservation_expired_error', lang)}: ${names}`);
+          setError(`${"Reservation expired and this item is no longer available in stock. Order was not placed."}: ${names}`);
           setIsSubmitting(false);
           return;
         }
@@ -241,7 +237,7 @@ export function BuyModal({
 
         if (liveAvailable < quantity) {
           setError(
-            `${t('order_reservation_expired_error', lang)}: ${card?.name || 'Item'} (${liveAvailable} ${t('items_count', lang)})`
+            `${"Reservation expired and this item is no longer available in stock. Order was not placed."}: ${card?.name || 'Item'} (${liveAvailable} ${"items"})`
           );
           setIsSubmitting(false);
           return;
@@ -310,7 +306,7 @@ export function BuyModal({
         }
 
         if (!stripeRes.ok || !stripeData.success) {
-          throw new Error(stripeData.error || (lang === 'hu' ? 'A Stripe fizetési munkamenet indítása sikertelen.' : 'Stripe payment initialization failed.'));
+          throw new Error(stripeData.error || ('Stripe payment initialization failed.'));
         }
 
         // Sandbox simulator mode (fallback only if endpoint explicitly returned simulator)
@@ -322,11 +318,11 @@ export function BuyModal({
           return;
         }
 
-        throw new Error(lang === 'hu' ? 'A fizetési munkamenet létrehozása nem sikerült.' : 'Failed to create payment session.');
+        throw new Error('Failed to create payment session.');
       }
     } catch (err: any) {
       console.error('Order submission error:', err);
-      setError(err?.message || (lang === 'hu' ? 'Hiba történt a rendelés leadásakor.' : 'Failed to place order.'));
+      setError(err?.message || ('Failed to place order.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -372,7 +368,7 @@ export function BuyModal({
             borderColor: 'var(--border)',
             color: 'var(--text-secondary)',
           }}
-          title={t('close', lang)}
+          title={"Close"}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -390,10 +386,10 @@ export function BuyModal({
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
-              {t('order_success', lang)}
+              Order Placed Successfully!
             </h3>
             <p className="text-xs sm:text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
-              {t('order_success_desc', lang)}
+              Thank you for your order! We have received your order and are preparing it.
             </p>
 
             <div
@@ -401,22 +397,22 @@ export function BuyModal({
               style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}
             >
               <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                <span className="font-semibold text-zinc-400">{t('order_number', lang)}:</span>
+                <span className="font-semibold text-zinc-400">Order Number:</span>
                 <span className="font-mono font-black text-amber-400">{completedOrder.order_number}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-zinc-400">{t('full_name', lang)}:</span>
+                <span className="text-zinc-400">Full Name:</span>
                 <span className="font-bold text-zinc-200">{completedOrder.shipping_name}</span>
               </div>
               <div className="flex justify-between items-start gap-2">
-                <span className="text-zinc-400 shrink-0">{t('shipping_address', lang)}:</span>
+                <span className="text-zinc-400 shrink-0">Shipping Address:</span>
                 <span className="font-medium text-zinc-300 text-right">{completedOrder.shipping_address}</span>
               </div>
 
               {/* Items in completed order */}
               <div className="pt-2 border-t border-white/5 space-y-1.5">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  {lang === 'hu' ? 'Megrendelt tételek:' : 'Ordered Items:'}
+                  Ordered Items:
                 </span>
                 {completedOrder.items.map((it, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs">
@@ -429,15 +425,15 @@ export function BuyModal({
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                <span className="font-black" style={{ color: 'var(--text-primary)' }}>{t('order_total', lang)}:</span>
+                <span className="font-black" style={{ color: 'var(--text-primary)' }}>Order Total:</span>
                 <span className="text-base font-black text-emerald-400 font-mono">{fmt(completedOrder.total_price_huf)}</span>
               </div>
               <div className="flex justify-between items-center text-[11px] pt-1 text-zinc-400">
-                <span>{t('payment_method', lang)}:</span>
+                <span>Payment Method:</span>
                 <span className="font-semibold text-zinc-200">
                   {completedOrder.payment_method === 'stripe'
                     ? 'Stripe (Card / Apple & Google Pay)'
-                    : (lang === 'hu' ? 'Banki átutalás / Utánvét' : 'Bank Transfer / COD')}
+                    : ('Bank Transfer / COD')}
                 </span>
               </div>
               <div className="flex justify-between items-center text-[11px] pt-1 text-zinc-400">
@@ -447,7 +443,7 @@ export function BuyModal({
                 </span>
               </div>
               <div className="flex justify-between items-center text-[11px] pt-1 text-zinc-400">
-                <span>{lang === 'hu' ? 'Fizetési állapot:' : 'Payment Status:'}</span>
+                <span>Payment Status:</span>
                 <span
                   className={`px-2 py-0.5 rounded font-bold border ${
                     completedOrder.payment_status === 'paid'
@@ -455,7 +451,7 @@ export function BuyModal({
                       : 'bg-amber-400/20 text-amber-300 border-amber-400/40'
                   }`}
                 >
-                  {completedOrder.payment_status === 'paid' ? t('payment_status_paid', lang) : t('payment_status_pending', lang)}
+                  {completedOrder.payment_status === 'paid' ? "Paid" : "Payment Pending"}
                 </span>
               </div>
             </div>
@@ -475,7 +471,7 @@ export function BuyModal({
                   <line x1="3" y1="6" x2="21" y2="6" />
                   <path d="M16 10a4 4 0 0 1-8 0" />
                 </svg>
-                <span>{t('view_in_profile', lang)}</span>
+                <span>View Order History</span>
               </a>
               <button
                 type="button"
@@ -487,7 +483,7 @@ export function BuyModal({
                   color: 'var(--text-primary)',
                 }}
               >
-                {t('continue_shopping', lang)}
+                Continue Browsing
               </button>
             </div>
           </div>
@@ -496,7 +492,7 @@ export function BuyModal({
             order={pendingPaymentOrder}
             provider={activeGatewayProvider}
             sessionId={gatewaySessionId}
-            lang={lang}
+            
             onPaymentSuccess={handleGatewaySuccess}
             onCancel={() => {
               setPendingPaymentOrder(null);
@@ -508,10 +504,10 @@ export function BuyModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <h3 className="text-lg sm:text-xl font-black mb-1" style={{ color: 'var(--text-primary)' }}>
-                {t('checkout', lang)}
+                Checkout
               </h3>
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu' ? 'Add le a megrendelést gyorsan és egyszerűen.' : 'Quick and easy order placement without online card details.'}
+                Quick and easy order placement without online card details.
               </p>
             </div>
 
@@ -532,7 +528,7 @@ export function BuyModal({
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
-                  <span>{t('reservation_checkout_notice', lang)}</span>
+                  <span>Items reserved for 15 minutes to complete your order.</span>
                 </div>
                 <span
                   className="font-mono font-black text-xs px-2 py-0.5 rounded border"
@@ -552,7 +548,7 @@ export function BuyModal({
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
-                <span>{t('reservation_afk_notice', lang)}</span>
+                <span>Reservation expired due to inactivity. Stock will be verified when placing your order.</span>
               </div>
             )}
 
@@ -563,7 +559,7 @@ export function BuyModal({
                 style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}
               >
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  {lang === 'hu' ? `Kosár tételei (${orderItemsList.length} db):` : `Cart Items (${orderItemsList.length}):`}
+                  {`Cart Items (${orderItemsList.length}):`}
                 </span>
                 {orderItemsList.map((it, idx) => (
                   <div key={idx} className="flex items-center gap-2.5 text-xs pb-2 border-b border-white/5 last:border-0 last:pb-0">
@@ -610,7 +606,7 @@ export function BuyModal({
                     </span>
                     {inventoryItem?.is_foil && (
                       <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                        {t('foil_edition', lang)}
+                        Foil
                       </span>
                     )}
                     <span className="text-xs font-mono font-bold text-emerald-400 ml-auto">
@@ -629,10 +625,10 @@ export function BuyModal({
               >
                 <div>
                   <label className="block text-xs font-bold text-zinc-300">
-                    {t('quantity', lang)}
+                    Quantity
                   </label>
                   <span className="text-[10px] text-zinc-500">
-                    {maxStock} {t('in_stock', lang)}
+                    {maxStock} In Stock
                   </span>
                 </div>
 
@@ -660,7 +656,7 @@ export function BuyModal({
                   </div>
 
                   <div className="text-right min-w-[90px]">
-                    <span className="block text-[10px] text-zinc-400 uppercase font-bold">{t('total', lang)}</span>
+                    <span className="block text-[10px] text-zinc-400 uppercase font-bold">Total</span>
                     <span className="text-base font-black text-emerald-400 font-mono">
                       {fmt(grandTotal)}
                     </span>
@@ -675,7 +671,7 @@ export function BuyModal({
                 className="flex items-center justify-between p-3 rounded-xl border"
                 style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">{t('total', lang)}:</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">Total:</span>
                 <span className="text-lg font-black text-emerald-400 font-mono">{fmt(grandTotal)}</span>
               </div>
             )}
@@ -684,14 +680,14 @@ export function BuyModal({
             <div className="space-y-3 pt-1">
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  {t('full_name', lang)} *
+                  Full Name *
                 </label>
                 <input
                   type="text"
                   required
                   value={shippingName}
                   onChange={(e) => setShippingName(e.target.value)}
-                  placeholder={t('full_name_placeholder', lang)}
+                  placeholder={"e.g. Jane Doe"}
                   disabled={isSubmitting}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                 />
@@ -700,27 +696,27 @@ export function BuyModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('contact_email', lang)} *
+                    Email Address *
                   </label>
                   <input
                     type="email"
                     required
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
-                    placeholder={t('contact_email_placeholder', lang)}
+                    placeholder={"e.g. name@example.com"}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('contact_phone', lang)}
+                    Phone Number
                   </label>
                   <input
                     type="tel"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
-                    placeholder={t('contact_phone_placeholder', lang)}
+                    placeholder={"e.g. +36 30 123 4567"}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
@@ -731,28 +727,28 @@ export function BuyModal({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('postal_code', lang)} *
+                    Postal Code *
                   </label>
                   <input
                     type="text"
                     required
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder={t('postal_code_placeholder', lang)}
+                    placeholder={"e.g. 1011"}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('city', lang)} *
+                    City *
                   </label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder={t('city_placeholder', lang)}
+                    placeholder={"e.g. Budapest"}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
@@ -763,28 +759,28 @@ export function BuyModal({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('street_address', lang)} *
+                    Street Address *
                   </label>
                   <input
                     type="text"
                     required
                     value={streetAddress}
                     onChange={(e) => setStreetAddress(e.target.value)}
-                    placeholder={t('street_address_placeholder', lang)}
+                    placeholder={"e.g. Main St."}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
                 </div>
                 <div className="sm:col-span-1">
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('house_number', lang)} *
+                    House / Apt / Door *
                   </label>
                   <input
                     type="text"
                     required
                     value={houseNumber}
                     onChange={(e) => setHouseNumber(e.target.value)}
-                    placeholder={t('house_number_placeholder', lang)}
+                    placeholder={"e.g. 12/B, Floor 2, Door 4"}
                     disabled={isSubmitting}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition"
                   />
@@ -802,20 +798,20 @@ export function BuyModal({
                     className="w-4 h-4 rounded text-amber-500 bg-zinc-900 border-zinc-700 focus:ring-0 focus:outline-none cursor-pointer"
                   />
                   <span className="text-xs text-zinc-300">
-                    {t('save_info_locally', lang)}
+                    Save shipping details for next time (stored on this device only)
                   </span>
                 </label>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  {t('order_notes', lang)}
+                  Order Notes / Special Requests
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder={t('order_notes_placeholder', lang)}
+                  placeholder={"Any special delivery instructions or requests…"}
                   disabled={isSubmitting}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-zinc-100 focus:border-amber-400 outline-none transition resize-none"
                 />
@@ -825,7 +821,7 @@ export function BuyModal({
             {/* Payment Method - Stripe Only */}
             <div className="space-y-2 pt-1">
               <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
-                {t('payment_method', lang)}
+                Payment Method
               </label>
               <div className="w-full p-3.5 rounded-xl border border-amber-400/60 bg-amber-500/10 shadow-sm shadow-amber-500/10 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
@@ -835,14 +831,14 @@ export function BuyModal({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs sm:text-sm font-bold text-zinc-100">
-                        {t('stripe_payment', lang)}
+                        {"Stripe (Card / Apple & Google Pay)"}
                       </span>
                       <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                         Instant
                       </span>
                     </div>
                     <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">
-                      {t('stripe_desc', lang)}
+                      {"Instant & encrypted: Apple Pay, Google Pay, Visa, Mastercard"}
                     </p>
                   </div>
                 </div>
@@ -873,7 +869,7 @@ export function BuyModal({
                   color: 'var(--text-secondary)',
                 }}
               >
-                {t('cancel', lang)}
+                Cancel
               </button>
 
               <button
@@ -887,7 +883,7 @@ export function BuyModal({
                 }}
               >
                 {isSubmitting ? (
-                  <span>{t('placing_order', lang)}</span>
+                  <span>Placing Order…</span>
                 ) : (
                   <>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -895,8 +891,8 @@ export function BuyModal({
                     </svg>
                     <span>
                       {paymentMethod === 'stripe'
-                        ? `${t('pay_with_stripe', lang)} (${fmt(grandTotal)})`
-                        : `${t('place_order', lang)} (${fmt(grandTotal)})`}
+                        ? `${"Pay with Stripe"} (${fmt(grandTotal)})`
+                        : `${"Confirm Order"} (${fmt(grandTotal)})`}
                     </span>
                   </>
                 )}

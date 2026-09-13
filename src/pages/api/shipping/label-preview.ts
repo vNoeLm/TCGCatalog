@@ -7,7 +7,7 @@ export const GET: APIRoute = async ({ url }) => {
   const tracking = url.searchParams.get('tracking') || 'FF-GLS-98234112';
 
   const html = `<!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Csomagcímke Minta - ${tracking}</title>

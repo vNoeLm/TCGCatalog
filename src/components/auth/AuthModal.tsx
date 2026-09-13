@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { signInWithEmail, signUpWithEmail } from '../../lib/auth';
-import { getLanguage, t, type Language } from '../../lib/i18n';
 
 interface AuthModalProps {
   initialMode?: 'signin' | 'signup';
@@ -24,19 +23,9 @@ export function AuthModal({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [lang, setLang] = useState<Language>('en');
 
   useEffect(() => {
     setMounted(true);
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +34,7 @@ export function AuthModal({
     setSuccessMsg(null);
 
     if (!email.trim() || !password.trim()) {
-      setErrorMsg(lang === 'hu' ? 'Kérjük, add meg az e-mail címedet és jelszavadat.' : 'Please provide both email and password.');
+      setErrorMsg('Please provide both email and password.');
       return;
     }
 
@@ -56,7 +45,7 @@ export function AuthModal({
         if (error) {
           setErrorMsg(error.message);
         } else {
-          setSuccessMsg(lang === 'hu' ? 'Sikeres bejelentkezés!' : 'Successfully signed in!');
+          setSuccessMsg('Successfully signed in!');
           if (onSuccess) onSuccess();
           else if (isStandalone) window.location.href = '/';
           else if (onClose) onClose();
@@ -67,17 +56,17 @@ export function AuthModal({
           setErrorMsg(error.message);
         } else {
           if (data?.session) {
-            setSuccessMsg(lang === 'hu' ? 'Fiók sikeresen létrehozva!' : 'Account created successfully!');
+            setSuccessMsg('Account created successfully!');
             if (onSuccess) onSuccess();
             else if (isStandalone) window.location.href = '/';
             else if (onClose) onClose();
           } else {
-            setSuccessMsg(lang === 'hu' ? 'Fiók létrehozva! Kérjük, ellenőrizd az e-mail fiókodat a megerősítéshez.' : 'Account created! Please check your email for confirmation link if required.');
+            setSuccessMsg('Account created! Please check your email for confirmation link if required.');
           }
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || (lang === 'hu' ? 'Váratlan hiba történt.' : 'An unexpected error occurred.'));
+      setErrorMsg(err.message || ('An unexpected error occurred.'));
     } finally {
       setLoading(false);
     }
@@ -104,12 +93,12 @@ export function AuthModal({
           </svg>
         </div>
         <h2 className="text-xl sm:text-2xl font-black text-zinc-100 mb-1">
-          {mode === 'signin' ? t('welcome_back', lang) : t('create_account', lang)}
+          {mode === 'signin' ? "Welcome Back" : "Create an Account"}
         </h2>
         <p className="text-xs sm:text-sm text-zinc-400">
           {mode === 'signin'
-            ? (lang === 'hu' ? 'Jelentkezz be a fiókod és rendelési előzményeid eléréséhez' : 'Sign in to access your order history and account')
-            : (lang === 'hu' ? 'Csatlakozz a TCG Vaulthoz a rendeléseid és paklijaid kezeléséhez' : 'Join TCG Vault to manage orders and saved decks')}
+            ? ('Sign in to access your order history and account')
+            : ('Join TCG Vault to manage orders and saved decks')}
         </p>
       </div>
 
@@ -130,7 +119,7 @@ export function AuthModal({
         {mode === 'signup' && (
           <div>
             <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
-              {t('display_name', lang)}
+              Display Name
             </label>
             <input
               type="text"
@@ -144,7 +133,7 @@ export function AuthModal({
 
         <div>
           <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
-            {t('email_address', lang)}
+            Email Address
           </label>
           <input
             type="email"
@@ -158,7 +147,7 @@ export function AuthModal({
 
         <div>
           <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
-            {t('password', lang)}
+            Password
           </label>
           <input
             type="password"
@@ -180,7 +169,7 @@ export function AuthModal({
               : 'bg-zinc-100 hover:bg-white text-zinc-950 border-zinc-200'
           }`}
         >
-          {loading ? (lang === 'hu' ? 'Kérjük, várj…' : 'Please wait…') : mode === 'signin' ? t('sign_in', lang) : t('create_account', lang)}
+          {loading ? ('Please wait…') : mode === 'signin' ? "Sign In" : "Create an Account"}
         </button>
       </form>
 
@@ -188,7 +177,7 @@ export function AuthModal({
       <div className="text-center mt-5 text-xs text-zinc-400">
         {mode === 'signin' ? (
           <>
-            {lang === 'hu' ? 'Nincs még fiókod?' : "Don't have an account?"}{' '}
+            Don't have an account?{' '}
             <button
               type="button"
               onClick={() => {
@@ -198,12 +187,12 @@ export function AuthModal({
               }}
               className="text-zinc-200 hover:text-white font-bold underline cursor-pointer ml-1"
             >
-              {t('register', lang)}
+              Register
             </button>
           </>
         ) : (
           <>
-            {lang === 'hu' ? 'Már van fiókod?' : 'Already have an account?'}{' '}
+            Already have an account?{' '}
             <button
               type="button"
               onClick={() => {
@@ -213,7 +202,7 @@ export function AuthModal({
               }}
               className="text-zinc-200 hover:text-white font-bold underline cursor-pointer ml-1"
             >
-              {t('sign_in', lang)}
+              Sign In
             </button>
           </>
         )}

@@ -7,7 +7,7 @@ export const GET: APIRoute = async ({ url }) => {
   const invNum = url.searchParams.get('inv') || 'STUB-INV-2026-0001';
 
   const html = `<!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Számla Másolat - ${invNum}</title>

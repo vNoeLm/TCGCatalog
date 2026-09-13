@@ -252,7 +252,6 @@ export const GET: APIRoute = async ({ url }) => {
         views,
         clicks,
         seller_badge: sellerTier.nameEn,
-        seller_badge_hu: sellerTier.nameHu,
         seller_badge_icon: sellerTier.icon,
         seller_tier: sellerTier.tier,
         seller_sales_count: salesCount,
@@ -358,7 +357,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (safePriceHuf > 5000 && photoList.length === 0) {
       return new Response(JSON.stringify({
         success: false,
-        error: '5 000 Ft feletti lapokhoz legalább egy állapotfotó feltöltése kötelező! (At least one condition photo is required for listings above 5,000 HUF)',
+        error: 'At least one condition photo is required for listings above 5,000 HUF.',
       }), {
         status: 400,
         headers: JSON_HEADERS,

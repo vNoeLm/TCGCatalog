@@ -79,7 +79,6 @@ export const STORAGE_KEYS = {
 /** Centralized CustomEvent name registry. */
 export const EVENTS = {
   GAME_CHANGE:          'tcg-game-change',
-  LANG_CHANGE:          'tcg-lang-change',
   CART_CHANGED:         'tcg-cart-changed',
   ORDERS_CHANGED:       'tcg-orders-changed',
   STORE_INVENTORY_CHANGE: 'tcg-store-inventory-change',

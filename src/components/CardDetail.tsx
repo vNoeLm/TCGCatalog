@@ -21,7 +21,6 @@ import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/fo
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
-import { getLanguage, t, type Language } from '../lib/i18n';
 import { HoldRequestModal } from './marketplace/HoldRequestModal';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
@@ -37,7 +36,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isInventory, setIsInventory] = useState(false);
   const [collection, setCollection] = useState<Record<string, number>>({});
-  const [lang, setLang] = useState<Language>('en');
   const [isHoldModalOpen, setIsHoldModalOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -66,14 +64,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   }, [data?.seller_id, isInventory, Boolean(data)]);
 
   useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
 
     const loadCollection = () => {
       const saved = localStorage.getItem("tcg_user_collection") || localStorage.getItem("tcg_collection");
@@ -101,7 +91,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     getCurrentProfile().then(p => setProfile(p));
 
     return () => {
-      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-collection-change', handleColChange);
     };
   }, []);
@@ -454,7 +443,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   }
 
   const messengerMsg = encodeURIComponent(
-    `Szia! Érdekel ez a lap: ${card.name} (${card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}) — ${card.rarity?.toUpperCase()} — ${fmt(data.price_huf)}`
+    `Hi! I am interested in this card: ${card.name} (${card.card_number?.includes('-') ? card.card_number : `${card.sets?.code?.toLowerCase()}-${card.card_number}`}) — ${card.rarity?.toUpperCase()} — ${fmt(data.price_huf)}`
   );
   const messengerUrl = `https://m.me/your-page?ref=${messengerMsg}`;
 
@@ -495,7 +484,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 <div className="text-6xl font-black bg-gradient-to-br from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                   {card.name.split(' ').map((w: string) => w[0]).join('').slice(0,2)}
                 </div>
-                <div className="text-xs mt-2 font-medium">{t('no_image', lang)}</div>
+                <div className="text-xs mt-2 font-medium">No image uploaded</div>
               </div>
             )}
 
@@ -537,7 +526,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               return (
                 <div className="text-center mb-2 sm:mb-2.5">
                   <p className="text-[11px] sm:text-xs font-bold uppercase tracking-widest leading-none mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                    {card.sets?.name || t('base_set', lang)} · <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{cardNumberStr}</span>
+                    {card.sets?.name || "Base Set"} · <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{cardNumberStr}</span>
                   </p>
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-none tracking-tight uppercase my-0.5" style={{ color: 'var(--text-primary)' }}>
                     {main}
@@ -552,7 +541,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             return (
               <div className="text-center mb-2 sm:mb-2.5">
                 <p className="text-[11px] sm:text-xs font-bold uppercase tracking-widest leading-none mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                  {card.sets?.name || t('base_set', lang)} · <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{cardNumberStr}</span>
+                  {card.sets?.name || "Base Set"} · <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{cardNumberStr}</span>
                 </p>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight tracking-tight uppercase my-0.5" style={{ color: 'var(--text-primary)' }}>
                   {card.name}
@@ -608,7 +597,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     }
                   >
                     <span className="font-mono text-emerald-400 font-black">€$</span>
-                    {isSellable ? (lang === 'hu' ? 'Eladható' : 'Sellable') : (lang === 'hu' ? 'Nem eladható' : 'Non-Sellable')}
+                    {isSellable ? ('Sellable') : ('Non-Sellable')}
                   </span>
                 );
               })()}
@@ -628,7 +617,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!isSigned) return null;
                 return (
                   <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
-                    {t('signed_edition', lang)}
+                    Signed Edition
                   </span>
                 );
               })()}
@@ -642,7 +631,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 return (
                   <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
-                    {t('alt_art_edition', lang)}
+                    Alt Art
                   </span>
                 );
               })()}
@@ -658,7 +647,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 return (
                   <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
-                    {t('overnumbered_edition', lang)}
+                    Overnumbered Edition
                   </span>
                 );
               })()}
@@ -671,7 +660,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                        {card.game === 'cyberpunk' ? (lang === 'hu' ? 'Szín' : 'Color') : (parsedDomains.length > 1 ? t('domains', lang) : t('domain', lang))}
+                        {card.game === 'cyberpunk' ? ('Color') : (parsedDomains.length > 1 ? "Domains" : "Domain")}
                       </div>
                       <div className="flex items-center gap-2 text-base font-black flex-wrap">
                         {parsedDomains.map((d, idx) => {
@@ -697,7 +686,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   const superIcon = isCyberpunk ? null : TYPE_ICONS[superType];
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>{t('type', lang)}</div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</div>
                       <div className="flex items-center gap-1.5 text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                         {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
                         <span className="truncate">{card.card_type}</span>
@@ -719,7 +708,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!tagArr || tagArr.length === 0) return null;
                 return (
                   <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('tags', lang)}</div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Tags</div>
                     <div className="flex gap-1.5 flex-wrap">
                       {tagArr.map((tag: string) => (
                         <span 
@@ -767,7 +756,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       <svg className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
                       </svg>
-                      {lang === 'hu' ? 'Költség' : 'Cost'}
+                      Cost
                     </div>
                     <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>
                       {costVal}
@@ -839,7 +828,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
                     >
                       <div className="text-xs font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
-                        {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${t('energy', lang)}` : `${parsedDomains[0]?.name || ''} ${t('energy', lang)}`}
+                        {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${"Energy"}` : `${parsedDomains[0]?.name || ''} ${"Energy"}`}
                       </div>
                       <div className="text-3xl sm:text-4xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {card.energy}
@@ -855,7 +844,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
                   >
                     <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                      {t('power_cost', lang)}
+                      Power Cost
                     </div>
                     <div className="flex items-center gap-2 my-auto flex-wrap justify-center">
                       {powerReq.isMixed ? (
@@ -903,7 +892,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {/* 3. Might */}
                 {hasMight && (
                   <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">{t('might', lang)}</div>
+                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">Might</div>
                     <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might}</div>
                   </div>
                 )}
@@ -923,7 +912,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     className="text-sm font-black uppercase tracking-wider pb-1.5 mb-2"
                     style={{ color: 'var(--text-accent)', borderBottom: '1px solid var(--border-subtle)' }}
                   >
-                    {t('ability', lang)}
+                    Ability
                   </div>
                   <div className="text-sm sm:text-base leading-relaxed space-y-1" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.ability) }} />
                 </div>
@@ -932,7 +921,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {card.text && (
                 <div className={card.ability ? "pt-3" : ""} style={card.ability ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
                   <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
-                    {t('flavor_text', lang)}
+                    Flavor Text
                   </div>
                   <div className="text-sm sm:text-base italic leading-relaxed" style={{ color: 'var(--text-secondary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
@@ -943,7 +932,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {card.artist && (
             <div className="mb-4">
               <p className="text-sm text-zinc-400 italic">
-                {t('artist', lang)}: {card.artist}
+                Artist: {card.artist}
               </p>
             </div>
           )}
@@ -961,7 +950,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
                     <line x1="12" y1="22.08" x2="12" y2="12"/>
                   </svg>
-                  <span>{t('my_collection_tracker', lang)}</span>
+                  <span>My Collection Tracker</span>
                 </div>
                 {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
                   <span 
@@ -974,7 +963,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   >
                     <span className="inline-flex items-center gap-1">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                      {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} {t('total_copies', lang)}
+                      {(collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)} Total Copies
                     </span>
                   </span>
                 )}
@@ -990,8 +979,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   }}
                 >
                   <div>
-                    <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{t('normal', lang)}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('normal_copy', lang)}</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Normal</div>
+                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Regular Copy</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1042,9 +1031,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                         </svg>
-                        <span>{t('foil_edition', lang)}</span>
+                        <span>Foil</span>
                       </div>
-                      <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('foil_finish', lang)}</div>
+                      <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Foil Finish</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1091,7 +1080,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               className="rounded-2xl p-4 sm:p-5 mb-4 border"
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>{t('condition', lang)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Condition</p>
               <p className="text-base sm:text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{data.condition}</p>
               {(() => {
                 const displayNotes = getDisplayConditionNotes(data.notes);
@@ -1154,10 +1143,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         <span
                           className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
                           style={tier.badgeStyle}
-                          title={lang === 'hu' ? tier.nameHu : tier.nameEn}
+                          title={tier.nameEn}
                         >
                           <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                          <span>{lang === 'hu' ? tier.nameHu : tier.nameEn}</span>
+                          <span>{tier.nameEn}</span>
                         </span>
                       );
                     })()}
@@ -1171,12 +1160,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         </div>
                         <span>•</span>
                         <span>
-                          {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? (lang === 'hu' ? 'értékelés' : 'rating') : (lang === 'hu' ? 'értékelés' : 'ratings')}
+                          {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? ('rating') : ('ratings')}
                         </span>
                       </>
                     ) : (
                       <span className="text-zinc-400 text-[11px]">
-                        {lang === 'hu' ? 'Új eladó (Még nincs értékelés)' : 'New Seller (No ratings yet)'}
+                        New Seller (No ratings yet)
                       </span>
                     )}
                   </div>
@@ -1192,7 +1181,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
             >
               <div className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>{t('price', lang)}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
                 <div className="text-3xl sm:text-4xl font-black text-emerald-400">
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </div>
@@ -1203,7 +1192,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {data.status === 'In Stock' && (
                   <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-emerald-950/40 text-emerald-300 border-emerald-500/40 inline-flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    <span>{lang === 'hu' ? 'Elérhető' : 'Available'}</span>
+                    <span>Available</span>
                   </span>
                 )}
                 {(data.status === 'On Hold' || data.status === 'Reserved') && (
@@ -1212,7 +1201,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
-                    <span>{lang === 'hu' ? 'JEGELVE (On Hold)' : 'ON HOLD'}</span>
+                    <span>ON HOLD</span>
                   </span>
                 )}
                 {data.status === 'Sold' && (
@@ -1220,7 +1209,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span>{lang === 'hu' ? 'ELADVA' : 'SOLD'}</span>
+                    <span>SOLD</span>
                   </span>
                 )}
 
@@ -1239,7 +1228,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
-                    <span>{lang === 'hu' ? 'Jegelés Kérése' : 'Request Hold'}</span>
+                    <span>Request Hold</span>
                   </button>
                 )}
 
@@ -1253,18 +1242,18 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('On Hold')}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition cursor-pointer"
-                          title={lang === 'hu' ? 'Kártya jegelése kézzel' : 'Manually put on hold'}
+                          title={'Manually put on hold'}
                         >
-                          {lang === 'hu' ? 'Jegelés' : 'Put on Hold'}
+                          Put on Hold
                         </button>
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('Sold')}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
-                          title={lang === 'hu' ? 'Eladás megerősítése' : 'Confirm sale'}
+                          title={'Confirm sale'}
                         >
-                          {lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}
+                          Confirm Sale
                         </button>
                       </>
                     )}
@@ -1275,18 +1264,18 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('In Stock')}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 transition cursor-pointer"
-                          title={lang === 'hu' ? 'Jegelés visszavonása' : 'Release hold back to available'}
+                          title={'Release hold back to available'}
                         >
-                          {lang === 'hu' ? 'Jegelés feloldása' : 'Release Hold'}
+                          Release Hold
                         </button>
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('Sold')}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
-                          title={lang === 'hu' ? 'Eladás megerősítése' : 'Confirm sale'}
+                          title={'Confirm sale'}
                         >
-                          {lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}
+                          Confirm Sale
                         </button>
                       </>
                     )}
@@ -1296,22 +1285,20 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         disabled={isUpdatingStatus}
                         onClick={() => handleSellerChangeStatus('In Stock')}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
-                        title={lang === 'hu' ? 'Újrahirdetés elérhetőként' : 'Relist as in stock'}
+                        title={'Relist as in stock'}
                       >
-                        {lang === 'hu' ? 'Újrahirdetés' : 'Relist'}
+                        Relist
                       </button>
                     )}
                   </div>
                 )}
 
-                <PriceChartingButton card={card} isFoil={data.is_foil} lang={lang} />
+                <PriceChartingButton card={card} isFoil={data.is_foil}  />
               </div>
 
               {data.status === 'On Hold' && (
                 <p className="text-xs text-amber-300/80 mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
-                  {lang === 'hu'
-                    ? 'Ez a lap jelenleg jegelve van egy vásárló számára, és átadás/fizetés alatt áll.'
-                    : 'This item is currently on hold for another buyer while handover/payment is arranged.'}
+                  This item is currently on hold for another buyer while handover/payment is arranged.
                 </p>
               )}
             </div>
@@ -1329,14 +1316,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   }
                 }}
                 className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
-                title={lang === 'hu' ? 'Hirdesd meg ezt a lapot te is a piactéren' : 'List your copy of this card for sale'}
+                title={'List your copy of this card for sale'}
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
                 </svg>
-                <span>{lang === 'hu' ? 'Eladás a Piactéren' : 'Sell on Marketplace'}</span>
+                <span>Sell on Marketplace</span>
               </button>
-              <PriceChartingButton card={card} lang={lang} />
+              <PriceChartingButton card={card}  />
             </div>
           )}
         </div>
@@ -1350,7 +1337,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           inventoryItem={data}
           handoverMethods={data?.handover_methods}
           profile={profile}
-          lang={lang}
+          
           onRequestSubmitted={() => {
             setData((prev: any) => ({
               ...prev,
@@ -1366,7 +1353,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           isOpen={isListModalOpen}
           onClose={() => setIsListModalOpen(false)}
           initialCard={card}
-          lang={lang}
+          
         />
       )}
 
@@ -1389,14 +1376,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           onClose={() => setReviewsModalSellerId(null)}
           sellerId={reviewsModalSellerId}
           sellerSummary={sellerSummary}
-          lang={lang}
+          
         />
       )}
     </div>
   );
 }
 
-function PriceChartingButton({ card, isFoil, lang }: { card: CatalogCard, isFoil?: boolean, lang?: Language }) {
+function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boolean,}) {
   const url = `https://www.cardmarket.com/en/Riftbound/Products/Search?searchString=${encodeURIComponent(card.name)}`;
   
   return (
@@ -1413,12 +1400,12 @@ function PriceChartingButton({ card, isFoil, lang }: { card: CatalogCard, isFoil
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
         <polyline points="17 6 23 6 23 12"/>
       </svg>
-      <span>{t('check_on_cardmarket', lang)}</span>
+      <span>Check on Cardmarket</span>
     </a>
   );
 }
 
-function BackLink({ onClose, lang }: { onClose?: () => void, lang?: Language }) {
+function BackLink({ onClose }: { onClose?: () => void,}) {
   if (onClose) {
     return (
       <button
@@ -1429,7 +1416,7 @@ function BackLink({ onClose, lang }: { onClose?: () => void, lang?: Language }) 
           borderColor: 'var(--border)',
           color: 'var(--text-primary)'
         }}
-        title={t('close', lang)}
+        title={"Close"}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1456,7 +1443,7 @@ function BackLink({ onClose, lang }: { onClose?: () => void, lang?: Language }) 
         color: 'var(--text-secondary)'
       }}
     >
-      ← {t('back_to_catalog', lang)}
+      ← Back to catalog
     </button>
   );
 }

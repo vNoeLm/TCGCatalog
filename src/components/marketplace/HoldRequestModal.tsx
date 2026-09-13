@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { CatalogCard, UserProfile } from '../../types';
 import { getCardImageUrl } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
-import type { Language } from '../../lib/i18n';
 
 export interface HoldRequestModalProps {
   isOpen: boolean;
@@ -10,7 +9,6 @@ export interface HoldRequestModalProps {
   card: CatalogCard;
   inventoryItem: any;
   profile: UserProfile | null;
-  lang: Language;
   handoverMethods?: string[];
   onRequestSubmitted?: () => void;
 }
@@ -21,16 +19,16 @@ export function HoldRequestModal({
   card,
   inventoryItem,
   profile,
-  lang,
+  
   handoverMethods,
   onRequestSubmitted,
 }: HoldRequestModalProps) {
   const ALL_HANDOVER_METHODS = [
-    { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Automata' : 'Locker' },
-    { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Csomagpont' : 'Pickup' },
-    { id: 'personal', label: lang === 'hu' ? 'Személyes' : 'In-person', desc: lang === 'hu' ? 'Átvétel' : 'Pickup' },
-    { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Ajánlott levél' : 'Post' },
-    { id: 'other', label: lang === 'hu' ? 'Egyéb' : 'Other', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
+    { id: 'foxpost', label: 'Foxpost', desc: 'Locker' },
+    { id: 'packeta', label: 'Packeta', desc: 'Pickup' },
+    { id: 'personal', label: 'In-person', desc: 'Pickup' },
+    { id: 'posta', label: 'Magyar Posta', desc: 'Post' },
+    { id: 'other', label: 'Other', desc: 'Custom' },
   ];
 
   const availableMethods = (handoverMethods && handoverMethods.length > 0)
@@ -77,11 +75,11 @@ export function HoldRequestModal({
     setErrorMsg(null);
 
     if (!buyerName.trim()) {
-      setErrorMsg(lang === 'hu' ? 'Kérjük add meg a nevedet!' : 'Please provide your name!');
+      setErrorMsg('Please provide your name!');
       return;
     }
     if (!buyerEmail.trim() || !buyerEmail.includes('@')) {
-      setErrorMsg(lang === 'hu' ? 'Kérjük adj meg érvényes e-mail címet!' : 'Please provide a valid email!');
+      setErrorMsg('Please provide a valid email!');
       return;
     }
 
@@ -127,9 +125,7 @@ export function HoldRequestModal({
       }
 
       setSuccessMsg(
-        lang === 'hu'
-          ? 'A jegelési kérésedet sikeresen elküldtük az eladónak! Hamarosan felveszi veled a kapcsolatot.'
-          : 'Hold request sent successfully to the seller! They will contact you shortly.'
+        'Hold request sent successfully to the seller! They will contact you shortly.'
       );
 
       if (onRequestSubmitted) {
@@ -190,12 +186,10 @@ export function HoldRequestModal({
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-black" style={{ color: 'var(--text-primary)' }}>
-              {lang === 'hu' ? 'Jegelés Kérése' : 'Request Card Hold'}
+              Request Card Hold
             </h2>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu'
-                ? 'HardverApró modell: közvetlen megállapodás és átadás az eladóval'
-                : 'P2P classifieds: arrange direct pickup or delivery with the seller'}
+              P2P classifieds: arrange direct pickup or delivery with the seller
             </p>
           </div>
         </div>
@@ -235,7 +229,7 @@ export function HoldRequestModal({
             </div>
             <div className="flex items-center justify-between mt-2 pt-1 border-t border-zinc-800">
               <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'Eladó:' : 'Seller:'} <span className="text-zinc-200">{sellerName}</span>
+                Seller: <span className="text-zinc-200">{sellerName}</span>
               </span>
               <span className="text-base font-black text-emerald-400">
                 {priceHuf ? fmt(priceHuf * quantity) : 'N/A'}
@@ -247,9 +241,9 @@ export function HoldRequestModal({
         {maxQuantity > 1 && (
           <div className="mb-5">
             <label className="block text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'hu' ? 'Mennyiség' : 'Quantity'}
+              Quantity
               <span className="ml-1.5 font-semibold normal-case text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                ({lang === 'hu' ? `${maxQuantity} elérhető` : `${maxQuantity} available`})
+                ({`${maxQuantity} available`})
               </span>
             </label>
             <div className="flex items-center gap-1.5">
@@ -319,7 +313,7 @@ export function HoldRequestModal({
           {/* Handover Preference */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'hu' ? 'Preferált átvételi mód' : 'Preferred Handover Method'}
+              Preferred Handover Method
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {availableMethods.map((m) => (
@@ -348,10 +342,10 @@ export function HoldRequestModal({
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
               {handoverMethod === 'pickup'
-                ? (lang === 'hu' ? 'Átvétel helyszíne (pl. Budapest Nyugati / Deák tér)' : 'Pickup location')
+                ? ('Pickup location')
                 : handoverMethod === 'foxpost' || handoverMethod === 'packeta'
-                ? (lang === 'hu' ? 'Csomagautomata neve vagy címe' : 'Parcel locker name/address')
-                : (lang === 'hu' ? 'Átvételi részletek' : 'Handover details')}
+                ? ('Parcel locker name/address')
+                : ('Handover details')}
             </label>
             <input
               type="text"
@@ -359,8 +353,8 @@ export function HoldRequestModal({
               onChange={(e) => setHandoverDetails(e.target.value)}
               placeholder={
                 handoverMethod === 'pickup'
-                  ? (lang === 'hu' ? 'pl. Budapest, Nyugati pályaudvar vagy Széll Kálmán tér' : 'e.g. Budapest, Downtown')
-                  : (lang === 'hu' ? 'pl. Budapest Mammut Foxpost vagy 1124 Bp. Alkotás út' : 'e.g. Foxpost locker name or address')
+                  ? ('e.g. Budapest, Downtown')
+                  : ('e.g. Foxpost locker name or address')
               }
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
             />
@@ -370,20 +364,20 @@ export function HoldRequestModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'Neved *' : 'Your Name *'}
+                Your Name *
               </label>
               <input
                 type="text"
                 required
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value)}
-                placeholder="Pl. Kovács Péter"
+                placeholder="e.g. John Smith"
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
               />
             </div>
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'E-mail címed *' : 'Your Email *'}
+                Your Email *
               </label>
               <input
                 type="email"
@@ -398,7 +392,7 @@ export function HoldRequestModal({
 
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'hu' ? 'Telefonszám (opcionális)' : 'Phone (optional)'}
+              Phone (optional)
             </label>
             <input
               type="tel"
@@ -412,13 +406,13 @@ export function HoldRequestModal({
           {/* Note / Message */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'hu' ? 'Üzenet az eladónak (opcionális)' : 'Message to Seller (optional)'}
+              Message to Seller (optional)
             </label>
             <textarea
               rows={2}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={lang === 'hu' ? 'Pl. Mikor tudnád feladni a csomagot? / Hétfőn át tudom venni.' : 'e.g. When can you dispatch? / Can pick up on Monday.'}
+              placeholder={'e.g. When can you dispatch? / Can pick up on Monday.'}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 outline-none focus:border-amber-400 transition resize-none"
             />
           </div>
@@ -430,7 +424,7 @@ export function HoldRequestModal({
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl font-bold text-xs border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 transition cursor-pointer"
             >
-              {lang === 'hu' ? 'Mégse' : 'Cancel'}
+              Cancel
             </button>
             <button
               type="submit"
@@ -445,7 +439,7 @@ export function HoldRequestModal({
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
               </svg>
-              <span>{isSubmitting ? (lang === 'hu' ? 'Küldés…' : 'Sending…') : (lang === 'hu' ? 'Jegelés Kérése' : 'Request Hold')}</span>
+              <span>{isSubmitting ? ('Sending…') : ('Request Hold')}</span>
             </button>
           </div>
         </form>

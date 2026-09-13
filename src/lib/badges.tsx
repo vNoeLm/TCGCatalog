@@ -1,5 +1,4 @@
 import React from 'react';
-import type { Language } from './i18n';
 
 export type BadgeIconType = 'sparkle' | 'crown' | 'gem' | 'award' | 'shield' | 'star' | 'verified' | 'leaf';
 
@@ -8,7 +7,6 @@ export interface CollectorTier {
   game: string;
   gameTitle: string;
   nameEn: string;
-  nameHu: string;
   icon: string;
   iconType: BadgeIconType;
   percentage: number;
@@ -25,7 +23,6 @@ export interface CollectorTier {
 export interface SellerTier {
   tier: number;
   nameEn: string;
-  nameHu: string;
   icon: string;
   iconType: BadgeIconType;
   /** Number of completed, distinct sales transactions (not total units/cards sold). */
@@ -66,7 +63,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Mythic ${gameTitle} Completionist`,
-      nameHu: `Mitikus ${gameTitle} Teljesítő (100%)`,
       icon: '★',
       iconType: 'sparkle',
       percentage,
@@ -92,7 +88,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Master ${gameTitle} Collector`,
-      nameHu: `Mester ${gameTitle} Gyűjtő`,
       icon: '★',
       iconType: 'crown',
       percentage,
@@ -118,7 +113,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Diamond ${gameTitle} Collector`,
-      nameHu: `Gyémánt ${gameTitle} Gyűjtő`,
       icon: '★',
       iconType: 'gem',
       percentage,
@@ -144,7 +138,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Gold ${gameTitle} Collector`,
-      nameHu: `Arany ${gameTitle} Gyűjtő`,
       icon: '★',
       iconType: 'award',
       percentage,
@@ -169,7 +162,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Silver ${gameTitle} Collector`,
-      nameHu: `Ezüst ${gameTitle} Gyűjtő`,
       icon: '★',
       iconType: 'shield',
       percentage,
@@ -194,7 +186,6 @@ export function getCollectorTier(
       game,
       gameTitle,
       nameEn: `Bronze ${gameTitle} Collector`,
-      nameHu: `Bronz ${gameTitle} Gyűjtő`,
       icon: '★',
       iconType: 'star',
       percentage,
@@ -218,7 +209,6 @@ export function getCollectorTier(
     game,
     gameTitle,
     nameEn: `Novice ${gameTitle} Collector`,
-    nameHu: `Kezdő ${gameTitle} Gyűjtő`,
     icon: '★',
     iconType: 'leaf',
     percentage,
@@ -257,7 +247,6 @@ export function getSellerTier(
     return {
       tier: 5,
       nameEn: 'Diamond Merchant',
-      nameHu: 'Gyémánt Kereskedő',
       icon: '★',
       iconType: 'gem',
       salesCount: sold,
@@ -281,7 +270,6 @@ export function getSellerTier(
     return {
       tier: 4,
       nameEn: 'Gold Merchant',
-      nameHu: 'Arany Kereskedő',
       icon: '★',
       iconType: 'award',
       salesCount: sold,
@@ -304,7 +292,6 @@ export function getSellerTier(
     return {
       tier: 3,
       nameEn: 'Silver Merchant',
-      nameHu: 'Ezüst Kereskedő',
       icon: '★',
       iconType: 'shield',
       salesCount: sold,
@@ -327,7 +314,6 @@ export function getSellerTier(
     return {
       tier: 2,
       nameEn: 'Bronze Merchant',
-      nameHu: 'Bronz Kereskedő',
       icon: '★',
       iconType: 'star',
       salesCount: sold,
@@ -350,7 +336,6 @@ export function getSellerTier(
     return {
       tier: 1,
       nameEn: 'Verified Seller',
-      nameHu: 'Hitelesített Eladó',
       icon: '★',
       iconType: 'verified',
       salesCount: sold,
@@ -373,7 +358,6 @@ export function getSellerTier(
   return {
     tier: 0,
     nameEn: 'New Seller',
-    nameHu: 'Új Eladó',
     icon: '★',
     iconType: 'leaf',
     salesCount: 0,
@@ -392,8 +376,8 @@ export function getSellerTier(
   };
 }
 
-export function getTierBadgeLabel(badge: CollectorTier | SellerTier, lang: Language): string {
-  return lang === 'hu' ? badge.nameHu : badge.nameEn;
+export function getTierBadgeLabel(badge: CollectorTier | SellerTier): string {
+  return badge.nameEn;
 }
 
 /**

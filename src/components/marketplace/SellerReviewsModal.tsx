@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { getAllReviews } from '../../lib/reviews';
 import type { SellerReview, SellerProfileSummary } from '../../types';
 import { getSellerTier, BadgeIconSvg } from '../../lib/badges';
-import { t, type Language } from '../../lib/i18n';
 
 interface SellerReviewsModalProps {
   isOpen: boolean;
   onClose: () => void;
   sellerId: string;
   sellerSummary: SellerProfileSummary | null;
-  lang: Language;
 }
 
-export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, lang }: SellerReviewsModalProps) {
+export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }: SellerReviewsModalProps) {
   const [reviews, setReviews] = useState<SellerReview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,10 +98,10 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, l
                   <span
                     className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
                     style={tier.badgeStyle}
-                    title={lang === 'hu' ? tier.nameHu : tier.nameEn}
+                    title={tier.nameEn}
                   >
                     <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                    <span>{lang === 'hu' ? tier.nameHu : tier.nameEn}</span>
+                    <span>{tier.nameEn}</span>
                   </span>
                 );
               })()}
@@ -117,12 +115,12 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, l
                   </div>
                   <span>•</span>
                   <span>
-                    {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? (lang === 'hu' ? 'értékelés' : 'rating') : (lang === 'hu' ? 'értékelés' : 'ratings')}
+                    {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? ('rating') : ('ratings')}
                   </span>
                 </>
               ) : (
                 <span className="text-zinc-400 text-xs">
-                  {lang === 'hu' ? 'Új eladó (Még nincs értékelés)' : 'New Seller (No ratings yet)'}
+                  New Seller (No ratings yet)
                 </span>
               )}
             </div>
@@ -133,11 +131,11 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, l
         <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2">
           {loading ? (
             <div className="text-center py-10 text-sm font-semibold" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Értékelések betöltése...' : 'Loading reviews...'}
+              Loading reviews...
             </div>
           ) : reviews.length === 0 ? (
             <div className="text-center py-10 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Ennek az eladónak még nincsenek értékelései.' : 'This seller has no reviews yet.'}
+              This seller has no reviews yet.
             </div>
           ) : (
             <div className="space-y-3">
@@ -185,7 +183,7 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, l
                     </p>
                   )}
                   <div className="text-[10px] text-right" style={{ color: 'var(--text-tertiary)' }}>
-                    {new Date(review.created_at).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', {
+                    {new Date(review.created_at).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

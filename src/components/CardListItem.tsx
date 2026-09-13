@@ -4,7 +4,6 @@ import { getCardImageUrl } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
-import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -35,19 +34,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 export function CardListItem(props: CardListItemProps) {
   const { card, onClick, gridSize = 'normal' } = props;
   const isSmall = gridSize === 'small';
-  const [lang, setLang] = useState<Language>('en');
 
-  useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
-  }, []);
 
   const normalQty = typeof props.count === 'number' ? props.count : (props.isOwned ?? props.isCollected ? 1 : 0);
   const foilQty = typeof props.foilCount === 'number' ? props.foilCount : (props.isFoilOwned ?? props.isFoilCollected ? 1 : 0);
@@ -267,10 +254,10 @@ export function CardListItem(props: CardListItemProps) {
             <button
               onClick={(e) => handleUpdateNormal(e, 1)}
               className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
-              title={lang === 'hu' ? "Normál példány hozzáadása a gyűjteményhez" : "Add normal copy to collection"}
+              title={"Add normal copy to collection"}
             >
               <span className="text-sm font-black opacity-70">+</span>
-              <span>{showFoilToggle ? (lang === 'hu' ? 'Normál' : 'Normal') : (isSmall ? (lang === 'hu' ? 'Hozzáadás' : 'Add') : (lang === 'hu' ? 'Hozzáadás' : 'Add to Vault'))}</span>
+              <span>{showFoilToggle ? ('Normal') : (isSmall ? ('Add') : ('Add to Vault'))}</span>
             </button>
           ) : (
             <div 
@@ -279,7 +266,7 @@ export function CardListItem(props: CardListItemProps) {
             >
               <button
                 onClick={(e) => handleUpdateNormal(e, -1)}
-                title={lang === 'hu' ? "Mennyiség csökkentése (-1)" : "Decrease quantity (-1)"}
+                title={"Decrease quantity (-1)"}
                 className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 −
@@ -289,7 +276,7 @@ export function CardListItem(props: CardListItemProps) {
               </span>
               <button
                 onClick={(e) => handleUpdateNormal(e, 1)}
-                title={lang === 'hu' ? "Mennyiség növelése (+1)" : "Increase quantity (+1)"}
+                title={"Increase quantity (+1)"}
                 className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 +
@@ -303,7 +290,7 @@ export function CardListItem(props: CardListItemProps) {
               <button
                 onClick={(e) => handleUpdateFoil(e, 1)}
                 className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
-                title={lang === 'hu' ? "Fóliás példány hozzáadása a gyűjteményhez" : "Add foil copy to collection"}
+                title={"Add foil copy to collection"}
               >
                 <span className="text-sm font-black opacity-70">+</span>
                 <span>Foil</span>
@@ -315,7 +302,7 @@ export function CardListItem(props: CardListItemProps) {
               >
                 <button
                   onClick={(e) => handleUpdateFoil(e, -1)}
-                  title={lang === 'hu' ? "Fóliás mennyiség csökkentése (-1)" : "Decrease foil quantity (-1)"}
+                  title={"Decrease foil quantity (-1)"}
                   className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
                 >
                   −
@@ -325,7 +312,7 @@ export function CardListItem(props: CardListItemProps) {
                 </span>
                 <button
                   onClick={(e) => handleUpdateFoil(e, 1)}
-                  title={lang === 'hu' ? "Fóliás mennyiség növelése (+1)" : "Increase foil quantity (+1)"}
+                  title={"Increase foil quantity (+1)"}
                   className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
                 >
                   +

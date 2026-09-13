@@ -4,7 +4,6 @@ import { getCardImageUrl, supabase } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
-import { getLanguage, t, type Language } from "../lib/i18n";
 
 interface CardItemProps {
   card: InventoryCard;
@@ -23,20 +22,8 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 };
 
 export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) {
-  const [lang, setLang] = useState<Language>('en');
   const isSmall = gridSize === 'small';
 
-  useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
-  }, []);
 
   const isSealed = false;
   const isCyberpunk = card.game === 'cyberpunk';
@@ -234,7 +221,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <span className="text-[11px] font-black tracking-widest text-amber-300 uppercase">
-              {lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}
+              ON HOLD
             </span>
           </div>
         )}
@@ -244,7 +231,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               <polyline points="20 6 9 17 4 12" />
             </svg>
             <span className="text-[11px] font-black tracking-widest text-rose-300 uppercase">
-              {lang === 'hu' ? 'ELADVA' : 'SOLD'}
+              SOLD
             </span>
           </div>
         )}
@@ -306,21 +293,21 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                 </svg>
-                <span>{lang === 'hu' ? 'Alapító' : 'Founder'}</span>
+                <span>Founder</span>
               </span>
             ) : card.seller_badge ? (
               <span 
                 className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
-                title={lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}
+                title={card.seller_badge}
               >
                 <span>★</span>
-                <span>{lang === 'hu' ? ((card as any).seller_badge_hu || card.seller_badge) : card.seller_badge}</span>
+                <span>{card.seller_badge}</span>
               </span>
             ) : null}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {typeof card.views === 'number' && card.views > 0 && (
-              <span className="text-[9px] text-zinc-400 flex items-center gap-0.5" title={`${card.views} ${lang === 'hu' ? 'megtekintés' : 'views'}`}>
+              <span className="text-[9px] text-zinc-400 flex items-center gap-0.5" title={`${card.views} ${'views'}`}>
                 <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
@@ -348,11 +335,11 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               color: card.status === 'In Stock' ? '#86efac' : (card.status === 'On Hold' || card.status === 'Reserved') ? '#fbbf24' : '#f87171',
             }}>
               {card.status === 'In Stock' 
-                ? `${card.quantity || 1} ${t('in_stock', lang)}` 
+                ? `${card.quantity || 1} ${"In Stock"}` 
                 : (card.status === 'On Hold' || card.status === 'Reserved')
-                ? (lang === 'hu' ? 'Jegelve' : 'On Hold')
+                ? ('On Hold')
                 : (card.status === 'Sold')
-                ? (lang === 'hu' ? 'Eladva' : 'Sold')
+                ? ('Sold')
                 : card.status}
             </span>
           </div>
@@ -367,7 +354,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             onMouseEnter={(e) => (e.currentTarget.style.background = "#3f3f46")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#27272a")}
           >
-            {lang === 'hu' ? 'Megtekintés' : 'View'}
+            View
           </button>
         </div>
       </div>

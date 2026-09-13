@@ -100,7 +100,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
         phone: req.buyer_phone || '',
         name: req.buyer_name,
       },
-      notes: `HardverApró P2P: ${req.preferred_handover} | Contact: ${req.buyer_email} ${req.buyer_phone || ''}`,
+      notes: `P2P: ${req.preferred_handover} | Contact: ${req.buyer_email} ${req.buyer_phone || ''}`,
       items: [
         {
           inventory_id: req.inventory_id,
@@ -208,7 +208,7 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
 };
 
-// ─── POST: Submit a New Hold Request ("Jegelés Kérése") ─────────────────
+// ─── POST: Submit a New Hold Request ─────────────────────────────────
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json().catch(() => null);
@@ -241,7 +241,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!inventory_id || !seller_id || !buyer_name?.trim() || !buyer_email?.trim()) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Hiányzó adatok (Kártya azonosító, eladó, név vagy email hiányzik).',
+        error: 'Missing details (card, seller, name or email).',
       }), {
         status: 400,
         headers: JSON_HEADERS,
@@ -258,7 +258,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!invRow) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'A kártya tétel nem található a rendszerben!',
+        error: 'That listing no longer exists.',
       }), {
         status: 404,
         headers: JSON_HEADERS,
@@ -268,7 +268,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (invRow.status === 'Sold' || (invRow.quantity && invRow.quantity <= 0)) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Ez a lap már eladásra került!',
+        error: 'This card has already been sold.',
       }), {
         status: 400,
         headers: JSON_HEADERS,
@@ -278,7 +278,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Ez a lap jelenleg jegelve van egy másik vevő számára!',
+        error: 'This card is currently on hold for another buyer.',
       }), {
         status: 400,
         headers: JSON_HEADERS,
@@ -322,7 +322,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (lockErr || !lockedRows || lockedRows.length === 0) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'A lapot épp az imént jegelte vagy vásárolta meg egy másik felhasználó!',
+        error: 'Another buyer just reserved or purchased this card.',
       }), {
         status: 409,
         headers: JSON_HEADERS,
@@ -380,7 +380,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({
       success: true,
       data: insertedDb || newRecord,
-      message: 'Jegelési kérés sikeresen rögzítve és elküldve!',
+      message: 'Hold request sent to the seller.',
     }), {
       status: 201,
       headers: JSON_HEADERS,

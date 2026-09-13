@@ -11,7 +11,6 @@ import { formatGameText } from '../../lib/formatGameText';
 import { CardDetail } from '../CardDetail';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
-import { getLanguage, t, type Language } from '../../lib/i18n';
 import { Modal } from '../ui/Modal';
 
 const DEFAULT_FILTERS = {
@@ -116,7 +115,6 @@ export function DeckBuilderApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
-  const [lang, setLang] = useState<Language>('en');
 
   const [activeGame, setActiveGame] = useState<'riftbound' | 'cyberpunk'>(() => {
     if (typeof window !== 'undefined') {
@@ -140,17 +138,6 @@ export function DeckBuilderApp() {
   const [pasteInput, setPasteInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
-  }, []);
 
   // Listen to game switch from top header selector
   useEffect(() => {
@@ -299,7 +286,7 @@ export function DeckBuilderApp() {
             championCard={championCard} 
             onCardClick={setPreviewCard}
             onRemoveCard={removeCardFromAnyZone}
-            lang={lang}
+            
           />
         </div>
 
@@ -314,7 +301,7 @@ export function DeckBuilderApp() {
             activeZone={activeZone}
             onAddCard={(c) => addCard(c, activeZone, cards)}
             onPreviewCard={setPreviewCard}
-            lang={lang}
+            
           />
         </div>
 
@@ -342,7 +329,7 @@ export function DeckBuilderApp() {
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
               }}>
-                {t('deck_limits', lang)}
+                Deck Limits
               </h1>
             </div>
 
@@ -351,44 +338,44 @@ export function DeckBuilderApp() {
               <ActionButton
                 onClick={() => setShowStatsModal(true)}
                 type="stats"
-                title={t('deck_statistics', lang)}
+                title={"Deck Statistics"}
               >
-                {t('statistics', lang)}
+                Statistics
               </ActionButton>
 
               <ActionButton
                 onClick={() => setShowSaveModal(true)}
                 type="save"
               >
-                {t('save', lang)}
+                Save
               </ActionButton>
 
               <ActionButton
                 onClick={() => setShowBrowserModal(true)}
                 type="browse"
               >
-                {t('browse', lang)}
+                Browse
               </ActionButton>
 
               <ActionButton
                 onClick={() => setShowImportModal(true)}
                 type="import"
               >
-                {t('import', lang)}
+                Import
               </ActionButton>
 
               <ActionButton
                 onClick={() => setShowExportModal(true)}
                 type="export"
               >
-                {t('export', lang)}
+                Export
               </ActionButton>
 
               <ActionButton
-                onClick={() => { if(confirm(lang === 'hu' ? 'Biztosan törlöd a teljes paklit?' : 'Clear entire deck?')) clearDeck(); }}
+                onClick={() => { if(confirm('Clear entire deck?')) clearDeck(); }}
                 type="clear"
               >
-                {t('clear_deck', lang)}
+                Clear Deck
               </ActionButton>
             </div>
           </div>
@@ -405,7 +392,7 @@ export function DeckBuilderApp() {
               onCardClick={setPreviewCard}
               activeZone={activeZone}
               onSetZone={setActiveZone}
-              lang={lang}
+              
             />
           </div>
         </div>
@@ -423,7 +410,7 @@ export function DeckBuilderApp() {
           legendCard={legendCard}
           championCard={championCard}
           onClose={() => setShowStatsModal(false)}
-          lang={lang}
+          
         />
       )}
 
@@ -453,12 +440,12 @@ export function DeckBuilderApp() {
         <Modal
           isOpen={showSaveModal}
           onClose={() => setShowSaveModal(false)}
-          title={t('save_deck', lang)}
+          title={"Save Deck"}
         >
-          <input autoFocus type="text" value={deckNameInput} onChange={e => setDeckNameInput(e.target.value)} placeholder={t('deck_name', lang)} style={inputStyle} />
+          <input autoFocus type="text" value={deckNameInput} onChange={e => setDeckNameInput(e.target.value)} placeholder={"Deck Name"} style={inputStyle} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-            <button onClick={() => setShowSaveModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
-            <button onClick={() => { if(deckNameInput.trim()){ saveDeck(deckNameInput.trim(), deck); setDeckNameInput(''); setShowSaveModal(false); } }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>{t('save', lang)}</button>
+            <button onClick={() => setShowSaveModal(false)} style={btnStyle()}>Cancel</button>
+            <button onClick={() => { if(deckNameInput.trim()){ saveDeck(deckNameInput.trim(), deck); setDeckNameInput(''); setShowSaveModal(false); } }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>Save</button>
           </div>
         </Modal>
       )}
@@ -467,11 +454,11 @@ export function DeckBuilderApp() {
         <Modal
           isOpen={showImportModal}
           onClose={() => setShowImportModal(false)}
-          title={t('import_deck', lang)}
+          title={"Import Deck"}
           maxWidth="max-w-xl"
         >
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-            {lang === 'hu' ? 'Tölts fel egy paklifájlt (.json vagy .txt), vagy illessz be egy JSON objektumot / szöveges paklilistát lentebb.' : 'Upload a deck file (.json or .txt) or paste a JSON object / text decklist below.'}
+            Upload a deck file (.json or .txt) or paste a JSON object / text decklist below.
           </p>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -482,14 +469,14 @@ export function DeckBuilderApp() {
                 flex: 1, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13,
               }}
             >
-              {t('choose_file', lang)}
+              Choose File...
             </button>
           </div>
 
           <textarea
             value={pasteInput}
             onChange={e => setPasteInput(e.target.value)}
-            placeholder={lang === 'hu' ? `Illeszd be a pakli JSON-t vagy szöveges listát ide...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive` : `Paste deck JSON or text list here...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive`}
+            placeholder={`Paste deck JSON or text list here...\n\nExample:\n// Legend\n1 Blind Monk\n// Champion\n1 Lee Sin, Dragon\n// Main Deck\n3 Affectionate Poro\n2 Ahri, Inquisitive`}
             style={{
               width: '100%', height: 160, padding: 12, borderRadius: 10,
               background: 'var(--bg-input)', border: '1px solid var(--border)',
@@ -499,12 +486,12 @@ export function DeckBuilderApp() {
           />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-            <button onClick={() => setShowImportModal(false)} style={btnStyle()}>{t('cancel', lang)}</button>
+            <button onClick={() => setShowImportModal(false)} style={btnStyle()}>Cancel</button>
             <button 
               onClick={() => processImportString(pasteInput)}
               style={btnStyle('#6366f1', '#fff', '#6366f1')}
             >
-              {t('import_deck', lang)}
+              Import Deck
             </button>
           </div>
         </Modal>
@@ -514,11 +501,11 @@ export function DeckBuilderApp() {
         <Modal
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
-          title={t('export_deck', lang)}
+          title={"Export Deck"}
           maxWidth="max-w-xl"
         >
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-            {lang === 'hu' ? 'Exportáld az aktuális paklidat, vagy töltsd le az összes mentett paklidat.' : 'Export your current active deck or download all saved decks.'}
+            Export your current active deck or download all saved decks.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -543,8 +530,8 @@ export function DeckBuilderApp() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>💾 {t('download_current_deck', lang)}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyetlen paklifájl kártyanevekkel és metaadatokkal' : 'Single deck file with card names and metadata'}</div>
+                <div style={{ fontWeight: 700 }}>💾 Download Current Deck (JSON)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Single deck file with card names and metadata</div>
               </div>
               <span>↓</span>
             </button>
@@ -555,7 +542,7 @@ export function DeckBuilderApp() {
                 const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
                 const textDeck = exportDeckToText(deck, cards, deckName);
                 navigator.clipboard.writeText(textDeck);
-                alert(lang === 'hu' ? 'Paklilista vágólapra másolva!' : 'Decklist copied to clipboard!');
+                alert('Decklist copied to clipboard!');
                 setShowExportModal(false);
               }}
               style={{
@@ -564,8 +551,8 @@ export function DeckBuilderApp() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>📋 {t('copy_decklist', lang)}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Egyszerű szöveges formátum Discordhoz vagy fórumokhoz' : 'Plain text format with card names for Discord or forums'}</div>
+                <div style={{ fontWeight: 700 }}>📋 Copy Decklist to Clipboard</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Plain text format with card names for Discord or forums</div>
               </div>
               <span>📋</span>
             </button>
@@ -589,15 +576,15 @@ export function DeckBuilderApp() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>{t('backup_all_decks', lang)} ({savedDecks.length})</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{lang === 'hu' ? 'Teljes biztonsági mentés kártyanevekkel és statisztikákkal' : 'Full backup with complete card names and stats'}</div>
+                <div style={{ fontWeight: 700 }}>Backup All Saved Decks ({savedDecks.length})</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Full backup with complete card names and stats</div>
               </div>
               <span>↓</span>
             </button>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-            <button onClick={() => setShowExportModal(false)} style={btnStyle()}>{t('close', lang)}</button>
+            <button onClick={() => setShowExportModal(false)} style={btnStyle()}>Close</button>
           </div>
         </Modal>
       )}
@@ -605,12 +592,12 @@ export function DeckBuilderApp() {
       <Modal
         isOpen={showBrowserModal}
         onClose={() => setShowBrowserModal(false)}
-        title={t('saved_decks', lang)}
+        title={"Saved Decks"}
         maxWidth="max-w-2xl"
       >
         <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
           {savedDecks.length === 0 && (
-            <p className="text-zinc-500 text-sm py-4 text-center">{t('no_saved_decks', lang)}</p>
+            <p className="text-zinc-500 text-sm py-4 text-center">No saved decks found.</p>
           )}
           {savedDecks.map(sd => {
             const lCard = cards.find(c => c.id === sd.deck.legend);
@@ -642,7 +629,7 @@ export function DeckBuilderApp() {
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-zinc-500 mb-1">{new Date(sd.createdAt).toLocaleDateString(lang === 'hu' ? 'hu-HU' : undefined)}</div>
+                    <div className="text-xs text-zinc-500 mb-1">{new Date(sd.createdAt).toLocaleDateString(undefined)}</div>
                     <div className="text-xs text-zinc-400 space-y-0.5">
                       {lCard && <div><span className="text-zinc-500">Legend:</span> {lCard.name}</div>}
                       {cCard && <div><span className="text-zinc-500">Champion:</span> {cCard.name}</div>}
@@ -652,17 +639,17 @@ export function DeckBuilderApp() {
                 <div className="flex gap-2 self-end sm:self-auto">
                   <button
                     type="button"
-                    onClick={() => { if(confirm(lang === 'hu' ? 'Törlöd ezt a paklit?' : 'Delete this deck?')) deleteDeck(sd.id); }}
+                    onClick={() => { if(confirm('Delete this deck?')) deleteDeck(sd.id); }}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition cursor-pointer"
                   >
-                    {t('delete', lang)}
+                    Delete
                   </button>
                   <button
                     type="button"
                     onClick={() => { loadDeck(sd.deck); setShowBrowserModal(false); }}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition cursor-pointer"
                   >
-                    {t('load_deck', lang)}
+                    Load Deck
                   </button>
                 </div>
               </div>

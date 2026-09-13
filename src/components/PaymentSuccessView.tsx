@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import type { Order } from '../types';
-import { getLanguage, t, type Language } from '../lib/i18n';
 import { clearCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
 
@@ -17,19 +16,12 @@ export function PaymentSuccessView({
   sessionId: propSessionId,
   initialOrder,
 }: PaymentSuccessViewProps = {}) {
-  const [lang, setLang] = useState<Language>('en');
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<Order | null>(initialOrder || null);
   const [orderNumber, setOrderNumber] = useState(propOrderNumber || '');
   const [gateway, setGateway] = useState(propGateway || 'stripe');
   const [sessionId, setSessionId] = useState(propSessionId || '');
 
-  useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: CustomEvent<{ lang: Language }>) => setLang(e.detail.lang);
-    window.addEventListener('tcg-lang-change', handleLangChange as EventListener);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange as EventListener);
-  }, []);
 
   useEffect(() => {
     // Clear cart on payment success
@@ -255,12 +247,10 @@ export function PaymentSuccessView({
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
-          {t('payment_successful', lang)}
+          Payment Successful
         </h1>
         <p className="text-xs sm:text-sm max-w-md mx-auto mb-6" style={{ color: 'var(--text-secondary)' }}>
-          {lang === 'hu'
-            ? 'Köszönjük a rendelésedet! A fizetés sikeresen megtörtént, a csomagod felkészítése hamarosan megkezdődik.'
-            : 'Thank you for your order! Your payment was verified and we are preparing your cards for shipment.'}
+          Thank you for your order! Your payment was verified and we are preparing your cards for shipment.
         </p>
 
         {/* Order Details Card */}
@@ -270,7 +260,7 @@ export function PaymentSuccessView({
         >
           <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {t('order_number', lang)}:
+              Order Number:
             </span>
             <span className="font-mono font-black text-amber-400 text-sm sm:text-base">
               {orderNumber || '—'}
@@ -279,7 +269,7 @@ export function PaymentSuccessView({
 
           <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {t('payment_method', lang)}:
+              Payment Method:
             </span>
             <div className="flex items-center gap-1.5">
               <span
@@ -294,7 +284,7 @@ export function PaymentSuccessView({
                 {gateway === 'stripe' ? 'Stripe (Apple/Google/Card)' : gateway === 'barion' ? 'Barion Smart Gateway' : 'Online'}
               </span>
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                {t('payment_status_paid', lang)}
+                Paid
               </span>
             </div>
           </div>
@@ -303,7 +293,7 @@ export function PaymentSuccessView({
             <>
               {order.shipping_name && (
                 <div className="flex justify-between items-center text-xs sm:text-sm">
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('full_name', lang)}:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Full Name:</span>
                   <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
                     {order.shipping_name}
                   </span>
@@ -312,7 +302,7 @@ export function PaymentSuccessView({
               {order.shipping_address && (
                 <div className="flex justify-between items-start gap-2 text-xs sm:text-sm">
                   <span className="shrink-0" style={{ color: 'var(--text-secondary)' }}>
-                    {t('shipping_address', lang)}:
+                    Shipping Address:
                   </span>
                   <span className="font-medium text-right" style={{ color: 'var(--text-primary)' }}>
                     {order.shipping_address}
@@ -321,7 +311,7 @@ export function PaymentSuccessView({
               )}
               <div className="flex justify-between items-center pt-2 border-t border-white/5">
                 <span className="text-xs uppercase font-bold" style={{ color: 'var(--text-secondary)' }}>
-                  {t('total', lang)}:
+                  Total:
                 </span>
                 <span className="font-mono font-black text-lg text-emerald-400">
                   {fmt(order.total_price_huf ?? order.total_huf ?? 0)}
@@ -342,7 +332,7 @@ export function PaymentSuccessView({
               color: '#fff',
             }}
           >
-            {lang === 'hu' ? '← Vissza a piactérre' : '← Back to Marketplace'}
+            ← Back to Marketplace
           </a>
           <a
             href="/profile"
@@ -353,7 +343,7 @@ export function PaymentSuccessView({
               color: 'var(--text-primary)',
             }}
           >
-            {lang === 'hu' ? 'Rendeléseim megtekintése' : 'View My Orders'}
+            View My Orders
           </a>
         </div>
       </div>

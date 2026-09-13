@@ -4,7 +4,6 @@ import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
-import { t, type Language } from '../../lib/i18n';
 
 interface DeckStatisticsModalProps {
   deck: DeckState;
@@ -15,7 +14,6 @@ interface DeckStatisticsModalProps {
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
   onClose: () => void;
-  lang?: Language;
 }
 
 const DOMAIN_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -49,7 +47,7 @@ export function DeckStatisticsModal({
   legendCard,
   championCard,
   onClose,
-  lang = 'en',
+  
 }: DeckStatisticsModalProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
   // 1. Gather all card entries across zones
@@ -221,10 +219,10 @@ export function DeckStatisticsModal({
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
             }}>
-              {t('deck_statistics', lang)}
+              Deck Statistics
             </h2>
             <div style={{ fontSize: 12, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
-              {isCyberpunk ? `${cyberpunkLegends.length} Legends · ` : (legendCard ? `${legendCard.name} · ` : '')}{mainCardCount} {lang === 'hu' ? 'Főpakli lap' : 'Main Deck cards'} ({totalDeckCount} {lang === 'hu' ? 'összesen' : 'total'})
+              {isCyberpunk ? `${cyberpunkLegends.length} Legends · ` : (legendCard ? `${legendCard.name} · ` : '')}{mainCardCount} Main Deck cards ({totalDeckCount} total)
             </div>
           </div>
           <button
@@ -260,7 +258,7 @@ export function DeckStatisticsModal({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-              {t('avg_cost', lang)}
+              Average Cost
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
               {avgEnergyCost}
@@ -279,7 +277,7 @@ export function DeckStatisticsModal({
           ) : (
             <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                {lang === 'hu' ? 'Átlag Erő Költség' : 'Avg Power Cost'}
+                Avg Power Cost
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
                 {avgPowerCost}
@@ -299,7 +297,7 @@ export function DeckStatisticsModal({
           ) : (
             <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                {t('rune_deck', lang)}
+                Rune Deck
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
                 {runeCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 12</span>
@@ -309,7 +307,7 @@ export function DeckStatisticsModal({
 
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-              {t('sideboard', lang)}
+              Sideboard
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#10b981' }}>
               {sbCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 8</span>
@@ -321,10 +319,10 @@ export function DeckStatisticsModal({
         <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
-              {t('cost_curve', lang)}
+              Cost Curve
             </h3>
             <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
-              {totalEnergyCards} {lang === 'hu' ? 'költséggel rendelkező lap' : 'cards with cost'}
+              {totalEnergyCards} cards with cost
             </span>
           </div>
 
@@ -434,10 +432,10 @@ export function DeckStatisticsModal({
           <div style={{ background: '#0e1c36', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#f59e0b' }}>
-                {t('power_cost', lang)} ({lang === 'hu' ? 'Rúna Igények' : 'Rune Demands'})
+                Power Cost (Rune Demands)
               </h3>
               <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
-                {totalPowerCards} {lang === 'hu' ? 'erő költséggel rendelkező lap' : 'cards with power cost'}
+                {totalPowerCards} cards with power cost
               </span>
             </div>
 
@@ -477,7 +475,7 @@ export function DeckStatisticsModal({
             {Object.keys(domainDemand).length > 0 && (
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(245, 158, 11, 0.15)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase' }}>
-                  {lang === 'hu' ? 'Domén Rúna Igény Megoszlása' : 'Domain Rune Requirements'}
+                  Domain Rune Requirements
                 </div>
                 {Object.entries(domainDemand)
                   .sort((a, b) => b[1].total - a[1].total)
@@ -528,11 +526,11 @@ export function DeckStatisticsModal({
           {/* Card Types */}
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
-              {t('type_breakdown', lang)}
+              Card Types
             </h3>
 
             {Object.keys(typeCounts).length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('empty', lang)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Empty</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {Object.entries(typeCounts)
@@ -562,7 +560,7 @@ export function DeckStatisticsModal({
           {/* Rarity Breakdown */}
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
-              {t('rarity_breakdown', lang)}
+              Rarities
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -613,7 +611,7 @@ export function DeckStatisticsModal({
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            {t('close', lang)}
+            Close
           </button>
         </div>
       </div>
