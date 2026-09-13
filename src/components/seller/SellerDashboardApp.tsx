@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getCurrentProfile } from '../../lib/auth';
+import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
 import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
+import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
-import type { UserProfile, Order, SellerReview } from '../../types';
+import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
 
 export function SellerDashboardApp() {
   const { theme: effectiveTheme } = useSiteTheme();
@@ -43,7 +44,12 @@ export function SellerDashboardApp() {
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
-  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'quicksale'>('listings');
+
+  // Quick Sale Rules State
+  const [quickSaleRules, setQuickSaleRules] = useState<QuickSaleRule[]>([]);
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
 
   // Hold Requests State (HardverApró Classifieds Model)
   const [holdRequests, setHoldRequests] = useState<any[]>([]);
@@ -223,6 +229,13 @@ export function SellerDashboardApp() {
         loadSellerSales(p.id);
         loadSellerReviews(p.id);
         loadHoldRequests(p.id);
+        
+        // Load Quick Sale rules
+        getCurrentUser().then(u => {
+          if (u?.user_metadata?.quick_sale_settings) {
+            setQuickSaleRules(u.user_metadata.quick_sale_settings);
+          }
+        });
       }
     });
 
@@ -242,6 +255,24 @@ export function SellerDashboardApp() {
       window.removeEventListener('tcg-collection-change', loadCollectionStats);
     };
   }, []);
+
+  const saveQuickSaleRules = async (rules: QuickSaleRule[]) => {
+    setSavingRules(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { quick_sale_settings: rules }
+      });
+      if (!error && data.user) {
+        setQuickSaleRules(rules);
+      } else {
+        console.error('Failed to save rules:', error);
+      }
+    } catch (e) {
+      console.error('Exception saving rules:', e);
+    } finally {
+      setSavingRules(false);
+    }
+  };
 
   // Actions: Unlist & Edit
   const handleUnlistCard = async (listingId: string) => {
@@ -914,6 +945,21 @@ export function SellerDashboardApp() {
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
           <span>{lang === 'hu' ? 'Vásárlói értékelések' : 'Reviews'} ({sellerReviews.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('quicksale')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
+            activeTab === 'quicksale'
+              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
+              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          <span>{lang === 'hu' ? 'Gyors eladás beállítások' : 'Quick Sale Rules'}</span>
         </button>
       </div>
 
@@ -1720,6 +1766,16 @@ export function SellerDashboardApp() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── TAB: QUICK SALE RULES ──────────────────────────────────── */}
+      {activeTab === 'quicksale' && (
+        <QuickSaleSettingsPanel
+          rules={quickSaleRules}
+          onSave={saveQuickSaleRules}
+          saving={savingRules}
+          lang={lang}
+        />
       )}
 
       {/* List Card Modal */}

@@ -3,6 +3,7 @@ import type { CatalogCard, FilterState, UserProfile } from "../types";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CardDetail } from "./CardDetail";
+import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
@@ -104,6 +105,7 @@ export function CardListApp() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
@@ -141,15 +143,16 @@ export function CardListApp() {
 
   // Lock background scroll when any modal or mobile drawer is open
   useEffect(() => {
-    const isModalOpen = showExportModal || showImportModal || showMobileFilters || Boolean(selectedCardId);
+    const isModalOpen = showExportModal || showQuickSalePreview || showImportModal || showMobileFilters || Boolean(selectedCardId);
     if (isModalOpen) {
-      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
+    } else {
+      document.body.style.overflow = 'unset';
     }
-  }, [showExportModal, showImportModal, showMobileFilters, selectedCardId]);
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showExportModal, showQuickSalePreview, showImportModal, showMobileFilters, selectedCardId]);
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
@@ -1466,6 +1469,18 @@ export function CardListApp() {
                   {t('deck_builder', lang)}
                 </a>
 
+                {/* Quick Sale Button */}
+                <button
+                  onClick={() => setShowQuickSalePreview(true)}
+                  title={lang === 'hu' ? 'Gyors eladás a szabályaid alapján' : 'Quick Sale based on your rules'}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
+                  {lang === 'hu' ? 'Gyors eladás' : 'Quick Sale'}
+                </button>
+
                 <button
                   onClick={() => {
                     setExportTab(collectionFilter === 'Missing' ? 'missing' : 'owned');
@@ -1941,6 +1956,17 @@ export function CardListApp() {
       )}
 
       {/* Import Modal */}
+      {/* Quick Sale Preview Modal */}
+      {showQuickSalePreview && (
+        <QuickSalePreviewModal
+          isOpen={showQuickSalePreview}
+          onClose={() => setShowQuickSalePreview(false)}
+          ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
+          allCards={allCards}
+          lang={lang}
+        />
+      )}
+
       {showImportModal && (
         <div 
           onClick={() => setShowImportModal(false)}

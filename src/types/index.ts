@@ -222,3 +222,15 @@ export interface SellerProfileSummary {
   sales_count?: number;
   is_owner?: boolean;
 }
+
+export interface QuickSaleRule {
+  id: string;
+  type: 'rarity' | 'specific_card';
+  targetValue: string; // rarity string or card ID
+  targetCardName?: string; // Optional name for display if specific_card
+  minCopiesToKeep: number;
+  basePriceHuf: number;
+  handoverMethods: string[];
+  condition: string;
+  enabled: boolean;
+}
