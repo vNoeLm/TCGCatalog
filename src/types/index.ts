@@ -225,11 +225,12 @@ export interface SellerProfileSummary {
 
 export interface QuickSaleRule {
   id: string;
+  game: string; // The game this rule applies to
   type: 'rarity' | 'specific_card';
   targetValue: string; // rarity string or card ID
   targetCardName?: string; // Optional name for display if specific_card
   minCopiesToKeep: number;
-  basePriceHuf: number;
+  basePriceHuf: number | ''; // Allow empty for typing
   handoverMethods: string[];
   condition: string;
   enabled: boolean;

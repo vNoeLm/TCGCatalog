@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from('inventory')
       .insert(inventoryRecords);
 
