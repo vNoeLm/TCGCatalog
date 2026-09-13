@@ -41,6 +41,8 @@ export function HoldRequestModal({
     availableMethods[0]?.id || 'foxpost'
   );
   const [handoverDetails, setHandoverDetails] = useState('');
+  const maxQuantity = Math.max(1, Number(inventoryItem?.quantity) || 1);
+  const [quantity, setQuantity] = useState(1);
   const [buyerName, setBuyerName] = useState(profile?.display_name || '');
   const [buyerEmail, setBuyerEmail] = useState(profile?.email || '');
   const [buyerPhone, setBuyerPhone] = useState('');
@@ -55,6 +57,10 @@ export function HoldRequestModal({
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   }, []);
+
+  React.useEffect(() => {
+    if (isOpen) setQuantity(1);
+  }, [isOpen, inventoryItem?.id]);
 
   if (!isOpen) return null;
 
@@ -100,6 +106,7 @@ export function HoldRequestModal({
         preferred_handover: handoverMethod,
         handover_details: handoverDetails.trim() || undefined,
         message: message.trim() || undefined,
+        quantity,
         card_name: card.name,
         card_number: card.card_number,
         image_path: card.image_path,
@@ -231,11 +238,61 @@ export function HoldRequestModal({
                 {lang === 'hu' ? 'Eladó:' : 'Seller:'} <span className="text-zinc-200">{sellerName}</span>
               </span>
               <span className="text-base font-black text-emerald-400">
-                {priceHuf ? fmt(priceHuf) : 'N/A'}
+                {priceHuf ? fmt(priceHuf * quantity) : 'N/A'}
               </span>
             </div>
           </div>
         </div>
+
+        {maxQuantity > 1 && (
+          <div className="mb-5">
+            <label className="block text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
+              {lang === 'hu' ? 'Mennyiség' : 'Quantity'}
+              <span className="ml-1.5 font-semibold normal-case text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                ({lang === 'hu' ? `${maxQuantity} elérhető` : `${maxQuantity} available`})
+              </span>
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={maxQuantity}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setQuantity(Number.isFinite(val) ? Math.min(maxQuantity, Math.max(1, val)) : 1);
+                }}
+                className="w-16 text-center py-1.5 text-sm font-bold rounded-lg border focus:outline-none"
+                style={{
+                  background: 'var(--bg-input, var(--bg-surface-2))',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
+                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                +
+              </button>
+              {priceHuf > 0 && quantity > 1 && (
+                <span className="text-xs font-semibold ml-2" style={{ color: 'var(--text-tertiary)' }}>
+                  {fmt(priceHuf)} × {quantity} = <span className="text-emerald-400">{fmt(priceHuf * quantity)}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">

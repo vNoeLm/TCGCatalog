@@ -27,6 +27,7 @@ export interface HoldRequestRecord {
   card_number?: string;
   image_path?: string;
   price_huf?: number;
+  quantity?: number;
   is_foil?: boolean;
   condition?: string;
   created_at: string;
@@ -80,6 +81,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       } catch (e) {}
     }
 
+    const orderQty = Math.max(1, Number(req.quantity) || 1);
     const orderNumber = `P2P-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
     const newOrder = {
       id: crypto.randomUUID(),
@@ -87,7 +89,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       user_id: req.buyer_id || null,
       seller_id: req.seller_id,
       status: 'Delivered',
-      total_price_huf: req.price_huf || 0,
+      total_price_huf: (req.price_huf || 0) * orderQty,
       shipping_name: req.buyer_name,
       shipping_address: req.handover_details || req.preferred_handover,
       tracking_number: null,
@@ -108,7 +110,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
           condition: req.condition || 'Near Mint',
           is_foil: Boolean(req.is_foil),
           price_huf: req.price_huf || 0,
-          quantity: 1,
+          quantity: orderQty,
           image_path: req.image_path || '',
         },
       ],
@@ -233,6 +235,7 @@ export const POST: APIRoute = async ({ request }) => {
       price_huf,
       is_foil,
       condition,
+      quantity,
     } = body;
 
     if (!inventory_id || !seller_id || !buyer_name?.trim() || !buyer_email?.trim()) {
@@ -282,6 +285,12 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // Clamp the requested quantity to what's actually available on the listing
+    const availableQty = Number(invRow.quantity) || 1;
+    let requestedQty = parseInt(quantity, 10);
+    if (!Number.isFinite(requestedQty) || requestedQty < 1) requestedQty = 1;
+    if (requestedQty > availableQty) requestedQty = availableQty;
+
     // Extract genuine verified seller_id from the database record rather than trusting client body
     let verifiedSellerId = seller_id;
     if (invRow.notes) {
@@ -296,10 +305,17 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // ── CRUCIAL: Atomic check-and-lock to prevent race conditions (double hold) ──
+    // Only reserve the requested quantity; leave the remainder (if any) available for other buyers.
+    // The `.eq('quantity', availableQty)` acts as an optimistic-concurrency guard: if another
+    // request already changed the quantity since we read it, this update matches zero rows.
+    const remainingAfter = availableQty - requestedQty;
+    const newInvStatus = remainingAfter > 0 ? invRow.status : 'Reserved';
+
     const { data: lockedRows, error: lockErr } = await supabaseAdmin
       .from('inventory')
-      .update({ status: 'Reserved' })
+      .update({ quantity: remainingAfter, status: newInvStatus })
       .eq('id', inventory_id)
+      .eq('quantity', availableQty)
       .in('status', ['In Stock', 'Available'])
       .select('id');
 
@@ -340,6 +356,7 @@ export const POST: APIRoute = async ({ request }) => {
       card_number: card_number || undefined,
       image_path: image_path || undefined,
       price_huf: typeof price_huf === 'number' ? price_huf : undefined,
+      quantity: requestedQty,
       is_foil: Boolean(is_foil),
       condition: condition || 'Near Mint',
       created_at: new Date().toISOString(),
@@ -492,14 +509,30 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
     await saveFallbackHoldRequests(fallbackList);
 
-    // 2. Update inventory table status
+    // 2. Update inventory table status/quantity.
+    // The requested quantity was already deducted from inventory.quantity when the hold
+    // request was created (see POST above), so here we only need to restore it on
+    // release/reject, and decide the final status from however much stock remains.
     if (currentReq.inventory_id) {
-      const updateData: any = { status: newInventoryStatus };
-      if (newInventoryStatus === 'Sold') {
-        updateData.quantity = 0;
-      } else if (newInventoryStatus === 'In Stock') {
-        updateData.quantity = Math.max(1, currentReq.price_huf ? 1 : 1);
+      const requestQty = Math.max(1, Number(currentReq.quantity) || 1);
+      const { data: currentInv } = await supabaseAdmin
+        .from('inventory')
+        .select('quantity')
+        .eq('id', currentReq.inventory_id)
+        .maybeSingle();
+      const currentQty = Number(currentInv?.quantity) || 0;
+
+      const updateData: any = {};
+      if (action === 'release' || action === 'reject') {
+        updateData.quantity = currentQty + requestQty;
+        updateData.status = 'In Stock';
+      } else if (action === 'hold') {
+        updateData.status = currentQty > 0 ? 'In Stock' : 'Reserved';
+      } else if (action === 'confirm_sale') {
+        updateData.status = currentQty > 0 ? 'In Stock' : 'Sold';
       }
+
+      newInventoryStatus = updateData.status || newInventoryStatus;
 
       await supabaseAdmin
         .from('inventory')

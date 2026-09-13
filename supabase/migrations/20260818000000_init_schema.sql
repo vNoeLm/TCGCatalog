@@ -191,11 +191,14 @@ CREATE TABLE IF NOT EXISTS public.hold_requests (
     card_number VARCHAR(100),
     image_path TEXT,
     price_huf INTEGER,
+    quantity INTEGER NOT NULL DEFAULT 1,
     is_foil BOOLEAN DEFAULT false,
     condition VARCHAR(50) DEFAULT 'Near Mint',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;
 
 -- 13. USER COLLECTIONS TABLE (1 Row Per User JSONB Document)
 CREATE TABLE IF NOT EXISTS public.user_collections (
