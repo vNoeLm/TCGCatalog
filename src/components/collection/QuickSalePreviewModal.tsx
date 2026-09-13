@@ -74,7 +74,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
             rarity: card.rarity,
             quantity: copiesToSell,
             priceHuf: matchingRule.basePriceHuf,
-            condition: matchingRule.condition || 'NM',
+            condition: matchingRule.condition || 'Near Mint',
             handoverMethods: matchingRule.handoverMethods || ['personal'],
             selected: true
           });
@@ -125,12 +125,18 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
         onClose();
         // optionally trigger a toast or reload here
       } else {
-        const d = await res.json();
-        alert('Error: ' + d.error);
+        let errorMsg = 'Unknown error';
+        try {
+          const d = await res.json();
+          errorMsg = d.error || errorMsg;
+        } catch(parseErr) {
+          errorMsg = `Server error ${res.status}: ${res.statusText}`;
+        }
+        alert('Error: ' + errorMsg);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Network error');
+      alert('Network error: ' + e.message);
     } finally {
       setIsSubmitting(false);
     }

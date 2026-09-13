@@ -37,9 +37,9 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
     const delay = setTimeout(async () => {
       setLoading(true);
       const { data } = await supabase.from('cards')
-        .select('id, name, set_code, rarity')
+        .select('id, name, set_code, rarity, card_number')
         .eq('game', game)
-        .ilike('name', `%${query}%`)
+        .or(`name.ilike.%${query}%,card_number.ilike.%${query}%`)
         .limit(10);
       setResults(data || []);
       setLoading(false);
@@ -75,7 +75,7 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
               className="px-3 py-2 text-xs text-white hover:bg-emerald-500/20 cursor-pointer border-b border-white/5 last:border-0 flex justify-between"
             >
               <span className="font-bold">{r.name}</span>
-              <span className="text-zinc-400">{r.set_code} • {r.rarity}</span>
+              <span className="text-zinc-400">{r.set_code} • {r.card_number} • {r.rarity}</span>
             </div>
           ))}
         </div>
@@ -99,7 +99,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
       minCopiesToKeep: 3,
       basePriceHuf: 500,
       handoverMethods: ['personal'],
-      condition: 'NM',
+      condition: 'Near Mint',
       enabled: true
     };
     setLocalRules([...localRules, newRule]);
@@ -245,10 +245,12 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
                       onChange={(e) => updateRule(rule.id, { condition: e.target.value })}
                       className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
                     >
-                      <option value="NM">Near Mint</option>
-                      <option value="LP">Lightly Played</option>
-                      <option value="MP">Moderately Played</option>
-                      <option value="HP">Heavily Played</option>
+                      <option value="Mint">Mint</option>
+                      <option value="Near Mint">Near Mint</option>
+                      <option value="Lightly Played">Lightly Played</option>
+                      <option value="Moderately Played">Moderately Played</option>
+                      <option value="Heavily Played">Heavily Played</option>
+                      <option value="Damaged">Damaged</option>
                     </select>
                   </div>
                 </div>

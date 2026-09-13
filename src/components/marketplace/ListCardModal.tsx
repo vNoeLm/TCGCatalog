@@ -14,6 +14,7 @@ interface ListCardModalProps {
 }
 
 const CONDITIONS = [
+  'Mint',
   'Near Mint',
   'Lightly Played',
   'Moderately Played',

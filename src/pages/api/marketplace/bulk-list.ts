@@ -28,14 +28,20 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const inventoryRecords = listings.map((l: any) => ({
-      user_id: user.id,
       card_id: l.cardId,
-      condition: l.condition || 'NM',
+      condition: l.condition || 'Near Mint',
       is_foil: l.isFoil || false,
       price_huf: l.priceHuf,
       quantity: l.quantity,
-      status: 'Available',
-      handover_methods: l.handoverMethods || ['personal']
+      status: 'In Stock',
+      notes: JSON.stringify({
+        source: 'marketplace',
+        seller_id: user.id,
+        handover_methods: l.handoverMethods || ['personal'],
+        views: 0,
+        clicks: 0,
+        listed_at: new Date().toISOString()
+      })
     }));
 
     // Ensure all have valid prices and quantities
