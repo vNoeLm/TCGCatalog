@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getMarketplaceVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
-import { getLanguage, t, type Language } from '../../lib/i18n';
+import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { CardItem } from '../CardItem';
 import { CardDetail } from '../CardDetail';
@@ -36,7 +36,6 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function MarketplaceApp() {
   const { theme } = useSiteTheme();
-  const [lang, setLang] = useState<Language>('en');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isMarketplaceEnabled, setIsMarketplaceEnabled] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
@@ -65,14 +64,6 @@ export function MarketplaceApp() {
   const sortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener(EVENTS.LANG_CHANGE, handleLangChange);
 
     const checkAccess = () => {
       Promise.all([
@@ -102,7 +93,6 @@ export function MarketplaceApp() {
     window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
 
     return () => {
-      window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
       window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAccess);
       window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
     };
@@ -138,11 +128,11 @@ export function MarketplaceApp() {
           setFetchError(json.error || 'Failed to load marketplace listings.');
         }
       } else {
-        setFetchError(lang === 'hu' ? 'Nem sikerült betölteni a piactéri hirdetéseket.' : 'Failed to load marketplace listings.');
+        setFetchError('Failed to load marketplace listings.');
       }
     } catch (err: any) {
       console.warn('Marketplace fetch error:', err);
-      setFetchError(err?.message || (lang === 'hu' ? 'Hálózati hiba történt.' : 'Network error loading listings.'));
+      setFetchError(err?.message || ('Network error loading listings.'));
     } finally {
       setLoading(false);
     }
@@ -275,17 +265,15 @@ export function MarketplaceApp() {
 
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border bg-amber-500/10 border-amber-500/30 text-amber-300">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>{lang === 'hu' ? 'Hamarosan Érkezik' : 'Coming Soon'}</span>
+              <span>Coming Soon</span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl font-black mb-3" style={{ color: 'var(--text-primary)' }}>
-              {lang === 'hu' ? 'Közösségi Piactér' : 'Community Marketplace'}
+              Community Marketplace
             </h1>
 
             <p className="text-sm sm:text-base leading-relaxed mb-8 max-w-md mx-auto" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'hu'
-                ? 'A játékosok közötti közvetlen kártyakereskedelem funkció jelenleg előkészítés alatt áll. Hamarosan saját gyűjteményed felesleges lapjait is árulhatod, megbízható eladói értékelésekkel és vásárlóvédelemmel!'
-                : 'Direct player-to-player card trading is currently being prepared. Soon you will be able to list surplus cards from your collection with verified seller ratings and buyer protection!'}
+              Direct player-to-player card trading is currently being prepared. Soon you will be able to list surplus cards from your collection with verified seller ratings and buyer protection!
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -297,7 +285,7 @@ export function MarketplaceApp() {
                   color: 'var(--accent-contrast, #000000)',
                 }}
               >
-                {lang === 'hu' ? 'Böngéssz a Katalógusban' : 'Browse Catalog'}
+                Browse Catalog
               </a>
               <a
                 href="/"
@@ -308,7 +296,7 @@ export function MarketplaceApp() {
                   color: 'var(--text-primary)'
                 }}
               >
-                {lang === 'hu' ? 'Saját Gyűjteményem' : 'My Binder / Collection'}
+                My Binder / Collection
               </a>
             </div>
           </div>
@@ -337,7 +325,7 @@ export function MarketplaceApp() {
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
-              {lang === 'hu' ? 'Közösségi Piactér' : 'Community Marketplace'}
+              Community Marketplace
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
               {isCyberpunk ? 'Cyberpunk TCG' : 'Riftbound'}
@@ -349,9 +337,7 @@ export function MarketplaceApp() {
             )}
           </div>
           <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
-            {lang === 'hu'
-              ? 'Böngéssz közvetlen játékosok közötti hirdetések között. Kérj jegelést a kiszemelt lapra, és egyeztessetek átadást (Foxpost, személyes átvétel, posta) közvetlenül az eladóval!'
-              : 'Browse community classifieds from fellow players. Request a hold on cards and arrange delivery or personal pickup directly with the seller!'}
+            Browse community classifieds from fellow players. Request a hold on cards and arrange delivery or personal pickup directly with the seller!
           </p>
         </div>
 
@@ -366,7 +352,7 @@ export function MarketplaceApp() {
               <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
               <circle cx="7" cy="7" r="1" />
             </svg>
-            <span>{lang === 'hu' ? '+ Kártya eladása' : '+ List Card for Sale'}</span>
+            <span>+ List Card for Sale</span>
           </button>
         </div>
       </div>
@@ -392,7 +378,7 @@ export function MarketplaceApp() {
                 </svg>
                 <input
                   type="text"
-                  placeholder={lang === 'hu' ? 'Keresés név, kártyaszám vagy művész alapján…' : 'Search by card name, number, or artist…'}
+                  placeholder={'Search by card name, number, or artist…'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full h-11 rounded-xl pl-10 pr-4 text-sm outline-none transition border border-zinc-700/80 bg-zinc-900/90 text-white placeholder-zinc-500 focus:border-indigo-500"
@@ -453,7 +439,7 @@ export function MarketplaceApp() {
                           : 'bg-transparent border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 font-semibold'
                       }`}
                     >
-                      {t(s, lang)}
+                      {t(s)}
                     </button>
                   ))}
                 </div>
@@ -462,11 +448,11 @@ export function MarketplaceApp() {
 
             {/* Status Filter Pills */}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <span className="text-xs font-bold text-zinc-400">{lang === 'hu' ? 'Állapot:' : 'Status:'}</span>
+              <span className="text-xs font-bold text-zinc-400">Status:</span>
               {[
-                { id: 'all', label: lang === 'hu' ? 'Mind' : 'All' },
-                { id: 'in_stock', label: lang === 'hu' ? 'Csak elérhető' : 'Available only' },
-                { id: 'on_hold', label: lang === 'hu' ? 'Jegelve' : 'On Hold' },
+                { id: 'all', label: 'All' },
+                { id: 'in_stock', label: 'Available only' },
+                { id: 'on_hold', label: 'On Hold' },
               ].map(pill => (
                 <button
                   key={pill.id}
@@ -484,7 +470,7 @@ export function MarketplaceApp() {
             </div>
 
             <p className="mt-2.5 text-xs text-zinc-300 font-semibold">
-              {lang === 'hu' ? `${sortedCards.length} piactéri hirdetés található` : `${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
+              {`${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
             </p>
           </div>
 
@@ -508,7 +494,7 @@ export function MarketplaceApp() {
                 </svg>
               </div>
               <h3 className="text-base font-bold mb-1 text-rose-300">
-                {lang === 'hu' ? 'Hiba történt a hirdetések betöltésekor' : 'Error loading marketplace listings'}
+                Error loading marketplace listings
               </h3>
               <p className="text-xs max-w-sm mx-auto mb-5 text-zinc-400">
                 {fetchError}
@@ -518,7 +504,7 @@ export function MarketplaceApp() {
                 onClick={() => fetchMarketplaceListings()}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
               >
-                {lang === 'hu' ? 'Újrapróbálkozás' : 'Retry'}
+                Retry
               </button>
             </div>
           ) : sortedCards.length === 0 ? (
@@ -534,12 +520,10 @@ export function MarketplaceApp() {
                 </svg>
               </div>
               <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Nincs találat a piactéren' : 'No marketplace listings found'}
+                No marketplace listings found
               </h3>
               <p className="text-xs max-w-sm mx-auto mb-5" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? 'Próbáld meg törölni a szűrőket vagy keresési kifejezést, vagy adj fel te egy új hirdetést a "+ Kártya eladása" gombra kattintva!'
-                  : 'Try clearing filters or search term, or be the first to list a card by clicking "+ List Card for Sale"!'}
+                Try clearing filters or search term, or be the first to list a card by clicking "+ List Card for Sale"!
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -547,7 +531,7 @@ export function MarketplaceApp() {
                   onClick={() => setIsListModalOpen(true)}
                   className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
                 >
-                  {lang === 'hu' ? '+ Első kártya eladása' : '+ List a Card Now'}
+                  + List a Card Now
                 </button>
                 <a
                   href="/"
@@ -558,7 +542,7 @@ export function MarketplaceApp() {
                     color: 'var(--text-accent)'
                   }}
                 >
-                  <span>{lang === 'hu' ? 'Böngéssz a Katalógusban' : 'Browse Catalog'}</span>
+                  <span>Browse Catalog</span>
                   <span>→</span>
                 </a>
               </div>
@@ -614,7 +598,7 @@ export function MarketplaceApp() {
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
         onSuccess={() => fetchMarketplaceListings()}
-        lang={lang}
+        
       />
     </div>
   );

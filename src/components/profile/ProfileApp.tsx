@@ -5,10 +5,9 @@ import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
-import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
-import { getCollectorTier, getSellerTier, BadgeIconSvg } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -19,7 +18,6 @@ export function ProfileApp() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [lang, setLang] = useState<Language>('en');
 
   // Repay Pending Order State
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
@@ -37,13 +35,12 @@ export function ProfileApp() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('All');
   const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [cancellingOrderNumber, setCancellingOrderNumber] = useState<string | null>(null);
-  // Per-order expand state: Cancelled/Delivered start collapsed
+  // Per-order expand state. Finished orders (Delivered/Cancelled) start collapsed —
+  // only orders still in flight are worth showing open by default.
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
 
   const isOrderExpanded = (order: Order): boolean => {
     if (order.order_number in expandedOrders) return expandedOrders[order.order_number];
-    // Keep Delivered orders expanded if they haven't been reviewed yet
-    if (order.status === 'Delivered' && !reviewsByOrder[order.order_number]) return true;
     return order.status !== 'Cancelled' && order.status !== 'Delivered';
   };
   const toggleOrderExpand = (order: Order) => {
@@ -162,7 +159,7 @@ export function ProfileApp() {
         showToast(`Error: ${error.message || 'Could not submit review'}`);
       } else if (review) {
         setReviewsByOrder(prev => ({ ...prev, [ratingModalOrder.order_number]: review }));
-        showToast(lang === 'hu' ? 'Köszönjük az értékelést!' : 'Thank you for rating the seller!');
+        showToast('Thank you for rating the seller!');
         setRatingModalOrder(null);
         setReviewComment('');
         setSelectedRating(5);
@@ -221,13 +218,11 @@ export function ProfileApp() {
   const handleProfilePaymentSuccess = (updatedOrder: Order) => {
     setOrders(prev => prev.map(o => o.order_number === updatedOrder.order_number ? updatedOrder : o));
     setPayingOrder(null);
-    showToast(lang === 'hu' ? 'Fizetés sikeresen rögzítve!' : 'Payment confirmed successfully!');
+    showToast('Payment confirmed successfully!');
   };
 
   const handleCancelOrder = async (orderNumber: string) => {
-    const confirmMsg = lang === 'hu'
-      ? `Biztosan le szeretnéd mondani a #${orderNumber} számú rendelést? A kártyák visszakerülnek a bolt készletébe.`
-      : `Are you sure you want to cancel order #${orderNumber}? The items will return to available stock.`;
+    const confirmMsg = `Are you sure you want to cancel order #${orderNumber}? The items will return to available stock.`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -236,7 +231,7 @@ export function ProfileApp() {
       const res = await cancelOrder(orderNumber);
       if (res.success) {
         setOrders(prev => prev.map(o => o.order_number === orderNumber ? { ...o, status: 'Cancelled' } : o));
-        showToast(lang === 'hu' ? 'Rendelés lemondva, a kártyák visszakerültek a készletbe!' : 'Order cancelled, items returned to stock!');
+        showToast('Order cancelled, items returned to stock!');
       } else {
         alert(res.error || 'Failed to cancel order.');
       }
@@ -248,13 +243,6 @@ export function ProfileApp() {
   };
 
   useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
     const handleOrdersChange = async () => {
       const userOrders = await fetchUserOrders();
       setOrders(userOrders as Order[]);
@@ -301,7 +289,6 @@ export function ProfileApp() {
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-orders-changed', handleOrdersChange);
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
       window.removeEventListener('tcg-collection-change', loadCollectionStats);
@@ -385,7 +372,7 @@ export function ProfileApp() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
         <div>
           <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <span>{lang === 'hu' ? 'Megjelenés és Téma' : 'Appearance & Theme'}</span>
+            <span>{'Appearance & Theme'}</span>
             <span
               className="text-xs font-bold px-2 py-0.5 rounded-full border"
               style={{
@@ -398,9 +385,7 @@ export function ProfileApp() {
             </span>
           </h2>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu'
-              ? 'Állítsd be, hogy az oldal színsémája a kiválasztott játékot kövesse, vagy válassz fix Cyberpunk, Riftbound vagy Klasszikus Sötét témát.'
-              : 'Choose whether the color scheme follows the active game selector or select a custom Cyberpunk, Riftbound, or Generic Dark theme.'}
+            Choose whether the color scheme follows the active game selector or select a custom Cyberpunk, Riftbound, or Generic Dark theme.
           </p>
         </div>
       </div>
@@ -412,7 +397,7 @@ export function ProfileApp() {
           type="button"
           onClick={() => {
             setThemeMode('auto');
-            showToast(lang === 'hu' ? 'Téma: Aktív játék követése beállítva' : 'Theme: Following active game');
+            showToast('Theme: Following active game');
           }}
           className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
           style={{
@@ -424,16 +409,14 @@ export function ProfileApp() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-black" style={{ color: themeMode === 'auto' ? 'var(--text-accent)' : 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Aktív játék követése' : 'Follow Active Game'}
+                Follow Active Game
               </span>
               <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
-                {lang === 'hu' ? 'Alapértelmezett' : 'Default'}
+                Default
               </span>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {lang === 'hu'
-                ? 'A Cyberpunk TCG-re váltva a dark tech fekete/sárga, a Riftboundra váltva a mélykék/arany séma aktiválódik.'
-                : 'Automatically switches between Cyberpunk dark tech & Riftbound Hextech deep navy when you switch games.'}
+              {'Automatically switches between Cyberpunk dark tech & Riftbound Hextech deep navy when you switch games.'}
             </p>
           </div>
           <div className="mt-4 flex items-center gap-2">
@@ -454,7 +437,7 @@ export function ProfileApp() {
           type="button"
           onClick={() => {
             setThemeMode('cyberpunk');
-            showToast(lang === 'hu' ? 'Téma: Cyberpunk TCG kényszerítve' : 'Theme: Cyberpunk scheme forced');
+            showToast('Theme: Cyberpunk scheme forced');
           }}
           className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
           style={{
@@ -473,9 +456,7 @@ export function ProfileApp() {
               </span>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {lang === 'hu'
-                ? 'Mindig fekete karbon háttér neonsárga és ciánkék részletekkel, még Riftbound kártyák böngészésekor is.'
-                : 'Always use dark tech carbon black with neon yellow & cyan accents, even while browsing Riftbound.'}
+              {'Always use dark tech carbon black with neon yellow & cyan accents, even while browsing Riftbound.'}
             </p>
           </div>
           <div className="mt-4 flex items-center gap-2">
@@ -495,7 +476,7 @@ export function ProfileApp() {
           type="button"
           onClick={() => {
             setThemeMode('riftbound');
-            showToast(lang === 'hu' ? 'Téma: Riftbound stílus kényszerítve' : 'Theme: Riftbound scheme forced');
+            showToast('Theme: Riftbound scheme forced');
           }}
           className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
           style={{
@@ -514,9 +495,7 @@ export function ProfileApp() {
               </span>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {lang === 'hu'
-                ? 'Mindig a mély League Hextech sötétkék háttér borostyán-arany keretekkel és fényekkel.'
-                : 'Always use deep League Hextech navy background with amber gold borders and atmospheric ambient glow.'}
+              Always use deep League Hextech navy background with amber gold borders and atmospheric ambient glow.
             </p>
           </div>
           <div className="mt-4 flex items-center gap-2">
@@ -536,7 +515,7 @@ export function ProfileApp() {
           type="button"
           onClick={() => {
             setThemeMode('dark');
-            showToast(lang === 'hu' ? 'Téma: Klasszikus Sötét téma beállítva' : 'Theme: Generic Dark theme activated');
+            showToast('Theme: Generic Dark theme activated');
           }}
           className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
           style={{
@@ -548,14 +527,14 @@ export function ProfileApp() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-black" style={{ color: themeMode === 'dark' ? '#60a5fa' : 'var(--text-primary)' }}>
-                {t('theme_dark', lang)}
+                Generic Dark
               </span>
               <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">
                 Midnight Slate
               </span>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {t('theme_dark_desc', lang)}
+              Clean, neutral deep slate dark mode
             </p>
           </div>
           <div className="mt-4 flex items-center gap-2">
@@ -686,7 +665,7 @@ export function ProfileApp() {
                       boxShadow: '0 0 12px var(--accent-glow)'
                     }}
                   >
-                    {saving ? t('saving', lang) : t('save', lang)}
+                    {saving ? "Saving…" : "Save"}
                   </button>
                   <button
                     onClick={() => {
@@ -696,7 +675,7 @@ export function ProfileApp() {
                     className="px-2.5 py-1.5 text-xs font-semibold cursor-pointer rounded-xl transition"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {t('cancel', lang)}
+                    Cancel
                   </button>
                 </div>
               ) : (
@@ -720,7 +699,7 @@ export function ProfileApp() {
                     <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                    <span>{t('edit', lang)}</span>
+                    <span>Edit</span>
                   </button>
                 </div>
               )}
@@ -734,7 +713,7 @@ export function ProfileApp() {
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                   </svg>
-                  <span>{t('platform_owner', lang)}</span>
+                  <span>Platform Owner</span>
                 </span>
               ) : profile.is_admin || profile.role === 'admin' ? (
                 <span 
@@ -748,7 +727,7 @@ export function ProfileApp() {
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   </svg>
-                  <span>{t('store_admin', lang)}</span>
+                  <span>Store Admin</span>
                 </span>
               ) : (
                 <span 
@@ -762,29 +741,31 @@ export function ProfileApp() {
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span>{t('collector', lang)}</span>
+                  <span>Collector</span>
                 </span>
               )}
+
+              {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5" />}
 
               {/* Upgraded Seller Badge */}
               <a
                 href="/seller"
                 className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border transition hover:opacity-90 cursor-pointer shadow-sm"
                 style={sellerTier.badgeStyle}
-                title={lang === 'hu' ? `${sellerTier.nameHu} — Kattints az irányítópulthoz` : `${sellerTier.nameEn} — Click for Seller Dashboard`}
+                title={`${sellerTier.nameEn} — Click for Seller Dashboard`}
               >
                 <BadgeIconSvg iconType={sellerTier.iconType} className="w-3 h-3" />
-                <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
+                <span>{sellerTier.nameEn}</span>
               </a>
 
               {/* Game-Specific Upgraded Collector Badge */}
               <span
                 className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border shadow-sm"
                 style={collectorTier.badgeStyle}
-                title={lang === 'hu' ? `${collectorTier.nameHu} (${collectorTier.ownedCount}/${collectorTier.totalCount} lap)` : `${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
+                title={`${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
               >
                 <BadgeIconSvg iconType={collectorTier.iconType} className="w-3 h-3" />
-                <span>{lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}</span>
+                <span>{collectorTier.nameEn}</span>
                 <span className="text-[10px] opacity-75 font-mono">({collectorTier.percentage}%)</span>
               </span>
             </div>
@@ -804,7 +785,7 @@ export function ProfileApp() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
             </svg>
-            <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+            <span>Seller Dashboard</span>
           </a>
           {profile.is_admin && (
             <a
@@ -816,7 +797,7 @@ export function ProfileApp() {
                 color: 'var(--text-accent)'
               }}
             >
-              {t('store_dashboard', lang)}
+              Store Dashboard
             </a>
           )}
           <button
@@ -828,7 +809,7 @@ export function ProfileApp() {
               color: 'var(--text-secondary)'
             }}
           >
-            {t('sign_out', lang)}
+            Sign Out
           </button>
         </div>
       </div>
@@ -842,10 +823,10 @@ export function ProfileApp() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <span>{t('order_history', lang)}</span>
+                <span>Order History</span>
               </h2>
               <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                {t('orders_subheading', lang)}
+                Track the fulfillment and shipping status of your orders
               </p>
             </div>
 
@@ -854,11 +835,11 @@ export function ProfileApp() {
               {/* Status pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
                 {[
-                  { key: 'All', label: t('order_all', lang) },
-                  { key: 'Pending', label: t('order_pending', lang) },
-                  { key: 'Processing', label: t('order_processing', lang) },
-                  { key: 'Shipped', label: t('order_shipped', lang) },
-                  { key: 'Delivered', label: t('order_delivered', lang) },
+                  { key: 'All', label: "All" },
+                  { key: 'Pending', label: "Pending" },
+                  { key: 'Processing', label: "Processing" },
+                  { key: 'Shipped', label: "Shipped" },
+                  { key: 'Delivered', label: "Delivered" },
                 ].map(st => (
                   <button
                     key={st.key}
@@ -888,10 +869,10 @@ export function ProfileApp() {
               {/* Date range pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
                 {([
-                  { key: 'all' as const, label: lang === 'hu' ? 'Összes idő' : 'All Time' },
-                  { key: 'today' as const, label: lang === 'hu' ? 'Ma' : 'Today' },
-                  { key: 'week' as const, label: lang === 'hu' ? 'Ezen a héten' : 'This Week' },
-                  { key: 'month' as const, label: lang === 'hu' ? 'Ebben a hónapban' : 'This Month' },
+                  { key: 'all' as const, label: 'All Time' },
+                  { key: 'today' as const, label: 'Today' },
+                  { key: 'week' as const, label: 'This Week' },
+                  { key: 'month' as const, label: 'This Month' },
                 ]).map(dt => (
                   <button
                     key={dt.key}
@@ -923,7 +904,7 @@ export function ProfileApp() {
           {/* Orders List */}
           {loadingOrders ? (
             <div className="text-center py-14 text-sm font-semibold" style={{ color: 'var(--text-tertiary)' }}>
-              {t('loading_orders', lang)}
+              Loading your orders…
             </div>
           ) : filteredOrders.length === 0 ? (
             <div 
@@ -946,12 +927,12 @@ export function ProfileApp() {
                 </svg>
               </div>
               <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {t('no_orders', lang)}
+                No orders yet.
               </h3>
               <p className="text-xs sm:text-sm mb-5 max-w-sm mx-auto" style={{ color: 'var(--text-tertiary)' }}>
                 {orderStatusFilter === 'All'
-                  ? t('no_orders_placed', lang)
-                  : t('no_orders_status', lang)}
+                  ? "You have not placed any orders yet. Browse our store to find rare cards and singles."
+                  : "No orders found matching this status filter."}
               </p>
               <a
                 href="/marketplace"
@@ -962,7 +943,7 @@ export function ProfileApp() {
                   boxShadow: '0 0 16px var(--accent-glow)'
                 }}
               >
-                {lang === 'hu' ? 'Böngéssz a Piactéren' : 'Browse Marketplace'}
+                Browse Marketplace
               </a>
             </div>
           ) : (
@@ -974,10 +955,10 @@ export function ProfileApp() {
                 const isCancelled = order.status === 'Cancelled';
 
                 const statusLabel = 
-                  order.status === 'Pending' ? t('order_pending', lang) :
-                  order.status === 'Processing' ? t('order_processing', lang) :
-                  order.status === 'Shipped' ? t('order_shipped', lang) :
-                  order.status === 'Delivered' ? t('order_delivered', lang) :
+                  order.status === 'Pending' ? "Pending" :
+                  order.status === 'Processing' ? "Processing" :
+                  order.status === 'Shipped' ? "Shipped" :
+                  order.status === 'Delivered' ? "Delivered" :
                   order.status;
 
                 const expanded = isOrderExpanded(order);
@@ -1001,7 +982,7 @@ export function ProfileApp() {
                       <div>
                         <div className="flex items-center gap-2.5">
                           <span className="text-sm sm:text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                            {lang === 'hu' ? `Rendelés #${order.order_number}` : `Order #${order.order_number}`}
+                            {`Order #${order.order_number}`}
                           </span>
                           <span
                             className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
@@ -1021,7 +1002,7 @@ export function ProfileApp() {
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                            {lang === 'hu' ? `Leadva: ${new Date(order.created_at).toLocaleDateString('hu-HU')}` : `Placed on ${new Date(order.created_at).toLocaleDateString()}`}
+                            {`Placed on ${new Date(order.created_at).toLocaleDateString()}`}
                           </span>
                           {order.payment_method && (
                             <span
@@ -1033,16 +1014,16 @@ export function ProfileApp() {
                                   : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                               }`}
                             >
-                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : t('payment_method_direct', lang)}
+                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : "Cash / Direct Transfer"}
                             </span>
                           )}
                           {order.payment_status && (() => {
                             const isGatewayPayment = order.payment_method === 'stripe' || order.payment_method === 'barion';
                             const label = order.payment_status === 'paid'
-                              ? (isGatewayPayment ? t('payment_status_paid', lang) : t('payment_status_completed', lang))
+                              ? (isGatewayPayment ? "Paid" : "Arranged with Seller")
                               : order.payment_status === 'refunded'
-                              ? t('payment_status_refunded', lang)
-                              : t('payment_status_pending', lang);
+                              ? "Refunded"
+                              : "Payment Pending";
                             return (
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
@@ -1062,7 +1043,7 @@ export function ProfileApp() {
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="text-right">
-                          <span className="text-[10px] block uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('total', lang)}</span>
+                          <span className="text-[10px] block uppercase font-bold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Total</span>
                           <span className="text-base font-black font-mono" style={{ color: 'var(--text-primary)' }}>
                             {order.total_price_huf?.toLocaleString() || 0} HUF
                           </span>
@@ -1091,11 +1072,51 @@ export function ProfileApp() {
                         }}
                       >
                         <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                          {lang === 'hu' ? 'Csomagkövetési szám:' : 'Tracking Number:'}
+                          Tracking Number:
                         </span>
                         <span className="font-mono font-bold" style={{ color: 'var(--text-primary)' }}>{order.tracking_number}</span>
                       </div>
                     )}
+
+                    {/* Order details */}
+                    {(() => {
+                      const totalUnits = (order.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
+                      const rows: { label: string; value: React.ReactNode }[] = [
+                        { label: 'Placed', value: new Date(order.created_at).toLocaleString() },
+                      ];
+                      if (order.updated_at && order.updated_at !== order.created_at) {
+                        rows.push({ label: 'Last updated', value: new Date(order.updated_at).toLocaleString() });
+                      }
+                      rows.push({ label: 'Items', value: `${totalUnits} card${totalUnits === 1 ? '' : 's'}` });
+                      if (order.shipping_method) rows.push({ label: 'Handover', value: order.shipping_method });
+                      if (order.shipping_name) rows.push({ label: 'Recipient', value: order.shipping_name });
+                      if (order.shipping_address) rows.push({ label: 'Address / pickup', value: order.shipping_address });
+                      if (order.courier_name) rows.push({ label: 'Courier', value: order.courier_name });
+                      if (order.customer_info?.email) rows.push({ label: 'Contact email', value: order.customer_info.email });
+                      if (order.customer_info?.phone) rows.push({ label: 'Contact phone', value: order.customer_info.phone });
+                      if (order.invoice_number) rows.push({ label: 'Invoice', value: order.invoice_number });
+                      if (order.cancelled_at) rows.push({ label: 'Cancelled', value: new Date(order.cancelled_at).toLocaleString() });
+                      if (order.cancellation_reason) rows.push({ label: 'Reason', value: order.cancellation_reason });
+                      if (order.notes) rows.push({ label: 'Notes', value: order.notes });
+
+                      return (
+                        <div
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 p-3.5 rounded-xl border mb-3.5 text-xs"
+                          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                        >
+                          {rows.map((row) => (
+                            <div key={row.label} className="flex items-start justify-between gap-3">
+                              <span className="shrink-0 font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                                {row.label}
+                              </span>
+                              <span className="text-right break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
+                                {row.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
 
                     {/* Items List */}
                     <div className="flex flex-col gap-2.5">
@@ -1130,7 +1151,7 @@ export function ProfileApp() {
                               {item.card_name}
                             </div>
                             <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {item.condition} {item.is_foil ? '• Foil' : ''} {item.set_name ? `• ${item.set_name}` : ''}
+                              {item.card_number ? `${item.card_number} • ` : ''}{item.condition} {item.is_foil ? '• Foil' : ''} {item.set_name ? `• ${item.set_name}` : ''}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -1149,7 +1170,7 @@ export function ProfileApp() {
                         style={{ borderColor: 'var(--border-subtle)' }}
                       >
                         <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {lang === 'hu' ? 'A csomag feladása előtt a rendelésed lemondható.' : 'Order can be cancelled prior to dispatch.'}
+                          Order can be cancelled prior to dispatch.
                         </span>
                         <div className="flex items-center gap-2">
                           {order.payment_status !== 'paid' && (
@@ -1162,7 +1183,7 @@ export function ProfileApp() {
                                 <rect x="2" y="5" width="20" height="14" rx="2" />
                                 <line x1="2" y1="10" x2="22" y2="10" />
                               </svg>
-                              <span>{t('pay_now', lang)}</span>
+                              <span>Pay Now</span>
                             </button>
                           )}
                           <button
@@ -1177,8 +1198,8 @@ export function ProfileApp() {
                             </svg>
                             <span>
                               {cancellingOrderNumber === order.order_number
-                                ? (lang === 'hu' ? 'Lemondás…' : 'Cancelling…')
-                                : (lang === 'hu' ? 'Rendelés Lemondása' : 'Cancel Order')}
+                                ? ('Cancelling…')
+                                : ('Cancel Order')}
                             </span>
                           </button>
                         </div>
@@ -1198,7 +1219,7 @@ export function ProfileApp() {
                               <span className="text-zinc-600">{'★'.repeat(5 - reviewsByOrder[order.order_number].rating)}</span>
                             </span>
                             <span className="text-zinc-300 font-bold">
-                              {lang === 'hu' ? 'Értékelted az eladót' : 'You rated this seller'}:
+                              You rated this seller:
                             </span>
                             {reviewsByOrder[order.order_number].comment ? (
                               <span className="italic text-zinc-400">
@@ -1213,10 +1234,10 @@ export function ProfileApp() {
                             <div>
                               <span className="font-bold text-emerald-400 inline-flex items-center gap-1">
                                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                                {lang === 'hu' ? 'A rendelés kézbesítve!' : 'Order delivered!'}
+                                Order delivered!
                               </span>
                               <span className="text-[11px] text-zinc-400 ml-2">
-                                {lang === 'hu' ? 'Oszd meg a tapasztalatodat az eladóról.' : 'Share your feedback about the seller.'}
+                                Share your feedback about the seller.
                               </span>
                             </div>
                             <button
@@ -1229,7 +1250,7 @@ export function ProfileApp() {
                               className="px-3.5 py-1.5 rounded-lg font-bold transition cursor-pointer border flex items-center gap-1.5 text-xs bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 active:scale-95 shadow-sm"
                             >
                               <span>★</span>
-                              <span>{lang === 'hu' ? 'Eladó Értékelése' : 'Rate Seller'}</span>
+                              <span>Rate Seller</span>
                             </button>
                           </>
                         )}
@@ -1271,7 +1292,7 @@ export function ProfileApp() {
                 borderColor: 'var(--border)',
                 color: 'var(--text-secondary)',
               }}
-              title={t('close', lang)}
+              title={"Close"}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -1283,7 +1304,7 @@ export function ProfileApp() {
               order={payingOrder}
               provider={payingProvider}
               sessionId={payingSessionId}
-              lang={lang}
+              
               onPaymentSuccess={handleProfilePaymentSuccess}
               onCancel={() => setPayingOrder(null)}
             />
@@ -1318,7 +1339,7 @@ export function ProfileApp() {
                 borderColor: 'var(--border)',
                 color: 'var(--text-secondary)',
               }}
-              title={t('close', lang)}
+              title={"Close"}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -1331,12 +1352,10 @@ export function ProfileApp() {
                 ★
               </div>
               <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Értékeld az Eladót' : 'Rate Your Seller'}
+                Rate Your Seller
               </h3>
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? `Rendelés #${ratingModalOrder.order_number} sikeresen kézbesítve`
-                  : `Order #${ratingModalOrder.order_number} successfully delivered`}
+                {`Order #${ratingModalOrder.order_number} successfully delivered`}
               </p>
             </div>
 
@@ -1344,7 +1363,7 @@ export function ProfileApp() {
               {/* Star Rating Selector */}
               <div className="text-center">
                 <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Hány csillagot adsz?' : 'Overall Rating'}
+                  Overall Rating
                 </label>
                 <div className="flex items-center justify-center gap-2">
                   {[1, 2, 3, 4, 5].map(star => {
@@ -1368,13 +1387,6 @@ export function ProfileApp() {
                 <div className="mt-2 text-xs font-bold text-amber-300">
                   {(() => {
                     const r = hoverRating || selectedRating;
-                    if (lang === 'hu') {
-                      if (r === 5) return '5 / 5 - Kiváló élmény!';
-                      if (r === 4) return '4 / 5 - Nagyon jó!';
-                      if (r === 3) return '3 / 5 - Átlagos';
-                      if (r === 2) return '2 / 5 - Nem volt az igazi';
-                      return '1 / 5 - Pocsék';
-                    }
                     if (r === 5) return '5 / 5 - Excellent service!';
                     if (r === 4) return '4 / 5 - Very good!';
                     if (r === 3) return '3 / 5 - Average';
@@ -1387,16 +1399,14 @@ export function ProfileApp() {
               {/* Review Feedback Comment */}
               <div>
                 <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Visszajelzés / Megjegyzés (opcionális)' : 'Feedback / Review (Optional)'}
+                  Feedback / Review (Optional)
                 </label>
                 <textarea
                   rows={3}
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
                   placeholder={
-                    lang === 'hu'
-                      ? 'Pl.: Gyors szállítás, a kártyák hibátlan állapotban érkeztek!'
-                      : 'E.g.: Super fast shipping, cards arrived in perfect condition!'
+                    'E.g.: Super fast shipping, cards arrived in perfect condition!'
                   }
                   className="w-full text-xs rounded-xl p-3 border outline-none transition focus:border-[var(--accent)]"
                   style={{
@@ -1419,7 +1429,7 @@ export function ProfileApp() {
                     color: 'var(--text-secondary)',
                   }}
                 >
-                  {t('cancel', lang)}
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -1432,8 +1442,8 @@ export function ProfileApp() {
                   }}
                 >
                   {isSubmittingReview
-                    ? (lang === 'hu' ? 'Küldés…' : 'Submitting…')
-                    : (lang === 'hu' ? 'Értékelés Beküldése' : 'Submit Rating')}
+                    ? ('Submitting…')
+                    : ('Submit Rating')}
                 </button>
               </div>
             </form>

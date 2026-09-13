@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
-import type { CatalogCard, QuickSaleRule, Language } from '../../types';
+import type { CatalogCard, QuickSaleRule } from '../../types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   ownedCards: { cardId: string, count: number }[];
   allCards: CatalogCard[];
-  lang: Language;
 }
 
-export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, lang }: Props) {
+export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }: Props) {
   const [rules, setRules] = useState<QuickSaleRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [listingCandidates, setListingCandidates] = useState<any[]>([]);
@@ -29,7 +28,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
     if (u?.user_metadata?.quick_sale_settings) {
       const userRules = u.user_metadata.quick_sale_settings as QuickSaleRule[];
       setRules(userRules);
-      generateCandidates(userRules);
+      generateCandidates(userRules, await fetchAlreadyListed(u.id));
     } else {
       setRules([]);
       setListingCandidates([]);
@@ -37,7 +36,29 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
     }
   };
 
-  const generateCandidates = (activeRules: QuickSaleRule[]) => {
+  /**
+   * Copies already on the market per card. Without this, running Quick Sale twice
+   * offers the same copies again and the seller ends up listing more than they own.
+   */
+  const fetchAlreadyListed = async (sellerId: string): Promise<Map<string, number>> => {
+    const listed = new Map<string, number>();
+    try {
+      const res = await fetch(`/api/marketplace/listings?seller_id=${sellerId}`);
+      if (res.ok) {
+        const json = await res.json();
+        for (const row of json.data || []) {
+          // Quick Sale only ever lists non-foil copies.
+          if (row.status === 'Sold' || row.is_foil) continue;
+          listed.set(row.card_id, (listed.get(row.card_id) || 0) + (row.quantity || 0));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load existing listings; Quick Sale may re-offer listed copies:', e);
+    }
+    return listed;
+  };
+
+  const generateCandidates = (activeRules: QuickSaleRule[], alreadyListed: Map<string, number>) => {
     const enabledRules = activeRules.filter(r => r.enabled);
     
     // Create a map for fast card lookup
@@ -64,7 +85,8 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
       }
 
       if (matchingRule) {
-        const copiesToSell = owned.count - matchingRule.minCopiesToKeep;
+        const listed = alreadyListed.get(card.id) || 0;
+        const copiesToSell = owned.count - matchingRule.minCopiesToKeep - listed;
         if (copiesToSell > 0) {
           candidates.push({
             tempId: Math.random().toString(36).substring(2),
@@ -160,10 +182,10 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
               <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
-              {lang === 'hu' ? 'Gyors eladás áttekintése' : 'Quick Sale Preview'}
+              Quick Sale Preview
             </h2>
             <p className="text-sm text-zinc-400 mt-1">
-              {lang === 'hu' ? 'Itt átnézheted és módosíthatod a szabályaid alapján automatikusan listázandó lapokat.' : 'Review and adjust cards that will be listed automatically based on your rules.'}
+              Review and adjust cards that will be listed automatically based on your rules.
             </p>
           </div>
           <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-full">
@@ -181,11 +203,11 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
             </div>
           ) : rules.length === 0 ? (
             <div className="py-20 text-center text-zinc-500">
-              {lang === 'hu' ? 'Nincsenek beállítva gyors eladási szabályok. Látogass el a Seller Hub-ba beállítani őket.' : 'No Quick Sale rules configured. Visit Seller Hub to set them up.'}
+              No Quick Sale rules configured. Visit Seller Hub to set them up.
             </div>
           ) : listingCandidates.length === 0 ? (
             <div className="py-20 text-center text-zinc-500">
-              {lang === 'hu' ? 'A szabályaid alapján nincsenek eladandó kártyák a gyűjteményedben.' : 'No cards in your collection match your Quick Sale rules.'}
+              No cards in your collection match your Quick Sale rules.
             </div>
           ) : (
             <div className="space-y-2">
@@ -239,10 +261,10 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
         <div className="p-5 border-t border-white/10 bg-zinc-900/80 flex items-center justify-between">
           <div>
             <div className="text-sm font-bold text-white">
-              {lang === 'hu' ? 'Kiválasztva:' : 'Selected:'} <span className="text-emerald-400">{selectedCount} db</span>
+              Selected: <span className="text-emerald-400">{selectedCount} db</span>
             </div>
             <div className="text-xs text-zinc-400 mt-0.5">
-              {lang === 'hu' ? 'Becsült összérték:' : 'Estimated total:'} <span className="text-white font-mono">{totalValue.toLocaleString()} Ft</span>
+              Estimated total: <span className="text-white font-mono">{totalValue.toLocaleString()} Ft</span>
             </div>
           </div>
           
@@ -254,7 +276,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, l
             {isSubmitting && (
               <div className="w-4 h-4 border-2 border-zinc-950/20 border-t-zinc-950 rounded-full animate-spin" />
             )}
-            {lang === 'hu' ? 'Kiválasztottak meghirdetése' : 'List Selected Cards'}
+            List Selected Cards
           </button>
         </div>
       </div>

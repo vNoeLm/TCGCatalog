@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { CatalogCard } from '../../types';
 import { isCardRamSufficient, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
-import { t, type Language } from '../../lib/i18n';
 import { CYBERPUNK_COLOR_THEMES } from '../../lib/domainColors';
 
 interface DeckListProps {
@@ -17,7 +16,6 @@ interface DeckListProps {
   onCardClick?: (card: CatalogCard) => void;
   activeZone: keyof DeckState | 'legends';
   onSetZone: (zone: keyof DeckState | 'legends') => void;
-  lang?: Language;
 }
 
 export function DeckList({
@@ -32,7 +30,7 @@ export function DeckList({
   onCardClick,
   activeZone,
   onSetZone,
-  lang = 'en',
+  
 }: DeckListProps) {
   const [collapsedZones, setCollapsedZones] = useState<Set<string>>(new Set());
   const isCyberpunk = activeGame === 'cyberpunk';
@@ -147,7 +145,7 @@ export function DeckList({
               fontWeight: 900,
               letterSpacing: '0.05em'
             }}>
-              {t('active_badge', lang)}
+              ACTIVE
             </span>
           )}
         </div>
@@ -439,7 +437,7 @@ export function DeckList({
             ))}
             {sbCards.length === 0 && (
               <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', padding: 8 }}>
-                {t('empty', lang)}
+                Empty
               </div>
             )}
           </div>
@@ -452,57 +450,57 @@ export function DeckList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', paddingRight: 4 }}>
       {/* Legend & Champion */}
-      <ZoneHeader title={t('legend_zone', lang)} count={legendCard ? 1 : 0} max={1} exact zoneKey="legend" />
+      <ZoneHeader title={"Legend Zone"} count={legendCard ? 1 : 0} max={1} exact zoneKey="legend" />
       {!collapsedZones.has('legend') && (
         <>
-          {legendCard ? <RiftboundCardRow card={legendCard} zone="legend" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>{t('no_legend_selected', lang)}</div>}
+          {legendCard ? <RiftboundCardRow card={legendCard} zone="legend" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>No Legend selected</div>}
           
           {legendCard && (
             <div style={{ marginBottom: 12, fontSize: 11, color: '#fbbf24', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '4px 8px', borderRadius: 6, alignSelf: 'flex-start' }}>
-              {t('allowed_domains', lang)}: <strong>{legendCard.domain}</strong>
+              Allowed Domains: <strong>{legendCard.domain}</strong>
             </div>
           )}
         </>
       )}
 
-      <ZoneHeader title={t('chosen_champion', lang)} count={championCard ? 1 : 0} max={1} exact zoneKey="champion" />
+      <ZoneHeader title={"Chosen Champion"} count={championCard ? 1 : 0} max={1} exact zoneKey="champion" />
       {!collapsedZones.has('champion') && (
-        championCard ? <RiftboundCardRow card={championCard} zone="champion" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>{t('no_champion_selected', lang)}</div>
+        championCard ? <RiftboundCardRow card={championCard} zone="champion" /> : <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', marginBottom: 12 }}>No Champion selected</div>
       )}
 
       {/* Main Deck */}
-      <ZoneHeader title={t('main_deck', lang) || 'Main Deck'} count={mainTotal} max={40} exact zoneKey="mainDeck" />
+      <ZoneHeader title={"Main Deck"} count={mainTotal} max={40} exact zoneKey="mainDeck" />
       {!collapsedZones.has('mainDeck') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {mainCards.map(c => <RiftboundCardRow key={c.card.id} card={c.card} qty={c.qty} zone="mainDeck" />)}
-          {mainCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
+          {mainCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
         </div>
       )}
 
       {/* Rune Deck */}
-      <ZoneHeader title={t('rune_deck', lang)} count={runeTotal} max={12} exact zoneKey="runeDeck" />
+      <ZoneHeader title={"Rune Deck"} count={runeTotal} max={12} exact zoneKey="runeDeck" />
       {!collapsedZones.has('runeDeck') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {runeCards.map(c => <RiftboundCardRow key={c.card.id} card={c.card} qty={c.qty} zone="runeDeck" />)}
-          {runeCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
+          {runeCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
         </div>
       )}
 
       {/* Battlefields */}
-      <ZoneHeader title={t('battlefields', lang)} count={bfTotal} max={3} exact zoneKey="battlefields" />
+      <ZoneHeader title={"Battlefields"} count={bfTotal} max={3} exact zoneKey="battlefields" />
       {!collapsedZones.has('battlefields') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {bfCards.map(c => <RiftboundCardRow key={c.card.id} card={c.card} qty={c.qty} zone="battlefields" />)}
-          {bfCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
+          {bfCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
         </div>
       )}
 
       {/* Sideboard */}
-      <ZoneHeader title={t('sideboard', lang)} count={sbTotal} max={8} exact zoneKey="sideboard" />
+      <ZoneHeader title={"Sideboard"} count={sbTotal} max={8} exact zoneKey="sideboard" />
       {!collapsedZones.has('sideboard') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 24 }}>
           {sbCards.map(c => <RiftboundCardRow key={c.card.id} card={c.card} qty={c.qty} zone="sideboard" />)}
-          {sbCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>{t('empty', lang)}</div>}
+          {sbCards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>Empty</div>}
         </div>
       )}
     </div>

@@ -218,6 +218,7 @@ export interface SellerProfileSummary {
   rating_count: number;
   sales_count?: number;
   is_owner?: boolean;
+  created_at?: string | null;
 }
 
 export interface QuickSaleRule {

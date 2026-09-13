@@ -4,8 +4,6 @@ import { getCatalogVisibility, getMarketplaceVisibility } from '../lib/api';
 import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
-import { LanguageSelector } from './LanguageSelector';
-import { getLanguage, t, type Language } from '../lib/i18n';
 import { EVENTS } from '../lib/constants';
 
 interface NavigationProps {
@@ -20,7 +18,6 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [lang, setLang] = useState<Language>('en');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -40,16 +37,8 @@ export function Navigation({ currentPath }: NavigationProps) {
   };
 
   useEffect(() => {
-    setLang(getLanguage());
     checkAuthAndVisibility();
 
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
 
     window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
 
@@ -79,7 +68,6 @@ export function Navigation({ currentPath }: NavigationProps) {
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -119,18 +107,15 @@ export function Navigation({ currentPath }: NavigationProps) {
     <>
       {/* Desktop Navigation (>= 640px) */}
       <nav className="hidden sm:flex items-center gap-2">
-        <NavLink href="/" label={t('catalog', lang)} />
+        <NavLink href="/" label={"Catalog"} />
 
         {!loading && showMarketplace && (
-          <NavLink href="/marketplace" label={lang === 'hu' ? 'Piactér' : 'Marketplace'} />
+          <NavLink href="/marketplace" label={'Marketplace'} />
         )}
 
         {userProfile && (
-          <NavLink href="/seller" label={lang === 'hu' ? 'Eladói Pult' : 'Seller Hub'} />
+          <NavLink href="/seller" label={'Seller Hub'} />
         )}
-
-        {/* Language Selector */}
-        <LanguageSelector />
 
         {/* Auth Section */}
         <div className="relative" ref={dropdownRef}>
@@ -161,7 +146,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     {(userProfile.display_name || userProfile.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span>{userProfile.display_name || t('account', lang)}</span>
+                <span>{userProfile.display_name || "Account"}</span>
                 <svg className="w-3 h-3 shrink-0" style={{ color: 'var(--text-tertiary)' }} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M3 5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -181,7 +166,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     className="p-2 mb-1"
                     style={{ borderBottom: '1px solid var(--border-subtle)' }}
                   >
-                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || "Account"}</div>
                     <div className="text-[11px] font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>{userProfile.email}</div>
                   </div>
 
@@ -202,7 +187,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    {t('my_profile', lang)}
+                    My Profile
                   </a>
 
                   <a
@@ -222,7 +207,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
                     </svg>
-                    <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+                    <span>Seller Dashboard</span>
                   </a>
 
                   {userProfile.is_admin && (
@@ -243,7 +228,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                       <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      {t('store_dashboard', lang)}
+                      Store Dashboard
                     </a>
                   )}
 
@@ -259,7 +244,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    {t('sign_out', lang)}
+                    Sign Out
                   </button>
                 </div>
               )}
@@ -273,7 +258,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <span>{t('sign_in', lang)}</span>
+              <span>Sign In</span>
             </button>
           )}
         </div>
@@ -349,12 +334,12 @@ export function Navigation({ currentPath }: NavigationProps) {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || t('account', lang)}</div>
+                    <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{userProfile.display_name || "Account"}</div>
                     <div className="text-[11px] font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>{userProfile.email}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 pl-2" style={{ color: 'var(--text-secondary)' }}>
-                  <span className="text-[11px] font-semibold">{t('my_profile', lang)}</span>
+                  <span className="text-[11px] font-semibold">My Profile</span>
                   <span className="text-xs">→</span>
                 </div>
               </a>
@@ -372,7 +357,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                <span>{t('sign_in', lang)}</span>
+                <span>Sign In</span>
               </button>
             )}
 
@@ -396,7 +381,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                       }
                 }
               >
-                <span>{t('catalog', lang)}</span>
+                <span>Catalog</span>
                 <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 
@@ -420,7 +405,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                         }
                   }
                 >
-                  <span>{lang === 'hu' ? 'Piactér' : 'Marketplace'}</span>
+                  <span>Marketplace</span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}
@@ -449,7 +434,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
                     </svg>
-                    <span>{lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}</span>
+                    <span>Seller Dashboard</span>
                   </span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
@@ -474,22 +459,17 @@ export function Navigation({ currentPath }: NavigationProps) {
                         }
                   }
                 >
-                  <span>{t('store_dashboard', lang)}</span>
+                  <span>Store Dashboard</span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
               )}
             </div>
 
-            {/* Footer: Language Selector & Sign Out */}
-            <div 
-              className="flex items-center justify-between pt-2.5"
+            {/* Footer: Sign Out */}
+            <div
+              className="flex items-center justify-end pt-2.5"
               style={{ borderTop: '1px solid var(--border-subtle)' }}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{lang === 'hu' ? 'Nyelv:' : 'Language:'}</span>
-                <LanguageSelector />
-              </div>
-
               {userProfile && (
                 <button
                   onClick={async () => {
@@ -499,7 +479,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                   }}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:text-rose-300 bg-rose-950/30 border border-rose-800/40 transition cursor-pointer"
                 >
-                  {t('sign_out', lang)}
+                  Sign Out
                 </button>
               )}
             </div>

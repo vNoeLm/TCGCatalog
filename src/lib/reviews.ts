@@ -56,6 +56,8 @@ export async function getAllReviews(forceRefresh = false): Promise<SellerReview[
             order_id: row.order_id,
             order_number: row.order_number,
             buyer_id: row.buyer_id,
+            buyer_name: row.buyer_name,
+            buyer_avatar: row.buyer_avatar,
             seller_id: row.seller_id,
             rating: row.rating,
             comment: row.comment,
@@ -100,6 +102,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
   let targetAvatar: string | null = null;
   let targetRole: UserRole = 'user';
   let isOwner = false;
+  let targetCreatedAt: string | null = null;
 
   if (!targetId) {
     const owner = await getStoreOwnerProfile();
@@ -113,7 +116,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, role')
+        .select('id, display_name, avatar_url, role, created_at')
         .eq('id', targetId)
         .maybeSingle();
 
@@ -122,6 +125,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
         targetAvatar = data.avatar_url;
         targetRole = data.role as UserRole;
         isOwner = data.role === 'owner';
+        targetCreatedAt = (data as any).created_at || null;
       }
     } catch (e) {}
   }
@@ -156,6 +160,7 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     rating_count: ratingCount,
     sales_count: salesCount,
     is_owner: isOwner,
+    created_at: targetCreatedAt,
   };
 }
 
@@ -239,6 +244,8 @@ export async function submitSellerReview(
       order_id: newReview.order_id,
       order_number: newReview.order_number,
       buyer_id: newReview.buyer_id,
+      buyer_name: newReview.buyer_name,
+      buyer_avatar: newReview.buyer_avatar,
       seller_id: newReview.seller_id,
       rating: newReview.rating,
       comment: newReview.comment,

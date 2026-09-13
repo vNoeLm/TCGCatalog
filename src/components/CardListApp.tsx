@@ -7,7 +7,7 @@ import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
-import { getLanguage, t, type Language } from "../lib/i18n";
+import { t } from "../lib/labels";
 import { supabase } from "../lib/supabase";
 import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
 import { useSiteTheme } from "../lib/theme";
@@ -53,9 +53,9 @@ const SORT_OPTIONS = [
   { mode: "Name (Z to A)", labelKey: 'sort_name_desc' },
 ] as const;
 
-function getSortLabel(mode: string, lang: Language): string {
+function getSortLabel(mode: string): string {
   const opt = SORT_OPTIONS.find(o => o.mode === mode);
-  return opt ? t(opt.labelKey as any, lang) : mode;
+  return opt ? t(opt.labelKey as any) : mode;
 }
 
 const BREAKPOINT = 1024;
@@ -88,7 +88,6 @@ export function CardListApp() {
   const [isWide, setIsWide] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
-  const [lang, setLang] = useState<Language>('en');
   
   // Local Collection State (Record mapping cardId / cardId_foil to quantity)
   const [collection, setCollection] = useState<Record<string, number>>({});
@@ -156,15 +155,7 @@ export function CardListApp() {
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
-    setLang(getLanguage());
 
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
 
     const savedSearch = sessionStorage.getItem('catalogSearchQuery');
     if (savedSearch !== null) setSearchQuery(savedSearch);
@@ -234,7 +225,6 @@ export function CardListApp() {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-game-change', handleGameChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -889,7 +879,7 @@ export function CardListApp() {
       const { error: authError } = await saveCollectionToCloud(collection);
       if (authError) throw authError;
 
-      showToast(`${t('saved_to_cloud', lang)} (${totalOwnedCopies} cards)`);
+      showToast(`${"Collection successfully saved to your cloud account!"} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
       showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`);
     } finally {
@@ -909,8 +899,8 @@ export function CardListApp() {
   const getActiveFilterDescription = () => {
     const parts: string[] = [];
     if (filters.set) parts.push(filters.set);
-    if (baseSetFilter === 'only') parts.push(lang === 'hu' ? 'Csak Alapszett' : 'Base Set Only');
-    if (showFoilOnly) parts.push(lang === 'hu' ? 'Csak Fóliás' : 'Foil Only');
+    if (baseSetFilter === 'only') parts.push('Base Set Only');
+    if (showFoilOnly) parts.push('Foil Only');
     if (filters.rarities && filters.rarities.length > 0) parts.push(filters.rarities.join(', '));
     if (filters.type) parts.push(filters.type);
     if (filters.domains && filters.domains.length > 0) parts.push(filters.domains.join(', '));
@@ -920,13 +910,13 @@ export function CardListApp() {
     if (overnumberedFilter && overnumberedFilter !== 'all') parts.push(overnumberedFilter === 'only' ? 'Overnumbered' : 'Standard Num');
     if (spFilter && spFilter !== 'all') parts.push(spFilter === 'only' ? 'SP' : 'Non-SP');
     if (searchQuery.trim()) parts.push(`"${searchQuery.trim()}"`);
-    return parts.length > 0 ? parts.join(' • ') : (lang === 'hu' ? 'Összes kártya' : 'All Cards');
+    return parts.length > 0 ? parts.join(' • ') : ('All Cards');
   };
 
   const exportMissingCardsToText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      return lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrők alapján!' : 'No missing cards for the selected filters!';
+      return 'No missing cards for the selected filters!';
     }
 
     const bySet: Record<string, CatalogCard[]> = {};
@@ -938,15 +928,15 @@ export function CardListApp() {
 
     const filterDesc = getActiveFilterDescription();
     const lines: string[] = [
-      `// TCG Vault - ${lang === 'hu' ? 'Hiányzó Kártyák / Keresési Lista' : 'Missing Cards / Want List'} (${missing.length} ${lang === 'hu' ? 'kártya' : 'cards'})`,
-      `// ${lang === 'hu' ? 'Szűrők' : 'Filters'}: ${filterDesc}`,
-      `// ${lang === 'hu' ? 'Exportálva' : 'Exported'}: ${new Date().toLocaleDateString()}`,
+      `// TCG Vault - ${'Missing Cards / Want List'} (${missing.length} ${'cards'})`,
+      `// ${'Filters'}: ${filterDesc}`,
+      `// ${'Exported'}: ${new Date().toLocaleDateString()}`,
       '',
     ];
 
     Object.keys(bySet).sort().forEach(setName => {
       const items = bySet[setName];
-      lines.push(`// === ${setName} (${items.length} ${lang === 'hu' ? 'hiányzó' : 'missing'}) ===`);
+      lines.push(`// === ${setName} (${items.length} ${'missing'}) ===`);
       items.sort((a, b) => {
         const numA = a.card_number || '';
         const numB = b.card_number || '';
@@ -977,7 +967,7 @@ export function CardListApp() {
   const exportMissingCardsToSimpleText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      return lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrők alapján!' : 'No missing cards for the selected filters!';
+      return 'No missing cards for the selected filters!';
     }
     const sorted = [...missing].sort((a, b) => {
       const numA = a.card_number || '';
@@ -991,31 +981,31 @@ export function CardListApp() {
   const handleCopyMissingText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      showToast('No missing cards with current filters.');
       return;
     }
     const text = exportMissingCardsToText();
     navigator.clipboard.writeText(text);
-    showToast(lang === 'hu' ? `✓ ${missing.length} hiányzó kártya a vágólapra másolva!` : `✓ Copied ${missing.length} missing cards to clipboard!`);
+    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`);
     setShowExportModal(false);
   };
 
   const handleCopyMissingSimpleText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      showToast('No missing cards with current filters.');
       return;
     }
     const text = exportMissingCardsToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(lang === 'hu' ? `✓ ${missing.length} hiányzó kártya a vágólapra másolva!` : `✓ Copied ${missing.length} missing cards to clipboard!`);
+    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`);
     setShowExportModal(false);
   };
 
   const handleDownloadMissingTxt = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      showToast('No missing cards with current filters.');
       return;
     }
     const text = exportMissingCardsToText();
@@ -1029,14 +1019,14 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(lang === 'hu' ? `✓ Letöltve: ${missing.length} hiányzó kártya (.txt)` : `✓ Downloaded ${missing.length} missing cards (.txt)`);
+    showToast(`✓ Downloaded ${missing.length} missing cards (.txt)`);
     setShowExportModal(false);
   };
 
   const handleDownloadMissingJson = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast(lang === 'hu' ? 'Nincs hiányzó kártya a kiválasztott szűrőkkel.' : 'No missing cards with current filters.');
+      showToast('No missing cards with current filters.');
       return;
     }
     const dataObj = {
@@ -1064,7 +1054,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(lang === 'hu' ? `✓ Letöltve: ${missing.length} hiányzó kártya (.json)` : `✓ Downloaded ${missing.length} missing cards (.json)`);
+    showToast(`✓ Downloaded ${missing.length} missing cards (.json)`);
     setShowExportModal(false);
   };
 
@@ -1081,7 +1071,7 @@ export function CardListApp() {
       localStorage.setItem("tcg_user_collection", JSON.stringify(cloudData));
       localStorage.setItem("tcg_collection", JSON.stringify(cloudData));
       window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: cloudData } }));
-      showToast(`☁️ ${t('restored_from_cloud', lang)}`);
+      showToast(`☁️ ${"Collection restored from cloud!"}`);
       setShowImportModal(false);
       setShowExportModal(false);
     } catch (e: any) {
@@ -1260,7 +1250,7 @@ export function CardListApp() {
                   </svg>
                   <input
                     type="text"
-                    placeholder={t('search_placeholder', lang)}
+                    placeholder={"Search cards by name, number, or artist..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
@@ -1275,7 +1265,7 @@ export function CardListApp() {
                     className={`w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl ${catalogTheme.sortBtnClass} text-xs font-semibold transition shadow-sm cursor-pointer select-none`}
                   >
                     <span className="truncate">
-                      {getSortLabel(sortMode, lang)}
+                      {getSortLabel(sortMode)}
                     </span>
                     <svg
                       className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
@@ -1300,7 +1290,7 @@ export function CardListApp() {
                                 : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                             }`}
                           >
-                            <span>{t(labelKey as any, lang)}</span>
+                            <span>{t(labelKey as any)}</span>
                             {isSelected && (
                               <svg className={`w-3.5 h-3.5 ${catalogTheme.sortSelectedIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -1326,7 +1316,7 @@ export function CardListApp() {
                   </svg>
                   <input
                     type="text"
-                    placeholder={t('search_placeholder', lang)}
+                    placeholder={"Search cards by name, number, or artist..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
@@ -1343,7 +1333,7 @@ export function CardListApp() {
                     <svg className={`w-4 h-4 ${catalogTheme.mobileFilterIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
-                    <span className="truncate">{t('filters', lang)}</span>
+                    <span className="truncate">Filters</span>
                     {activeFilterBadgeCount > 0 && (
                       <span className={`w-5 h-5 rounded-full ${catalogTheme.mobileFilterBadge} text-[11px] font-black flex items-center justify-center shrink-0`}>
                         {activeFilterBadgeCount}
@@ -1358,7 +1348,7 @@ export function CardListApp() {
                       className={`w-full h-10 px-3.5 flex items-center justify-between gap-1.5 rounded-xl ${catalogTheme.sortBtnClass} text-xs font-semibold transition shadow-sm cursor-pointer select-none`}
                     >
                       <span className="truncate">
-                        {getSortLabel(sortMode, lang)}
+                        {getSortLabel(sortMode)}
                       </span>
                       <svg
                         className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
@@ -1383,7 +1373,7 @@ export function CardListApp() {
                                   : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                               }`}
                             >
-                              <span>{t(labelKey as any, lang)}</span>
+                              <span>{t(labelKey as any)}</span>
                               {isSelected && (
                                 <svg className={`w-3.5 h-3.5 ${catalogTheme.sortSelectedIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -1404,17 +1394,17 @@ export function CardListApp() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[var(--bg-input)] p-1.5 rounded-xl border border-[var(--border)] w-full">
                 {(["All", "Owned", "Playset", "Missing"] as const).map(f => {
                   const active = collectionFilter === f;
-                  let label = `${t('all', lang)} (${relevantTotal})`;
+                  let label = `${"All"} (${relevantTotal})`;
                   let activeClass = 'text-white font-bold bg-[var(--bg-raised)] border-[var(--border-hover)] shadow-md';
 
                   if (f === "Owned") {
-                    label = `${t('owned', lang)} (${ownedCount} / ${relevantTotal})`;
+                    label = `${"Owned"} (${ownedCount} / ${relevantTotal})`;
                     activeClass = 'text-white font-bold bg-emerald-500/20 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.25)]';
                   } else if (f === "Playset") {
-                    label = `${t('playset', lang)} (${playsetCount} / ${relevantTotal})`;
+                    label = `${"Playset"} (${playsetCount} / ${relevantTotal})`;
                     activeClass = catalogTheme.activePlaysetClass;
                   } else if (f === "Missing") {
-                    label = `${t('missing', lang)} (${missingCount} / ${relevantTotal})`;
+                    label = `${"Missing"} (${missingCount} / ${relevantTotal})`;
                     activeClass = 'text-white font-bold bg-rose-500/20 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.25)]';
                   }
                   
@@ -1452,7 +1442,7 @@ export function CardListApp() {
                           : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      {t(size as any, lang)}
+                      {t(size as any)}
                     </button>
                   );
                 })}
@@ -1466,19 +1456,19 @@ export function CardListApp() {
                   title="Open Deck Builder"
                   className={`flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
                 >
-                  {t('deck_builder', lang)}
+                  Deck Builder
                 </a>
 
                 {/* Quick Sale Button */}
                 <button
                   onClick={() => setShowQuickSalePreview(true)}
-                  title={lang === 'hu' ? 'Gyors eladás a szabályaid alapján' : 'Quick Sale based on your rules'}
+                  title={'Quick Sale based on your rules'}
                   className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
-                  {lang === 'hu' ? 'Gyors eladás' : 'Quick Sale'}
+                  Quick Sale
                 </button>
 
                 <button
@@ -1486,10 +1476,10 @@ export function CardListApp() {
                     setExportTab(collectionFilter === 'Missing' ? 'missing' : 'owned');
                     setShowExportModal(true);
                   }}
-                  title={lang === 'hu' ? 'Gyűjtemény vagy hiányzó kártyák exportálása' : 'Export collection or missing cards'}
+                  title={'Export collection or missing cards'}
                   className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
-                  {t('export', lang)}
+                  Export
                 </button>
 
                 <button
@@ -1497,7 +1487,7 @@ export function CardListApp() {
                   title="Import collection from text list or JSON file"
                   className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
-                  {t('import', lang)}
+                  Import
                 </button>
 
                 {uniqueOwnedKeys.length > 0 && (
@@ -1507,7 +1497,7 @@ export function CardListApp() {
                     className="col-span-3 sm:col-span-1 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2 sm:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
                     style={{ background: 'rgba(244,63,94,0.06)' }}
                   >
-                    {t('reset', lang)} ({totalOwnedCopies})
+                    Reset ({totalOwnedCopies})
                   </button>
                 )}
               </div>
@@ -1524,8 +1514,8 @@ export function CardListApp() {
               </div>
             ) : paginatedCards.length === 0 ? (
               <div style={{ textAlign: "center", padding: "80px 24px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 18 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>{lang === 'hu' ? 'Nincs találat' : 'No cards found'}</h3>
-                <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>{lang === 'hu' ? 'Próbáld meg törölni a szűrőket vagy a keresési kifejezést.' : 'Try clearing filters or search term to discover cards.'}</p>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px" }}>No cards found</h3>
+                <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Try clearing filters or search term to discover cards.</p>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
@@ -1551,7 +1541,7 @@ export function CardListApp() {
           <div ref={observerTarget as any} style={{ display: "flex", justifyContent: "center", padding: "30px 0" }}>
             {hasMore && !loading && (
               <div style={{ color: "var(--accent-light)", fontSize: 13, fontWeight: 700 }}>
-                {lang === 'hu' ? 'További kártyák betöltése…' : 'Loading more cards…'}
+                Loading more cards…
               </div>
             )}
           </div>
@@ -1576,17 +1566,17 @@ export function CardListApp() {
                   <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  <span className="font-extrabold text-white text-base">{lang === 'hu' ? 'Katalógus Szűrése' : 'Filter Catalog'}</span>
+                  <span className="font-extrabold text-white text-base">Filter Catalog</span>
                   {activeFilterBadgeCount > 0 && (
                     <span className="px-2 py-0.5 rounded-full bg-indigo-500 text-zinc-950 text-xs font-black">
-                      {lang === 'hu' ? `${activeFilterBadgeCount} aktív` : `${activeFilterBadgeCount} active`}
+                      {`${activeFilterBadgeCount} active`}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowMobileFilters(false)}
                   className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
-                  title={lang === 'hu' ? "Szűrők bezárása" : "Close Filters"}
+                  title={"Close Filters"}
                 >
                   ✕
                 </button>
@@ -1617,7 +1607,7 @@ export function CardListApp() {
                   onClick={() => setShowMobileFilters(false)}
                   className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition cursor-pointer text-center"
                 >
-                  {lang === 'hu' ? `Alkalmazás & ${relevantTotal} Kártya Megtekintése` : `Apply & View ${relevantTotal} Cards`}
+                  {`Apply & View ${relevantTotal} Cards`}
                 </button>
               </div>
             </div>
@@ -1638,12 +1628,12 @@ export function CardListApp() {
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xl font-black text-zinc-100">
-                {exportTab === 'owned' ? t('export_collection', lang) : t('export_missing_cards', lang)}
+                {exportTab === 'owned' ? "Export Collection" : "Export Missing Cards"}
               </h3>
               <button
                 onClick={() => setShowExportModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
-                title={lang === 'hu' ? 'Bezárás' : 'Close'}
+                title={'Close'}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -1663,7 +1653,7 @@ export function CardListApp() {
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <span>{t('tab_owned_cards', lang)}</span>
+                <span>Owned Cards</span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-700/60 text-zinc-300">
                   {totalOwnedCopies}
                 </span>
@@ -1677,7 +1667,7 @@ export function CardListApp() {
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <span>{t('tab_missing_cards', lang)}</span>
+                <span>Missing Cards (Want-List)</span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-black">
                   {getMissingCards().length}
                 </span>
@@ -1688,9 +1678,7 @@ export function CardListApp() {
             {exportTab === 'owned' && (
               <>
                 <p className="text-xs text-zinc-400 mb-4">
-                  {lang === 'hu'
-                    ? `Mentsd el ${totalOwnedCopies} birtokolt kártyádat (${uniqueOwnedKeys.length} egyedi) felhőfiókodba, másolj formázott szöveges listát vagy tölts le biztonsági mentést.`
-                    : `Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
+                  {`Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
                 </p>
 
                 {/* Cloud Database Save Section */}
@@ -1710,11 +1698,11 @@ export function CardListApp() {
                         </div>
                         <div>
                           <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
-                            <span>{t('save_to_cloud', lang)}</span>
+                            <span>Save to Cloud Database</span>
                             <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
                           </div>
                           <div className="text-xs text-indigo-200/70 mt-0.5">
-                            {lang === 'hu' ? `Gyűjtemény mentése (${totalOwnedCopies} kártya) a fiókod adatbázisába` : `Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
+                            {`Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
                           </div>
                         </div>
                       </div>
@@ -1722,7 +1710,7 @@ export function CardListApp() {
                         <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        <span>{savingToCloud ? t('saving', lang) : t('save', lang)}</span>
+                        <span>{savingToCloud ? "Saving…" : "Save"}</span>
                       </span>
                     </button>
                   ) : (
@@ -1735,10 +1723,10 @@ export function CardListApp() {
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-zinc-300 truncate">
-                            {lang === 'hu' ? 'Jelentkezz be a felhőbe mentéshez' : 'Sign in to save to database'}
+                            Sign in to save to database
                           </div>
                           <div className="text-[11px] text-zinc-500 truncate">
-                            {lang === 'hu' ? 'Szinkronizáld és készíts biztonsági mentést a fiókodba' : 'Sync and backup your collection to your cloud account'}
+                            Sync and backup your collection to your cloud account
                           </div>
                         </div>
                       </div>
@@ -1746,7 +1734,7 @@ export function CardListApp() {
                         href="/login"
                         className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition border border-zinc-700 shrink-0"
                       >
-                        {t('sign_in', lang)}
+                        Sign In
                       </a>
                     </div>
                   )}
@@ -1760,10 +1748,10 @@ export function CardListApp() {
                   >
                     <div>
                       <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                        {t('copy_formatted_list', lang)}
+                        Copy Formatted Card List
                       </div>
                       <div className="text-xs text-zinc-400 mt-0.5">
-                        {lang === 'hu' ? 'Szettek szerint csoportosított lista darabszámmal és fóliás jelöléssel' : 'Grouped by set with quantities, card numbers, names, and foil tags'}
+                        Grouped by set with quantities, card numbers, names, and foil tags
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1776,10 +1764,10 @@ export function CardListApp() {
                   >
                     <div>
                       <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                        {t('copy_simple_list', lang)}
+                        Copy Simple Card Names
                       </div>
                       <div className="text-xs text-zinc-400 mt-0.5">
-                        {lang === 'hu' ? 'Tömör lista darabszámmal (pl. 3x Jinx, Demolitionist [Foil])' : 'Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])'}
+                        Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1792,10 +1780,10 @@ export function CardListApp() {
                   >
                     <div>
                       <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                        {t('download_json_backup', lang)}
+                        Download Collection File (JSON)
                       </div>
                       <div className="text-xs text-zinc-400 mt-0.5">
-                        {lang === 'hu' ? 'Teljes JSON mentési fájl eszközre mentéshez vagy más böngészőbe importáláshoz' : 'Full JSON backup file to save on your device or import on another browser'}
+                        Full JSON backup file to save on your device or import on another browser
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
@@ -1808,10 +1796,10 @@ export function CardListApp() {
                   >
                     <div>
                       <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                        {t('copy_raw_json', lang)}
+                        Copy Raw JSON to Clipboard
                       </div>
                       <div className="text-xs text-zinc-400 mt-0.5">
-                        {lang === 'hu' ? 'Kártya azonosítók tömbje importáláshoz' : 'Array of card IDs for quick pasting into the Import modal'}
+                        Array of card IDs for quick pasting into the Import modal
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -1824,9 +1812,7 @@ export function CardListApp() {
             {exportTab === 'missing' && (
               <>
                 <p className="text-xs text-zinc-400 mb-3">
-                  {lang === 'hu'
-                    ? 'Exportáld az aktuálisan kiválasztott szűrőknek megfelelő hiányzó kártyák listáját cserekereséshez vagy vásárláshoz.'
-                    : 'Export the missing cards that match your currently active filters for trading or shopping want-lists.'}
+                  Export the missing cards that match your currently active filters for trading or shopping want-lists.
                 </p>
 
                 {/* Filter Context Box */}
@@ -1835,16 +1821,14 @@ export function CardListApp() {
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                     </svg>
-                    <span>{lang === 'hu' ? 'Aktuális szűrőfeltételek' : 'Currently Applied Filters'}</span>
+                    <span>Currently Applied Filters</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 font-semibold">
                       {getActiveFilterDescription()}
                     </span>
                     <span className="text-zinc-300 font-medium">
-                      {lang === 'hu'
-                        ? `${getMissingCards().length} hiányzó kártya (${relevantTotal} lapból)`
-                        : `${getMissingCards().length} missing cards (out of ${relevantTotal})`}
+                      {`${getMissingCards().length} missing cards (out of ${relevantTotal})`}
                     </span>
                   </div>
                 </div>
@@ -1857,12 +1841,10 @@ export function CardListApp() {
                       </svg>
                     </div>
                     <div className="text-sm font-bold text-emerald-300">
-                      {lang === 'hu' ? 'Nincs hiányzó kártya!' : 'No missing cards!'}
+                      No missing cards!
                     </div>
                     <div className="text-xs text-zinc-400 mt-1">
-                      {lang === 'hu'
-                        ? 'A kiválasztott szűrők alapján minden kártya már szerepel a gyűjteményedben.'
-                        : 'You already own every card that matches your current filter selection.'}
+                      You already own every card that matches your current filter selection.
                     </div>
                   </div>
                 ) : (
@@ -1874,12 +1856,10 @@ export function CardListApp() {
                     >
                       <div>
                         <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                          {t('copy_missing_formatted', lang)}
+                          Copy Detailed Want-List
                         </div>
                         <div className="text-xs text-zinc-400 mt-0.5">
-                          {lang === 'hu'
-                            ? 'Szettek szerint csoportosított lista névvel, kártyaszámmal és ritkasággal'
-                            : 'Grouped by set with card numbers, names, and rarities'}
+                          Grouped by set with card numbers, names, and rarities
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
@@ -1892,12 +1872,10 @@ export function CardListApp() {
                     >
                       <div>
                         <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                          {t('copy_missing_simple', lang)}
+                          Copy Simple Want-List
                         </div>
                         <div className="text-xs text-zinc-400 mt-0.5">
-                          {lang === 'hu'
-                            ? 'Tömör lista (pl. 1x Jinx [VEN-042]), ideális Discordra vagy keresési posztokhoz'
-                            : 'Compact list (e.g. 1x Jinx [VEN-042]), ideal for Discord or trade posts'}
+                          Compact list (e.g. 1x Jinx [VEN-042]), ideal for Discord or trade posts
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
@@ -1910,12 +1888,10 @@ export function CardListApp() {
                     >
                       <div>
                         <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                          {t('download_missing_txt', lang)}
+                          Download Text File (.txt)
                         </div>
                         <div className="text-xs text-zinc-400 mt-0.5">
-                          {lang === 'hu'
-                            ? 'Formázott keresési lista letöltése .txt szövegfájlként'
-                            : 'Formatted want-list file to save on your device'}
+                          Formatted want-list file to save on your device
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
@@ -1928,12 +1904,10 @@ export function CardListApp() {
                     >
                       <div>
                         <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                          {t('download_missing_json', lang)}
+                          Download JSON File (.json)
                         </div>
                         <div className="text-xs text-zinc-400 mt-0.5">
-                          {lang === 'hu'
-                            ? 'Strukturált JSON adatfájl kártya azonosítókkal és adatokkal'
-                            : 'Structured JSON data with card IDs, numbers, sets, and rarities'}
+                          Structured JSON data with card IDs, numbers, sets, and rarities
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
@@ -1948,7 +1922,7 @@ export function CardListApp() {
                 onClick={() => setShowExportModal(false)}
                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer"
               >
-                {t('close', lang)}
+                Close
               </button>
             </div>
           </div>
@@ -1963,7 +1937,7 @@ export function CardListApp() {
           onClose={() => setShowQuickSalePreview(false)}
           ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
           allCards={allCards}
-          lang={lang}
+          
         />
       )}
 
@@ -1977,7 +1951,7 @@ export function CardListApp() {
             className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-zinc-100">{t('import_collection', lang)}</h3>
+              <h3 className="text-xl font-black text-zinc-100">Import Collection</h3>
               <button
                 onClick={() => setShowImportModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
@@ -2002,9 +1976,9 @@ export function CardListApp() {
                       </svg>
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-indigo-100">{t('restore_from_cloud', lang)}</div>
+                      <div className="text-xs font-bold text-indigo-100">Restore from Cloud Account</div>
                       <div className="text-[11px] text-indigo-200/70">
-                        {lang === 'hu' ? 'A korábban felhőbe mentett gyűjteményed visszaállítása és szinkronizálása' : 'Restore and sync your previously saved cloud collection'}
+                        Restore and sync your previously saved cloud collection
                       </div>
                     </div>
                   </div>
@@ -2016,7 +1990,7 @@ export function CardListApp() {
             )}
 
             <p className="text-xs text-zinc-400 mb-4">
-              {lang === 'hu' ? 'Illeszd be a gyűjtemény listáját (szöveg kártyanevekkel/számokkal vagy JSON tömb):' : 'Paste a collection list (text with card names/numbers or JSON array) to add to your collection:'}
+              Paste a collection list (text with card names/numbers or JSON array) to add to your collection:
             </p>
             <textarea
               rows={7}
@@ -2030,13 +2004,13 @@ export function CardListApp() {
                 onClick={() => setShowImportModal(false)}
                 className="px-4 py-2 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700/80 rounded-lg text-xs font-bold transition cursor-pointer"
               >
-                {t('cancel', lang)}
+                Cancel
               </button>
               <button
                 onClick={handleImportCollection}
                 className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-lg text-xs font-black transition cursor-pointer shadow-md"
               >
-                {t('import_btn', lang)}
+                Import Cards
               </button>
             </div>
           </div>

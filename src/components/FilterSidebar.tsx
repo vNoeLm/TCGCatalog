@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import type { FilterState } from "../types";
 import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES } from "../lib/constants";
-import { getLanguage, t, type Language } from "../lib/i18n";
 import { useSiteTheme } from "../lib/theme";
 import { DOMAIN_STYLES, RARITY_STYLES } from "../lib/domainColors";
 
@@ -58,7 +57,6 @@ function SectionHeader({ label, badge, collapsible = true, open, onToggle, theme
 }
 
 export function FilterSidebar({ filters, setFilters, options }: FilterSidebarProps) {
-  const [lang, setLang] = useState<Language>('en');
   // Default OPEN: Set, Type, Domain. Default COLLAPSED: Card Variant, Rarity, Tags, Energy Cost
   const [setOpen, setSetOpen] = useState(true);
   const [typeOpen, setTypeOpen] = useState(true);
@@ -71,17 +69,6 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const [eddiesOpen, setEddiesOpen] = useState(true);
   const [tagSearch, setTagSearch] = useState("");
 
-  useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
-    return () => window.removeEventListener('tcg-lang-change', handleLangChange);
-  }, []);
 
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
@@ -246,20 +233,20 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className={sidebarTheme.headerIcon}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          {t('filters', lang)}
+          Filters
         </span>
         <button
           onClick={reset}
           className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-800/40 text-[11px] px-2 py-0.5 rounded font-medium transition cursor-pointer"
         >
-          {t('reset', lang)}
+          Reset
         </button>
       </div>
 
       {/* 1. SET SECTION (Default OPEN) */}
       <div className={`border-b ${sidebarTheme.divider} pb-2`}>
         <SectionHeader
-          label={t('set', lang)}
+          label={"Set"}
           badge={filters.set ? 1 : 0}
           open={setOpen}
           onToggle={() => setSetOpen(o => !o)}
@@ -278,7 +265,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 backgroundSize: "12px",
               }}
             >
-              <option value="">{t('all_sets', lang)}</option>
+              <option value="">All Sets</option>
               {options.sets.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -289,7 +276,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={t('type', lang)}
+            label={"Type"}
             badge={filters.type ? 1 : 0}
             open={typeOpen}
             onToggle={() => setTypeOpen(o => !o)}
@@ -309,7 +296,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                         : sidebarTheme.btnDefault
                     }`}
                   >
-                    {val || t('all', lang)}
+                    {val || "All"}
                   </button>
                 );
               })}
@@ -322,7 +309,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={isPokemon ? t('energy_type', lang) : (isCyberpunk ? (lang === 'hu' ? 'Szín' : 'Color') : t('domain', lang))}
+            label={isPokemon ? "Energy Type" : (isCyberpunk ? ('Color') : "Domain")}
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
@@ -384,7 +371,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && isRiftbound && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={t('card_variant', lang)}
+            label={"Card Variant"}
             badge={variantBadgeCount}
             open={variantsOpen}
             onToggle={() => setVariantsOpen(o => !o)}
@@ -402,7 +389,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                <span>{baseSet === 'only' ? `✓ ${t('base_set_only', lang)}: ON` : t('base_set_only', lang)}</span>
+                <span>{baseSet === 'only' ? `✓ ${"Base Set Only (1 - Max)"}: ON` : "Base Set Only (1 - Max)"}</span>
               </button>
 
               {/* Foil Toggle */}
@@ -414,7 +401,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                {filters.foilFilter ? "Foil: ON" : t('foil_only', lang)}
+                {filters.foilFilter ? "Foil: ON" : "Foil Only"}
               </button>
 
               {/* SP 3-State Cycle */}
@@ -429,7 +416,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                {sp === 'only' ? "SP: ONLY" : sp === 'none' ? "SP: NO" : t('sp_cards', lang)}
+                {sp === 'only' ? "SP: ONLY" : sp === 'none' ? "SP: NO" : "SP Cards"}
               </button>
 
               {/* Signed 3-State Cycle */}
@@ -444,7 +431,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                {signed === 'only' ? "Signed: ONLY" : signed === 'none' ? "Signed: NO" : t('signed_cards', lang)}
+                {signed === 'only' ? "Signed: ONLY" : signed === 'none' ? "Signed: NO" : "Signed"}
               </button>
 
               {/* Alt Art 3-State Cycle */}
@@ -459,7 +446,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                {altArt === 'only' ? "Alt Art: ONLY" : altArt === 'none' ? "Alt Art: NO" : t('alt_art', lang)}
+                {altArt === 'only' ? "Alt Art: ONLY" : altArt === 'none' ? "Alt Art: NO" : "Alt Art"}
               </button>
 
               {/* Overnumbered 3-State Cycle */}
@@ -474,7 +461,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                {overnumbered === 'only' ? "Overnum: ONLY" : overnumbered === 'none' ? "Overnum: NO" : t('overnumbered', lang)}
+                {overnumbered === 'only' ? "Overnum: ONLY" : overnumbered === 'none' ? "Overnum: NO" : "Overnumbered"}
               </button>
             </div>
           )}
@@ -485,7 +472,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={t('rarity', lang)}
+            label={"Rarity"}
             badge={filters.rarities.length}
             open={rarityOpen}
             onToggle={() => setRarityOpen(o => !o)}
@@ -548,7 +535,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={lang === 'hu' ? 'Terméktípus' : 'Product Type'}
+            label={'Product Type'}
             badge={filters.sealedTypes?.length || 0}
             open={sealedOpen}
             onToggle={() => setSealedOpen(o => !o)}
@@ -582,7 +569,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && options.tags && options.tags.length > 0 && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={t('tags', lang)}
+            label={"Tags"}
             badge={filters.tags.length}
             open={tagsOpen}
             onToggle={() => setTagsOpen(o => !o)}
@@ -600,7 +587,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 </svg>
                 <input
                   type="text"
-                  placeholder={lang === 'hu' ? 'Címkék keresése...' : 'Search tags...'}
+                  placeholder={'Search tags...'}
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
                   className={`w-full ${sidebarTheme.input} rounded-md pl-7 pr-6 py-1 text-xs outline-none transition`}
@@ -635,7 +622,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 })}
                 {filteredTags.length === 0 && (
                   <div className="text-[11px] text-zinc-400 py-1">
-                    {lang === 'hu' ? `Nincs találat erre: "${tagSearch}"` : `No tags matching "${tagSearch}"`}
+                    {`No tags matching "${tagSearch}"`}
                   </div>
                 )}
               </div>
@@ -648,7 +635,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && !isPokemon && (
         <div className={isCyberpunk ? `border-b ${sidebarTheme.divider} pb-2` : ""}>
           <SectionHeader
-            label={isCyberpunk ? (lang === 'hu' ? 'Költség (€$)' : 'Cost (€$)') : (lang === 'hu' ? 'Energiaköltség' : 'Energy Cost')}
+            label={isCyberpunk ? ('Cost (€$)') : ('Energy Cost')}
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}
@@ -684,7 +671,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {isCyberpunk && !isSealedCategory && (
         <div>
           <SectionHeader
-            label={lang === 'hu' ? 'Eddies (Eladhatóság)' : 'Eddies (Sellable)'}
+            label={'Eddies (Sellable)'}
             badge={filters.eddiableFilter && filters.eddiableFilter !== 'all' ? 1 : 0}
             open={eddiesOpen}
             onToggle={() => setEddiesOpen(o => !o)}
@@ -693,9 +680,9 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
           {eddiesOpen && (
             <div className="mt-1.5 flex gap-1.5">
               {[
-                { id: 'all', label: lang === 'hu' ? 'Mind' : 'All' },
-                { id: 'sellable', label: lang === 'hu' ? 'Eladható (€$)' : 'Sellable (€$)' },
-                { id: 'non_sellable', label: lang === 'hu' ? 'Nem eladható' : 'Non-Sellable' },
+                { id: 'all', label: 'All' },
+                { id: 'sellable', label: 'Sellable (€$)' },
+                { id: 'non_sellable', label: 'Non-Sellable' },
               ].map((opt) => {
                 const active = (filters.eddiableFilter || 'all') === opt.id;
                 return (

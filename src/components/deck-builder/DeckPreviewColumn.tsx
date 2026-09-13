@@ -3,7 +3,6 @@ import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
-import { type Language } from '../../lib/i18n';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
@@ -14,7 +13,6 @@ interface DeckPreviewColumnProps {
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
   onRemoveCard?: (cardId: string) => void;
-  lang?: Language;
 }
 
 export function DeckPreviewColumn({
@@ -26,7 +24,7 @@ export function DeckPreviewColumn({
   championCard,
   onCardClick,
   onRemoveCard,
-  lang = 'en',
+  
 }: DeckPreviewColumnProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
 
@@ -80,8 +78,8 @@ export function DeckPreviewColumn({
           <path d="M7 7h.01" />
           <path d="M17 17h.01" />
         </svg>
-        <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{lang === 'hu' ? 'A pakli üres' : 'Deck is empty'}</p>
-        <p style={{ margin: 0, fontSize: 12 }}>{lang === 'hu' ? 'Adj hozzá kártyákat a katalógusból.' : 'Add cards from the catalog.'}</p>
+        <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Deck is empty</p>
+        <p style={{ margin: 0, fontSize: 12 }}>Add cards from the catalog.</p>
       </div>
     );
   }
@@ -97,9 +95,9 @@ export function DeckPreviewColumn({
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
         }}>
-          {lang === 'hu' ? 'Pakli Előnézet' : 'Deck Preview'}
+          Deck Preview
         </h2>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{previewCards.reduce((sum, item) => sum + item.qty, 0)} {lang === 'hu' ? 'Összesen' : 'Total'}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{previewCards.reduce((sum, item) => sum + item.qty, 0)} Total</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '16px 12px' }}>

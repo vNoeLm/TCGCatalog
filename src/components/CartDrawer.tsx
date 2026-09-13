@@ -16,7 +16,6 @@ import {
 } from '../lib/cart';
 import { getCardImageUrl } from '../lib/supabase';
 import { formatCleanCardNumber } from '../lib/formatGameText';
-import { t, type Language } from '../lib/i18n';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -25,10 +24,9 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onCheckout: (items: CartItem[]) => void;
-  lang: Language;
 }
 
-export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProps) {
+export function CartDrawer({ isOpen, onClose, onCheckout }: CartDrawerProps) {
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<CartItem[]>([]);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
@@ -121,11 +119,11 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
         const issues = result.unavailableItems
           .map(it =>
             it.availableQty > 0
-              ? `"${it.name}": ${it.availableQty} ${t('items_count', lang)} (${t('requested', lang as any) || 'requested'} ${it.requestedQty})`
-              : `"${it.name}": ${t('out_of_stock', lang as any) || 'out of stock'}`
+              ? `"${it.name}": ${it.availableQty} ${"items"} (${"Requested"} ${it.requestedQty})`
+              : `"${it.name}": ${"Out of Stock"}`
           )
           .join(', ');
-        setStockError(`${t('stock_unavailable_error', lang)}: ${issues}`);
+        setStockError(`${"Unable to proceed: Some items are no longer available in the requested quantity."}: ${issues}`);
         setItems(result.updatedItems);
         saveCart(result.updatedItems);
         setIsCheckingStock(false);
@@ -190,7 +188,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
             <h2 className="text-base sm:text-lg font-black" style={{ color: 'var(--text-primary)' }}>
-              {t('my_cart', lang)}
+              My Cart
             </h2>
             <span
               className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
@@ -200,7 +198,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 color: 'var(--text-accent)',
               }}
             >
-              {totalCount} {totalCount === 1 ? t('item_count_singular', lang) : t('items_count', lang)}
+              {totalCount} {totalCount === 1 ? "item" : "items"}
             </span>
           </div>
 
@@ -213,7 +211,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
               borderColor: 'var(--border)',
               color: 'var(--text-secondary)',
             }}
-            title={t('close', lang)}
+            title={"Close"}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -239,7 +237,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <span>{t('reservation_timer', lang)}</span>
+              <span>Items reserved for:</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -265,7 +263,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              <span>{t('reservation_expired_cart', lang)}</span>
+              <span>Your 15-minute reservation expired. Items were returned to available stock.</span>
             </div>
             <button
               type="button"
@@ -317,10 +315,10 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
               </svg>
             </div>
             <h3 className="text-base font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-              {t('cart_empty', lang)}
+              Your cart is empty
             </h3>
             <p className="text-xs sm:text-sm mb-6 max-w-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {t('cart_empty_desc', lang)}
+              Browse the store and add cards to your cart.
             </p>
             <a
               href="/marketplace"
@@ -332,7 +330,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 color: 'var(--text-accent)',
               }}
             >
-              {lang === 'hu' ? 'Piactér böngészése' : 'Browse Marketplace'}
+              Browse Marketplace
             </a>
           </div>
         ) : (
@@ -373,7 +371,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                         type="button"
                         onClick={() => removeFromCart(idx)}
                         className="text-zinc-400 hover:text-red-400 p-1 rounded transition cursor-pointer"
-                        title={t('remove_item', lang)}
+                        title={"Remove"}
                         aria-label={`Remove ${item.card.name} from cart`}
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -391,7 +389,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                       </span>
                       {item.isFoil && (
                         <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
-                          {t('foil_edition', lang)}
+                          Foil
                         </span>
                       )}
                     </div>
@@ -449,10 +447,10 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
-                  {t('total', lang)}
+                  Total
                 </span>
                 <span className="text-[11px] text-zinc-400">
-                  {totalCount} {totalCount === 1 ? t('item_count_singular', lang) : t('items_count', lang)}
+                  {totalCount} {totalCount === 1 ? "item" : "items"}
                 </span>
               </div>
               <div className="text-right">
@@ -473,7 +471,7 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                   color: 'var(--text-secondary)',
                 }}
               >
-                {t('clear_cart', lang)}
+                Clear Cart
               </button>
               <button
                 type="button"
@@ -489,14 +487,14 @@ export function CartDrawer({ isOpen, onClose, onCheckout, lang }: CartDrawerProp
                 {isCheckingStock ? (
                   <>
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    <span>{t('checking_stock', lang)}</span>
+                    <span>Checking stock…</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span>{t('proceed_to_checkout', lang)}</span>
+                    <span>Proceed to Checkout</span>
                   </>
                 )}
               </button>

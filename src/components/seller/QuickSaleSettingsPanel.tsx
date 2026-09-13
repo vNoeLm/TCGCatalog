@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { QuickSaleRule, Language } from '../../types';
+import type { QuickSaleRule } from '../../types';
 import { GAMES, RARITIES, CYBERPUNK_RARITIES, POKEMON_RARITIES } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
 
@@ -7,7 +7,6 @@ interface Props {
   rules: QuickSaleRule[];
   onSave: (rules: QuickSaleRule[]) => Promise<void>;
   saving: boolean;
-  lang: Language;
 }
 
 const getRaritiesForGame = (gameId: string) => {
@@ -16,7 +15,7 @@ const getRaritiesForGame = (gameId: string) => {
   return RARITIES;
 };
 
-const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, lang }: any) => {
+const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName }: any) => {
   const [query, setQuery] = useState(initialName || '');
   const [results, setResults] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +51,7 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
     <div className="relative" ref={wrapperRef}>
       <input
         type="text"
-        placeholder={lang === 'hu' ? 'Keresés névre...' : 'Search card name...'}
+        placeholder={'Search card name...'}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -85,7 +84,7 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
   );
 };
 
-export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
+export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
   const [localRules, setLocalRules] = useState<QuickSaleRule[]>(rules || []);
   
   const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -117,12 +116,12 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
     // Validate empty prices
     const invalid = localRules.find(r => r.basePriceHuf === '' || typeof r.basePriceHuf !== 'number' || r.basePriceHuf < 50);
     if (invalid) {
-      alert(lang === 'hu' ? 'Minden szabálynak érvényes árat kell tartalmaznia (min 50 Ft)!' : 'Every rule must have a valid price (min 50 HUF)!');
+      alert('Every rule must have a valid price (min 50 HUF)!');
       return;
     }
     const invalidCard = localRules.find(r => r.type === 'specific_card' && !r.targetValue);
     if (invalidCard) {
-      alert(lang === 'hu' ? 'Kérlek válassz ki egy kártyát minden "Specific Card" szabálynál.' : 'Please select a card for every "Specific Card" rule.');
+      alert('Please select a card for every "Specific Card" rule.');
       return;
     }
     onSave(localRules);
@@ -143,22 +142,20 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-white mb-1">
-            {lang === 'hu' ? 'Gyors eladás szabályok' : 'Quick Sale Rules'}
+            Quick Sale Rules
           </h2>
           <p className="text-xs text-zinc-400 max-w-2xl">
-            {lang === 'hu'
-              ? 'Állíts be szabályokat, amelyek alapján egy gombnyomással kilistázhatod a felesleges lapjaidat.'
-              : 'Configure rules to automatically list duplicate cards.'}
+            Configure rules to automatically list duplicate cards.
           </p>
         </div>
         <button onClick={handleAddRule} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-          {lang === 'hu' ? 'Új Szabály' : 'Add Rule'}
+          Add Rule
         </button>
       </div>
 
       {localRules.length === 0 ? (
         <div className="text-center py-10 rounded-2xl border border-dashed border-white/10 text-zinc-500 text-xs">
-          {lang === 'hu' ? 'Még nincsenek szabályok beállítva.' : 'No rules configured yet.'}
+          No rules configured yet.
         </div>
       ) : (
         <div className="space-y-3">
@@ -222,7 +219,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
                       onChange={(id: string) => updateRule(rule.id, { targetValue: id })}
                       onNameChange={(name: string) => updateRule(rule.id, { targetCardName: name })}
                       initialName={rule.targetCardName}
-                      lang={lang} 
+                       
                     />
                   )}
                 </div>
@@ -274,7 +271,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
                   <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Handover</label>
                   <div className="space-y-1.5 bg-zinc-900/50 p-2 rounded-lg border border-white/5">
                     {[
-                      { id: 'personal', label: 'Személyes' },
+                      { id: 'personal', label: 'In person' },
                       { id: 'foxpost', label: 'Foxpost' },
                       { id: 'packeta', label: 'Packeta' },
                       { id: 'posta', label: 'Posta' }
@@ -305,7 +302,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
             disabled={saving}
             className="px-6 py-2 bg-[var(--accent)] hover:opacity-90 text-[var(--bg-surface)] rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
           >
-            {saving ? (lang === 'hu' ? 'Mentés...' : 'Saving...') : (lang === 'hu' ? 'Szabályok mentése' : 'Save Rules')}
+            {saving ? ('Saving...') : ('Save Rules')}
           </button>
         </div>
       )}

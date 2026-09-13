@@ -4,7 +4,6 @@ import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
-import { t, type Language } from '../../lib/i18n';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -15,7 +14,6 @@ interface DeckCatalogProps {
   activeZone: keyof DeckState | 'legends';
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
-  lang?: Language;
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -66,7 +64,7 @@ export function DeckCatalog({
   activeZone,
   onAddCard,
   onPreviewCard,
-  lang = 'en',
+  
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
   const theme = {
@@ -385,7 +383,7 @@ export function DeckCatalog({
       {/* Legend prompt */}
       {!isCyberpunk && !legendCard && (
         <div style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border, var(--border))', color: 'var(--text-accent)', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          {t('select_legend_prompt', lang)}
+          Select your Legend first — it determines which domains you can play.
         </div>
       )}
 
@@ -410,7 +408,7 @@ export function DeckCatalog({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
-            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? t('search_legends', lang) : t('search_cards', lang))}
+            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? "Search Legends…" : "Search cards…")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -432,16 +430,16 @@ export function DeckCatalog({
               color: '#f4f4f5',
               fontWeight: 700, fontSize: 13, outline: 'none', cursor: 'pointer'
             }}
-            title={lang === 'hu' ? 'Rendezés' : 'Sort by'}
+            title={'Sort by'}
           >
-            <option value="Cost (Low to High)">{lang === 'hu' ? 'Költség (Növekvő)' : 'Cost: Low to High'}</option>
-            <option value="Cost (High to Low)">{lang === 'hu' ? 'Költség (Csökkenő)' : 'Cost: High to Low'}</option>
-            <option value="Card Number (Asc)">{t('sort_number_asc', lang)}</option>
-            <option value="Card Number (Desc)">{t('sort_number_desc', lang)}</option>
-            <option value="Name (A to Z)">{t('sort_name_asc', lang)}</option>
-            <option value="Name (Z to A)">{t('sort_name_desc', lang)}</option>
-            <option value="Rarity (High to Low)">{t('sort_rarity_high', lang)}</option>
-            <option value="Rarity (Low to High)">{t('sort_rarity_low', lang)}</option>
+            <option value="Cost (Low to High)">Cost: Low to High</option>
+            <option value="Cost (High to Low)">Cost: High to Low</option>
+            <option value="Card Number (Asc)">Card Number (Asc)</option>
+            <option value="Card Number (Desc)">Card Number (Desc)</option>
+            <option value="Name (A to Z)">Name (A to Z)</option>
+            <option value="Name (Z to A)">Name (Z to A)</option>
+            <option value="Rarity (High to Low)">Rarity (High to Low)</option>
+            <option value="Rarity (Low to High)">Rarity (Low to High)</option>
           </select>
 
           <button
@@ -454,10 +452,10 @@ export function DeckCatalog({
               display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
               transition: 'all 0.15s',
             }}
-            title={onlyOwned ? (lang === 'hu' ? "Csak birtokolt kártyák (Kattints az összeshez)" : "Showing only owned cards (Click to show all cards)") : (lang === 'hu' ? "Szűrés a gyűjteményedben lévő kártyákra" : "Click to filter and show only cards in your collection")}
+            title={onlyOwned ? ("Showing only owned cards (Click to show all cards)") : ("Click to filter and show only cards in your collection")}
           >
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: onlyOwned ? '#10b981' : 'var(--text-muted)', display: 'inline-block' }} />
-            <span>{t('owned_only', lang)}</span>
+            <span>Owned Only</span>
             {collection.size > 0 && (
               <span style={{
                 fontSize: 11, padding: '1px 6px', borderRadius: 10,
@@ -481,7 +479,7 @@ export function DeckCatalog({
               transition: 'all 0.15s ease',
             }}
           >
-            {t('filters', lang)}
+            Filters
             {activeFiltersCount > 0 && (
               <span style={{
                 background: theme.accent,
@@ -522,10 +520,10 @@ export function DeckCatalog({
             }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {t('only_show_owned', lang)}
+                  Only Show Owned Cards
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {collection.size > 0 ? `${ownedInCatalogCount} ${t('matching_cards_owned', lang)}` : (lang === 'hu' ? 'Nincsenek kártyák a gyűjteményedben' : 'No cards currently saved in your collection')}
+                  {collection.size > 0 ? `${ownedInCatalogCount} ${"matching cards owned in your collection"}` : ('No cards currently saved in your collection')}
                 </div>
               </div>
               <button
@@ -545,16 +543,16 @@ export function DeckCatalog({
             {/* Row 1: Type (when applicable) + Rarity */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={currentLabelStyle}>{t('type', lang)}</label>
+                <label style={currentLabelStyle}>Type</label>
                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={currentSelectStyle} disabled={!showTypeFilter}>
-                  {showTypeFilter && <option value="All">{t('all_types', lang)}</option>}
+                  {showTypeFilter && <option value="All">All Types</option>}
                   {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={currentLabelStyle}>{t('set', lang)}</label>
+                <label style={currentLabelStyle}>Set</label>
                 <select value={setFilter} onChange={e => setSetFilter(e.target.value)} style={currentSelectStyle}>
-                  <option value="All">{t('all_sets', lang)}</option>
+                  <option value="All">All Sets</option>
                   {availableSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
@@ -562,7 +560,7 @@ export function DeckCatalog({
 
             {/* Row 2: Rarity chips */}
             <div>
-              <label style={currentLabelStyle}>{t('rarity', lang)}</label>
+              <label style={currentLabelStyle}>Rarity</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {['All', ...rarityOptions].map(r => {
                   const isActive = rarityFilter === r;
@@ -579,7 +577,7 @@ export function DeckCatalog({
                         transition: 'all 0.15s',
                       }}
                     >
-                      {r === 'All' ? t('all', lang) : r}
+                      {r === 'All' ? "All" : r}
                     </button>
                   );
                 })}
@@ -589,7 +587,7 @@ export function DeckCatalog({
             {/* Row 3: Domain chips (hidden for legend/rune/battlefield zones) */}
             {!['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
-                <label style={currentLabelStyle}>{t('domain', lang)}</label>
+                <label style={currentLabelStyle}>Domain</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                   {domainOptions.map(d => {
                     const isActive = domainFilter === d;
@@ -607,7 +605,7 @@ export function DeckCatalog({
                           transition: 'all 0.15s', textTransform: 'capitalize',
                         }}
                       >
-                        {d === 'All' ? t('all_domains', lang) : d}
+                        {d === 'All' ? "All Domains" : d}
                       </button>
                     );
                   })}
@@ -645,7 +643,7 @@ export function DeckCatalog({
 
             {/* Row 4: Cost range */}
             <div>
-              <label style={currentLabelStyle}>{t('cost_range', lang)}</label>
+              <label style={currentLabelStyle}>Cost Range</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '4px 12px', flex: 1 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MIN</span>
@@ -685,7 +683,7 @@ export function DeckCatalog({
                   onMouseEnter={e => e.currentTarget.style.background = theme.accentMuted}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  {t('reset_filters', lang)}
+                  Reset Filters
                 </button>
               </div>
             )}

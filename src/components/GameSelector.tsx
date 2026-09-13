@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { GAMES, STORAGE_KEYS, EVENTS } from '../lib/constants';
-import { getLanguage, t, type Language } from '../lib/i18n';
 import { applySiteTheme } from '../lib/theme';
 
 export function GameSelector() {
@@ -14,16 +13,9 @@ export function GameSelector() {
     return 'riftbound';
   });
   const [isOpen, setIsOpen] = useState(false);
-  const [lang, setLang] = useState<Language>('en');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) setLang(customEvent.detail.lang);
-    };
-    window.addEventListener(EVENTS.LANG_CHANGE, handleLangChange);
 
     // Read from localStorage on mount (only active games)
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
@@ -52,7 +44,6 @@ export function GameSelector() {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      window.removeEventListener(EVENTS.LANG_CHANGE, handleLangChange);
       window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -115,7 +106,7 @@ export function GameSelector() {
           }}
         >
           <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5">
-            {t('select_game', lang)}
+            Select Game
           </div>
           {GAMES.map(g => {
             const isSelected = g.id === activeGame;
@@ -133,7 +124,7 @@ export function GameSelector() {
                     <span>{g.name}</span>
                   </div>
                   <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
-                    {t('soon', lang)}
+                    Soon
                   </span>
                 </div>
               );

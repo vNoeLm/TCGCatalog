@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import type { Order } from '../../types';
-import { t, type Language } from '../../lib/i18n';
 
 interface PaymentGatewaySheetProps {
   order: Order;
   provider?: 'stripe' | 'barion';
   sessionId: string;
-  lang: Language;
   onPaymentSuccess: (updatedOrder: Order) => void;
   onCancel: () => void;
 }
@@ -15,7 +13,7 @@ export function PaymentGatewaySheet({
   order,
   provider = 'stripe',
   sessionId,
-  lang,
+  
   onPaymentSuccess,
   onCancel,
 }: PaymentGatewaySheetProps) {
@@ -109,10 +107,10 @@ export function PaymentGatewaySheet({
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm sm:text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                {t('stripe_modal_title', lang)}
+                Stripe Secure Checkout
               </h4>
               <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                {t('test_mode_badge', lang)}
+                Test Sandbox Mode
               </span>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -123,7 +121,7 @@ export function PaymentGatewaySheet({
 
         <div className="text-right">
           <span className="text-[10px] uppercase font-bold block" style={{ color: 'var(--text-tertiary)' }}>
-            {t('total', lang)}
+            Total
           </span>
           <span className="text-sm sm:text-base font-black font-mono text-emerald-400">
             {fmt(totalHuf)}
@@ -147,8 +145,8 @@ export function PaymentGatewaySheet({
             </h5>
             <p className="text-xs text-zinc-400 mt-1">
               {biometricType === 'apple'
-                ? (lang === 'hu' ? 'Erősítsd meg az ujjlenyomatoddal vagy dupla kattintással az oldalsó gombon.' : 'Confirm payment with Touch ID or Double-click Side Button.')
-                : (lang === 'hu' ? 'Aktiváld a Google fiókodat a fizetéshez.' : 'Authorizing via Google Account credentials.')}
+                ? ('Confirm payment with Touch ID or Double-click Side Button.')
+                : ('Authorizing via Google Account credentials.')}
             </p>
           </div>
 
@@ -165,11 +163,11 @@ export function PaymentGatewaySheet({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  <span>{t('payment_processing', lang)}</span>
+                  <span>Processing Payment...</span>
                 </>
               ) : (
                 <span>
-                  {lang === 'hu' ? 'Jóváhagyás & Fizetés' : 'Authorize & Pay'} ({fmt(totalHuf)})
+                  {'Authorize & Pay'} ({fmt(totalHuf)})
                 </span>
               )}
             </button>
@@ -179,7 +177,7 @@ export function PaymentGatewaySheet({
               onClick={() => setBiometricType(null)}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition cursor-pointer"
             >
-              {lang === 'hu' ? 'Mégse' : 'Cancel'}
+              Cancel
             </button>
           </div>
         </div>
@@ -237,9 +235,7 @@ export function PaymentGatewaySheet({
           {stripeTab === 'apple_pay' && (
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 text-center space-y-3">
               <p className="text-xs text-zinc-400">
-                {lang === 'hu'
-                  ? 'Fizess biztonságosan egyetlen érintéssel Apple eszközödről.'
-                  : 'Pay instantly with Face ID or Touch ID from your Apple device.'}
+                Pay instantly with Face ID or Touch ID from your Apple device.
               </p>
               <button
                 type="button"
@@ -256,9 +252,7 @@ export function PaymentGatewaySheet({
           {stripeTab === 'google_pay' && (
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 text-center space-y-3">
               <p className="text-xs text-zinc-400">
-                {lang === 'hu'
-                  ? 'Használd a mentett Google kártyáidat a gyors és biztonságos fizetéshez.'
-                  : 'Use your saved Google wallet cards for seamless checkout.'}
+                Use your saved Google wallet cards for seamless checkout.
               </p>
               <button
                 type="button"
@@ -276,14 +270,14 @@ export function PaymentGatewaySheet({
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
-                  {t('card_number', lang)}
+                  Card Number
                 </label>
                 <button
                   type="button"
                   onClick={handleFillTestCard}
                   className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer"
                 >
-                  {t('demo_autofill', lang)}
+                  Fill Test Card
                 </button>
               </div>
 
@@ -304,7 +298,7 @@ export function PaymentGatewaySheet({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('card_expiry', lang)}
+                    Expiry (MM/YY)
                   </label>
                   <input
                     type="text"
@@ -317,7 +311,7 @@ export function PaymentGatewaySheet({
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                    {t('card_cvc', lang)}
+                    CVC
                   </label>
                   <input
                     type="password"
@@ -332,7 +326,7 @@ export function PaymentGatewaySheet({
 
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                  {t('cardholder_name', lang)}
+                  Cardholder Name
                 </label>
                 <input
                   type="text"
@@ -355,11 +349,11 @@ export function PaymentGatewaySheet({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    <span>{t('payment_processing', lang)}</span>
+                    <span>Processing Payment...</span>
                   </>
                 ) : (
                   <span>
-                    {t('pay_with_stripe', lang)} ({fmt(totalHuf)})
+                    Pay with Stripe ({fmt(totalHuf)})
                   </span>
                 )}
               </button>
@@ -385,7 +379,7 @@ export function PaymentGatewaySheet({
             onClick={onCancel}
             className="text-xs font-bold text-zinc-400 hover:text-zinc-200 transition cursor-pointer flex items-center gap-1"
           >
-            ← {lang === 'hu' ? 'Vissza az adatokhoz' : 'Back to shipping details'}
+            ← Back to shipping details
           </button>
 
           <span className="text-[10px] text-zinc-500 font-mono">

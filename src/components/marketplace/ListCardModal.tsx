@@ -3,14 +3,12 @@ import { supabase, getCardImageUrl } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import type { CatalogCard, InventoryCard, UserProfile } from '../../types';
-import { type Language } from '../../lib/i18n';
 
 interface ListCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCard?: CatalogCard | InventoryCard | null;
   onSuccess?: () => void;
-  lang?: Language;
 }
 
 const CONDITIONS = [
@@ -27,7 +25,7 @@ export function ListCardModal({
   onClose,
   initialCard = null,
   onSuccess,
-  lang = 'en',
+  
 }: ListCardModalProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [selectedCard, setSelectedCard] = useState<CatalogCard | InventoryCard | null>(initialCard);
@@ -153,7 +151,7 @@ export function ListCardModal({
     try {
       const session = (await supabase.auth.getSession()).data.session;
       if (!session?.access_token) {
-        throw new Error(lang === 'hu' ? 'Kérjük, jelentkezz be a képek feltöltéséhez!' : 'Please sign in to upload photos.');
+        throw new Error('Please sign in to upload photos.');
       }
 
       const formData = new FormData();
@@ -193,20 +191,18 @@ export function ListCardModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCard) {
-      setErrorMsg(lang === 'hu' ? 'Kérjük, válassz ki egy kártyát!' : 'Please select a card to list.');
+      setErrorMsg('Please select a card to list.');
       return;
     }
     if (!profile) {
-      setErrorMsg(lang === 'hu' ? 'A hirdetés feladásához be kell jelentkezned!' : 'You must be signed in to list cards.');
+      setErrorMsg('You must be signed in to list cards.');
       return;
     }
 
     // ─── VALIDATION: Above 5,000 HUF requires at least 1 image ───
     if (isMissingRequiredPhoto) {
       setErrorMsg(
-        lang === 'hu'
-          ? '5 000 Ft feletti lapokhoz legalább egy állapotfotó feltöltése kötelező a vevők védelmében!'
-          : 'At least one condition photo is required for cards priced above 5,000 HUF!'
+        'At least one condition photo is required for cards priced above 5,000 HUF!'
       );
       return;
     }
@@ -244,7 +240,7 @@ export function ListCardModal({
         throw new Error(json.error || 'Failed to publish marketplace listing.');
       }
 
-      setSuccessMsg(lang === 'hu' ? 'Hirdetés sikeresen közzétéve a piactéren!' : 'Card successfully listed on the marketplace!');
+      setSuccessMsg('Card successfully listed on the marketplace!');
 
       // Dispatch change events
       if (typeof window !== 'undefined') {
@@ -288,10 +284,10 @@ export function ListCardModal({
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Kártya eladása a Piactéren' : 'List Card on Marketplace'}
+                List Card on Marketplace
               </h2>
               <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu' ? 'Közösségi piactéri eladás saját áron' : 'Sell your card at your own price'}
+                Sell your card at your own price
               </p>
             </div>
           </div>
@@ -336,7 +332,7 @@ export function ListCardModal({
             {!selectedCard ? (
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? '1. Kártya kiválasztása' : '1. Select Card'}
+                  1. Select Card
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-zinc-500 pointer-events-none">
@@ -350,7 +346,7 @@ export function ListCardModal({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={lang === 'hu' ? 'Keresés név vagy kártyaszám alapján…' : 'Search name or card number…'}
+                    placeholder={'Search name or card number…'}
                     className="w-full pl-8 pr-8 py-2 rounded-xl text-xs border focus:outline-none focus:border-indigo-500 transition"
                     style={{
                       background: 'var(--bg-input)',
@@ -453,7 +449,7 @@ export function ListCardModal({
                   </div>
                   {suggestedHuf && (
                     <div className="text-[10px] mt-0.5 text-emerald-400 font-semibold">
-                      {lang === 'hu' ? `Piaci referencia: ~${suggestedHuf.toLocaleString()} Ft` : `Market Ref: ~${suggestedHuf.toLocaleString()} HUF`}
+                      {`Market Ref: ~${suggestedHuf.toLocaleString()} HUF`}
                     </div>
                   )}
                 </div>
@@ -462,7 +458,7 @@ export function ListCardModal({
                   onClick={() => setSelectedCard(null)}
                   className="px-2 py-1 text-[11px] font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer border border-zinc-700 shrink-0"
                 >
-                  {lang === 'hu' ? 'Csere' : 'Change'}
+                  Change
                 </button>
               </div>
             )}
@@ -471,7 +467,7 @@ export function ListCardModal({
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Állapot' : 'Condition'}
+                  Condition
                 </label>
                 <select
                   value={condition}
@@ -491,7 +487,7 @@ export function ListCardModal({
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Kivitel' : 'Finish'}
+                  Finish
                 </label>
                 <div className="flex gap-1.5">
                   <button
@@ -503,7 +499,7 @@ export function ListCardModal({
                         : 'bg-transparent border-zinc-800 text-zinc-400 hover:bg-white/5'
                     }`}
                   >
-                    {lang === 'hu' ? 'Normál' : 'Regular'}
+                    Regular
                   </button>
                   <button
                     type="button"
@@ -529,7 +525,7 @@ export function ListCardModal({
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Mennyiség' : 'Quantity'}
+                  Quantity
                 </label>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -566,7 +562,7 @@ export function ListCardModal({
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Egységár (Ft / db)' : 'Unit Price (HUF)'}
+                  Unit Price (HUF)
                 </label>
                 <div className="relative">
                   <input
@@ -593,7 +589,7 @@ export function ListCardModal({
             <div className="flex items-center justify-between text-[10px] px-0.5 text-zinc-400">
               {suggestedHuf ? (
                 <div className="flex items-center gap-1">
-                  <span>{lang === 'hu' ? 'Ajánlott piaci ár:' : 'Suggested market:'}</span>
+                  <span>Suggested market:</span>
                   <button
                     type="button"
                     onClick={() => setPriceHuf(suggestedHuf)}
@@ -606,7 +602,7 @@ export function ListCardModal({
 
               {quantity > 1 && (
                 <div className="font-semibold text-emerald-400">
-                  {lang === 'hu' ? `Összesen: ${(quantity * priceHuf).toLocaleString()} Ft` : `Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
+                  {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
                 </div>
               )}
             </div>
@@ -630,7 +626,7 @@ export function ListCardModal({
                     <circle cx="12" cy="13" r="4" />
                   </svg>
                   <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                    {lang === 'hu' ? 'Állapotfotók' : 'Condition Photos'}
+                    Condition Photos
                   </span>
                 </div>
 
@@ -640,7 +636,7 @@ export function ListCardModal({
                       <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      {photos.length} {lang === 'hu' ? 'db fotó csatolva' : 'photo(s) attached'}
+                      {photos.length} photo(s) attached
                     </span>
                   ) : (
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1">
@@ -649,12 +645,12 @@ export function ListCardModal({
                         <line x1="12" y1="9" x2="12" y2="13" />
                         <line x1="12" y1="17" x2="12.01" y2="17" />
                       </svg>
-                      {lang === 'hu' ? '5 000 Ft felett kötelező!' : 'Required over 5,000 HUF!'}
+                      Required over 5,000 HUF!
                     </span>
                   )
                 ) : (
                   <span className="text-[10px] text-zinc-400">
-                    {lang === 'hu' ? 'Opcionális 5 000 Ft alatt' : 'Optional under 5,000 HUF'}
+                    Optional under 5,000 HUF
                   </span>
                 )}
               </div>
@@ -662,9 +658,7 @@ export function ListCardModal({
               {/* Requirement explanation banner if >5000 and 0 photos */}
               {isMissingRequiredPhoto && (
                 <div className="mb-2.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-tight">
-                  {lang === 'hu'
-                    ? 'A vevők védelmében és a ritka kártyák hitelességéért 5 000 Ft feletti lapoknál legalább 1 fotó feltöltése kötelező.'
-                    : 'For collector safety, cards priced over 5,000 HUF require at least one physical condition photo.'}
+                  For collector safety, cards priced over 5,000 HUF require at least one physical condition photo.
                 </div>
               )}
 
@@ -719,7 +713,7 @@ export function ListCardModal({
                     <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                       <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
                     </svg>
-                    <span>{lang === 'hu' ? 'Fotók feltöltése folyamatban…' : 'Uploading photos…'}</span>
+                    <span>Uploading photos…</span>
                   </>
                 ) : (
                   <>
@@ -729,8 +723,8 @@ export function ListCardModal({
                     </svg>
                     <span>
                       {photos.length > 0
-                        ? (lang === 'hu' ? '+ További fotó hozzáadása' : '+ Add More Photos')
-                        : (lang === 'hu' ? 'Állapotfotó feltöltése' : 'Upload Condition Photo')}
+                        ? ('+ Add More Photos')
+                        : ('Upload Condition Photo')}
                     </span>
                   </>
                 )}
@@ -745,21 +739,21 @@ export function ListCardModal({
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                   <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                    {lang === 'hu' ? 'Vállalt átadási / szállítási módok *' : 'Supported Handover Methods *'}
+                    Supported Handover Methods *
                   </span>
                 </div>
                 <span className="text-[10px] text-zinc-400">
-                  {allowedHandovers.length} {lang === 'hu' ? 'kiválasztva' : 'selected'}
+                  {allowedHandovers.length} selected
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  { id: 'personal', label: lang === 'hu' ? 'Személyes átvétel' : 'Personal pickup', desc: lang === 'hu' ? 'Kézbe' : 'In person' },
-                  { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Csomagautomata' : 'Parcel locker' },
-                  { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Átvevőhely' : 'Pickup point' },
-                  { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Postai levél' : 'Post' },
-                  { id: 'other', label: lang === 'hu' ? 'Egyéb egyeztetés' : 'Other arrangement', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
+                  { id: 'personal', label: 'Personal pickup', desc: 'In person' },
+                  { id: 'foxpost', label: 'Foxpost', desc: 'Parcel locker' },
+                  { id: 'packeta', label: 'Packeta', desc: 'Pickup point' },
+                  { id: 'posta', label: 'Magyar Posta', desc: 'Post' },
+                  { id: 'other', label: 'Other arrangement', desc: 'Custom' },
                 ].map((m) => {
                   const isChecked = allowedHandovers.includes(m.id);
                   return (
@@ -808,7 +802,7 @@ export function ListCardModal({
             onClick={onClose}
             className="w-1/3 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer bg-zinc-850 hover:bg-zinc-800 border-zinc-700 text-zinc-300"
           >
-            {lang === 'hu' ? 'Mégse' : 'Cancel'}
+            Cancel
           </button>
 
           <button
@@ -826,7 +820,7 @@ export function ListCardModal({
                 <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                   <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
                 </svg>
-                <span>{lang === 'hu' ? 'Közzététel…' : 'Publishing…'}</span>
+                <span>Publishing…</span>
               </>
             ) : isMissingRequiredPhoto ? (
               <>
@@ -835,14 +829,14 @@ export function ListCardModal({
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                <span>{lang === 'hu' ? 'Fotó kötelező (>5 000 Ft)' : 'Photo required (>5k HUF)'}</span>
+                <span>{'Photo required (>5k HUF)'}</span>
               </>
             ) : (
               <>
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <span>{lang === 'hu' ? 'Hirdetés közzététele' : 'Publish Listing'}</span>
+                <span>Publish Listing</span>
               </>
             )}
           </button>

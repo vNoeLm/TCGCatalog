@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
-import { getLanguage, t, type Language } from '../../lib/i18n';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { AuthModal } from '../auth/AuthModal';
-import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
 
@@ -16,7 +15,6 @@ export function SellerDashboardApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [lang, setLang] = useState<Language>('en');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Listings State
@@ -51,7 +49,7 @@ export function SellerDashboardApp() {
   const [loadingRules, setLoadingRules] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
 
-  // Hold Requests State (HardverApró Classifieds Model)
+  // Hold Requests State (P2P classifieds model)
   const [holdRequests, setHoldRequests] = useState<any[]>([]);
   const [loadingHolds, setLoadingHolds] = useState(false);
   const [processingHoldId, setProcessingHoldId] = useState<string | null>(null);
@@ -186,7 +184,7 @@ export function SellerDashboardApp() {
     }
   };
 
-  // Load Hold Requests (Jegelések)
+  // Load Hold Requests
   const loadHoldRequests = async (userId?: string) => {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
@@ -212,14 +210,6 @@ export function SellerDashboardApp() {
   };
 
   useEffect(() => {
-    setLang(getLanguage());
-    const handleLangChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lang: Language }>;
-      if (customEvent.detail?.lang) {
-        setLang(customEvent.detail.lang);
-      }
-    };
-    window.addEventListener('tcg-lang-change', handleLangChange);
 
     getCurrentProfile().then(p => {
       setProfile(p);
@@ -250,7 +240,6 @@ export function SellerDashboardApp() {
     window.addEventListener('tcg-collection-change', loadCollectionStats);
 
     return () => {
-      window.removeEventListener('tcg-lang-change', handleLangChange);
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
       window.removeEventListener('tcg-collection-change', loadCollectionStats);
     };
@@ -276,7 +265,7 @@ export function SellerDashboardApp() {
 
   // Actions: Unlist & Edit
   const handleUnlistCard = async (listingId: string) => {
-    if (!confirm(lang === 'hu' ? 'Biztosan törölni szeretnéd ezt a hirdetést a piactérről?' : 'Are you sure you want to remove this listing?')) return;
+    if (!confirm('Are you sure you want to remove this listing?')) return;
     setUpdatingListingId(listingId);
     try {
       const session = (await supabase.auth.getSession()).data.session;
@@ -288,7 +277,7 @@ export function SellerDashboardApp() {
       });
       if (res.ok) {
         setListings(prev => prev.filter(item => item.inventory_id !== listingId));
-        showToast(lang === 'hu' ? 'Hirdetés sikeresen törölve' : 'Listing removed successfully');
+        showToast('Listing removed successfully');
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       }
     } catch (e: any) {
@@ -317,7 +306,7 @@ export function SellerDashboardApp() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        showToast(lang === 'hu' ? 'Hirdetés sikeresen módosítva' : 'Listing updated successfully');
+        showToast('Listing updated successfully');
         setEditingListing(null);
         loadSellerListings();
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
@@ -335,12 +324,12 @@ export function SellerDashboardApp() {
   const handleHoldAction = async (requestId: string, action: 'hold' | 'confirm_sale' | 'release' | 'reject') => {
     const confirmPrompt =
       action === 'confirm_sale'
-        ? (lang === 'hu' ? 'Biztosan megerősíted a sikeres eladást? A tétel véglegesen Eladva állapotba kerül, és növeli az eladási rangodat.' : 'Confirm this sale? The card will be marked as Sold and your verified sales count will increase.')
+        ? ('Confirm this sale? The card will be marked as Sold and your verified sales count will increase.')
         : action === 'hold'
-        ? (lang === 'hu' ? 'Jóváhagyod a kártya jegelését erre a vevőre?' : 'Approve holding this card for the buyer?')
+        ? ('Approve holding this card for the buyer?')
         : action === 'release'
-        ? (lang === 'hu' ? 'Biztosan feloldod a jegelést? A kártya újra elérhető lesz a piactéren.' : 'Release this hold? The card will become In Stock again.')
-        : (lang === 'hu' ? 'Biztosan elutasítod ezt a jegelési kérést?' : 'Reject this hold request?');
+        ? ('Release this hold? The card will become In Stock again.')
+        : ('Reject this hold request?');
 
     if (!confirm(confirmPrompt)) return;
 
@@ -362,12 +351,12 @@ export function SellerDashboardApp() {
       if (res.ok && json.success) {
         showToast(
           action === 'confirm_sale'
-            ? (lang === 'hu' ? 'Eladás sikeresen megerősítve és rögzítve!' : 'Sale successfully confirmed and recorded!')
+            ? ('Sale successfully confirmed and recorded!')
             : action === 'hold'
-            ? (lang === 'hu' ? 'Kártya jegelve a vevőnek.' : 'Card marked as on hold.')
+            ? ('Card marked as on hold.')
             : action === 'release'
-            ? (lang === 'hu' ? 'Jegelés feloldva, kártya újra elérhető.' : 'Hold released, card back in stock.')
-            : (lang === 'hu' ? 'Kérés elutasítva.' : 'Hold request rejected.')
+            ? ('Hold released, card back in stock.')
+            : ('Hold request rejected.')
         );
         loadHoldRequests();
         loadSellerListings();
@@ -401,7 +390,7 @@ export function SellerDashboardApp() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        showToast(lang === 'hu' ? `Állapot frissítve: ${newStatus}` : `Status updated to ${newStatus}`);
+        showToast(`Status updated to ${newStatus}`);
         loadSellerListings();
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       } else {
@@ -416,9 +405,12 @@ export function SellerDashboardApp() {
 
   // Calculated Statistics
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
-  const pendingHoldCount = useMemo(() => {
-    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held').length;
+  // Only holds still awaiting action belong on the Holds tab — once a request is
+  // completed the card is sold and the record lives in Sales History instead.
+  const activeHoldRequests = useMemo(() => {
+    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held');
   }, [holdRequests]);
+  const pendingHoldCount = activeHoldRequests.length;
   // Total units/cards sold across all completed orders (purely informational stat).
   const itemsSold = useMemo(() => {
     return sellerOrders.reduce((sum, ord) => {
@@ -492,7 +484,7 @@ export function SellerDashboardApp() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <span className="font-bold text-base animate-pulse" style={{ color: 'var(--text-accent)' }}>
-          {lang === 'hu' ? 'Irányítópult betöltése…' : 'Loading seller dashboard…'}
+          Loading seller dashboard…
         </span>
       </div>
     );
@@ -511,12 +503,10 @@ export function SellerDashboardApp() {
             </svg>
           </div>
           <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
-            {lang === 'hu' ? 'Eladói Irányítópult' : 'Seller Dashboard'}
+            Seller Dashboard
           </h2>
           <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu'
-              ? 'Jelentkezz be, hogy kezeld a hirdetéseidet, nyomon kövesd a megtekintéseket, kattintásokat és a megszerzett eladói jelvényeidet!'
-              : 'Sign in to manage your marketplace listings, view click & visitor stats, and unlock upgraded seller badges!'}
+            {'Sign in to manage your marketplace listings, view click & visitor stats, and unlock upgraded seller badges!'}
           </p>
           <button
             onClick={() => setShowAuthModal(true)}
@@ -527,7 +517,7 @@ export function SellerDashboardApp() {
               boxShadow: '0 0 16px var(--accent-glow)',
             }}
           >
-            {t('sign_in', lang)}
+            Sign In
           </button>
           {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
         </div>
@@ -584,12 +574,13 @@ export function SellerDashboardApp() {
                 <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
                   {profile.display_name || 'Seller'}
                 </h1>
+                {isOwner && <SiteOwnerTag />}
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1"
                   style={sellerTier.badgeStyle}
                 >
                   <BadgeIconSvg iconType={sellerTier.iconType} className="w-3 h-3" />
-                  <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
+                  <span>{sellerTier.nameEn}</span>
                 </span>
               </div>
               <div className="text-xs sm:text-sm font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -604,21 +595,21 @@ export function SellerDashboardApp() {
                     </span>
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
                     <span style={{ color: 'var(--text-secondary)' }}>
-                      {sellerReviews.length} {lang === 'hu' ? 'értékelés' : 'reviews'}
+                      {sellerReviews.length} reviews
                     </span>
                   </>
                 ) : (
                   <span className="text-zinc-400 font-medium">
-                    {lang === 'hu' ? 'Még nincs értékelés' : 'No ratings yet'}
+                    No ratings yet
                   </span>
                 )}
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span className="text-emerald-400 font-semibold">
-                  {completedSalesCount} {lang === 'hu' ? 'eladás' : 'sales made'}
+                  {completedSalesCount} sales made
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span className="text-amber-400 font-semibold">
-                  {itemsSold} {lang === 'hu' ? 'eladott lap' : 'cards sold'}
+                  {itemsSold} cards sold
                 </span>
               </div>
             </div>
@@ -634,7 +625,7 @@ export function SellerDashboardApp() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
               </svg>
-              <span>{lang === 'hu' ? '+ Új kártya hirdetése' : '+ List New Card'}</span>
+              <span>+ List New Card</span>
             </button>
             <a
               href="/marketplace"
@@ -648,7 +639,7 @@ export function SellerDashboardApp() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span>{lang === 'hu' ? 'Piactér böngészése' : 'Browse Marketplace'}</span>
+              <span>Browse Marketplace</span>
             </a>
           </div>
         </div>
@@ -670,34 +661,32 @@ export function SellerDashboardApp() {
                     <BadgeIconSvg iconType={sellerTier.iconType} className="w-5 h-5" />
                   </span>
                   <span className="text-sm font-black" style={{ color: sellerTier.color }}>
-                    {lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}
+                    {sellerTier.nameEn}
                   </span>
                 </div>
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider"
                   style={sellerTier.badgeStyle}
                 >
-                  {completedSalesCount >= 1 ? (lang === 'hu' ? 'Hitelesítve' : 'Verified') : (lang === 'hu' ? 'Új eladó' : 'Level 0')}
+                  {completedSalesCount >= 1 ? ('Verified') : ('Level 0')}
                 </span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {sellerTier.isOwner
-                  ? (lang === 'hu' ? 'Hivatalos áruház tulajdonos és platform alapító.' : 'Official store owner and platform founder.')
-                  : completedSalesCount >= 1
-                  ? (lang === 'hu' ? `Kiváló közösségi eladó ${completedSalesCount} sikeres tranzakcióval.` : `Verified community seller with ${completedSalesCount} completed sales.`)
-                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "Hitelesített Eladó" rang feloldásához!' : 'Complete at least 1 sale to unlock the "Verified Seller" badge!')}
+                {completedSalesCount >= 1
+                  ? `Verified community seller with ${completedSalesCount} completed sales.`
+                  : 'Complete at least 1 sale to unlock the "Verified Seller" badge!'}
               </p>
             </div>
 
             {/* Sales Progress Bar */}
-            {!sellerTier.isOwner && (
+            {sellerTier.nextTierSales > completedSalesCount && (
               <div className="mt-4">
                 <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
                   <span style={{ color: 'var(--text-secondary)' }}>
-                    {lang === 'hu' ? 'Következő kereskedő rang:' : 'Next merchant tier:'}
+                    Next merchant tier:
                   </span>
                   <span className="font-mono" style={{ color: sellerTier.color }}>
-                    {completedSalesCount} / {sellerTier.nextTierSales} {lang === 'hu' ? 'eladás' : 'sales'}
+                    {completedSalesCount} / {sellerTier.nextTierSales} sales
                   </span>
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
@@ -729,7 +718,7 @@ export function SellerDashboardApp() {
                     <BadgeIconSvg iconType={collectorTier.iconType} className="w-5 h-5" />
                   </span>
                   <span className="text-sm font-black" style={{ color: collectorTier.color }}>
-                    {lang === 'hu' ? collectorTier.nameHu : collectorTier.nameEn}
+                    {collectorTier.nameEn}
                   </span>
                 </div>
 
@@ -737,7 +726,7 @@ export function SellerDashboardApp() {
                 <select
                   value={activeBadgeGame}
                   onChange={(e) => setActiveBadgeGame(e.target.value as 'riftbound' | 'cyberpunk')}
-                  aria-label={lang === 'hu' ? 'Játék kiválasztása' : 'Select Game'}
+                  aria-label={'Select Game'}
                   className="px-2.5 py-1 rounded-lg text-xs font-bold transition outline-none cursor-pointer border shadow-sm"
                   style={{
                     background: 'var(--bg-input)',
@@ -750,9 +739,7 @@ export function SellerDashboardApp() {
                 </select>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? `Egyedi kártyák a gyűjteményedben a(z) ${formatGameTitle(activeBadgeGame)} játékkatalógusból: ${collectorTier.ownedCount} / ${collectorTier.totalCount} db (${collectorTier.percentage}%).`
-                  : `Unique cards owned in your ${formatGameTitle(activeBadgeGame)} catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
+                {`Unique cards owned in your ${formatGameTitle(activeBadgeGame)} catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
               </p>
             </div>
 
@@ -760,10 +747,10 @@ export function SellerDashboardApp() {
             <div className="mt-4">
               <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {lang === 'hu' ? 'Gyűjtői teljesítés:' : 'Catalog Completion:'}
+                  Catalog Completion:
                 </span>
                 <span className="font-mono font-black" style={{ color: collectorTier.color }}>
-                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? 'MAX (100%)' : `(Cél: ${collectorTier.nextTierMin}%)`}
+                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? 'MAX (100%)' : `(Goal: ${collectorTier.nextTierMin}%)`}
                 </span>
               </div>
               <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
@@ -793,14 +780,14 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Összes bevétel' : 'Total Earnings'}
+              Total Earnings
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-emerald-400 truncate">
             {totalRevenueHuf.toLocaleString()} Ft
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {completedSalesCount} {lang === 'hu' ? 'rendelés' : 'orders'}
+            {completedSalesCount} orders
           </div>
         </div>
 
@@ -813,15 +800,15 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Eladások' : 'Sales Made'}
+              Sales Made
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-300 truncate">
-            {completedSalesCount} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'tranzakció' : 'txns'}</span>
+            {completedSalesCount} <span className="text-xs font-normal text-zinc-400">txns</span>
           </div>
           <div className="text-[10px] mt-1 font-semibold flex items-center gap-1" style={{ color: sellerTier.color }}>
             <BadgeIconSvg iconType={sellerTier.iconType} className="w-3.5 h-3.5" />
-            <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
+            <span>{sellerTier.nameEn}</span>
           </div>
         </div>
 
@@ -836,14 +823,14 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Eladott lapok' : 'Cards Sold'}
+              Cards Sold
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
-            {itemsSold} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+            {itemsSold} <span className="text-xs font-normal text-zinc-400">pcs</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {completedSalesCount > 0 ? (itemsSold / completedSalesCount).toFixed(1) : '0'} {lang === 'hu' ? '/ eladás' : '/ sale avg'}
+            {completedSalesCount > 0 ? (itemsSold / completedSalesCount).toFixed(1) : '0'} / sale avg
           </div>
         </div>
 
@@ -857,14 +844,14 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
+              Active Listings
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
-            {activeListings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+            {activeListings.length} <span className="text-xs font-normal text-zinc-400">pcs</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {totalListedValueHuf.toLocaleString()} Ft {lang === 'hu' ? 'érték' : 'value'}
+            {totalListedValueHuf.toLocaleString()} Ft value
           </div>
         </div>
       </div>
@@ -881,14 +868,14 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Összes megtekintés' : 'Total Views'}
+              Total Views
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-cyan-400 truncate">
             {totalViews}
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {activeListings.length > 0 ? (totalViews / activeListings.length).toFixed(1) : (listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0')} {lang === 'hu' ? '/ hirdetés' : '/ post'}
+            {activeListings.length > 0 ? (totalViews / activeListings.length).toFixed(1) : (listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0')} / post
           </div>
         </div>
 
@@ -901,7 +888,7 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Összes kattintás' : 'Total Clicks'}
+              Total Clicks
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-pink-400 truncate">
@@ -921,7 +908,7 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu' ? 'Értékelés' : 'Rating'}
+              Rating
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-amber-300 truncate">
@@ -929,8 +916,8 @@ export function SellerDashboardApp() {
           </div>
           <div className="text-[10px] mt-1 text-zinc-400">
             {sellerReviews.length > 0
-              ? `${sellerReviews.length} ${lang === 'hu' ? 'vásárlói vélemény' : 'buyer reviews'}`
-              : (lang === 'hu' ? 'Még nincs értékelés' : 'No ratings yet')}
+              ? `${sellerReviews.length} ${'buyer reviews'}`
+              : ('No ratings yet')}
           </div>
         </div>
       </div>
@@ -944,14 +931,14 @@ export function SellerDashboardApp() {
         {([
           {
             id: 'listings' as const,
-            label: lang === 'hu' ? 'Hirdetések' : 'Listings',
+            label: 'Listings',
             count: activeListings.length,
             icon: <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />,
           },
           {
             id: 'holds' as const,
-            label: lang === 'hu' ? 'Jegelések' : 'Holds',
-            count: holdRequests.length,
+            label: 'Holds',
+            count: activeHoldRequests.length,
             urgentCount: pendingHoldCount,
             icon: (
               <>
@@ -964,25 +951,25 @@ export function SellerDashboardApp() {
           },
           {
             id: 'analytics' as const,
-            label: lang === 'hu' ? 'Statisztikák' : 'Stats',
+            label: 'Stats',
             icon: <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />,
           },
           {
             id: 'sales' as const,
-            label: lang === 'hu' ? 'Eladások' : 'Sales',
+            label: 'Sales',
             count: sellerOrders.length,
             icon: <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />,
           },
           {
             id: 'reviews' as const,
-            label: lang === 'hu' ? 'Értékelések' : 'Reviews',
+            label: 'Reviews',
             count: sellerReviews.length,
             icon: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
             iconFill: true,
           },
           {
             id: 'quicksale' as const,
-            label: lang === 'hu' ? 'Gyors eladás' : 'Quick Sale',
+            label: 'Quick Sale',
             icon: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
           },
         ]).map((tabDef) => {
@@ -1031,7 +1018,7 @@ export function SellerDashboardApp() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={lang === 'hu' ? 'Keresés saját hirdetéseim között…' : 'Search your listings…'}
+                placeholder={'Search your listings…'}
                 className="w-full px-3.5 py-2 rounded-xl text-xs font-bold outline-none border transition"
                 style={{
                   background: 'var(--bg-input)',
@@ -1054,13 +1041,13 @@ export function SellerDashboardApp() {
             </div>
 
             <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
-              {filteredListings.length} {lang === 'hu' ? 'találat' : 'items'}
+              {filteredListings.length} items
             </div>
           </div>
 
           {loadingListings ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Hirdetések betöltése…' : 'Loading listings…'}</div>
+              <div className="text-sm font-bold text-zinc-400">Loading listings…</div>
             </div>
           ) : filteredListings.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
@@ -1071,20 +1058,18 @@ export function SellerDashboardApp() {
               </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 {searchQuery
-                  ? (lang === 'hu' ? 'Nem található ilyen hirdetés' : 'No matching listings found')
-                  : (lang === 'hu' ? 'Még nincsenek aktív hirdetéseid' : 'No active marketplace listings')}
+                  ? ('No matching listings found')
+                  : ('No active marketplace listings')}
               </div>
               <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? 'Hirdess meg egy lapot és kezdd el növelni az eladói rangodat!'
-                  : 'List a card for sale to start building your verified seller tier!'}
+                List a card for sale to start building your verified seller tier!
               </p>
               <button
                 type="button"
                 onClick={() => setIsListModalOpen(true)}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md"
               >
-                {lang === 'hu' ? '+ Első kártya eladása' : '+ List Your First Card'}
+                + List Your First Card
               </button>
             </div>
           ) : (
@@ -1123,15 +1108,15 @@ export function SellerDashboardApp() {
                         </div>
                         {item.status === 'On Hold' ? (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                            {lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}
+                            ON HOLD
                           </span>
                         ) : item.status === 'Sold' ? (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0">
-                            {lang === 'hu' ? 'ELADVA' : 'SOLD'}
+                            SOLD
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
-                            {lang === 'hu' ? 'ELÉRHETŐ' : 'IN STOCK'}
+                            IN STOCK
                           </span>
                         )}
                       </div>
@@ -1147,7 +1132,7 @@ export function SellerDashboardApp() {
                           {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                         </span>
                         <span className="text-xs text-zinc-400">
-                          ({item.quantity} {lang === 'hu' ? 'db készleten' : 'in stock'})
+                          ({item.quantity} in stock)
                         </span>
                       </div>
                     </div>
@@ -1183,18 +1168,18 @@ export function SellerDashboardApp() {
                             onClick={() => handleListingStatusChange(item.inventory_id, 'Sold')}
                             disabled={updatingListingId === item.inventory_id}
                             className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40 disabled:opacity-50"
-                            title={lang === 'hu' ? 'Eladás megerősítése' : 'Mark as Sold'}
+                            title={'Mark as Sold'}
                           >
-                            {lang === 'hu' ? 'Eladva' : 'Sold'}
+                            Sold
                           </button>
                           <button
                             type="button"
                             onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
                             disabled={updatingListingId === item.inventory_id}
                             className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
-                            title={lang === 'hu' ? 'Jegelés feloldása' : 'Release hold'}
+                            title={'Release hold'}
                           >
-                            {lang === 'hu' ? 'Feloldás' : 'Release'}
+                            Release
                           </button>
                         </>
                       ) : item.status === 'Sold' ? (
@@ -1203,9 +1188,9 @@ export function SellerDashboardApp() {
                           onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
                           disabled={updatingListingId === item.inventory_id}
                           className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
-                          title={lang === 'hu' ? 'Újrahirdetés elérhetőként' : 'Relist as in stock'}
+                          title={'Relist as in stock'}
                         >
-                          {lang === 'hu' ? 'Újrahirdetés' : 'Relist'}
+                          Relist
                         </button>
                       ) : (
                         <button
@@ -1213,9 +1198,9 @@ export function SellerDashboardApp() {
                           onClick={() => handleListingStatusChange(item.inventory_id, 'On Hold')}
                           disabled={updatingListingId === item.inventory_id}
                           className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 disabled:opacity-50"
-                          title={lang === 'hu' ? 'Jegelés beállítása' : 'Put on hold'}
+                          title={'Put on hold'}
                         >
-                          {lang === 'hu' ? 'Jegelés' : 'Hold'}
+                          Hold
                         </button>
                       )}
 
@@ -1228,7 +1213,7 @@ export function SellerDashboardApp() {
                         }}
                         className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                       >
-                        {lang === 'hu' ? 'Ár / db' : 'Edit'}
+                        Edit
                       </button>
                       <button
                         type="button"
@@ -1236,7 +1221,7 @@ export function SellerDashboardApp() {
                         disabled={updatingListingId === item.inventory_id}
                         className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
                       >
-                        {updatingListingId === item.inventory_id ? '…' : (lang === 'hu' ? 'Törlés' : 'Unlist')}
+                        {updatingListingId === item.inventory_id ? '…' : ('Unlist')}
                       </button>
                     </div>
                   </div>
@@ -1247,32 +1232,30 @@ export function SellerDashboardApp() {
         </div>
       )}
 
-      {/* ─── TAB: HOLDS & INQUIRIES (JEGELÉSEK & KÉRÉSEK) ─────────── */}
+      {/* ─── TAB: HOLDS & INQUIRIES ─────────── */}
       {activeTab === 'holds' && (
         <div className="space-y-4">
           <div className="p-5 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                  {lang === 'hu' ? 'Beérkezett Jegelési Kérések & Átadás' : 'Incoming Card Holds & Handover'}
+                  {'Incoming Card Holds & Handover'}
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {lang === 'hu'
-                    ? 'A vásárlók itt kérik a lapjaid jegelését a választott átvételi móddal (Foxpost, Packeta, Személyes átvétel stb.). Egyeztesd velük a részleteket, jegeld a lapot, majd az átadás után erősítsd meg az eladást!'
-                    : 'Buyers request cards on hold here with their preferred handover method (Foxpost, Packeta, Personal, etc.). Coordinate details, hold the card, and confirm the sale once completed.'}
+                  Buyers request cards on hold here with their preferred handover method (Foxpost, Packeta, Personal, etc.). Coordinate details, hold the card, and confirm the sale once completed.
                 </p>
               </div>
               <div className="text-xs font-bold shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                {holdRequests.length} {lang === 'hu' ? 'kérés összesen' : 'total requests'}
+                {activeHoldRequests.length} awaiting action
               </div>
             </div>
           </div>
 
           {loadingHolds ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Jegelések betöltése…' : 'Loading hold requests…'}</div>
+              <div className="text-sm font-bold text-zinc-400">Loading hold requests…</div>
             </div>
-          ) : holdRequests.length === 0 ? (
+          ) : activeHoldRequests.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -1283,18 +1266,16 @@ export function SellerDashboardApp() {
                 </svg>
               </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Még nincs aktív jegelési kérés' : 'No hold requests yet'}
+                No open hold requests
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? 'Amikor egy érdeklődő a piactéren a "Jegelés kérése" gombra kattint valamelyik hirdetésednél, az itt fog megjelenni a megadott elérhetőségeivel és az átvételi móddal.'
-                  : 'When an interested collector requests a hold on one of your cards, the inquiry and contact details will appear here.'}
+                When an interested collector requests a hold on one of your cards, the inquiry and contact details will appear here.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {holdRequests.map((req) => {
-                const cardName = req.card_name || (lang === 'hu' ? 'Kártya tétel' : 'Card item');
+              {activeHoldRequests.map((req) => {
+                const cardName = req.card_name || ('Card item');
                 const cardNumber = req.card_number || '';
                 const cardRarity = '';
                 const cardImage = req.image_path;
@@ -1307,12 +1288,12 @@ export function SellerDashboardApp() {
                 const handoverBadge = (() => {
                   switch (req.preferred_handover || req.handover_method) {
                     case 'foxpost': return { label: 'Foxpost csomagautomata', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
-                    case 'packeta': return { label: 'Packeta átvevőhely', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
+                    case 'packeta': return { label: 'Packeta pickup point', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
                     case 'pickup':
-                    case 'personal': return { label: lang === 'hu' ? 'Személyes átvétel' : 'Personal pickup', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
+                    case 'personal': return { label: 'Personal pickup', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
                     case 'posta':
-                    case 'post': return { label: lang === 'hu' ? 'Magyar Posta' : 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
-                    default: return { label: lang === 'hu' ? 'Egyéb egyeztetés' : 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
+                    case 'post': return { label: 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
+                    default: return { label: 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
                   }
                 })();
 
@@ -1354,7 +1335,7 @@ export function SellerDashboardApp() {
                                 <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                                   <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
                                 </svg>
-                                <span>{lang === 'hu' ? 'Függőben' : 'Pending'}</span>
+                                <span>Pending</span>
                               </span>
                             )}
                             {isHeld && (
@@ -1362,7 +1343,7 @@ export function SellerDashboardApp() {
                                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                   <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
                                 </svg>
-                                <span>{lang === 'hu' ? 'JEGELVE' : 'ON HOLD'}</span>
+                                <span>ON HOLD</span>
                               </span>
                             )}
                             {isConfirmed && (
@@ -1370,12 +1351,12 @@ export function SellerDashboardApp() {
                                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                                   <polyline points="20 6 9 17 4 12" />
                                 </svg>
-                                <span>{lang === 'hu' ? 'ELADVA & RÖGZÍTVE' : 'SOLD & CONFIRMED'}</span>
+                                <span>{'SOLD & CONFIRMED'}</span>
                               </span>
                             )}
                             {isCancelled && (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                {lang === 'hu' ? 'Törölve / Lezárva' : 'Cancelled / Closed'}
+                                Cancelled / Closed
                               </span>
                             )}
                           </div>
@@ -1392,8 +1373,8 @@ export function SellerDashboardApp() {
                           </div>
 
                           <div className="text-[11px] text-zinc-500 mt-1">
-                            {lang === 'hu' ? 'Kérés időpontja:' : 'Requested at:'}{' '}
-                            {new Date(req.created_at).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                            Requested at:{' '}
+                            {new Date(req.created_at).toLocaleString('en-US')}
                           </div>
                         </div>
                       </div>
@@ -1411,7 +1392,7 @@ export function SellerDashboardApp() {
                               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                 <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
                               </svg>
-                              <span>{lang === 'hu' ? 'Jegelés jóváhagyása' : 'Approve Hold'}</span>
+                              <span>Approve Hold</span>
                             </button>
                             <button
                               type="button"
@@ -1419,7 +1400,7 @@ export function SellerDashboardApp() {
                               disabled={processingHoldId === req.id}
                               className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 disabled:opacity-50"
                             >
-                              <span>{lang === 'hu' ? 'Elutasítás' : 'Reject'}</span>
+                              <span>Reject</span>
                             </button>
                           </>
                         )}
@@ -1435,7 +1416,7 @@ export function SellerDashboardApp() {
                               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                                 <polyline points="20 6 9 17 4 12" />
                               </svg>
-                              <span>{lang === 'hu' ? 'Eladás megerősítése' : 'Confirm Sale'}</span>
+                              <span>Confirm Sale</span>
                             </button>
                             <button
                               type="button"
@@ -1443,7 +1424,7 @@ export function SellerDashboardApp() {
                               disabled={processingHoldId === req.id}
                               className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 disabled:opacity-50"
                             >
-                              <span>{lang === 'hu' ? 'Jegelés feloldása' : 'Release Hold'}</span>
+                              <span>Release Hold</span>
                             </button>
                           </>
                         )}
@@ -1453,7 +1434,7 @@ export function SellerDashboardApp() {
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
-                            <span>{lang === 'hu' ? 'Sikeres eladás rögzítve' : 'Sale Confirmed & Completed'}</span>
+                            <span>{'Sale Confirmed & Completed'}</span>
                           </div>
                         )}
                       </div>
@@ -1464,10 +1445,16 @@ export function SellerDashboardApp() {
                       {/* Buyer Contact Details */}
                       <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
                         <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                          {lang === 'hu' ? 'Érdeklődő / Vevő adatai' : 'Buyer Contact'}
+                          Buyer Contact
                         </div>
                         <div className="text-xs font-bold text-zinc-200">
-                          {req.buyer_name}
+                          {req.buyer_id ? (
+                            <a href={`/user?id=${req.buyer_id}`} className="hover:underline">
+                              {req.buyer_name}
+                            </a>
+                          ) : (
+                            req.buyer_name
+                          )}
                         </div>
                         <div className="text-xs text-zinc-400 flex items-center gap-2 flex-wrap">
                           <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
@@ -1490,7 +1477,7 @@ export function SellerDashboardApp() {
                       {/* Handover Method & Note */}
                       <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
                         <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                          {lang === 'hu' ? 'Kért átvétel / szállítás' : 'Requested Handover'}
+                          Requested Handover
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${handoverBadge.color}`}>
@@ -1522,27 +1509,25 @@ export function SellerDashboardApp() {
         <div className="space-y-6">
           <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
-              {lang === 'hu' ? 'Hirdetési Statisztikák és Érdeklődés' : 'Listing Engagement & Click Analysis'}
+              {'Listing Engagement & Click Analysis'}
             </h3>
             <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
-              {lang === 'hu'
-                ? 'Itt láthatod, hogy melyik lapjaidat nézték meg és kattintották a legtöbbször a piactéren.'
-                : 'Track which card listings receive the highest engagement and click-through rates.'}
+              Track which card listings receive the highest engagement and click-through rates.
             </p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
-                    <th className="py-2.5 px-3">{lang === 'hu' ? 'Kártya' : 'Card'}</th>
-                    <th className="py-2.5 px-3">{lang === 'hu' ? 'Ár' : 'Price'}</th>
+                    <th className="py-2.5 px-3">Card</th>
+                    <th className="py-2.5 px-3">Price</th>
                     <th className="py-2.5 px-3 text-center">
                       <span className="inline-flex items-center gap-1 justify-center">
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                           <circle cx="12" cy="12" r="3" />
                         </svg>
-                        <span>{lang === 'hu' ? 'Megtekintés' : 'Views'}</span>
+                        <span>Views</span>
                       </span>
                     </th>
                     <th className="py-2.5 px-3 text-center">
@@ -1550,11 +1535,11 @@ export function SellerDashboardApp() {
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                           <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
                         </svg>
-                        <span>{lang === 'hu' ? 'Kattintás' : 'Clicks'}</span>
+                        <span>Clicks</span>
                       </span>
                     </th>
-                    <th className="py-2.5 px-3 text-center">{lang === 'hu' ? 'Kattintási arány (CTR)' : 'CTR'}</th>
-                    <th className="py-2.5 px-3 text-right">{lang === 'hu' ? 'Állapot' : 'Status'}</th>
+                    <th className="py-2.5 px-3 text-center">CTR</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -1597,7 +1582,7 @@ export function SellerDashboardApp() {
                         </td>
                         <td className="py-3 px-3 text-right">
                           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                            {lang === 'hu' ? 'Aktív' : 'Active'}
+                            Active
                           </span>
                         </td>
                       </tr>
@@ -1615,7 +1600,7 @@ export function SellerDashboardApp() {
         <div className="space-y-4">
           {loadingOrders ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">{lang === 'hu' ? 'Rendelések betöltése…' : 'Loading sales…'}</div>
+              <div className="text-sm font-bold text-zinc-400">Loading sales…</div>
             </div>
           ) : sellerOrders.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
@@ -1625,12 +1610,10 @@ export function SellerDashboardApp() {
                 </svg>
               </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Még nincs eladási előzményed' : 'No sales recorded yet'}
+                No sales recorded yet
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? 'Amikor egy másik játékos megvásárolja az egyik hirdetett kártyádat, az eladás itt fog megjelenni.'
-                  : 'When another collector purchases one of your listed cards, your order details and delivery info will appear here.'}
+                When another collector purchases one of your listed cards, your order details and delivery info will appear here.
               </p>
             </div>
           ) : (
@@ -1656,19 +1639,19 @@ export function SellerDashboardApp() {
                         {ord.status}
                       </span>
                       <span className="text-[11px] text-zinc-500">
-                        {new Date(ord.created_at).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                        {new Date(ord.created_at).toLocaleDateString('en-US')}
                       </span>
                     </div>
 
                     <div className="text-xs text-zinc-300">
                       {ord.items && ord.items.length > 0
                         ? ord.items.map(it => `${it.quantity}x ${it.card_name}`).join(', ')
-                        : (lang === 'hu' ? 'Kártya tétel' : 'Card item')}
+                        : ('Card item')}
                     </div>
 
                     {ord.customer_info && (
                       <div className="text-[11px] text-zinc-500 mt-1">
-                        {lang === 'hu' ? 'Vásárló:' : 'Buyer:'} {ord.customer_info.name || ord.customer_info.email || 'Customer'}
+                        Buyer: {ord.customer_info.name || ord.customer_info.email || 'Customer'}
                       </div>
                     )}
                   </div>
@@ -1699,12 +1682,10 @@ export function SellerDashboardApp() {
                 </svg>
               </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Még nem kaptál vásárlói értékelést' : 'No reviews received yet'}
+                No reviews received yet
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
-                {lang === 'hu'
-                  ? 'A sikeresen kézbesített rendeléseid után a vevők 1-5 csillagos értékelést és szöveges véleményt hagyhatnak.'
-                  : 'After orders are delivered, buyers can leave 1-5 star ratings and feedback for your seller profile.'}
+                After orders are delivered, buyers can leave 1-5 star ratings and feedback for your seller profile.
               </p>
             </div>
           ) : (
@@ -1724,12 +1705,22 @@ export function SellerDashboardApp() {
                           </svg>
                         ))}
                       </div>
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {rev.buyer_name || 'Verified Buyer'}
-                      </span>
+                      {rev.buyer_id ? (
+                        <a
+                          href={`/user?id=${rev.buyer_id}`}
+                          className="text-xs font-bold hover:underline"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {rev.buyer_name || 'Verified Buyer'}
+                        </a>
+                      ) : (
+                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {rev.buyer_name || 'Verified Buyer'}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-mono text-zinc-500">
-                      {new Date(rev.created_at).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US')}
+                      {new Date(rev.created_at).toLocaleDateString('en-US')}
                     </span>
                   </div>
                   {rev.comment && (
@@ -1753,7 +1744,7 @@ export function SellerDashboardApp() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'hu' ? 'Hirdetés módosítása' : 'Edit Listing'}
+                Edit Listing
               </h3>
               <button
                 type="button"
@@ -1770,7 +1761,7 @@ export function SellerDashboardApp() {
             <div className="space-y-3 mb-5">
               <div>
                 <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  {lang === 'hu' ? 'Ár (HUF)' : 'Price (HUF)'}
+                  Price (HUF)
                 </label>
                 <input
                   type="number"
@@ -1788,7 +1779,7 @@ export function SellerDashboardApp() {
 
               <div>
                 <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                  {lang === 'hu' ? 'Darabszám' : 'Quantity'}
+                  Quantity
                 </label>
                 <input
                   type="number"
@@ -1812,7 +1803,7 @@ export function SellerDashboardApp() {
                 className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border"
                 style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
               >
-                {t('cancel', lang)}
+                Cancel
               </button>
               <button
                 type="button"
@@ -1820,7 +1811,7 @@ export function SellerDashboardApp() {
                 disabled={updatingListingId === editingListing.inventory_id}
                 className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
               >
-                {updatingListingId === editingListing.inventory_id ? '…' : (lang === 'hu' ? 'Mentés' : 'Save')}
+                {updatingListingId === editingListing.inventory_id ? '…' : ('Save')}
               </button>
             </div>
           </div>
@@ -1833,7 +1824,7 @@ export function SellerDashboardApp() {
           rules={quickSaleRules}
           onSave={saveQuickSaleRules}
           saving={savingRules}
-          lang={lang}
+          
         />
       )}
 
@@ -1845,9 +1836,9 @@ export function SellerDashboardApp() {
           onSuccess={() => {
             setIsListModalOpen(false);
             loadSellerListings();
-            showToast(lang === 'hu' ? 'Kártya sikeresen meghirdetve!' : 'Card successfully listed!');
+            showToast('Card successfully listed!');
           }}
-          lang={lang}
+          
         />
       )}
     </div>
