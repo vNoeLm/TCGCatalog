@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getSellerTier } from '../../../lib/badges';
 import { extractSellerId, listingSignature } from '../../../lib/sellerNotes';
+import { adjustSellerCollection } from '../../../lib/collectionServer';
 
 export const prerender = false;
 
@@ -81,6 +82,8 @@ export const GET: APIRoute = async ({ url }) => {
       if (statusParam && statusParam !== 'all') {
         if (statusParam === 'on_hold' || statusParam === 'On Hold' || statusParam === 'Reserved') {
           invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
+        } else if (statusParam === 'in_stock') {
+          invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
         } else {
           invQuery = invQuery.eq('status', statusParam);
         }
@@ -428,6 +431,11 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // Copies committed to a listing leave the seller's tracked collection immediately —
+    // not when the sale later completes — so "owned" always reflects what's actually
+    // still in their binder.
+    await adjustSellerCollection(user.id, card_id, Boolean(is_foil), -safeQty);
+
     // If photos were uploaded, save them into public.inventory_images
     if (photoList.length > 0) {
       const imageRecords = photoList.map((url, index) => ({
@@ -495,7 +503,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     // 1. Try deleting from inventory table
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
-      .select('id, notes')
+      .select('id, notes, card_id, is_foil, quantity')
       .eq('id', listingId)
       .maybeSingle();
 
@@ -511,6 +519,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       // Delete inventory_images first (or cascade)
       await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
       await supabaseAdmin.from('inventory').delete().eq('id', listingId);
+
+      // Whatever was still unsold on this listing goes back into the seller's collection.
+      await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), Number(invRow.quantity) || 0);
 
       return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
         status: 200,
@@ -565,7 +576,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     // 1. Try inventory table
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
-      .select('id, notes, status, quantity, price_huf')
+      .select('id, notes, status, quantity, price_huf, card_id, is_foil')
       .eq('id', id)
       .maybeSingle();
 
@@ -578,9 +589,14 @@ export const PATCH: APIRoute = async ({ request }) => {
         });
       }
 
+      // Only an explicit quantity edit moves copies between the listing and the
+      // collection; a status change alone (e.g. marking Sold) never does, since
+      // those copies were already taken out of the collection when first listed.
+      const explicitQuantity = typeof quantity === 'number' ? quantity : null;
+
       const updates: any = {};
       if (typeof price_huf === 'number') updates.price_huf = price_huf;
-      if (typeof quantity === 'number') updates.quantity = quantity;
+      if (explicitQuantity !== null) updates.quantity = explicitQuantity;
       if (status) {
         // Map 'On Hold' to 'Reserved' for database check constraint safety
         const dbStatus = (status === 'On Hold' || status === 'Reserved') ? 'Reserved' : status;
@@ -602,6 +618,11 @@ export const PATCH: APIRoute = async ({ request }) => {
           status: 500,
           headers: JSON_HEADERS,
         });
+      }
+
+      if (explicitQuantity !== null) {
+        const delta = explicitQuantity - (Number(invRow.quantity) || 0);
+        await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -delta);
       }
 
       return new Response(JSON.stringify({ success: true, listing: updated }), {
