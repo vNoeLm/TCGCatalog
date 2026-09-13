@@ -51,12 +51,12 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
       const storageKey = `tcg_clicked_${card.inventory_id}`;
       let alreadyClicked = false;
       try {
-        alreadyClicked = Boolean(sessionStorage.getItem(storageKey));
+        alreadyClicked = Boolean(localStorage.getItem(storageKey));
       } catch (e) {}
 
       if (!alreadyClicked) {
         try {
-          sessionStorage.setItem(storageKey, '1');
+          localStorage.setItem(storageKey, '1');
         } catch (e) {}
 
         supabase.auth.getSession().then(({ data }) => {

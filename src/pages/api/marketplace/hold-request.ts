@@ -93,6 +93,11 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       tracking_number: null,
       payment_method: 'cash_or_transfer',
       payment_status: 'paid',
+      customer_info: {
+        email: req.buyer_email,
+        phone: req.buyer_phone || '',
+        name: req.buyer_name,
+      },
       notes: `HardverApró P2P: ${req.preferred_handover} | Contact: ${req.buyer_email} ${req.buyer_phone || ''}`,
       items: [
         {

@@ -92,15 +92,11 @@ export function MarketplaceApp() {
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
       if (customEvent.detail?.game) {
-        setFilters(prev => ({
-          ...prev,
+        const freshFilters: FilterState = {
+          ...DEFAULT_FILTERS,
           game: customEvent.detail.game,
-          set: '',
-          rarities: [],
-          type: '',
-          domains: [],
-          tags: [],
-        }));
+        };
+        setFilters(freshFilters);
       }
     };
     window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);

@@ -24,6 +24,7 @@ import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { getLanguage, t, type Language } from '../lib/i18n';
 import { HoldRequestModal } from './marketplace/HoldRequestModal';
 import { ListCardModal } from './marketplace/ListCardModal';
+import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
 
 const fmt = (n: number) =>
@@ -54,6 +55,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
   const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
   const [sellerSummary, setSellerSummary] = useState<SellerProfileSummary | null>(null);
+  const [reviewsModalSellerId, setReviewsModalSellerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (data?.seller_id) {
@@ -324,12 +326,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       const storageKey = `tcg_viewed_${resolvedInvId}`;
       let alreadyViewed = false;
       try {
-        alreadyViewed = Boolean(sessionStorage.getItem(storageKey));
+        alreadyViewed = Boolean(localStorage.getItem(storageKey));
       } catch (e) {}
 
       if (!alreadyViewed) {
         try {
-          sessionStorage.setItem(storageKey, '1');
+          localStorage.setItem(storageKey, '1');
         } catch (e) {}
 
         supabase.auth.getSession().then(({ data: sessionData }) => {
@@ -1113,8 +1115,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           {/* Seller Profile Card */}
           {isInventory && (
             <div 
-              className="rounded-2xl p-4 mb-4 border flex items-center justify-between gap-3 shadow-sm"
+              className="rounded-2xl p-4 mb-4 border flex items-center justify-between gap-3 shadow-sm cursor-pointer hover:bg-zinc-900/50 transition-colors"
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+              onClick={() => {
+                if (data?.seller_id) {
+                  setReviewsModalSellerId(data.seller_id);
+                }
+              }}
             >
               <div className="flex items-center gap-3 min-w-0">
                 {sellerSummary?.avatar_url ? (
@@ -1218,7 +1225,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 )}
 
                 {/* Primary Buyer Action: Request Hold */}
-                {data.status === 'In Stock' && (
+                {data.status === 'In Stock' && !isSeller && (
                   <button
                     type="button"
                     onClick={() => setIsHoldModalOpen(true)}
@@ -1373,6 +1380,16 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               setIsListModalOpen(true);
             });
           }}
+        />
+      )}
+
+      {reviewsModalSellerId && (
+        <SellerReviewsModal
+          isOpen={true}
+          onClose={() => setReviewsModalSellerId(null)}
+          sellerId={reviewsModalSellerId}
+          sellerSummary={sellerSummary}
+          lang={lang}
         />
       )}
     </div>

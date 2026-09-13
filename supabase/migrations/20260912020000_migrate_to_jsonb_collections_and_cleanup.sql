@@ -50,35 +50,25 @@ TO authenticated
 USING (auth.uid() = user_id);
 
 -- 2. MIGRATE DATA FROM public.user_cards INTO public.user_collections
-DO $$
-DECLARE
-    r RECORD;
-    v_cards JSONB;
-BEGIN
-    IF to_regclass('public.user_cards') IS NOT NULL THEN
-        FOR r IN SELECT DISTINCT user_id FROM public.user_cards LOOP
-            SELECT jsonb_object_agg(key, value)
-            INTO v_cards
-            FROM (
-                SELECT card_id::text AS key, owned_copies AS value
-                FROM public.user_cards
-                WHERE user_id = r.user_id AND owned_copies > 0
-                UNION ALL
-                SELECT (card_id::text || '_foil') AS key, foil_copies AS value
-                FROM public.user_cards
-                WHERE user_id = r.user_id AND foil_copies > 0
-            ) t;
-
-            IF v_cards IS NOT NULL THEN
-                INSERT INTO public.user_collections (user_id, cards, updated_at)
-                VALUES (r.user_id, v_cards, timezone('utc'::text, now()))
-                ON CONFLICT (user_id) DO UPDATE SET
-                    cards = public.user_collections.cards || EXCLUDED.cards,
-                    updated_at = timezone('utc'::text, now());
-            END IF;
-        END LOOP;
-    END IF;
-END $$;
+-- (Pure SQL insert with no PL/pgSQL to avoid Supabase dashboard auto-RLS regex injection)
+INSERT INTO public.user_collections (user_id, cards, updated_at)
+SELECT 
+    sub.user_id,
+    COALESCE(jsonb_object_agg(sub.key, sub.value), '{}'::jsonb) AS cards,
+    timezone('utc'::text, now()) AS updated_at
+FROM (
+    SELECT user_id, card_id::text AS key, owned_copies AS value
+    FROM public.user_cards
+    WHERE owned_copies > 0
+    UNION ALL
+    SELECT user_id, (card_id::text || '_foil') AS key, foil_copies AS value
+    FROM public.user_cards
+    WHERE foil_copies > 0
+) sub
+GROUP BY sub.user_id
+ON CONFLICT (user_id) DO UPDATE SET
+    cards = public.user_collections.cards || EXCLUDED.cards,
+    updated_at = timezone('utc'::text, now());
 
 -- 3. DROP OBSOLETE STORE/CHECKOUT TABLES
 DROP TABLE IF EXISTS public.inventory_reservations CASCADE;
