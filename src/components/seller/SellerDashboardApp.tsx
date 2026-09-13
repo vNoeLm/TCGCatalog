@@ -405,9 +405,12 @@ export function SellerDashboardApp() {
 
   // Calculated Statistics
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
-  const pendingHoldCount = useMemo(() => {
-    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held').length;
+  // Only holds still awaiting action belong on the Holds tab — once a request is
+  // completed the card is sold and the record lives in Sales History instead.
+  const activeHoldRequests = useMemo(() => {
+    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held');
   }, [holdRequests]);
+  const pendingHoldCount = activeHoldRequests.length;
   // Total units/cards sold across all completed orders (purely informational stat).
   const itemsSold = useMemo(() => {
     return sellerOrders.reduce((sum, ord) => {
@@ -936,7 +939,7 @@ export function SellerDashboardApp() {
           {
             id: 'holds' as const,
             label: 'Holds',
-            count: holdRequests.length,
+            count: activeHoldRequests.length,
             urgentCount: pendingHoldCount,
             icon: (
               <>
@@ -1244,7 +1247,7 @@ export function SellerDashboardApp() {
                 </p>
               </div>
               <div className="text-xs font-bold shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                {holdRequests.length} total requests
+                {activeHoldRequests.length} awaiting action
               </div>
             </div>
           </div>
@@ -1253,7 +1256,7 @@ export function SellerDashboardApp() {
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <div className="text-sm font-bold text-zinc-400">Loading hold requests…</div>
             </div>
-          ) : holdRequests.length === 0 ? (
+          ) : activeHoldRequests.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -1264,7 +1267,7 @@ export function SellerDashboardApp() {
                 </svg>
               </div>
               <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                No hold requests yet
+                No open hold requests
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
                 When an interested collector requests a hold on one of your cards, the inquiry and contact details will appear here.
@@ -1272,7 +1275,7 @@ export function SellerDashboardApp() {
             </div>
           ) : (
             <div className="space-y-4">
-              {holdRequests.map((req) => {
+              {activeHoldRequests.map((req) => {
                 const cardName = req.card_name || ('Card item');
                 const cardNumber = req.card_number || '';
                 const cardRarity = '';

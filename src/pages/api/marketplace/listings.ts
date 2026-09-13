@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getSellerTier } from '../../../lib/badges';
+import { extractSellerId, listingSignature } from '../../../lib/sellerNotes';
 
 export const prerender = false;
 
@@ -9,19 +10,6 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-// Helper to extract seller ID from notes JSON string or format "seller_id:uuid"
-function extractSellerId(notes: string | null): string | null {
-  if (!notes) return null;
-  try {
-    const parsed = JSON.parse(notes);
-    if (parsed && typeof parsed.seller_id === 'string') return parsed.seller_id;
-  } catch (e) {
-    // Not JSON, check prefix format
-    if (notes.startsWith('marketplace:')) return notes.replace('marketplace:', '').trim();
-    if (notes.startsWith('seller:')) return notes.replace('seller:', '').trim();
-  }
-  return null;
-}
 
 import { OWNER_ID } from '../../../lib/constants';
 
@@ -396,19 +384,41 @@ export const POST: APIRoute = async ({ request }) => {
       listed_at: new Date().toISOString(),
     });
 
-    const { data: invRow, error: invErr } = await supabaseAdmin
+    // Merge into this seller's existing listing for the same card/condition/finish
+    // rather than creating a second row for identical cards.
+    const { data: dupeCandidates } = await supabaseAdmin
       .from('inventory')
-      .insert({
-        card_id,
-        condition: condition || 'Near Mint',
-        is_foil: Boolean(is_foil),
-        price_huf: safePriceHuf,
-        quantity: safeQty,
-        status: 'In Stock',
-        notes: notesPayload,
-      })
-      .select('id, card_id, condition, is_foil, price_huf, quantity, status')
-      .single();
+      .select('id, card_id, condition, is_foil, quantity, notes')
+      .eq('card_id', card_id)
+      .in('status', ['In Stock', 'Available']);
+
+    const targetSignature = listingSignature(card_id, condition || 'Near Mint', Boolean(is_foil));
+    const duplicate = (dupeCandidates || []).find(
+      (row: any) =>
+        extractSellerId(row.notes) === user.id &&
+        listingSignature(row.card_id, row.condition, row.is_foil) === targetSignature
+    );
+
+    const { data: invRow, error: invErr } = duplicate
+      ? await supabaseAdmin
+          .from('inventory')
+          .update({ quantity: (duplicate.quantity || 0) + safeQty, price_huf: safePriceHuf })
+          .eq('id', duplicate.id)
+          .select('id, card_id, condition, is_foil, price_huf, quantity, status')
+          .single()
+      : await supabaseAdmin
+          .from('inventory')
+          .insert({
+            card_id,
+            condition: condition || 'Near Mint',
+            is_foil: Boolean(is_foil),
+            price_huf: safePriceHuf,
+            quantity: safeQty,
+            status: 'In Stock',
+            notes: notesPayload,
+          })
+          .select('id, card_id, condition, is_foil, price_huf, quantity, status')
+          .single();
 
     if (invErr) {
       console.error('Failed to create inventory listing:', invErr);

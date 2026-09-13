@@ -28,7 +28,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     if (u?.user_metadata?.quick_sale_settings) {
       const userRules = u.user_metadata.quick_sale_settings as QuickSaleRule[];
       setRules(userRules);
-      generateCandidates(userRules);
+      generateCandidates(userRules, await fetchAlreadyListed(u.id));
     } else {
       setRules([]);
       setListingCandidates([]);
@@ -36,7 +36,29 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     }
   };
 
-  const generateCandidates = (activeRules: QuickSaleRule[]) => {
+  /**
+   * Copies already on the market per card. Without this, running Quick Sale twice
+   * offers the same copies again and the seller ends up listing more than they own.
+   */
+  const fetchAlreadyListed = async (sellerId: string): Promise<Map<string, number>> => {
+    const listed = new Map<string, number>();
+    try {
+      const res = await fetch(`/api/marketplace/listings?seller_id=${sellerId}`);
+      if (res.ok) {
+        const json = await res.json();
+        for (const row of json.data || []) {
+          // Quick Sale only ever lists non-foil copies.
+          if (row.status === 'Sold' || row.is_foil) continue;
+          listed.set(row.card_id, (listed.get(row.card_id) || 0) + (row.quantity || 0));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load existing listings; Quick Sale may re-offer listed copies:', e);
+    }
+    return listed;
+  };
+
+  const generateCandidates = (activeRules: QuickSaleRule[], alreadyListed: Map<string, number>) => {
     const enabledRules = activeRules.filter(r => r.enabled);
     
     // Create a map for fast card lookup
@@ -63,7 +85,8 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
       }
 
       if (matchingRule) {
-        const copiesToSell = owned.count - matchingRule.minCopiesToKeep;
+        const listed = alreadyListed.get(card.id) || 0;
+        const copiesToSell = owned.count - matchingRule.minCopiesToKeep - listed;
         if (copiesToSell > 0) {
           candidates.push({
             tempId: Math.random().toString(36).substring(2),
