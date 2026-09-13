@@ -1,73 +1,27 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { fetchCardsCatalog, clearApiCache, clearStoreCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility, getMarketplaceVisibility, setMarketplaceVisibility } from '../../lib/api';
+import { clearApiCache, getCatalogVisibility, setCatalogVisibility, getSealedVisibility, setSealedVisibility, getMarketplaceVisibility, setMarketplaceVisibility } from '../../lib/api';
 import { getCurrentProfile } from '../../lib/auth';
 import { fetchStoreOrders, updateOrderStatus, updateOrderPayment, purgeAllOrders } from '../../lib/orders';
-import { getEurToHufRate } from '../../lib/currency';
 import { EVENTS, OWNER_ID } from '../../lib/constants';
-import type { CatalogCard, UserProfile, Order } from '../../types';
+import type { UserProfile, Order } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
-import { InventoryPanel } from './InventoryPanel';
 import { OrdersPanel } from './OrdersPanel';
-import { AddProductForm } from './AddProductForm';
 import { SettingsPanel } from './SettingsPanel';
 import { ApiKeysPanel } from './ApiKeysPanel';
-
-// ─── Types ────────────────────────────────────────────────────────
-export interface InventoryItem {
-  id: string;
-  is_surplus: boolean;
-  condition: string;
-  is_foil: boolean;
-  price_huf: number;
-  status: string;
-  notes: string | null;
-  is_bulk: boolean;
-  quantity: number;
-  created_at: string;
-  updated_at: string;
-  cards: {
-    id: string;
-    card_number: string;
-    name: string;
-    rarity: string;
-    card_type: string;
-    subtype?: string;
-    image_path?: string;
-    domain?: string;
-    game: string;
-    tags?: string[];
-    market_price_eur?: number;
-    market_price_foil_eur?: number;
-    sets?: { id: string; name: string; code: string };
-  } | null;
-}
-
-const INVENTORY_PAGE_SIZE = 100;
 
 export function AdminDashboard() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const eurHufRate = getEurToHufRate();
 
-  // Store & Inventory State
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'settings' | 'api-keys'>('inventory');
-  const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
-  const [loadingInventory, setLoadingInventory] = useState(true);
-  const [inventoryPage, setInventoryPage] = useState(0);
-  const [hasMoreInventory, setHasMoreInventory] = useState(true);
-  const [isReconciling, setIsReconciling] = useState(false);
+  const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'api-keys'>('orders');
 
   // Orders Management State
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [updatingOrderNumber, setUpdatingOrderNumber] = useState<string | null>(null);
   const [orderFeedback, setOrderFeedback] = useState<{ orderNumber: string; message: string; type: 'success' | 'error' } | null>(null);
-
-  // Catalog State for Add Card
-  const [selectedGame, setSelectedGame] = useState('riftbound');
-  const [catalogCards, setCatalogCards] = useState<CatalogCard[]>([]);
 
   // Settings State
   const [isStorePublic, setIsStorePublic] = useState(false);
@@ -103,63 +57,6 @@ export function AdminDashboard() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // ─── 2. Fetch Catalog for Add Card Search ───────────────────────
-  useEffect(() => {
-    async function loadCatalog() {
-      const { data } = await fetchCardsCatalog({
-        game: selectedGame, set: '', rarities: [], type: '',
-        domains: [], tags: [], costMin: 1, costMax: 10, stockStatus: 'Any',
-      }, '');
-      if (data) setCatalogCards(data);
-    }
-    loadCatalog();
-  }, [selectedGame]);
-
-  // ─── 3. Fetch Store Inventory (paginated) ────────────────────────
-  const loadInventory = async (page = 0, append = false) => {
-    setLoadingInventory(true);
-    try {
-      const from = page * INVENTORY_PAGE_SIZE;
-      const to = from + INVENTORY_PAGE_SIZE - 1;
-
-      // Fetch inventory items (excluding community marketplace listings)
-      const { data: legacyData, error: legacyErr } = await supabase
-        .from('inventory')
-        .select(`
-          id, condition, is_foil, price_huf, status, notes, is_bulk, quantity, created_at, updated_at,
-          cards (
-            id, card_number, name, rarity, card_type, subtype, image_path, domain, game, tags,
-            sets ( id, name, code )
-          )
-        `)
-        .or('notes.is.null,notes.not.ilike.*marketplace*')
-        .order('updated_at', { ascending: false })
-        .range(from, to);
-
-      if (legacyErr && import.meta.env.DEV) console.warn('Dashboard inventory query warning:', legacyErr);
-
-      const newItems: InventoryItem[] = (legacyData || [])
-        .filter((item: any) => {
-          const notesStr = String(item.notes || '');
-          return !notesStr.includes('marketplace');
-        })
-        .map((item: any) => ({ ...item, is_surplus: false }));
-
-      setHasMoreInventory(newItems.length >= INVENTORY_PAGE_SIZE);
-      setInventoryPage(page);
-
-      if (append) {
-        setInventoryList(prev => [...prev, ...newItems]);
-      } else {
-        setInventoryList(newItems);
-      }
-    } catch (e) {
-      if (import.meta.env.DEV) console.error('Error fetching inventory in dashboard:', e);
-    } finally {
-      setLoadingInventory(false);
-    }
-  };
 
   const loadSettings = async () => {
     const [isPub, isSealed, isMarketplace] = await Promise.all([
@@ -255,7 +152,6 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (profile?.is_admin) {
-      loadInventory(0, false);
       loadSettings();
       loadOrders();
       loadMarketplaceStats();
@@ -274,64 +170,6 @@ export function AdminDashboard() {
       window.removeEventListener('tcg-marketplace-changed', loadMarketplaceStats);
     };
   }, [profile]);
-
-  // ─── 4. Actions: Update / Delete Inventory Listing (via secure API) ───
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
-    const item = inventoryList.find(i => i.id === id);
-    const res = await fetch('/api/admin/inventory', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: 'status', new_status: newStatus, is_surplus: item?.is_surplus }),
-    });
-    if (res.ok) {
-      setInventoryList(prev => prev.map(i => i.id === id ? { ...i, status: newStatus } : i));
-      clearStoreCache();
-    }
-  };
-
-  const handleUpdatePrice = async (id: string, newPrice: number) => {
-    const item = inventoryList.find(i => i.id === id);
-    const res = await fetch('/api/admin/inventory', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: 'price', new_price_huf: newPrice, is_surplus: item?.is_surplus }),
-    });
-    if (res.ok) {
-      setInventoryList(prev => prev.map(i => i.id === id ? { ...i, price_huf: newPrice } : i));
-      clearStoreCache();
-    }
-  };
-
-  const handleDeleteItem = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to remove "${name}" from store inventory?`)) return;
-
-    const item = inventoryList.find(i => i.id === id);
-    const res = await fetch('/api/admin/inventory', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, is_surplus: item?.is_surplus }),
-    });
-
-    if (res.ok) {
-      setInventoryList(prev => prev.filter(i => i.id !== id));
-      clearStoreCache();
-    } else {
-      const json = await res.json().catch(() => ({}));
-      alert(`Error removing listing: ${json.error || 'Unknown error'}`);
-    }
-  };
-
-  const handleReconcilePlaysets = async () => {
-    setIsReconciling(true);
-    try {
-      await loadInventory(0, false);
-      alert('Inventory reloaded and synchronized successfully.');
-    } catch (e: any) {
-      alert(`Error reloading inventory: ${e.message || 'Unknown error'}`);
-    } finally {
-      setIsReconciling(false);
-    }
-  };
 
   const handleToggleStoreVisibility = async () => {
     setSavingSettings(true);
@@ -358,12 +196,6 @@ export function AdminDashboard() {
     }
     setSavingSealed(false);
   };
-
-  const totalItemsCount = inventoryList.length;
-  const inStockCount = inventoryList.filter(i => i.status === 'In Stock').length;
-  const totalValueHuf = inventoryList
-    .filter(i => i.status === 'In Stock' && i.price_huf)
-    .reduce((sum, item) => sum + (item.price_huf * (item.quantity || 1)), 0);
 
   const pendingOrdersCount = useMemo(() => {
     return orders.filter(o => o.status === 'Pending' || o.status === 'Processing').length;
@@ -473,40 +305,21 @@ export function AdminDashboard() {
               <circle cx="20" cy="21" r="1" />
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
-            <span>Store Management</span>
+            <span>Admin Dashboard</span>
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Manage singles, sealed products, customer orders, inventory pricing, and store visibility
+            Manage customer orders, catalog visibility, invoicing, shipping, and API access
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {profile.role === 'owner' && (
-            <button
-              onClick={handleReconcilePlaysets}
-              disabled={isReconciling}
-              className="flex items-center gap-1.5 text-xs font-black px-3.5 py-2 rounded-xl border shadow-sm transition cursor-pointer disabled:opacity-50"
-              style={{
-                background: 'var(--accent-muted)',
-                borderColor: 'var(--accent-border)',
-                color: 'var(--accent)',
-              }}
-              title="Audit owner collection and recalculate surplus listings"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              <span>{isReconciling ? 'Reconciling…' : 'Sync Playset Surplus'}</span>
-            </button>
-          )}
-
           <div
             className="flex items-center gap-3 px-4 py-2 rounded-xl border"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
             <div className={`w-2.5 h-2.5 rounded-full ${isStorePublic ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}`} />
             <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
-              Store is {isStorePublic ? 'Public' : 'in Maintenance'}
+              Catalog is {isStorePublic ? 'Public' : 'in Maintenance'}
             </span>
             <button
               onClick={handleToggleStoreVisibility}
@@ -525,30 +338,16 @@ export function AdminDashboard() {
 
       {/* Stats Overview */}
       <div className="space-y-4 mb-7">
-        {/* Row 1: Official Store & Order Volume */}
+        {/* Row 1: Order & Fulfillment Volume (spans store + marketplace sales alike) */}
         <div>
           <div className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
             <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-            <span>Official Store & Fulfillment Metrics</span>
+            <span>Order & Fulfillment Metrics</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>In-Stock Store Listings</span>
-              <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5">{inStockCount} <span className="text-xs font-normal text-zinc-400">/ {totalItemsCount}</span></div>
-              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>{inventoryList.filter(i => i.status === 'In Stock').reduce((sum, item) => sum + (item.quantity || 1), 0)} copies available</span>
-            </div>
-
-            <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Active Inventory Value</span>
-              <div className="text-xl sm:text-2xl font-black mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {totalValueHuf.toLocaleString()} <span className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>HUF</span>
-              </div>
-              <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-muted)' }}>≈ €{(eurHufRate > 0 ? (totalValueHuf / eurHufRate).toFixed(2) : '0.00')}</span>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="rounded-xl p-4 border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>Total Orders Revenue</span>
               <div className="text-xl sm:text-2xl font-black mt-0.5" style={{ color: 'var(--accent)' }}>
@@ -628,27 +427,6 @@ export function AdminDashboard() {
       {/* Navigation Tabs */}
       <div className="flex gap-2 border-b mb-6 pb-2 overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
         <button
-          onClick={() => setActiveTab('inventory')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border shrink-0 ${
-            activeTab === 'inventory'
-              ? 'shadow-sm'
-              : 'hover:text-white hover:border-[var(--border-hover)]'
-          }`}
-          style={
-            activeTab === 'inventory'
-              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }
-              : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
-          }
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-          <span>Active Inventory ({inventoryList.length})</span>
-        </button>
-
-        <button
           onClick={() => {
             setActiveTab('orders');
             loadOrders();
@@ -683,26 +461,6 @@ export function AdminDashboard() {
               ({orders.length})
             </span>
           )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('add')}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition cursor-pointer border shrink-0 ${
-            activeTab === 'add'
-              ? 'shadow-sm'
-              : 'hover:text-white hover:border-[var(--border-hover)]'
-          }`}
-          style={
-            activeTab === 'add'
-              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }
-              : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
-          }
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>Add to Store</span>
         </button>
 
         <button
@@ -745,22 +503,7 @@ export function AdminDashboard() {
         </button>
       </div>
 
-      {/* TAB 1: INVENTORY TABLE */}
-      {activeTab === 'inventory' && (
-        <InventoryPanel
-          inventoryList={inventoryList}
-          loadingInventory={loadingInventory}
-          hasMoreInventory={hasMoreInventory}
-          inventoryPage={inventoryPage}
-          onLoadMore={() => loadInventory(inventoryPage + 1, true)}
-          onUpdateStatus={handleUpdateStatus}
-          onUpdatePrice={handleUpdatePrice}
-          onDeleteItem={handleDeleteItem}
-          onAddNewItem={() => setActiveTab('add')}
-        />
-      )}
-
-      {/* TAB 2: CUSTOMER ORDERS MANAGEMENT */}
+      {/* TAB: CUSTOMER ORDERS MANAGEMENT */}
       {activeTab === 'orders' && (
         <OrdersPanel
           orders={orders}
@@ -773,21 +516,7 @@ export function AdminDashboard() {
         />
       )}
 
-      {/* TAB 3: ADD PRODUCT TO STORE */}
-      {activeTab === 'add' && (
-        <AddProductForm
-          isSealedEnabled={isSealedEnabled}
-          catalogCards={catalogCards}
-          selectedGame={selectedGame}
-          onSelectGame={setSelectedGame}
-          onSuccess={async () => {
-            await loadInventory(0, false);
-            setActiveTab('inventory');
-          }}
-        />
-      )}
-
-      {/* TAB 4: SETTINGS */}
+      {/* TAB: SETTINGS */}
       {activeTab === 'settings' && (
         <SettingsPanel
           isStorePublic={isStorePublic}
