@@ -216,7 +216,6 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
             price_huf: it.priceHuf,
             quantity: it.quantity,
             image_path: it.card.image_path,
-            product_type: it.card.product_type || 'single',
           });
           if (it.inventoryId) {
             inventoryDeductions.push({ inventoryId: it.inventoryId, quantity: it.quantity });
@@ -236,7 +235,6 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
           price_huf: params.priceHuf,
           quantity: params.quantity,
           image_path: params.card.image_path,
-          product_type: params.card.product_type || 'single',
         });
         if (params.inventoryId) {
           inventoryDeductions.push({ inventoryId: params.inventoryId, quantity: params.quantity });

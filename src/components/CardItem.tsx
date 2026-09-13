@@ -38,7 +38,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
     return () => window.removeEventListener('tcg-lang-change', handleLangChange);
   }, []);
 
-  const isSealed = card.product_type && card.product_type !== 'single';
+  const isSealed = false;
   const isCyberpunk = card.game === 'cyberpunk';
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
   const parsedDomains = parseDomains(card.domain);
@@ -110,7 +110,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
                 {isSealed ? 'SEALED' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
               <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
-                {isSealed ? (card.product_type || 'Sealed') : (card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`))}
+                {card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
               </span>
             </div>
           )}
@@ -285,7 +285,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             {isSealed ? card.condition : formatCleanCardNumber(card.card_number)}
           </span>
           <span className="capitalize truncate text-center font-medium">
-            {isSealed ? (card.product_type?.replace('_', ' ') || 'Sealed') : card.card_type}
+            {card.card_type}
           </span>
           <span className="capitalize truncate text-right text-zinc-400 font-medium">
             {card.rarity || ''}

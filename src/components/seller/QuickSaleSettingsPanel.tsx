@@ -37,7 +37,7 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
     const delay = setTimeout(async () => {
       setLoading(true);
       const { data } = await supabase.from('cards')
-        .select('id, name, set_code, rarity, card_number')
+        .select('id, name, rarity, card_number, sets!inner(code)')
         .eq('game', game)
         .or(`name.ilike.%${query}%,card_number.ilike.%${query}%`)
         .limit(10);
@@ -75,7 +75,7 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName, la
               className="px-3 py-2 text-xs text-white hover:bg-emerald-500/20 cursor-pointer border-b border-white/5 last:border-0 flex justify-between"
             >
               <span className="font-bold">{r.name}</span>
-              <span className="text-zinc-400">{r.set_code} • {r.card_number} • {r.rarity}</span>
+              <span className="text-zinc-400">{r.sets?.code || '???'} • {r.card_number} • {r.rarity}</span>
             </div>
           ))}
         </div>

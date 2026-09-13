@@ -110,7 +110,6 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
           price_huf: req.price_huf || 0,
           quantity: 1,
           image_path: req.image_path || '',
-          product_type: 'single',
         },
       ],
       created_at: new Date().toISOString(),

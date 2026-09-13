@@ -34,7 +34,6 @@ export interface InventoryCard {
   text?: string;
   game: string;
   game_id?: string;
-  product_type?: ProductType | string;
   metadata?: Record<string, any>;
   energy?: string;
   might?: string;
@@ -74,7 +73,6 @@ export interface CatalogCard {
   text?: string;
   game: string;
   game_id?: string;
-  product_type?: ProductType | string;
   metadata?: Record<string, any>;
   energy?: string;
   might?: string;
@@ -158,7 +156,6 @@ export interface OrderItem {
   price_huf: number;
   quantity: number;
   image_path?: string | null;
-  product_type?: string;
 }
 
 export interface Order {

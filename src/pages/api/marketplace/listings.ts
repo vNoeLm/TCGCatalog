@@ -262,7 +262,6 @@ export const GET: APIRoute = async ({ url }) => {
         subtype: cardObj.subtype,
         text: cardObj.text,
         game: cardObj.game,
-        product_type: (cardObj as any)?.product_type || 'single',
         energy: cardObj.energy,
         might: cardObj.might,
         domain: cardObj.domain,
