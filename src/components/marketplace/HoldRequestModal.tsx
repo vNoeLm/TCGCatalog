@@ -28,7 +28,7 @@ export function HoldRequestModal({
   const ALL_HANDOVER_METHODS = [
     { id: 'foxpost', label: 'Foxpost', desc: lang === 'hu' ? 'Automata' : 'Locker' },
     { id: 'packeta', label: 'Packeta', desc: lang === 'hu' ? 'Csomagpont' : 'Pickup' },
-    { id: 'pickup', label: lang === 'hu' ? 'Személyes' : 'In-person', desc: lang === 'hu' ? 'Átvétel' : 'Pickup' },
+    { id: 'personal', label: lang === 'hu' ? 'Személyes' : 'In-person', desc: lang === 'hu' ? 'Átvétel' : 'Pickup' },
     { id: 'posta', label: 'Magyar Posta', desc: lang === 'hu' ? 'Ajánlott levél' : 'Post' },
     { id: 'other', label: lang === 'hu' ? 'Egyéb' : 'Other', desc: lang === 'hu' ? 'Megegyezés' : 'Custom' },
   ];

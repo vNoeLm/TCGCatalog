@@ -44,6 +44,8 @@ export function ProfileApp() {
 
   const isOrderExpanded = (order: Order): boolean => {
     if (order.order_number in expandedOrders) return expandedOrders[order.order_number];
+    // Keep Delivered orders expanded if they haven't been reviewed yet
+    if (order.status === 'Delivered' && !reviewsByOrder[order.order_number]) return true;
     return order.status !== 'Cancelled' && order.status !== 'Delivered';
   };
   const toggleOrderExpand = (order: Order) => {

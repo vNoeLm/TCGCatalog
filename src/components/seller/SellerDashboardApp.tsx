@@ -436,9 +436,11 @@ export function SellerDashboardApp() {
   }, [activeBadgeGame, userGameOwned, gameCardCounts]);
 
   const filteredListings = useMemo(() => {
-    if (!searchQuery.trim()) return listings;
+    // Exclude Sold items from active listings tab
+    const activeOnly = listings.filter(it => it.status !== 'Sold');
+    if (!searchQuery.trim()) return activeOnly;
     const q = searchQuery.toLowerCase().trim();
-    return listings.filter(it =>
+    return activeOnly.filter(it =>
       (it.name || '').toLowerCase().includes(q) ||
       (it.card_number || '').toLowerCase().includes(q) ||
       (it.rarity || '').toLowerCase().includes(q) ||
