@@ -419,6 +419,7 @@ export function SellerDashboardApp() {
   const pendingHoldCount = useMemo(() => {
     return holdRequests.filter(h => h.status === 'pending' || h.status === 'held').length;
   }, [holdRequests]);
+  // Total units/cards sold across all completed orders (purely informational stat).
   const itemsSold = useMemo(() => {
     return sellerOrders.reduce((sum, ord) => {
       if (ord.status === 'Cancelled') return sum;
@@ -427,6 +428,12 @@ export function SellerDashboardApp() {
         : 1;
       return sum + count;
     }, 0);
+  }, [sellerOrders]);
+
+  // Number of distinct completed sales (transactions) — this gates seller tier, so a single
+  // buyer purchasing many cards in one order doesn't by itself vault a seller to the top tier.
+  const completedSalesCount = useMemo(() => {
+    return sellerOrders.filter(ord => ord.status !== 'Cancelled').length;
   }, [sellerOrders]);
 
   const totalRevenueHuf = useMemo(() => {
@@ -458,10 +465,10 @@ export function SellerDashboardApp() {
     return total / sellerReviews.length;
   }, [sellerReviews]);
 
-  // Seller Tier Calculation
+  // Seller Tier Calculation — based on distinct completed sales, not total cards sold.
   const sellerTier: SellerTier = useMemo(() => {
-    return getSellerTier(itemsSold, averageRating, isOwner);
-  }, [itemsSold, averageRating, isOwner]);
+    return getSellerTier(completedSalesCount, averageRating, isOwner);
+  }, [completedSalesCount, averageRating, isOwner]);
 
   // Collector Tier Calculation (Game-Specific)
   const collectorTier: CollectorTier = useMemo(() => {
@@ -556,15 +563,15 @@ export function SellerDashboardApp() {
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name || 'Seller'}
-                className="w-16 h-16 rounded-2xl object-cover border"
-                style={{ borderColor: 'var(--border)' }}
+                className="w-16 h-16 rounded-2xl object-cover border-2"
+                style={{ borderColor: sellerTier.color }}
               />
             ) : (
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border"
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2"
                 style={{
                   background: 'var(--bg-surface-2)',
-                  borderColor: 'var(--border)',
+                  borderColor: sellerTier.color,
                   color: 'var(--accent)',
                 }}
               >
@@ -577,8 +584,12 @@ export function SellerDashboardApp() {
                 <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
                   {profile.display_name || 'Seller'}
                 </h1>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
-                  ID: {profile.id.slice(0, 8)}…
+                <span
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1"
+                  style={sellerTier.badgeStyle}
+                >
+                  <BadgeIconSvg iconType={sellerTier.iconType} className="w-3 h-3" />
+                  <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
                 </span>
               </div>
               <div className="text-xs sm:text-sm font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -603,6 +614,10 @@ export function SellerDashboardApp() {
                 )}
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span className="text-emerald-400 font-semibold">
+                  {completedSalesCount} {lang === 'hu' ? 'eladás' : 'sales made'}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>•</span>
+                <span className="text-amber-400 font-semibold">
                   {itemsSold} {lang === 'hu' ? 'eladott lap' : 'cards sold'}
                 </span>
               </div>
@@ -662,15 +677,15 @@ export function SellerDashboardApp() {
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider"
                   style={sellerTier.badgeStyle}
                 >
-                  {itemsSold >= 1 ? (lang === 'hu' ? 'Hitelesítve' : 'Verified') : (lang === 'hu' ? 'Új eladó' : 'Level 0')}
+                  {completedSalesCount >= 1 ? (lang === 'hu' ? 'Hitelesítve' : 'Verified') : (lang === 'hu' ? 'Új eladó' : 'Level 0')}
                 </span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                 {sellerTier.isOwner
                   ? (lang === 'hu' ? 'Hivatalos áruház tulajdonos és platform alapító.' : 'Official store owner and platform founder.')
-                  : itemsSold >= 1
-                  ? (lang === 'hu' ? `Kiváló közösségi eladó ${itemsSold} sikeres tranzakcióval.` : `Verified community seller with ${itemsSold} successful cards sold.`)
-                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "Hitelesített Eladó" rang feloldásához!' : 'Sell at least 1 card to unlock the "Verified Seller" badge!')}
+                  : completedSalesCount >= 1
+                  ? (lang === 'hu' ? `Kiváló közösségi eladó ${completedSalesCount} sikeres tranzakcióval.` : `Verified community seller with ${completedSalesCount} completed sales.`)
+                  : (lang === 'hu' ? 'Adj el legalább 1 lapot a "Hitelesített Eladó" rang feloldásához!' : 'Complete at least 1 sale to unlock the "Verified Seller" badge!')}
               </p>
             </div>
 
@@ -682,14 +697,14 @@ export function SellerDashboardApp() {
                     {lang === 'hu' ? 'Következő kereskedő rang:' : 'Next merchant tier:'}
                   </span>
                   <span className="font-mono" style={{ color: sellerTier.color }}>
-                    {itemsSold} / {sellerTier.nextTierSales} {lang === 'hu' ? 'eladás' : 'sales'}
+                    {completedSalesCount} / {sellerTier.nextTierSales} {lang === 'hu' ? 'eladás' : 'sales'}
                   </span>
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min(100, Math.round((itemsSold / Math.max(1, sellerTier.nextTierSales)) * 100))}%`,
+                      width: `${Math.min(100, Math.round((completedSalesCount / Math.max(1, sellerTier.nextTierSales)) * 100))}%`,
                       background: sellerTier.color,
                       boxShadow: `0 0 10px ${sellerTier.color}`,
                     }}
@@ -767,38 +782,83 @@ export function SellerDashboardApp() {
       </div>
 
       {/* ─── Performance Metrics Grid ───────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      {/* Row 1: business stats — earnings, sales made (tier basis), cards sold, active listings */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         {/* Total Revenue */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Összes bevétel' : 'Total Earnings'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Összes bevétel' : 'Total Earnings'}
+            </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-emerald-400 truncate">
             {totalRevenueHuf.toLocaleString()} Ft
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {sellerOrders.length} {lang === 'hu' ? 'rendelés' : 'orders'}
+            {completedSalesCount} {lang === 'hu' ? 'rendelés' : 'orders'}
           </div>
         </div>
 
-        {/* Items Sold */}
+        {/* Sales Made — distinct completed transactions, gates seller tier */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Eladott lapok' : 'Cards Sold'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Eladások' : 'Sales Made'}
+            </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
-            {itemsSold} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+          <div className="text-lg sm:text-xl font-black text-indigo-300 truncate">
+            {completedSalesCount} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'tranzakció' : 'txns'}</span>
           </div>
-          <div className="text-[10px] mt-1 text-emerald-400 font-semibold flex items-center gap-1">
+          <div className="text-[10px] mt-1 font-semibold flex items-center gap-1" style={{ color: sellerTier.color }}>
             <BadgeIconSvg iconType={sellerTier.iconType} className="w-3.5 h-3.5" />
             <span>{lang === 'hu' ? sellerTier.nameHu : sellerTier.nameEn}</span>
           </div>
         </div>
 
+        {/* Cards Sold — total units, informational only */}
+        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Eladott lapok' : 'Cards Sold'}
+            </span>
+          </div>
+          <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
+            {itemsSold} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            {completedSalesCount > 0 ? (itemsSold / completedSalesCount).toFixed(1) : '0'} {lang === 'hu' ? '/ eladás' : '/ sale avg'}
+          </div>
+        </div>
+
         {/* Active Listings */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.59 13.41L11 3.83V3H3v8l.83.83L13.41 20.6a2 2 0 002.83 0l4.35-4.35a2 2 0 000-2.84z" />
+                <circle cx="6.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
+            </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
             {activeListings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
@@ -807,18 +867,25 @@ export function SellerDashboardApp() {
             {totalListedValueHuf.toLocaleString()} Ft {lang === 'hu' ? 'érték' : 'value'}
           </div>
         </div>
+      </div>
 
+      {/* Row 2: engagement stats */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {/* Total Views */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Összes megtekintés' : 'Total Views'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(34, 211, 238, 0.15)', color: '#22d3ee' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Összes megtekintés' : 'Total Views'}
+            </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate flex items-center gap-1.5">
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <span>{totalViews}</span>
+          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate">
+            {totalViews}
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {activeListings.length > 0 ? (totalViews / activeListings.length).toFixed(1) : (listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0')} {lang === 'hu' ? '/ hirdetés' : '/ post'}
@@ -827,14 +894,18 @@ export function SellerDashboardApp() {
 
         {/* Total Clicks */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Összes kattintás' : 'Total Clicks'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(244, 114, 182, 0.15)', color: '#f472b6' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Összes kattintás' : 'Total Clicks'}
+            </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-pink-400 truncate flex items-center gap-1.5">
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
-            </svg>
-            <span>{totalClicks}</span>
+          <div className="text-lg sm:text-xl font-black text-pink-400 truncate">
+            {totalClicks}
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : '0'}% CTR
@@ -843,14 +914,18 @@ export function SellerDashboardApp() {
 
         {/* Seller Rating */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            {lang === 'hu' ? 'Értékelés' : 'Rating'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(252, 211, 77, 0.15)', color: '#fcd34d' }}>
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {lang === 'hu' ? 'Értékelés' : 'Rating'}
+            </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-amber-300 truncate flex items-center gap-1">
-            <svg className="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <span>{averageRating !== null ? averageRating.toFixed(1) : '—'}</span>
+          <div className="text-lg sm:text-xl font-black text-amber-300 truncate">
+            {averageRating !== null ? averageRating.toFixed(1) : '—'}
           </div>
           <div className="text-[10px] mt-1 text-zinc-400">
             {sellerReviews.length > 0
@@ -860,107 +935,91 @@ export function SellerDashboardApp() {
         </div>
       </div>
 
-      {/* ─── Navigation Tabs ────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b pb-3 mb-6 flex-wrap" style={{ borderColor: 'var(--border-subtle)' }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab('listings')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'listings'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
-          </svg>
-          <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({activeListings.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('holds')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'holds'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="2" x2="12" y2="22" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-            <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
-          </svg>
-          <span>{lang === 'hu' ? 'Jegelések & Kérések' : 'Holds & Inquiries'}</span>
-          {pendingHoldCount > 0 ? (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-zinc-950 shadow-sm ml-1">
-              {pendingHoldCount}
-            </span>
-          ) : (
-            <span className="text-[10px] text-zinc-500 ml-0.5">({holdRequests.length})</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'analytics'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <span>{lang === 'hu' ? 'Statisztikák és kattintások' : 'Post Stats & Clicks'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('sales')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'sales'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-          <span>{lang === 'hu' ? 'Eladási előzmények' : 'Sales History'} ({sellerOrders.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('reviews')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'reviews'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5 fill-amber-400 text-amber-400" viewBox="0 0 24 24">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-          <span>{lang === 'hu' ? 'Vásárlói értékelések' : 'Reviews'} ({sellerReviews.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('quicksale')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === 'quicksale'
-              ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] shadow-sm'
-              : 'bg-[var(--bg-surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-white'
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-          <span>{lang === 'hu' ? 'Gyors eladás beállítások' : 'Quick Sale Rules'}</span>
-        </button>
+      {/* ─── Navigation Tabs: horizontally-scrollable underline bar ──── */}
+      {/* Single row on every viewport width (scrolls instead of wrapping into a ragged grid). */}
+      <div
+        className="flex items-center gap-1 overflow-x-auto border-b mb-6"
+        style={{ borderColor: 'var(--border-subtle)', scrollbarWidth: 'thin' }}
+      >
+        {([
+          {
+            id: 'listings' as const,
+            label: lang === 'hu' ? 'Hirdetések' : 'Listings',
+            count: activeListings.length,
+            icon: <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />,
+          },
+          {
+            id: 'holds' as const,
+            label: lang === 'hu' ? 'Jegelések' : 'Holds',
+            count: holdRequests.length,
+            urgentCount: pendingHoldCount,
+            icon: (
+              <>
+                <line x1="12" y1="2" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                <line x1="19.07" y1="4.93" x2="4.93" y2="19.07" />
+              </>
+            ),
+          },
+          {
+            id: 'analytics' as const,
+            label: lang === 'hu' ? 'Statisztikák' : 'Stats',
+            icon: <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />,
+          },
+          {
+            id: 'sales' as const,
+            label: lang === 'hu' ? 'Eladások' : 'Sales',
+            count: sellerOrders.length,
+            icon: <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />,
+          },
+          {
+            id: 'reviews' as const,
+            label: lang === 'hu' ? 'Értékelések' : 'Reviews',
+            count: sellerReviews.length,
+            icon: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
+            iconFill: true,
+          },
+          {
+            id: 'quicksale' as const,
+            label: lang === 'hu' ? 'Gyors eladás' : 'Quick Sale',
+            icon: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
+          },
+        ]).map((tabDef) => {
+          const isActive = activeTab === tabDef.id;
+          return (
+            <button
+              key={tabDef.id}
+              type="button"
+              onClick={() => setActiveTab(tabDef.id)}
+              className={`relative shrink-0 px-3.5 py-3 -mb-px text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
+                isActive
+                  ? 'border-[var(--accent)] text-[var(--text-accent)]'
+                  : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <svg
+                className={`w-3.5 h-3.5 shrink-0 ${tabDef.iconFill ? 'fill-amber-400 text-amber-400' : ''}`}
+                viewBox="0 0 24 24"
+                fill={tabDef.iconFill ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {tabDef.icon}
+              </svg>
+              <span>{tabDef.label}</span>
+              {tabDef.urgentCount ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-zinc-950 shadow-sm">
+                  {tabDef.urgentCount}
+                </span>
+              ) : typeof tabDef.count === 'number' ? (
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>({tabDef.count})</span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       {/* ─── TAB 1: ACTIVE LISTINGS ─────────────────────────────────── */}

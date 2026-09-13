@@ -117,8 +117,8 @@ export function ProfileApp() {
       const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}&limit=1`);
       if (res.ok) {
         const json = await res.json();
-        if (json.success && json.data && json.data.length > 0 && typeof json.data[0].seller_items_sold === 'number') {
-          setSellerSalesCount(json.data[0].seller_items_sold);
+        if (json.success && json.data && json.data.length > 0 && typeof json.data[0].seller_sales_count === 'number') {
+          setSellerSalesCount(json.data[0].seller_sales_count);
         }
       }
     } catch (e) {
@@ -1033,26 +1033,30 @@ export function ProfileApp() {
                                   : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                               }`}
                             >
-                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : 'Stripe'}
+                              {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : t('payment_method_direct', lang)}
                             </span>
                           )}
-                          {order.payment_status && (
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
-                                order.payment_status === 'paid'
-                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                  : order.payment_status === 'refunded'
-                                  ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
-                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                              }`}
-                            >
-                              {order.payment_status === 'paid'
-                                ? t('payment_status_paid', lang)
-                                : order.payment_status === 'refunded'
-                                ? t('payment_status_refunded', lang)
-                                : t('payment_status_pending', lang)}
-                            </span>
-                          )}
+                          {order.payment_status && (() => {
+                            const isGatewayPayment = order.payment_method === 'stripe' || order.payment_method === 'barion';
+                            const label = order.payment_status === 'paid'
+                              ? (isGatewayPayment ? t('payment_status_paid', lang) : t('payment_status_completed', lang))
+                              : order.payment_status === 'refunded'
+                              ? t('payment_status_refunded', lang)
+                              : t('payment_status_pending', lang);
+                            return (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                                  order.payment_status === 'paid'
+                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    : order.payment_status === 'refunded'
+                                    ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                                    : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                }`}
+                              >
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
 

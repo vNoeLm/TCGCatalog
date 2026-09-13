@@ -28,7 +28,8 @@ export interface SellerTier {
   nameHu: string;
   icon: string;
   iconType: BadgeIconType;
-  itemsSold: number;
+  /** Number of completed, distinct sales transactions (not total units/cards sold). */
+  salesCount: number;
   minSales: number;
   nextTierSales: number;
   ratingAvg: number | null;
@@ -237,15 +238,17 @@ export function getCollectorTier(
 }
 
 /**
- * Calculates a seller tier based on items sold count.
- * Users with >= 1 sold item receive the "Verified Seller" badge.
+ * Calculates a seller tier based on the number of completed, distinct sales
+ * (orders), not total units/cards sold — a buyer purchasing many cards in a
+ * single order should not by itself vault a seller to the top tier.
+ * Sellers with >= 1 completed sale receive the "Verified Seller" badge.
  */
 export function getSellerTier(
-  itemsSold: number = 0,
+  salesCount: number = 0,
   ratingAvg: number | null = null,
   isOwner: boolean = false
 ): SellerTier {
-  const sold = Math.max(0, itemsSold);
+  const sold = Math.max(0, salesCount);
 
   if (isOwner) {
     return {
@@ -254,7 +257,7 @@ export function getSellerTier(
       nameHu: 'Boltalapító',
       icon: '★',
       iconType: 'crown',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 0,
       nextTierSales: 0,
       ratingAvg,
@@ -278,7 +281,7 @@ export function getSellerTier(
       nameHu: 'Gyémánt Kereskedő',
       icon: '★',
       iconType: 'gem',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 100,
       nextTierSales: 100,
       ratingAvg,
@@ -302,7 +305,7 @@ export function getSellerTier(
       nameHu: 'Arany Kereskedő',
       icon: '★',
       iconType: 'award',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 50,
       nextTierSales: 100,
       ratingAvg,
@@ -325,7 +328,7 @@ export function getSellerTier(
       nameHu: 'Ezüst Kereskedő',
       icon: '★',
       iconType: 'shield',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 20,
       nextTierSales: 50,
       ratingAvg,
@@ -348,7 +351,7 @@ export function getSellerTier(
       nameHu: 'Bronz Kereskedő',
       icon: '★',
       iconType: 'star',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 5,
       nextTierSales: 20,
       ratingAvg,
@@ -371,7 +374,7 @@ export function getSellerTier(
       nameHu: 'Hitelesített Eladó',
       icon: '★',
       iconType: 'verified',
-      itemsSold: sold,
+      salesCount: sold,
       minSales: 1,
       nextTierSales: 5,
       ratingAvg,
@@ -394,7 +397,7 @@ export function getSellerTier(
     nameHu: 'Új Eladó',
     icon: '★',
     iconType: 'leaf',
-    itemsSold: 0,
+    salesCount: 0,
     minSales: 0,
     nextTierSales: 1,
     ratingAvg,

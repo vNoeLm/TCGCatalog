@@ -1149,7 +1149,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </span>
                     {(() => {
                       const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
-                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_items_sold || 0, sellerSummary?.rating_avg ?? null, isOwner);
+                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner);
                       return (
                         <span
                           className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
