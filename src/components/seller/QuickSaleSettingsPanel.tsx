@@ -106,11 +106,11 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving, lang }: Props) {
   };
 
   const updateRule = (id: string, updates: Partial<QuickSaleRule>) => {
-    setLocalRules(localRules.map(r => r.id === id ? { ...r, ...updates } : r));
+    setLocalRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
   const removeRule = (id: string) => {
-    setLocalRules(localRules.filter(r => r.id !== id));
+    setLocalRules(prev => prev.filter(r => r.id !== id));
   };
 
   const handleSave = () => {
