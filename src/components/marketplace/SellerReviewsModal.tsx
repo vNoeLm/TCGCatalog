@@ -151,14 +151,26 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary, l
                   }}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
-                        {review.reviewer_name?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                      <span className="text-xs sm:text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>
-                        {review.reviewer_name || 'Anonymous User'}
+                    <a
+                      href={review.buyer_id ? `/user?id=${review.buyer_id}` : undefined}
+                      className={`flex items-center gap-2 min-w-0 ${review.buyer_id ? 'hover:opacity-80 transition cursor-pointer' : ''}`}
+                    >
+                      {review.buyer_avatar ? (
+                        <img
+                          src={review.buyer_avatar}
+                          alt={review.buyer_name || 'Reviewer'}
+                          className="w-6 h-6 rounded-full object-cover shrink-0 border"
+                          style={{ borderColor: 'var(--border)' }}
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
+                          {review.buyer_name?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                      )}
+                      <span className="text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {review.buyer_name || 'Verified Buyer'}
                       </span>
-                    </div>
+                    </a>
                     <div className="flex items-center gap-0.5 text-amber-400">
                       {[...Array(5)].map((_, i) => (
                         <span key={i} className="text-[10px] sm:text-xs">

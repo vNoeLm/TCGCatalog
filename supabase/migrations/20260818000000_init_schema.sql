@@ -169,9 +169,15 @@ CREATE TABLE IF NOT EXISTS public.seller_reviews (
     seller_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
+    buyer_name VARCHAR(100),
+    buyer_avatar TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(order_number, buyer_id)
 );
+
+-- Reviewer identity is snapshotted on the review so it survives profile changes/deletion.
+ALTER TABLE public.seller_reviews ADD COLUMN IF NOT EXISTS buyer_name VARCHAR(100);
+ALTER TABLE public.seller_reviews ADD COLUMN IF NOT EXISTS buyer_avatar TEXT;
 
 -- 12. HOLD REQUESTS TABLE (Classifieds P2P)
 CREATE TABLE IF NOT EXISTS public.hold_requests (

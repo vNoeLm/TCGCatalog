@@ -242,6 +242,9 @@ export function getCollectorTier(
  * (orders), not total units/cards sold — a buyer purchasing many cards in a
  * single order should not by itself vault a seller to the top tier.
  * Sellers with >= 1 completed sale receive the "Verified Seller" badge.
+ *
+ * The site owner earns tiers the same way everyone else does; `isOwner` is
+ * carried through only so the UI can render a separate "Site Owner" tag.
  */
 export function getSellerTier(
   salesCount: number = 0,
@@ -249,30 +252,6 @@ export function getSellerTier(
   isOwner: boolean = false
 ): SellerTier {
   const sold = Math.max(0, salesCount);
-
-  if (isOwner) {
-    return {
-      tier: 99,
-      nameEn: 'Store Founder',
-      nameHu: 'Boltalapító',
-      icon: '★',
-      iconType: 'crown',
-      salesCount: sold,
-      minSales: 0,
-      nextTierSales: 0,
-      ratingAvg,
-      isOwner: true,
-      color: '#fbbf24',
-      bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(234, 179, 8, 0.25) 100%)',
-      border: 'rgba(245, 158, 11, 0.6)',
-      badgeStyle: {
-        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(234, 179, 8, 0.25) 100%)',
-        borderColor: 'rgba(245, 158, 11, 0.6)',
-        color: '#fef08a',
-        boxShadow: '0 0 16px rgba(245, 158, 11, 0.35)',
-      },
-    };
-  }
 
   if (sold >= 100) {
     return {
@@ -285,7 +264,7 @@ export function getSellerTier(
       minSales: 100,
       nextTierSales: 100,
       ratingAvg,
-      isOwner: false,
+      isOwner,
       color: '#38bdf8',
       bg: 'rgba(56, 189, 248, 0.2)',
       border: 'rgba(56, 189, 248, 0.5)',
@@ -309,7 +288,7 @@ export function getSellerTier(
       minSales: 50,
       nextTierSales: 100,
       ratingAvg,
-      isOwner: false,
+      isOwner,
       color: '#facc15',
       bg: 'rgba(250, 204, 21, 0.18)',
       border: 'rgba(250, 204, 21, 0.45)',
@@ -332,7 +311,7 @@ export function getSellerTier(
       minSales: 20,
       nextTierSales: 50,
       ratingAvg,
-      isOwner: false,
+      isOwner,
       color: '#e2e8f0',
       bg: 'rgba(226, 232, 240, 0.15)',
       border: 'rgba(226, 232, 240, 0.4)',
@@ -355,7 +334,7 @@ export function getSellerTier(
       minSales: 5,
       nextTierSales: 20,
       ratingAvg,
-      isOwner: false,
+      isOwner,
       color: '#fdba74',
       bg: 'rgba(251, 146, 60, 0.15)',
       border: 'rgba(251, 146, 60, 0.4)',
@@ -378,7 +357,7 @@ export function getSellerTier(
       minSales: 1,
       nextTierSales: 5,
       ratingAvg,
-      isOwner: false,
+      isOwner,
       color: '#34d399',
       bg: 'rgba(16, 185, 129, 0.15)',
       border: 'rgba(16, 185, 129, 0.45)',
@@ -401,7 +380,7 @@ export function getSellerTier(
     minSales: 0,
     nextTierSales: 1,
     ratingAvg,
-    isOwner: false,
+    isOwner,
     color: '#a1a1aa',
     bg: 'rgba(255, 255, 255, 0.06)',
     border: 'rgba(255, 255, 255, 0.15)',
@@ -415,6 +394,27 @@ export function getSellerTier(
 
 export function getTierBadgeLabel(badge: CollectorTier | SellerTier, lang: Language): string {
   return lang === 'hu' ? badge.nameHu : badge.nameEn;
+}
+
+/**
+ * Identity tag marking the account that runs the site. Separate from seller
+ * tiers, which the owner earns through sales like anyone else.
+ */
+export function SiteOwnerTag({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 border ${className}`}
+      style={{
+        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(234, 179, 8, 0.22) 100%)',
+        borderColor: 'rgba(245, 158, 11, 0.55)',
+        color: '#fde68a',
+      }}
+      title="Site Owner"
+    >
+      <BadgeIconSvg iconType="crown" className="w-3 h-3" />
+      <span>Site Owner</span>
+    </span>
+  );
 }
 
 /**
