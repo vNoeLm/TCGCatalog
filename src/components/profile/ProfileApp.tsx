@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
-import { getCatalogVisibility } from '../../lib/api';
 import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
@@ -19,7 +18,6 @@ export function ProfileApp() {
   const [displayName, setDisplayName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isStorePublic, setIsStorePublic] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lang, setLang] = useState<Language>('en');
 
@@ -264,11 +262,7 @@ export function ProfileApp() {
     window.addEventListener('tcg-orders-changed', handleOrdersChange);
 
     async function loadData() {
-      const [p, isPub] = await Promise.all([
-        getCurrentProfile(),
-        getCatalogVisibility(true),
-      ]);
-      setIsStorePublic(isPub);
+      const p = await getCurrentProfile();
       if (p) {
         setProfile(p);
         setDisplayName(p.display_name || '');
@@ -844,8 +838,7 @@ export function ProfileApp() {
 
 
       {/* Orders Section */}
-      {(isStorePublic || profile.is_admin) && (
-        <div className="mb-8">
+      <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
@@ -1246,7 +1239,6 @@ export function ProfileApp() {
             </div>
           )}
         </div>
-      )}
 
       {/* Pay Pending Order Modal */}
       {payingOrder && (

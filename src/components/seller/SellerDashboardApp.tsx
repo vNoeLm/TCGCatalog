@@ -409,13 +409,17 @@ export function SellerDashboardApp() {
     return listings.reduce((sum, item) => sum + (item.views || 0), 0);
   }, [listings]);
 
+  const activeListings = useMemo(() => {
+    return listings.filter(it => it.status !== 'Sold');
+  }, [listings]);
+
   const totalClicks = useMemo(() => {
     return listings.reduce((sum, item) => sum + (item.clicks || 0), 0);
   }, [listings]);
 
   const totalListedValueHuf = useMemo(() => {
-    return listings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity || 1)), 0);
-  }, [listings]);
+    return activeListings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity ?? 1)), 0);
+  }, [activeListings]);
 
   const averageRating = useMemo<number | null>(() => {
     if (sellerReviews.length === 0) return null;
@@ -436,17 +440,15 @@ export function SellerDashboardApp() {
   }, [activeBadgeGame, userGameOwned, gameCardCounts]);
 
   const filteredListings = useMemo(() => {
-    // Exclude Sold items from active listings tab
-    const activeOnly = listings.filter(it => it.status !== 'Sold');
-    if (!searchQuery.trim()) return activeOnly;
+    if (!searchQuery.trim()) return activeListings;
     const q = searchQuery.toLowerCase().trim();
-    return activeOnly.filter(it =>
+    return activeListings.filter(it =>
       (it.name || '').toLowerCase().includes(q) ||
       (it.card_number || '').toLowerCase().includes(q) ||
       (it.rarity || '').toLowerCase().includes(q) ||
       (it.set_name || '').toLowerCase().includes(q)
     );
-  }, [listings, searchQuery]);
+  }, [activeListings, searchQuery]);
 
   if (loading) {
     return (
@@ -768,7 +770,7 @@ export function SellerDashboardApp() {
             {lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'}
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
-            {listings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
+            {activeListings.length} <span className="text-xs font-normal text-zinc-400">{lang === 'hu' ? 'db' : 'pcs'}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {totalListedValueHuf.toLocaleString()} Ft {lang === 'hu' ? 'érték' : 'value'}
@@ -788,7 +790,7 @@ export function SellerDashboardApp() {
             <span>{totalViews}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0'} {lang === 'hu' ? '/ hirdetés' : '/ post'}
+            {activeListings.length > 0 ? (totalViews / activeListings.length).toFixed(1) : (listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0')} {lang === 'hu' ? '/ hirdetés' : '/ post'}
           </div>
         </div>
 
@@ -841,7 +843,7 @@ export function SellerDashboardApp() {
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
           </svg>
-          <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({listings.length})</span>
+          <span>{lang === 'hu' ? 'Aktív hirdetések' : 'Active Listings'} ({activeListings.length})</span>
         </button>
 
         <button
