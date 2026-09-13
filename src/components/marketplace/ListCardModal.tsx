@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase, getCardImageUrl } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
+import { adjustLocalCollection } from '../../lib/collectionClient';
 import type { CatalogCard, InventoryCard, UserProfile } from '../../types';
 
 interface ListCardModalProps {
@@ -241,6 +242,10 @@ export function ListCardModal({
       }
 
       setSuccessMsg('Card successfully listed on the marketplace!');
+
+      // The listed copies just left the collection server-side; mirror that locally
+      // so the "owned" count updates immediately instead of on next full reload.
+      adjustLocalCollection(cardId, isFoil, -Math.max(1, quantity));
 
       // Dispatch change events
       if (typeof window !== 'undefined') {

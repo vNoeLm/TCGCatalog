@@ -43,8 +43,12 @@ export function MarketplaceApp() {
   // Filters State driven by global game
   const [filters, setFilters] = useState<FilterState>(() => {
     const savedGame = (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME)) || 'riftbound';
-    return { ...DEFAULT_FILTERS, game: savedGame };
+    const sellerId = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('seller_id') || undefined
+      : undefined;
+    return { ...DEFAULT_FILTERS, game: savedGame, sellerId };
   });
+  const [sellerFilterName, setSellerFilterName] = useState<string | null>(null);
 
   // Search, Sort, and Grid
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +102,32 @@ export function MarketplaceApp() {
     };
   }, []);
 
+  // Resolve the display name for the "filtered by seller" banner.
+  useEffect(() => {
+    if (!filters.sellerId) {
+      setSellerFilterName(null);
+      return;
+    }
+    let cancelled = false;
+    import('../../lib/reviews').then(({ fetchSellerRatingSummary }) => {
+      fetchSellerRatingSummary(filters.sellerId).then(s => {
+        if (!cancelled) setSellerFilterName(s.display_name || 'this seller');
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.sellerId]);
+
+  const clearSellerFilter = () => {
+    setFilters(prev => ({ ...prev, sellerId: undefined }));
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('seller_id');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
   const canAccess = isMarketplaceEnabled || isAdmin;
   const isCyberpunk = filters.game === 'cyberpunk';
@@ -115,6 +145,7 @@ export function MarketplaceApp() {
       if (filters.type) params.set('type', filters.type);
       if (filters.domains && filters.domains.length > 0) params.set('domains', filters.domains.join(','));
       if (filters.foilFilter) params.set('foil', 'true');
+      if (filters.sellerId) params.set('seller_id', filters.sellerId);
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
       setFetchError(null);
@@ -356,6 +387,25 @@ export function MarketplaceApp() {
           </button>
         </div>
       </div>
+
+      {filters.sellerId && (
+        <div
+          className="rounded-xl px-4 py-2.5 mb-6 border flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)' }}
+        >
+          <span className="text-xs sm:text-sm font-bold" style={{ color: 'var(--text-accent)' }}>
+            Showing listings from {sellerFilterName || 'this seller'}
+          </span>
+          <button
+            type="button"
+            onClick={clearSellerFilter}
+            className="text-xs font-bold px-3 py-1 rounded-lg border transition cursor-pointer hover:bg-white/10"
+            style={{ borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Main Content Layout with Responsive Filter Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">

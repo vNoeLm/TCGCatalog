@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
+import { adjustLocalCollection } from '../../lib/collectionClient';
 import type { CatalogCard, QuickSaleRule } from '../../types';
 
 interface Props {
@@ -144,8 +145,12 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         body: JSON.stringify({ listings: selected })
       });
       if (res.ok) {
+        // The listed copies just left the collection server-side (Quick Sale only
+        // ever lists non-foil copies); mirror that locally so counts update now.
+        for (const c of selected) {
+          adjustLocalCollection(c.cardId, false, -c.quantity);
+        }
         onClose();
-        // optionally trigger a toast or reload here
       } else {
         let errorMsg = 'Unknown error';
         try {

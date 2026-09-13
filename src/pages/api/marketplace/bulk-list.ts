@@ -59,6 +59,10 @@ export const POST: APIRoute = async ({ request }) => {
       .eq('user_id', user.id)
       .maybeSingle();
     const ownedCards: Record<string, number> = (collectionRow?.cards as any) || {};
+    // Copies committed to a listing leave the tracked collection immediately, mirrored
+    // here as one batched write at the end instead of a round-trip per card.
+    const collectionAfter: Record<string, number> = { ...ownedCards };
+    let collectionChanged = false;
 
     const toInsert: any[] = [];
     const toUpdate: { id: string; quantity: number }[] = [];
@@ -82,6 +86,14 @@ export const POST: APIRoute = async ({ request }) => {
       if (quantity < 1) {
         skipped++;
         continue;
+      }
+
+      if (typeof owned === 'number') {
+        const key = collectionKey(l.cardId, isFoil);
+        const next = Math.max(0, (collectionAfter[key] || 0) - quantity);
+        if (next === 0) delete collectionAfter[key];
+        else collectionAfter[key] = next;
+        collectionChanged = true;
       }
 
       if (existing) {
@@ -123,6 +135,13 @@ export const POST: APIRoute = async ({ request }) => {
         console.error('Bulk merge error:', updateError);
         return new Response(JSON.stringify({ error: 'Failed to update existing listings' }), { status: 500 });
       }
+    }
+
+    if (collectionChanged) {
+      await supabaseAdmin
+        .from('user_collections')
+        .update({ cards: collectionAfter, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
     }
 
     return new Response(JSON.stringify({

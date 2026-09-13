@@ -8,6 +8,7 @@ import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
+import { adjustLocalCollection } from '../../lib/collectionClient';
 import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
 
 export function SellerDashboardApp() {
@@ -268,6 +269,7 @@ export function SellerDashboardApp() {
     if (!confirm('Are you sure you want to remove this listing?')) return;
     setUpdatingListingId(listingId);
     try {
+      const listing = listings.find(item => item.inventory_id === listingId);
       const session = (await supabase.auth.getSession()).data.session;
       const res = await fetch(`/api/marketplace/listings?id=${listingId}`, {
         method: 'DELETE',
@@ -278,6 +280,10 @@ export function SellerDashboardApp() {
       if (res.ok) {
         setListings(prev => prev.filter(item => item.inventory_id !== listingId));
         showToast('Listing removed successfully');
+        // Whatever was still unsold on this listing goes back into the collection.
+        if (listing) {
+          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(listing.quantity) || 0);
+        }
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       }
     } catch (e: any) {
@@ -290,6 +296,7 @@ export function SellerDashboardApp() {
   const handleSaveListingEdit = async (item: any) => {
     setUpdatingListingId(item.inventory_id);
     try {
+      const newQuantity = Math.max(1, editQuantity);
       const session = (await supabase.auth.getSession()).data.session;
 
       const res = await fetch('/api/marketplace/listings', {
@@ -301,7 +308,7 @@ export function SellerDashboardApp() {
         body: JSON.stringify({
           id: item.inventory_id,
           price_huf: Math.max(50, editPriceHuf),
-          quantity: Math.max(1, editQuantity),
+          quantity: newQuantity,
         }),
       });
       const json = await res.json();
@@ -309,6 +316,10 @@ export function SellerDashboardApp() {
         showToast('Listing updated successfully');
         setEditingListing(null);
         loadSellerListings();
+        // Raising the listed quantity takes more copies out of the collection;
+        // lowering it gives some back.
+        const delta = newQuantity - (Number(item.quantity) || 0);
+        adjustLocalCollection(item.card_id, Boolean(item.is_foil), -delta);
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       } else {
         showToast(json.error || 'Failed to update listing');
