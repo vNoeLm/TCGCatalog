@@ -380,6 +380,8 @@ CREATE POLICY "Participants can view messages" ON public.hold_request_messages F
     )
 );
 
+-- A closed hold request (completed/cancelled/rejected) has nothing left to arrange,
+-- so its thread is locked to new messages at the database level, not just in the UI.
 DROP POLICY IF EXISTS "Participants can send messages" ON public.hold_request_messages;
 CREATE POLICY "Participants can send messages" ON public.hold_request_messages FOR INSERT TO authenticated WITH CHECK (
     auth.uid() = sender_id
@@ -387,6 +389,7 @@ CREATE POLICY "Participants can send messages" ON public.hold_request_messages F
         SELECT 1 FROM public.hold_requests hr
         WHERE hr.id = hold_request_messages.hold_request_id
         AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+        AND hr.status NOT IN ('completed', 'cancelled', 'rejected')
     )
 );
 
