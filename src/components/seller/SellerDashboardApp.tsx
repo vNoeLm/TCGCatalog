@@ -1286,11 +1286,15 @@ export function SellerDashboardApp() {
           ) : (
             <div className="space-y-4">
               {activeHoldRequests.map((req) => {
-                const cardName = req.card_name || ('Card item');
-                const cardNumber = req.card_number || '';
+                const cartItems = Array.isArray(req.items) && req.items.length > 0 ? req.items : null;
+                const isCart = Boolean(cartItems && cartItems.length > 1);
+                const cardName = isCart ? `${cartItems!.length} cards` : (req.card_name || ('Card item'));
+                const cardNumber = isCart ? '' : (req.card_number || '');
                 const cardRarity = '';
                 const cardImage = req.image_path;
-                const priceHuf = req.price_huf;
+                const priceHuf = isCart
+                  ? cartItems!.reduce((sum: number, it: any) => sum + (it.price_huf || 0) * (it.quantity || 1), 0)
+                  : req.price_huf;
                 const isHeld = req.status === 'held';
                 const isPending = req.status === 'pending';
                 const isConfirmed = req.status === 'confirmed' || req.status === 'completed';
@@ -1382,6 +1386,17 @@ export function SellerDashboardApp() {
                               </span>
                             )}
                           </div>
+
+                          {isCart && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {cartItems!.map((it: any) => (
+                                <div key={it.inventory_id} className="text-[11px] text-zinc-400">
+                                  {it.quantity}× {it.card_name}{it.is_foil ? ' (Foil)' : ''}{' '}
+                                  <span className="text-zinc-500 font-mono">— {(it.price_huf * it.quantity).toLocaleString()} Ft</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           <div className="text-[11px] text-zinc-500 mt-1">
                             Requested at:{' '}

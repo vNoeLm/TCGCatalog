@@ -224,6 +224,18 @@ export interface SellerProfileSummary {
   created_at?: string | null;
 }
 
+/** One line item within a (possibly multi-card) hold request / cart checkout. */
+export interface HoldRequestItem {
+  inventory_id: string;
+  card_name: string;
+  card_number?: string;
+  image_path?: string;
+  price_huf: number;
+  quantity: number;
+  is_foil: boolean;
+  condition: string;
+}
+
 export interface ChatMessage {
   id: string;
   hold_request_id: string;

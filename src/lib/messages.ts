@@ -20,7 +20,7 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
 
   const { data: holdRows, error: holdErr } = await supabase
     .from('hold_requests')
-    .select('id, seller_id, buyer_id, buyer_name, card_name, image_path, status, created_at, updated_at')
+    .select('id, seller_id, buyer_id, buyer_name, card_name, image_path, items, status, created_at, updated_at')
     .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`)
     .order('updated_at', { ascending: false });
 
@@ -50,14 +50,16 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     }
   });
 
-  return holdRows.map((r) => {
+  return holdRows.map((r: any) => {
     const isSeller = r.seller_id === uid;
     const last = lastByThread.get(r.id);
+    const items = Array.isArray(r.items) ? r.items : null;
+    const cardLabel = items && items.length > 1 ? `${items.length} cards` : (r.card_name || 'Card');
     return {
       hold_request_id: r.id,
       counterpart_id: isSeller ? (r.buyer_id || '') : r.seller_id,
       counterpart_name: isSeller ? (r.buyer_name || 'Buyer') : (sellerNames.get(r.seller_id) || 'Seller'),
-      card_name: r.card_name || 'Card',
+      card_name: cardLabel,
       image_path: r.image_path,
       status: r.status,
       is_seller: isSeller,

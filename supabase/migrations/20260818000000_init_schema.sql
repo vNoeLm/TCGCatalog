@@ -200,11 +200,17 @@ CREATE TABLE IF NOT EXISTS public.hold_requests (
     quantity INTEGER NOT NULL DEFAULT 1,
     is_foil BOOLEAN DEFAULT false,
     condition VARCHAR(50) DEFAULT 'Near Mint',
+    -- Cart checkout: when a buyer requests multiple different cards from the same
+    -- seller in one go, the full line-item list lives here and the singular
+    -- card_name/price_huf/quantity/is_foil/condition/image_path columns above hold
+    -- just the first item, kept for any code that only reads the single-item shape.
+    items JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS items JSONB;
 
 -- 13. USER COLLECTIONS TABLE (1 Row Per User JSONB Document)
 CREATE TABLE IF NOT EXISTS public.user_collections (

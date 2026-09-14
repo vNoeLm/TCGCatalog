@@ -10,6 +10,17 @@ const JSON_HEADERS = {
 
 import { OWNER_ID } from '../../../lib/constants';
 
+export interface HoldRequestItem {
+  inventory_id: string;
+  card_name: string;
+  card_number?: string;
+  image_path?: string;
+  price_huf: number;
+  quantity: number;
+  is_foil: boolean;
+  condition: string;
+}
+
 export interface HoldRequestRecord {
   id: string;
   inventory_id: string;
@@ -30,8 +41,27 @@ export interface HoldRequestRecord {
   quantity?: number;
   is_foil?: boolean;
   condition?: string;
+  /** Present when this request bundles multiple cards from one seller (cart checkout). */
+  items?: HoldRequestItem[];
   created_at: string;
   updated_at: string;
+}
+
+/** The full item list for a request — falls back to its single legacy fields when `items` is absent. */
+function itemsOf(req: HoldRequestRecord): HoldRequestItem[] {
+  if (Array.isArray(req.items) && req.items.length > 0) return req.items;
+  return [
+    {
+      inventory_id: req.inventory_id,
+      card_name: req.card_name || 'TCG Card',
+      card_number: req.card_number,
+      image_path: req.image_path,
+      price_huf: req.price_huf || 0,
+      quantity: Math.max(1, Number(req.quantity) || 1),
+      is_foil: Boolean(req.is_foil),
+      condition: req.condition || 'Near Mint',
+    },
+  ];
 }
 
 // Fallback helper to read all hold requests from settings table if hold_requests table is not yet created
@@ -81,7 +111,8 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       } catch (e) {}
     }
 
-    const orderQty = Math.max(1, Number(req.quantity) || 1);
+    const lineItems = itemsOf(req);
+    const orderTotal = lineItems.reduce((sum, it) => sum + it.price_huf * it.quantity, 0);
     const orderNumber = `P2P-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
     let sellerName: string | undefined;
@@ -101,7 +132,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       seller_id: req.seller_id,
       seller_name: sellerName,
       status: 'Delivered',
-      total_price_huf: (req.price_huf || 0) * orderQty,
+      total_price_huf: orderTotal,
       shipping_name: req.buyer_name,
       shipping_method: req.preferred_handover,
       shipping_address: req.handover_details || undefined,
@@ -116,19 +147,17 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       // The buyer's own note (if they left one) — not a synthetic contact-info dump,
       // which is already covered by customer_info and shipping_method/address above.
       notes: req.message || undefined,
-      items: [
-        {
-          inventory_id: req.inventory_id,
-          card_id: req.inventory_id,
-          card_name: req.card_name || 'TCG Card',
-          card_number: req.card_number || '',
-          condition: req.condition || 'Near Mint',
-          is_foil: Boolean(req.is_foil),
-          price_huf: req.price_huf || 0,
-          quantity: orderQty,
-          image_path: req.image_path || '',
-        },
-      ],
+      items: lineItems.map((it) => ({
+        inventory_id: it.inventory_id,
+        card_id: it.inventory_id,
+        card_name: it.card_name,
+        card_number: it.card_number || '',
+        condition: it.condition,
+        is_foil: it.is_foil,
+        price_huf: it.price_huf,
+        quantity: it.quantity,
+        image_path: it.image_path || '',
+      })),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -223,6 +252,100 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
 };
 
+interface CartLineInput {
+  inventory_id: string;
+  card_name?: string;
+  card_number?: string;
+  image_path?: string;
+  price_huf?: number;
+  is_foil?: boolean;
+  condition?: string;
+  quantity?: number;
+}
+
+type LockResult =
+  | { ok: true; item: HoldRequestItem; verifiedSellerId: string }
+  | { ok: false; error: string; status: number };
+
+/**
+ * Validates and atomically reserves one inventory row for a hold request. Shared by
+ * both the single-card and multi-card (cart) request paths so a cart is just N of
+ * these instead of duplicating the locking logic.
+ */
+async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput): Promise<LockResult> {
+  const { data: invRow } = await supabaseAdmin
+    .from('inventory')
+    .select('id, status, quantity, notes')
+    .eq('id', line.inventory_id)
+    .maybeSingle();
+
+  if (!invRow) return { ok: false, error: 'That listing no longer exists.', status: 404 };
+  if (invRow.status === 'Sold' || (invRow.quantity && invRow.quantity <= 0)) {
+    return { ok: false, error: 'This card has already been sold.', status: 400 };
+  }
+  if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
+    return { ok: false, error: 'This card is currently on hold for another buyer.', status: 400 };
+  }
+
+  const availableQty = Number(invRow.quantity) || 1;
+  let requestedQty = parseInt(String(line.quantity), 10);
+  if (!Number.isFinite(requestedQty) || requestedQty < 1) requestedQty = 1;
+  if (requestedQty > availableQty) requestedQty = availableQty;
+
+  // Extract genuine verified seller_id from the database record rather than trusting client body
+  let verifiedSellerId = sellerIdHint;
+  if (invRow.notes) {
+    try {
+      const parsedNotes = typeof invRow.notes === 'string' && invRow.notes.startsWith('{')
+        ? JSON.parse(invRow.notes)
+        : null;
+      if (parsedNotes?.seller_id) verifiedSellerId = parsedNotes.seller_id;
+    } catch (e) {}
+  }
+
+  // ── CRUCIAL: Atomic check-and-lock to prevent race conditions (double hold) ──
+  const remainingAfter = availableQty - requestedQty;
+  const newInvStatus = remainingAfter > 0 ? invRow.status : 'Reserved';
+
+  const { data: lockedRows, error: lockErr } = await supabaseAdmin
+    .from('inventory')
+    .update({ quantity: remainingAfter, status: newInvStatus })
+    .eq('id', line.inventory_id)
+    .eq('quantity', availableQty)
+    .in('status', ['In Stock', 'Available'])
+    .select('id');
+
+  if (lockErr || !lockedRows || lockedRows.length === 0) {
+    return { ok: false, error: 'Another buyer just reserved or purchased this card.', status: 409 };
+  }
+
+  return {
+    ok: true,
+    verifiedSellerId,
+    item: {
+      inventory_id: line.inventory_id,
+      card_name: line.card_name || 'TCG Card',
+      card_number: line.card_number,
+      image_path: line.image_path,
+      price_huf: typeof line.price_huf === 'number' ? line.price_huf : 0,
+      quantity: requestedQty,
+      is_foil: Boolean(line.is_foil),
+      condition: line.condition || 'Near Mint',
+    },
+  };
+}
+
+/** Best-effort rollback for a partially-locked cart: give back what a lock reserved. */
+async function restoreInventoryItem(inventoryId: string, quantity: number): Promise<void> {
+  try {
+    const { data: row } = await supabaseAdmin.from('inventory').select('quantity').eq('id', inventoryId).maybeSingle();
+    const current = Number(row?.quantity) || 0;
+    await supabaseAdmin.from('inventory').update({ quantity: current + quantity, status: 'In Stock' }).eq('id', inventoryId);
+  } catch (e) {
+    console.warn('Failed to roll back inventory lock for', inventoryId, e);
+  }
+}
+
 // ─── POST: Submit a New Hold Request ─────────────────────────────────
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -235,7 +358,6 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const {
-      inventory_id,
       seller_id,
       buyer_name,
       buyer_email,
@@ -244,6 +366,9 @@ export const POST: APIRoute = async ({ request }) => {
       preferred_handover,
       handover_details,
       message,
+      items: cartItems,
+      // Legacy single-card fields, used when `items` isn't provided
+      inventory_id,
       card_name,
       card_number,
       image_path,
@@ -253,7 +378,11 @@ export const POST: APIRoute = async ({ request }) => {
       quantity,
     } = body;
 
-    if (!inventory_id || !seller_id || !buyer_name?.trim() || !buyer_email?.trim()) {
+    const rawLines: CartLineInput[] = Array.isArray(cartItems) && cartItems.length > 0
+      ? cartItems
+      : [{ inventory_id, card_name, card_number, image_path, price_huf, is_foil, condition, quantity }];
+
+    if (!seller_id || !buyer_name?.trim() || !buyer_email?.trim() || !rawLines[0]?.inventory_id) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Missing details (card, seller, name or email).',
@@ -263,83 +392,43 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Verify inventory item is available (not already Sold or On Hold)
-    const { data: invRow } = await supabaseAdmin
-      .from('inventory')
-      .select('id, status, quantity, notes')
-      .eq('id', inventory_id)
-      .maybeSingle();
+    // Lock every card in the request (one for a normal hold, several for a cart
+    // checkout), rolling back anything already locked if a later one fails or
+    // turns out to belong to a different seller.
+    const lockedItems: HoldRequestItem[] = [];
+    const lockedForRollback: { id: string; quantity: number }[] = [];
+    let verifiedSellerId: string | null = null;
 
-    if (!invRow) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'That listing no longer exists.',
-      }), {
-        status: 404,
-        headers: JSON_HEADERS,
-      });
+    for (const line of rawLines) {
+      if (!line?.inventory_id) continue;
+      const result = await lockOneInventoryItem(seller_id, line);
+      if (!result.ok) {
+        for (const locked of lockedForRollback) await restoreInventoryItem(locked.id, locked.quantity);
+        return new Response(JSON.stringify({ success: false, error: result.error }), {
+          status: result.status,
+          headers: JSON_HEADERS,
+        });
+      }
+      if (verifiedSellerId === null) {
+        verifiedSellerId = result.verifiedSellerId;
+      } else if (result.verifiedSellerId !== verifiedSellerId) {
+        await restoreInventoryItem(line.inventory_id, result.item.quantity);
+        for (const locked of lockedForRollback) await restoreInventoryItem(locked.id, locked.quantity);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'All cards in one request must be from the same seller.',
+        }), {
+          status: 400,
+          headers: JSON_HEADERS,
+        });
+      }
+      lockedItems.push(result.item);
+      lockedForRollback.push({ id: line.inventory_id, quantity: result.item.quantity });
     }
 
-    if (invRow.status === 'Sold' || (invRow.quantity && invRow.quantity <= 0)) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'This card has already been sold.',
-      }), {
+    if (lockedItems.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: 'No valid cards in this request.' }), {
         status: 400,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    if (invRow.status === 'On Hold' || invRow.status === 'Reserved') {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'This card is currently on hold for another buyer.',
-      }), {
-        status: 400,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // Clamp the requested quantity to what's actually available on the listing
-    const availableQty = Number(invRow.quantity) || 1;
-    let requestedQty = parseInt(quantity, 10);
-    if (!Number.isFinite(requestedQty) || requestedQty < 1) requestedQty = 1;
-    if (requestedQty > availableQty) requestedQty = availableQty;
-
-    // Extract genuine verified seller_id from the database record rather than trusting client body
-    let verifiedSellerId = seller_id;
-    if (invRow.notes) {
-      try {
-        const parsedNotes = typeof invRow.notes === 'string' && invRow.notes.startsWith('{')
-          ? JSON.parse(invRow.notes)
-          : null;
-        if (parsedNotes?.seller_id) {
-          verifiedSellerId = parsedNotes.seller_id;
-        }
-      } catch (e) {}
-    }
-
-    // ── CRUCIAL: Atomic check-and-lock to prevent race conditions (double hold) ──
-    // Only reserve the requested quantity; leave the remainder (if any) available for other buyers.
-    // The `.eq('quantity', availableQty)` acts as an optimistic-concurrency guard: if another
-    // request already changed the quantity since we read it, this update matches zero rows.
-    const remainingAfter = availableQty - requestedQty;
-    const newInvStatus = remainingAfter > 0 ? invRow.status : 'Reserved';
-
-    const { data: lockedRows, error: lockErr } = await supabaseAdmin
-      .from('inventory')
-      .update({ quantity: remainingAfter, status: newInvStatus })
-      .eq('id', inventory_id)
-      .eq('quantity', availableQty)
-      .in('status', ['In Stock', 'Available'])
-      .select('id');
-
-    if (lockErr || !lockedRows || lockedRows.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Another buyer just reserved or purchased this card.',
-      }), {
-        status: 409,
         headers: JSON_HEADERS,
       });
     }
@@ -355,10 +444,13 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
+    const first = lockedItems[0];
+    const isCart = lockedItems.length > 1;
+
     const newRecord: HoldRequestRecord = {
       id: crypto.randomUUID(),
-      inventory_id,
-      seller_id: verifiedSellerId,
+      inventory_id: first.inventory_id,
+      seller_id: verifiedSellerId!,
       buyer_id: buyerId,
       buyer_name: buyer_name.trim(),
       buyer_email: buyer_email.trim(),
@@ -367,13 +459,14 @@ export const POST: APIRoute = async ({ request }) => {
       handover_details: handover_details?.trim() || undefined,
       message: message?.trim() || undefined,
       status: 'pending',
-      card_name: card_name || undefined,
-      card_number: card_number || undefined,
-      image_path: image_path || undefined,
-      price_huf: typeof price_huf === 'number' ? price_huf : undefined,
-      quantity: requestedQty,
-      is_foil: Boolean(is_foil),
-      condition: condition || 'Near Mint',
+      card_name: first.card_name,
+      card_number: first.card_number,
+      image_path: first.image_path,
+      price_huf: first.price_huf,
+      quantity: first.quantity,
+      is_foil: first.is_foil,
+      condition: first.condition,
+      items: isCart ? lockedItems : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -524,16 +617,17 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
     await saveFallbackHoldRequests(fallbackList);
 
-    // 2. Update inventory table status/quantity.
+    // 2. Update inventory table status/quantity for every card on this request.
     // The requested quantity was already deducted from inventory.quantity when the hold
     // request was created (see POST above), so here we only need to restore it on
-    // release/reject, and decide the final status from however much stock remains.
-    if (currentReq.inventory_id) {
-      const requestQty = Math.max(1, Number(currentReq.quantity) || 1);
+    // release/reject, and decide each item's final status from however much stock remains.
+    for (const item of itemsOf(currentReq)) {
+      if (!item.inventory_id) continue;
+      const requestQty = Math.max(1, Number(item.quantity) || 1);
       const { data: currentInv } = await supabaseAdmin
         .from('inventory')
         .select('quantity')
-        .eq('id', currentReq.inventory_id)
+        .eq('id', item.inventory_id)
         .maybeSingle();
       const currentQty = Number(currentInv?.quantity) || 0;
 
@@ -552,7 +646,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       await supabaseAdmin
         .from('inventory')
         .update(updateData)
-        .eq('id', currentReq.inventory_id);
+        .eq('id', item.inventory_id);
     }
 
     // 3. If confirming sale, record completed order so seller ratings and sales count are enabled.
