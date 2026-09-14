@@ -155,13 +155,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.brand-logo-text {
-  background: var(--brand-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  transition: all 0.2s;
-}
-
 /* ─────────────────────────────────────────────
    SCROLLBAR
 ───────────────────────────────────────────── */

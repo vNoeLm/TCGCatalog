@@ -48,6 +48,7 @@ export function HoldRequestModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [createdHoldRequestId, setCreatedHoldRequestId] = useState<string | null>(null);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -127,6 +128,7 @@ export function HoldRequestModal({
       setSuccessMsg(
         'Hold request sent successfully to the seller! They will contact you shortly.'
       );
+      setCreatedHoldRequestId(data.data?.id || null);
 
       if (onRequestSubmitted) {
         onRequestSubmitted();
@@ -300,11 +302,21 @@ export function HoldRequestModal({
         )}
 
         {successMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>{successMsg}</span>
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between gap-2 flex-wrap">
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>{successMsg}</span>
+            </span>
+            {createdHoldRequestId && (
+              <a
+                href={`/messages?hold_request_id=${createdHoldRequestId}`}
+                className="underline underline-offset-2 hover:text-emerald-200 shrink-0"
+              >
+                Message the seller →
+              </a>
+            )}
           </div>
         )}
 

@@ -1088,6 +1088,16 @@ export function ProfileApp() {
                         rows.push({ label: 'Last updated', value: new Date(order.updated_at).toLocaleString() });
                       }
                       rows.push({ label: 'Items', value: `${totalUnits} card${totalUnits === 1 ? '' : 's'}` });
+                      if (order.seller_id) {
+                        rows.push({
+                          label: 'Seller',
+                          value: (
+                            <a href={`/user?id=${order.seller_id}`} className="hover:underline" style={{ color: 'var(--text-accent)' }}>
+                              {order.seller_name || 'View seller'}
+                            </a>
+                          ),
+                        });
+                      }
                       if (order.shipping_method) rows.push({ label: 'Handover', value: order.shipping_method });
                       if (order.shipping_name) rows.push({ label: 'Recipient', value: order.shipping_name });
                       if (order.shipping_address) rows.push({ label: 'Address / pickup', value: order.shipping_address });

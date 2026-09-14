@@ -64,7 +64,7 @@ export function LegalFooter() {
             {/* Legal Disclaimer & Copyright (Fully visible) */}
             <div className="flex flex-col sm:flex-row items-start sm:items-baseline gap-2 sm:gap-3 w-full md:w-auto min-w-0">
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-black tracking-tight brand-logo-text">
+                <span className="text-xs font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                   TCG Vault
                 </span>
                 <span className="text-[11px] text-zinc-400 font-medium">
@@ -75,7 +75,7 @@ export function LegalFooter() {
               <div className="text-[11px] text-zinc-400 leading-relaxed max-w-4xl">
                 {(
                   <span>
-                    TCG Vault is an unofficial, community-driven collection tracker and deck builder. All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. Not affiliated with, endorsed, or sponsored by official game publishers.
+                    TCG Vault is an unofficial, community-driven collection tracker, deck builder, and peer-to-peer marketplace. All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. Not affiliated with, endorsed, or sponsored by official game publishers.
                   </span>
                 )}
               </div>
@@ -175,7 +175,16 @@ export function LegalFooter() {
 
               <section>
                 <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
-                  {'3. Third-Party Services & Market Data'}
+                  {'3. Marketplace & Transactions'}
+                </h4>
+                <p className="text-zinc-400">
+                  The Marketplace is a peer-to-peer classifieds system: listings, holds, and sales are arranged directly between buyers and sellers. TCG Vault does not process payments, hold funds in escrow, verify card condition, or guarantee any transaction — all payment and handover arrangements (cash, bank transfer, in-person, or courier) are made solely between the parties involved. TCG Vault is not a party to, and is not liable for, any dispute, loss, or fraud arising from a marketplace transaction.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                  {'4. Third-Party Services & Market Data'}
                 </h4>
                 <p className="text-zinc-400">
                   We use Vercel for hosting and Supabase for authentication and database management. Market price references and external links (such as Cardmarket) are provided strictly for informational and estimation purposes. TCG Vault is not responsible for market price fluctuations or third-party transactions.
@@ -184,7 +193,7 @@ export function LegalFooter() {
 
               <section>
                 <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
-                  {'4. Disclaimer of Warranty & Data Rights'}
+                  {'5. Disclaimer of Warranty & Data Rights'}
                 </h4>
                 <p className="text-zinc-400">
                   TCG Vault is provided on an "as-is" basis without warranties of any kind. We are not liable for accidental data loss, local browser cache clearing, or service interruptions. You retain the right to request the permanent deletion of your synchronized account data at any time.
@@ -193,10 +202,10 @@ export function LegalFooter() {
 
               <section>
                 <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
-                  5. Contact
+                  6. Contact
                 </h4>
                 <p className="text-zinc-400">
-                  For legal inquiries, copyright notices, or account assistance, please contact us at contact@tcgvault.app or open an issue on our GitHub repository.
+                  For legal inquiries, copyright notices, or account assistance, please contact us at contact@tcgvault.app.
                 </p>
               </section>
             </div>

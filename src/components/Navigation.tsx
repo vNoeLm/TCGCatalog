@@ -5,6 +5,9 @@ import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { EVENTS } from '../lib/constants';
+import { fetchUnreadCount } from '../lib/messages';
+
+const MESSAGES_POLL_MS = 5 * 60 * 1000; // 5 min — a basic timer check, not realtime
 
 interface NavigationProps {
   currentPath: string;
@@ -18,6 +21,7 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const checkAuthAndVisibility = async () => {
@@ -73,6 +77,18 @@ export function Navigation({ currentPath }: NavigationProps) {
     };
   }, []);
 
+  // Unread messages badge — a plain timer poll, not realtime.
+  useEffect(() => {
+    if (!userProfile) {
+      setUnreadMessages(0);
+      return;
+    }
+    const check = () => fetchUnreadCount().then(setUnreadMessages);
+    check();
+    const timer = setInterval(check, MESSAGES_POLL_MS);
+    return () => clearInterval(timer);
+  }, [userProfile]);
+
   const isActive = (path: string) => {
     if (path === '/' && currentPath === '/') return true;
     if (path !== '/' && currentPath.startsWith(path)) return true;
@@ -115,6 +131,29 @@ export function Navigation({ currentPath }: NavigationProps) {
 
         {userProfile && (
           <NavLink href="/seller" label={'Seller Hub'} />
+        )}
+
+        {userProfile && (
+          <a
+            href="/messages"
+            className={`relative text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+              isActive('/messages')
+                ? 'font-bold shadow-sm'
+                : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/10'
+            }`}
+            style={
+              isActive('/messages')
+                ? { background: 'var(--accent-muted)', color: 'var(--text-accent)' }
+                : undefined
+            }
+          >
+            Messages
+            {unreadMessages > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-black bg-amber-500 text-zinc-950">
+                {unreadMessages > 99 ? '99+' : unreadMessages}
+              </span>
+            )}
+          </a>
         )}
 
         {/* Auth Section */}
@@ -435,6 +474,40 @@ export function Navigation({ currentPath }: NavigationProps) {
                       <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
                     </svg>
                     <span>Seller Dashboard</span>
+                  </span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+                </a>
+              )}
+
+              {userProfile && (
+                <a
+                  href="/messages"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                  style={
+                    isActive('/messages')
+                      ? {
+                          background: 'var(--accent-muted)',
+                          borderColor: 'var(--accent)',
+                          color: 'var(--text-accent)'
+                        }
+                      : {
+                          background: 'var(--bg-surface-2)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }
+                  }
+                >
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    <span>Messages</span>
+                    {unreadMessages > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-black bg-amber-500 text-zinc-950">
+                        {unreadMessages > 99 ? '99+' : unreadMessages}
+                      </span>
+                    )}
                   </span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
