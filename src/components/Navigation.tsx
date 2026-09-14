@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { getCatalogVisibility, getMarketplaceVisibility } from '../lib/api';
 import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
-import { EVENTS } from '../lib/constants';
 import { fetchUnreadCount } from '../lib/messages';
 
 const MESSAGES_POLL_MS = 5 * 60 * 1000; // 5 min — a basic timer check, not realtime
@@ -14,8 +12,6 @@ interface NavigationProps {
 }
 
 export function Navigation({ currentPath }: NavigationProps) {
-  const [showStore, setShowStore] = useState(false);
-  const [showMarketplace, setShowMarketplace] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -24,41 +20,17 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const checkAuthAndVisibility = async () => {
-    try {
-      const [isPublic, isMkt, profile] = await Promise.all([
-        getCatalogVisibility(),
-        getMarketplaceVisibility(),
-        getCurrentProfile(),
-      ]);
-      setUserProfile(profile);
-      setShowStore(isPublic || (!!profile && profile.is_admin));
-      setShowMarketplace(isMkt || (!!profile && profile.is_admin));
-    } catch (e) {
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    checkAuthAndVisibility();
-
-
-    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
+    getCurrentProfile().then(p => {
+      setUserProfile(p);
+      setLoading(false);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        getCurrentProfile().then(p => {
-          setUserProfile(p);
-          Promise.all([getCatalogVisibility(), getMarketplaceVisibility()]).then(([isPub, isMkt]) => {
-            setShowStore(isPub || (!!p && p.is_admin));
-            setShowMarketplace(isMkt || (!!p && p.is_admin));
-          });
-        });
+        getCurrentProfile().then(p => setUserProfile(p));
       } else {
         setUserProfile(null);
-        getCatalogVisibility().then(isPub => setShowStore(isPub));
-        getMarketplaceVisibility().then(isMkt => setShowMarketplace(isMkt));
       }
     });
 
@@ -72,7 +44,6 @@ export function Navigation({ currentPath }: NavigationProps) {
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAuthAndVisibility);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -125,9 +96,7 @@ export function Navigation({ currentPath }: NavigationProps) {
       <nav className="hidden sm:flex items-center gap-2">
         <NavLink href="/" label={"Catalog"} />
 
-        {!loading && showMarketplace && (
-          <NavLink href="/marketplace" label={'Marketplace'} />
-        )}
+        <NavLink href="/marketplace" label={'Marketplace'} />
 
         {userProfile && (
           <NavLink href="/seller" label={'Seller Hub'} />
@@ -248,28 +217,6 @@ export function Navigation({ currentPath }: NavigationProps) {
                     </svg>
                     <span>Seller Dashboard</span>
                   </a>
-
-                  {userProfile.is_admin && (
-                    <a
-                      href="/admin"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
-                      style={{ color: 'var(--text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--accent-muted)';
-                        e.currentTarget.style.color = 'var(--text-primary)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-secondary)';
-                      }}
-                    >
-                      <svg className="w-4 h-4" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      Admin Dashboard
-                    </a>
-                  )}
 
                   <button
                     onClick={async () => {
@@ -425,30 +372,27 @@ export function Navigation({ currentPath }: NavigationProps) {
               </a>
 
 
-              {showMarketplace && (
-                <a
-                  href="/marketplace"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
-                  style={
-                    isActive('/marketplace')
-                      ? {
-                          background: 'var(--accent-muted)',
-                          borderColor: 'var(--accent)',
-                          color: 'var(--text-accent)'
-                        }
-                      : {
-                          background: 'var(--bg-surface-2)',
-                          borderColor: 'var(--border-subtle)',
-                          color: 'var(--text-secondary)'
-                        }
-                  }
-                >
-                  <span>Marketplace</span>
-                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
-                </a>
-              )}
-
+              <a
+                href="/marketplace"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                style={
+                  isActive('/marketplace')
+                    ? {
+                        background: 'var(--accent-muted)',
+                        borderColor: 'var(--accent)',
+                        color: 'var(--text-accent)'
+                      }
+                    : {
+                        background: 'var(--bg-surface-2)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)'
+                      }
+                }
+              >
+                <span>Marketplace</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+              </a>
 
               {userProfile && (
                 <a
@@ -513,29 +457,6 @@ export function Navigation({ currentPath }: NavigationProps) {
                 </a>
               )}
 
-              {userProfile?.is_admin && (
-                <a
-                  href="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
-                  style={
-                    isActive('/admin')
-                      ? {
-                          background: 'var(--accent-muted)',
-                          borderColor: 'var(--accent)',
-                          color: 'var(--text-accent)'
-                        }
-                      : {
-                          background: 'var(--bg-surface-2)',
-                          borderColor: 'var(--border-subtle)',
-                          color: 'var(--text-secondary)'
-                        }
-                  }
-                >
-                  <span>Admin Dashboard</span>
-                  <span style={{ color: 'var(--text-tertiary)' }}>→</span>
-                </a>
-              )}
             </div>
 
             {/* Footer: Sign Out */}
@@ -565,7 +486,7 @@ export function Navigation({ currentPath }: NavigationProps) {
           onClose={() => setShowAuthModal(false)}
           onSuccess={() => {
             setShowAuthModal(false);
-            checkAuthAndVisibility();
+            getCurrentProfile().then(setUserProfile);
           }}
         />
       )}

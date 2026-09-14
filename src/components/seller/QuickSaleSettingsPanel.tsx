@@ -142,7 +142,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-white mb-1">
-            Quick Sale Rules
+            Quick List Rules
           </h2>
           <p className="text-xs text-zinc-400 max-w-2xl">
             Configure rules to automatically list duplicate cards.

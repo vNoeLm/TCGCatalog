@@ -787,19 +787,6 @@ export function ProfileApp() {
             </svg>
             <span>Seller Dashboard</span>
           </a>
-          {profile.is_admin && (
-            <a
-              href="/admin"
-              className="px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm border"
-              style={{
-                background: 'var(--accent-muted)',
-                borderColor: 'var(--accent-border)',
-                color: 'var(--text-accent)'
-              }}
-            >
-              Admin Dashboard
-            </a>
-          )}
           <button
             onClick={handleSignOut}
             className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"

@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardItem } from "./CardItem";
 import { CardDetail } from "./CardDetail";
-import { fetchInventory, getCatalogVisibility, getSealedVisibility } from "../lib/api";
-import { getCurrentProfile } from "../lib/auth";
+import { fetchInventory } from "../lib/api";
 import { SETS, RARITIES, TYPES, DOMAINS, TAGS, GAMES, CATEGORIES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, STORAGE_KEYS, EVENTS } from "../lib/constants";
 import { t } from "../lib/labels";
 import { useSiteTheme } from "../lib/theme";
@@ -171,11 +170,6 @@ export function CatalogApp() {
     };
   }, []);
 
-  // Visibility gate & Sealed setting
-  const [accessChecked, setAccessChecked] = useState(false);
-  const [canAccess, setCanAccess] = useState(false);
-  const [isSealedEnabled, setIsSealedEnabled] = useState(false);
-
   // Supabase Data State
   const [cards, setCards] = useState<InventoryCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -184,28 +178,6 @@ export function CatalogApp() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const observerTarget = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const checkVisibility = () => {
-      Promise.all([
-        getCatalogVisibility(true),
-        getSealedVisibility(true),
-        getCurrentProfile(),
-      ]).then(([isPublic, sealedEnabled, profile]) => {
-        const isAdmin = !!profile?.is_admin;
-        setCanAccess(isPublic || isAdmin);
-        setIsSealedEnabled(sealedEnabled);
-        if (!sealedEnabled && filters.category === 'sealed') {
-          setFilters(prev => ({ ...prev, category: 'singles' }));
-        }
-        setAccessChecked(true);
-      });
-    };
-
-    checkVisibility();
-    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkVisibility);
-    return () => window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkVisibility);
-  }, []);
 
   // Save filters & state to session storage
   useEffect(() => {
@@ -372,28 +344,13 @@ export function CatalogApp() {
     />
   );
 
-  // Access check loading spinner
-  if (!accessChecked) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <span style={{ color: '#818cf8', fontSize: 16, fontWeight: 700 }}>Loading Store…</span>
-      </div>
-    );
-  }
-
-  // Locked screen for non-admins when store is in private maintenance
-  if (!canAccess) {
-    return <ComingSoonScreen  />;
-  }
-
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px" }}>
-      
-      {/* Top Header: Category Switcher (if Sealed Products is enabled in store settings) */}
-      {isSealedEnabled && (
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-          <div className={`flex gap-1.5 p-1 rounded-xl ${catalogTheme.categoryContainer}`}>
-            {CATEGORIES.map(cat => {
+
+      {/* Top Header: Category Switcher */}
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+        <div className={`flex gap-1.5 p-1 rounded-xl ${catalogTheme.categoryContainer}`}>
+          {CATEGORIES.map(cat => {
               const active = (filters.category || 'singles') === cat.id;
               return (
                 <button
@@ -408,10 +365,9 @@ export function CatalogApp() {
                   <span>{cat.id === 'singles' ? ('Singles') : ('Sealed Product')}</span>
                 </button>
               );
-            })}
-          </div>
+          })}
         </div>
-      )}
+      </div>
 
       {/* Main Content Layout — Responsive CSS grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
@@ -628,24 +584,3 @@ function getGridCols(size: 'small'|'normal'|'large') {
   return "repeat(auto-fill, minmax(190px, 1fr))";
 }
 
-function ComingSoonScreen({  }: {}) {
-  return (
-    <div className="max-w-lg mx-auto my-20 p-8 sm:p-10 text-center bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl">
-      <div className="w-14 h-14 rounded-2xl bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-zinc-300 mb-4">
-        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-      </div>
-      <h2 className="text-2xl font-black text-zinc-100 mb-2">Store in Maintenance</h2>
-      <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-        The store is currently being stocked with new inventory. Please check back soon or browse our Card Catalog!
-      </p>
-      <a
-        href="/"
-        className="inline-block px-6 py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm transition shadow-md"
-      >
-        Explore Card Catalog
-      </a>
-    </div>
-  );
-}

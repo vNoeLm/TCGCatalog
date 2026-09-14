@@ -1459,16 +1459,16 @@ export function CardListApp() {
                   Deck Builder
                 </a>
 
-                {/* Quick Sale Button */}
+                {/* Quick List Button */}
                 <button
                   onClick={() => setShowQuickSalePreview(true)}
-                  title={'Quick Sale based on your rules'}
+                  title={'Quick List based on your rules'}
                   className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
-                  Quick Sale
+                  Quick List
                 </button>
 
                 <button
@@ -1930,7 +1930,7 @@ export function CardListApp() {
       )}
 
       {/* Import Modal */}
-      {/* Quick Sale Preview Modal */}
+      {/* Quick List Preview Modal */}
       {showQuickSalePreview && (
         <QuickSalePreviewModal
           isOpen={showQuickSalePreview}
