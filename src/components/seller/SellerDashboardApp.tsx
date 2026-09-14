@@ -1392,6 +1392,15 @@ export function SellerDashboardApp() {
 
                       {/* Right: Actions */}
                       <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
+                        <a
+                          href={`/messages?hold_request_id=${req.id}`}
+                          className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1.5"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                          </svg>
+                          <span>Message</span>
+                        </a>
                         {isPending && (
                           <>
                             <button

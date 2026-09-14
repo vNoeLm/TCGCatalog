@@ -214,6 +214,16 @@ CREATE TABLE IF NOT EXISTS public.user_collections (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 13b. HOLD REQUEST CHAT MESSAGES (basic buyer/seller chat, one thread per hold request)
+CREATE TABLE IF NOT EXISTS public.hold_request_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hold_request_id UUID NOT NULL REFERENCES public.hold_requests(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    read_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 14. DROP OBSOLETE LEGACY TABLES AND FUNCTIONS
 DROP TABLE IF EXISTS public.inventory_reservations CASCADE;
 DROP TABLE IF EXISTS public.order_items CASCADE;
@@ -251,6 +261,8 @@ CREATE INDEX IF NOT EXISTS idx_hold_requests_inventory_id ON public.hold_request
 CREATE INDEX IF NOT EXISTS idx_hold_requests_buyer_id ON public.hold_requests(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_hold_requests_status ON public.hold_requests(status);
 CREATE INDEX IF NOT EXISTS idx_user_collections_user_id ON public.user_collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_hold_request_messages_hold_request_id ON public.hold_request_messages(hold_request_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_hold_request_messages_sender_id ON public.hold_request_messages(sender_id);
 
 -- 16. ROW LEVEL SECURITY (RLS) POLICIES
 
@@ -266,6 +278,7 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hold_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hold_request_messages ENABLE ROW LEVEL SECURITY;
 
 -- Games policies
 DROP POLICY IF EXISTS "Allow public read games" ON public.games;
@@ -355,6 +368,36 @@ CREATE POLICY "Users can update own collection" ON public.user_collections FOR U
 
 DROP POLICY IF EXISTS "Users can delete own collection" ON public.user_collections;
 CREATE POLICY "Users can delete own collection" ON public.user_collections FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- Hold request chat message policies: only the buyer and seller on a hold request
+-- can see or write into its thread.
+DROP POLICY IF EXISTS "Participants can view messages" ON public.hold_request_messages;
+CREATE POLICY "Participants can view messages" ON public.hold_request_messages FOR SELECT TO authenticated USING (
+    EXISTS (
+        SELECT 1 FROM public.hold_requests hr
+        WHERE hr.id = hold_request_messages.hold_request_id
+        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+    )
+);
+
+DROP POLICY IF EXISTS "Participants can send messages" ON public.hold_request_messages;
+CREATE POLICY "Participants can send messages" ON public.hold_request_messages FOR INSERT TO authenticated WITH CHECK (
+    auth.uid() = sender_id
+    AND EXISTS (
+        SELECT 1 FROM public.hold_requests hr
+        WHERE hr.id = hold_request_messages.hold_request_id
+        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+    )
+);
+
+DROP POLICY IF EXISTS "Participants can mark messages read" ON public.hold_request_messages;
+CREATE POLICY "Participants can mark messages read" ON public.hold_request_messages FOR UPDATE TO authenticated USING (
+    EXISTS (
+        SELECT 1 FROM public.hold_requests hr
+        WHERE hr.id = hold_request_messages.hold_request_id
+        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+    )
+);
 
 -- 17. AUTH SYNC TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
