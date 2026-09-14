@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getCurrentProfile } from '../lib/auth';
+import { ApiKeysPanel } from './admin/ApiKeysPanel';
+import type { UserProfile } from '../types';
 
 type EndpointKey = 'cards' | 'card_by_id' | 'sets' | 'set_by_id' | 'random' | 'root';
 type CodeLang = 'csharp' | 'js' | 'py' | 'curl';
@@ -179,7 +182,13 @@ const ENDPOINTS: EndpointMeta[] = [
 export function ApiDocsApp() {
   const [apiKey, setApiKey] = useState<string>('tcg_live_tcgvault_demo_2026');
   const [selectedEndpointKey, setSelectedEndpointKey] = useState<EndpointKey>('cards');
-  const [activeTab, setActiveTab] = useState<'tester' | 'docs' | 'code' | 'guides'>('tester');
+  const [activeTab, setActiveTab] = useState<'tester' | 'docs' | 'code' | 'guides' | 'keys'>('tester');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const isOwner = Boolean(profile?.is_owner || profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+
+  useEffect(() => {
+    getCurrentProfile().then(setProfile);
+  }, []);
   const [selectedLang, setSelectedLang] = useState<CodeLang>('csharp');
   const [authMethod, setAuthMethod] = useState<'header' | 'bearer' | 'query'>('header');
 
@@ -541,17 +550,24 @@ except Exception as e:
               <span>API Architecture & Guides</span>
             </button>
 
-            <a
-              href="/admin"
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition cursor-pointer hover:border-[var(--accent)]"
-              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <span>Manage Keys (Admin)</span>
-            </a>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('keys')}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition cursor-pointer"
+                style={{
+                  background: activeTab === 'keys' ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
+                  borderColor: activeTab === 'keys' ? 'var(--accent)' : 'var(--border)',
+                  color: activeTab === 'keys' ? 'var(--text-accent)' : 'var(--text-secondary)',
+                }}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Manage API Keys</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1014,6 +1030,13 @@ except Exception as e:
                   Clients should consume <code className="text-emerald-400">has_next</code> and advance <code className="text-emerald-400">page</code> parameter for cursor iteration.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* TAB 5: API Key Management (owner-only) */}
+          {activeTab === 'keys' && isOwner && (
+            <div className="space-y-4">
+              <ApiKeysPanel />
             </div>
           )}
 

@@ -45,7 +45,7 @@ export function SellerDashboardApp() {
   const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
   const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'quicksale'>('listings');
 
-  // Quick Sale Rules State
+  // Quick List Rules State
   const [quickSaleRules, setQuickSaleRules] = useState<QuickSaleRule[]>([]);
   const [loadingRules, setLoadingRules] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
@@ -221,7 +221,7 @@ export function SellerDashboardApp() {
         loadSellerReviews(p.id);
         loadHoldRequests(p.id);
         
-        // Load Quick Sale rules
+        // Load Quick List rules
         getCurrentUser().then(u => {
           if (u?.user_metadata?.quick_sale_settings) {
             setQuickSaleRules(u.user_metadata.quick_sale_settings);
@@ -980,7 +980,7 @@ export function SellerDashboardApp() {
           },
           {
             id: 'quicksale' as const,
-            label: 'Quick Sale',
+            label: 'Quick List',
             icon: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
           },
         ]).map((tabDef) => {
@@ -1578,51 +1578,69 @@ export function SellerDashboardApp() {
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {listings.map((item) => {
-                    const views = item.views || 0;
-                    const clicks = item.clicks || 0;
-                    const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
-                    return (
-                      <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-11 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
-                              {item.image_path ? (
-                                <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</div>
-                              <div className="text-[10px] text-zinc-400 font-mono">{item.card_number} • {item.rarity}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">
-                          {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
-                        </td>
-                        <td className="py-3 px-3 text-center font-mono font-bold text-cyan-400">
-                          {views}
-                        </td>
-                        <td className="py-3 px-3 text-center font-mono font-bold text-pink-400">
-                          {clicks}
-                        </td>
-                        <td className="py-3 px-3 text-center font-mono">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            Number(ctr) >= 10 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-300'
-                          }`}>
-                            {ctr}%
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                            Active
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {activeListings.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        No active listings yet — list a card to start tracking views and clicks.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeListings
+                      .slice()
+                      .sort((a, b) => (b.views || 0) - (a.views || 0))
+                      .map((item) => {
+                        const views = item.views || 0;
+                        const clicks = item.clicks || 0;
+                        const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
+                        const displayStatus = item.status === 'On Hold' || item.status === 'Reserved' ? 'On Hold' : 'In Stock';
+                        return (
+                          <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-11 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
+                                  {item.image_path ? (
+                                    <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</div>
+                                  <div className="text-[10px] text-zinc-400 font-mono">{item.card_number} • {item.rarity}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-emerald-400">
+                              {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-cyan-400">
+                              {views}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-pink-400">
+                              {clicks}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                Number(ctr) >= 10 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-300'
+                              }`}>
+                                {ctr}%
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  displayStatus === 'On Hold'
+                                    ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
+                                    : 'text-emerald-400 bg-emerald-950/40 border-emerald-500/40'
+                                }`}
+                              >
+                                {displayStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
                 </tbody>
               </table>
             </div>

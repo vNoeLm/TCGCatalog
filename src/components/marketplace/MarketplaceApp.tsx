@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { getMarketplaceVisibility } from '../../lib/api';
-import { getCurrentProfile } from '../../lib/auth';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { CardItem } from '../CardItem';
@@ -8,7 +6,7 @@ import { CardDetail } from '../CardDetail';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
 import { matchesCardVariants } from '../../lib/cardVariants';
-import type { UserProfile, InventoryCard, FilterState } from '../../types';
+import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
   CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS,
@@ -36,9 +34,6 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function MarketplaceApp() {
   const { theme } = useSiteTheme();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isMarketplaceEnabled, setIsMarketplaceEnabled] = useState(false);
-  const [checkingAccess, setCheckingAccess] = useState(true);
 
   // Filters State driven by global game
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -68,21 +63,6 @@ export function MarketplaceApp() {
   const sortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-
-    const checkAccess = () => {
-      Promise.all([
-        getMarketplaceVisibility(true),
-        getCurrentProfile(),
-      ]).then(([enabled, userProf]) => {
-        setIsMarketplaceEnabled(enabled);
-        setProfile(userProf);
-        setCheckingAccess(false);
-      });
-    };
-
-    checkAccess();
-    window.addEventListener(EVENTS.SETTINGS_CHANGED, checkAccess);
-
     // Global Game Sync
     const handleGameChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ game: string }>;
@@ -97,7 +77,6 @@ export function MarketplaceApp() {
     window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
 
     return () => {
-      window.removeEventListener(EVENTS.SETTINGS_CHANGED, checkAccess);
       window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
     };
   }, []);
@@ -128,13 +107,10 @@ export function MarketplaceApp() {
     }
   };
 
-  const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
-  const canAccess = isMarketplaceEnabled || isAdmin;
   const isCyberpunk = filters.game === 'cyberpunk';
 
   // Load marketplace listings
   const fetchMarketplaceListings = async () => {
-    if (!canAccess) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -170,7 +146,6 @@ export function MarketplaceApp() {
   };
 
   useEffect(() => {
-    if (!canAccess) return;
     const timer = setTimeout(() => {
       fetchMarketplaceListings();
     }, 150);
@@ -184,7 +159,7 @@ export function MarketplaceApp() {
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
       window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
     };
-  }, [canAccess, filters, searchQuery, statusFilter]);
+  }, [filters, searchQuery, statusFilter]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -257,85 +232,6 @@ export function MarketplaceApp() {
     />
   );
 
-  if (checkingAccess) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
-      </div>
-    );
-  }
-
-  // ─── COMING SOON / MAINTENANCE GATE ──────────────────────────────────
-  if (!canAccess) {
-    return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
-        <div 
-          className="max-w-xl w-full rounded-3xl p-8 sm:p-12 text-center border shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-          style={{
-            background: 'var(--bg-surface)',
-            borderColor: 'var(--border)',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7), 0 0 40px var(--accent-glow)'
-          }}
-        >
-          <div className="relative z-10">
-            <div 
-              className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center text-3xl shadow-inner border"
-              style={{
-                background: 'var(--accent-muted)',
-                borderColor: 'var(--accent)',
-                color: 'var(--text-accent)'
-              }}
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border bg-amber-500/10 border-amber-500/30 text-amber-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span>Coming Soon</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-black mb-3" style={{ color: 'var(--text-primary)' }}>
-              Community Marketplace
-            </h1>
-
-            <p className="text-sm sm:text-base leading-relaxed mb-8 max-w-md mx-auto" style={{ color: 'var(--text-secondary)' }}>
-              Direct player-to-player card trading is currently being prepared. Soon you will be able to list surplus cards from your collection with verified seller ratings and buyer protection!
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a
-                href="/"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95"
-                style={{
-                  background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
-                  color: 'var(--accent-contrast, #000000)',
-                }}
-              >
-                Browse Catalog
-              </a>
-              <a
-                href="/"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer border hover:bg-white/5"
-                style={{
-                  background: 'var(--bg-surface-2)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                My Binder / Collection
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ─── LIVE MARKETPLACE ───────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
@@ -361,11 +257,6 @@ export function MarketplaceApp() {
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
               {isCyberpunk ? 'Cyberpunk TCG' : 'Riftbound'}
             </span>
-            {isAdmin && !isMarketplaceEnabled && (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                Admin Preview Mode
-              </span>
-            )}
           </div>
           <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
             Browse community classifieds from fellow players. Request a hold on cards and arrange delivery or personal pickup directly with the seller!

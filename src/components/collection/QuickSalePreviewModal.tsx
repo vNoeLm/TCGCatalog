@@ -38,7 +38,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
   };
 
   /**
-   * Copies already on the market per card. Without this, running Quick Sale twice
+   * Copies already on the market per card. Without this, running Quick List twice
    * offers the same copies again and the seller ends up listing more than they own.
    */
   const fetchAlreadyListed = async (sellerId: string): Promise<Map<string, number>> => {
@@ -48,13 +48,13 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
       if (res.ok) {
         const json = await res.json();
         for (const row of json.data || []) {
-          // Quick Sale only ever lists non-foil copies.
+          // Quick List only ever lists non-foil copies.
           if (row.status === 'Sold' || row.is_foil) continue;
           listed.set(row.card_id, (listed.get(row.card_id) || 0) + (row.quantity || 0));
         }
       }
     } catch (e) {
-      console.warn('Could not load existing listings; Quick Sale may re-offer listed copies:', e);
+      console.warn('Could not load existing listings; Quick List may re-offer listed copies:', e);
     }
     return listed;
   };
@@ -145,7 +145,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         body: JSON.stringify({ listings: selected })
       });
       if (res.ok) {
-        // The listed copies just left the collection server-side (Quick Sale only
+        // The listed copies just left the collection server-side (Quick List only
         // ever lists non-foil copies); mirror that locally so counts update now.
         for (const c of selected) {
           adjustLocalCollection(c.cardId, false, -c.quantity);
@@ -187,7 +187,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
               <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
-              Quick Sale Preview
+              Quick List Preview
             </h2>
             <p className="text-sm text-zinc-400 mt-1">
               Review and adjust cards that will be listed automatically based on your rules.
@@ -208,11 +208,11 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
             </div>
           ) : rules.length === 0 ? (
             <div className="py-20 text-center text-zinc-500">
-              No Quick Sale rules configured. Visit Seller Hub to set them up.
+              No Quick List rules configured. Visit Seller Hub to set them up.
             </div>
           ) : listingCandidates.length === 0 ? (
             <div className="py-20 text-center text-zinc-500">
-              No cards in your collection match your Quick Sale rules.
+              No cards in your collection match your Quick List rules.
             </div>
           ) : (
             <div className="space-y-2">
