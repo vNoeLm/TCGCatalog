@@ -186,6 +186,7 @@ export interface Order {
   created_at: string;
   updated_at: string;
   seller_id?: string;
+  seller_name?: string;
   seller_rating?: SellerReview | null;
   customer_info?: {
     name?: string;
@@ -221,6 +222,28 @@ export interface SellerProfileSummary {
   sales_count?: number;
   is_owner?: boolean;
   created_at?: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  hold_request_id: string;
+  sender_id: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  hold_request_id: string;
+  counterpart_id: string;
+  counterpart_name: string;
+  card_name: string;
+  image_path?: string | null;
+  status: string;
+  is_seller: boolean;
+  last_message: string | null;
+  last_message_at: string | null;
+  unread_count: number;
 }
 
 export interface QuickSaleRule {

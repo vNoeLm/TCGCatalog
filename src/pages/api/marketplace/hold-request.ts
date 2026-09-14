@@ -83,15 +83,28 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
 
     const orderQty = Math.max(1, Number(req.quantity) || 1);
     const orderNumber = `P2P-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+
+    let sellerName: string | undefined;
+    try {
+      const { data: sellerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('display_name')
+        .eq('id', req.seller_id)
+        .maybeSingle();
+      sellerName = sellerProfile?.display_name || undefined;
+    } catch (e) {}
+
     const newOrder = {
       id: crypto.randomUUID(),
       order_number: orderNumber,
       user_id: req.buyer_id || null,
       seller_id: req.seller_id,
+      seller_name: sellerName,
       status: 'Delivered',
       total_price_huf: (req.price_huf || 0) * orderQty,
       shipping_name: req.buyer_name,
-      shipping_address: req.handover_details || req.preferred_handover,
+      shipping_method: req.preferred_handover,
+      shipping_address: req.handover_details || undefined,
       tracking_number: null,
       payment_method: 'cash_or_transfer',
       payment_status: 'paid',
@@ -100,7 +113,9 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
         phone: req.buyer_phone || '',
         name: req.buyer_name,
       },
-      notes: `P2P: ${req.preferred_handover} | Contact: ${req.buyer_email} ${req.buyer_phone || ''}`,
+      // The buyer's own note (if they left one) — not a synthetic contact-info dump,
+      // which is already covered by customer_info and shipping_method/address above.
+      notes: req.message || undefined,
       items: [
         {
           inventory_id: req.inventory_id,
