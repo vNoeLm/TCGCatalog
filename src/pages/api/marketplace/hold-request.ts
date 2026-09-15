@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getOrCreateConversation, postSystemMessage } from '../../../lib/conversationsServer';
 
 export const prerender = false;
 
@@ -34,6 +35,8 @@ export interface HoldRequestRecord {
   handover_details?: string;
   message?: string;
   status: 'pending' | 'held' | 'completed' | 'cancelled' | 'rejected';
+  /** The persistent buyer-seller conversation this request's chat belongs to (null for guest checkouts without an account). */
+  conversation_id?: string | null;
   card_name?: string;
   card_number?: string;
   image_path?: string;
@@ -447,6 +450,13 @@ export const POST: APIRoute = async ({ request }) => {
     const first = lockedItems[0];
     const isCart = lockedItems.length > 1;
 
+    // A conversation only makes sense between two real accounts — a guest checkout
+    // (no buyerId) doesn't get one, same as it couldn't use messaging before either.
+    // Reusing the buyer's existing conversation with this seller, if any, is the
+    // whole point: a new purchase becomes an event in that same ongoing thread
+    // instead of starting a fresh one.
+    const conversationId = buyerId ? await getOrCreateConversation(buyerId, verifiedSellerId!) : null;
+
     const newRecord: HoldRequestRecord = {
       id: crypto.randomUUID(),
       inventory_id: first.inventory_id,
@@ -467,6 +477,7 @@ export const POST: APIRoute = async ({ request }) => {
       is_foil: first.is_foil,
       condition: first.condition,
       items: isCart ? lockedItems : undefined,
+      conversation_id: conversationId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -483,6 +494,17 @@ export const POST: APIRoute = async ({ request }) => {
       const currentList = await getFallbackHoldRequests();
       currentList.unshift(newRecord);
       await saveFallbackHoldRequests(currentList);
+    }
+
+    if (conversationId && buyerId) {
+      const cardLabel = isCart ? `${lockedItems.length} cards` : first.card_name;
+      const totalHuf = lockedItems.reduce((sum, it) => sum + (it.price_huf || 0) * (it.quantity || 1), 0);
+      await postSystemMessage(
+        conversationId,
+        buyerId,
+        `Requested a hold on ${cardLabel} — ${totalHuf.toLocaleString()} Ft`,
+        { holdRequestId: newRecord.id, metadata: { action: 'requested', hold_request_id: newRecord.id, card_name: cardLabel, price_huf: totalHuf } }
+      );
     }
 
     return new Response(JSON.stringify({
@@ -653,6 +675,24 @@ export const PATCH: APIRoute = async ({ request }) => {
     // The seller's collection was already decremented when the card was first listed, not here.
     if (action === 'confirm_sale') {
       await recordCompletedSaleInOrders(updatedReq);
+    }
+
+    // 4. Post a system message into the conversation so the buyer/seller see the status
+    // change inline in their chat, instead of only in the seller dashboard's status pills.
+    if (currentReq.conversation_id) {
+      const actionMessages: Record<string, { body: string; sender: string }> = {
+        hold: { body: 'Accepted the hold — this card is reserved.', sender: currentReq.seller_id },
+        release: { body: 'Hold released — the card is back in stock.', sender: user.id },
+        reject: { body: 'Hold request rejected.', sender: currentReq.seller_id },
+        confirm_sale: { body: 'Sale confirmed — order completed!', sender: currentReq.seller_id },
+      };
+      const entry = actionMessages[action];
+      if (entry) {
+        await postSystemMessage(currentReq.conversation_id, entry.sender, entry.body, {
+          holdRequestId: id,
+          metadata: { action, hold_request_id: id },
+        });
+      }
     }
 
     return new Response(JSON.stringify({

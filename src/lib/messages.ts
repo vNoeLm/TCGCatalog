@@ -3,9 +3,12 @@ import { getCurrentUser } from './auth';
 import type { ChatMessage, ConversationSummary } from '../types';
 
 /**
- * Basic buyer/seller chat, one thread per hold request. Reads/writes go straight
- * through the browser Supabase client — RLS on hold_request_messages restricts
- * everything to the two participants, so no API route is needed.
+ * Buyer/seller chat, one persistent thread per (buyer, seller) pair — every hold
+ * request between the same two people reuses the same conversation instead of
+ * starting a new thread, so a relationship's chat just keeps going across
+ * purchases. Reads/writes go straight through the browser Supabase client — RLS
+ * on conversations/hold_request_messages restricts everything to the two
+ * participants, so no API route is needed.
  */
 
 async function requireUserId(): Promise<string> {
@@ -14,76 +17,101 @@ async function requireUserId(): Promise<string> {
   return user.id;
 }
 
-/** All hold-request threads the current user is a buyer or seller on, newest activity first. */
+/** Every conversation the current user is part of, newest activity first. */
 export async function fetchConversations(): Promise<ConversationSummary[]> {
   const uid = await requireUserId();
 
-  const { data: holdRows, error: holdErr } = await supabase
+  const { data: convRows, error: convErr } = await supabase
+    .from('conversations')
+    .select('id, buyer_id, seller_id, created_at')
+    .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`);
+
+  if (convErr || !convRows || convRows.length === 0) return [];
+
+  const convIds = convRows.map((r) => r.id);
+
+  // Latest hold request per conversation, for the card label + "open request" badge.
+  const { data: holdRows } = await supabase
     .from('hold_requests')
-    .select('id, seller_id, buyer_id, buyer_name, card_name, image_path, items, status, created_at, updated_at')
-    .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`)
-    .order('updated_at', { ascending: false });
+    .select('conversation_id, buyer_name, card_name, image_path, items, status, created_at')
+    .in('conversation_id', convIds)
+    .order('created_at', { ascending: false });
 
-  if (holdErr || !holdRows || holdRows.length === 0) return [];
+  const latestHoldByConv = new Map<string, any>();
+  const openRequestByConv = new Map<string, boolean>();
+  (holdRows || []).forEach((r: any) => {
+    if (!latestHoldByConv.has(r.conversation_id)) latestHoldByConv.set(r.conversation_id, r);
+    if (r.status === 'pending' || r.status === 'held') {
+      openRequestByConv.set(r.conversation_id, true);
+    }
+  });
 
-  const holdIds = holdRows.map((r) => r.id);
-  const sellerIds = [...new Set(holdRows.filter((r) => r.buyer_id === uid).map((r) => r.seller_id))];
-
-  const sellerNames = new Map<string, string>();
-  if (sellerIds.length > 0) {
-    const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', sellerIds);
-    (profiles || []).forEach((p: any) => sellerNames.set(p.id, p.display_name || 'Seller'));
+  const counterpartIds = [...new Set(
+    convRows.map((r) => (r.seller_id === uid ? r.buyer_id : r.seller_id)).filter(Boolean)
+  )];
+  const profileNames = new Map<string, string>();
+  if (counterpartIds.length > 0) {
+    const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', counterpartIds);
+    (profiles || []).forEach((p: any) => profileNames.set(p.id, p.display_name || 'User'));
   }
 
   const { data: messages } = await supabase
     .from('hold_request_messages')
-    .select('hold_request_id, sender_id, body, read_at, created_at')
-    .in('hold_request_id', holdIds)
+    .select('conversation_id, sender_id, body, read_at, created_at')
+    .in('conversation_id', convIds)
     .order('created_at', { ascending: true });
 
-  const lastByThread = new Map<string, { body: string; created_at: string }>();
-  const unreadByThread = new Map<string, number>();
+  const lastByConv = new Map<string, { body: string; created_at: string }>();
+  const unreadByConv = new Map<string, number>();
   (messages || []).forEach((m: any) => {
-    lastByThread.set(m.hold_request_id, { body: m.body, created_at: m.created_at });
+    lastByConv.set(m.conversation_id, { body: m.body, created_at: m.created_at });
     if (m.sender_id !== uid && !m.read_at) {
-      unreadByThread.set(m.hold_request_id, (unreadByThread.get(m.hold_request_id) || 0) + 1);
+      unreadByConv.set(m.conversation_id, (unreadByConv.get(m.conversation_id) || 0) + 1);
     }
   });
 
-  return holdRows.map((r: any) => {
+  const summaries = convRows.map((r: any): ConversationSummary => {
     const isSeller = r.seller_id === uid;
-    const last = lastByThread.get(r.id);
-    const items = Array.isArray(r.items) ? r.items : null;
-    const cardLabel = items && items.length > 1 ? `${items.length} cards` : (r.card_name || 'Card');
+    const counterpartId = isSeller ? r.buyer_id : r.seller_id;
+    const latestHold = latestHoldByConv.get(r.id);
+    const items = latestHold && Array.isArray(latestHold.items) ? latestHold.items : null;
+    const cardLabel = latestHold
+      ? (items && items.length > 1 ? `${items.length} cards` : (latestHold.card_name || 'Card'))
+      : 'New conversation';
+    const last = lastByConv.get(r.id);
     return {
-      hold_request_id: r.id,
-      counterpart_id: isSeller ? (r.buyer_id || '') : r.seller_id,
-      counterpart_name: isSeller ? (r.buyer_name || 'Buyer') : (sellerNames.get(r.seller_id) || 'Seller'),
+      conversation_id: r.id,
+      counterpart_id: counterpartId || '',
+      counterpart_name: isSeller ? (latestHold?.buyer_name || 'Buyer') : (profileNames.get(r.seller_id) || 'Seller'),
       card_name: cardLabel,
-      image_path: r.image_path,
-      status: r.status,
+      image_path: latestHold?.image_path || null,
       is_seller: isSeller,
+      has_open_request: openRequestByConv.get(r.id) || false,
       last_message: last?.body || null,
       last_message_at: last?.created_at || r.created_at,
-      unread_count: unreadByThread.get(r.id) || 0,
+      unread_count: unreadByConv.get(r.id) || 0,
     };
   });
+
+  return summaries.sort((a, b) =>
+    new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()
+  );
 }
 
-/** Total unread messages across every thread — for a nav badge. */
+/** Total unread messages across every conversation — for a nav badge. */
 export async function fetchUnreadCount(): Promise<number> {
   try {
     const uid = await requireUserId();
-    const { data: holdRows } = await supabase
-      .from('hold_requests')
+    const { data: convRows } = await supabase
+      .from('conversations')
       .select('id')
       .or(`buyer_id.eq.${uid},seller_id.eq.${uid}`);
-    if (!holdRows || holdRows.length === 0) return 0;
+    if (!convRows || convRows.length === 0) return 0;
 
     const { count } = await supabase
       .from('hold_request_messages')
       .select('id', { count: 'exact', head: true })
-      .in('hold_request_id', holdRows.map((r) => r.id))
+      .in('conversation_id', convRows.map((r) => r.id))
       .is('read_at', null)
       .neq('sender_id', uid);
 
@@ -93,19 +121,29 @@ export async function fetchUnreadCount(): Promise<number> {
   }
 }
 
-/** Full message history for one thread, oldest first. */
-export async function fetchMessages(holdRequestId: string): Promise<ChatMessage[]> {
+/** Resolves a hold_request_id (e.g. from an old deep link) to the conversation it belongs to. */
+export async function resolveConversationIdFromHoldRequest(holdRequestId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('hold_requests')
+    .select('conversation_id')
+    .eq('id', holdRequestId)
+    .maybeSingle();
+  return data?.conversation_id || null;
+}
+
+/** Full message history for one conversation, oldest first. */
+export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   const { data, error } = await supabase
     .from('hold_request_messages')
     .select('*')
-    .eq('hold_request_id', holdRequestId)
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
   return data || [];
 }
 
-export async function sendMessage(holdRequestId: string, body: string): Promise<{ message: ChatMessage | null; error: any }> {
+export async function sendMessage(conversationId: string, body: string): Promise<{ message: ChatMessage | null; error: any }> {
   const trimmed = body.trim();
   if (!trimmed) return { message: null, error: new Error('Message cannot be empty.') };
 
@@ -113,7 +151,7 @@ export async function sendMessage(holdRequestId: string, body: string): Promise<
     const uid = await requireUserId();
     const { data, error } = await supabase
       .from('hold_request_messages')
-      .insert({ hold_request_id: holdRequestId, sender_id: uid, body: trimmed })
+      .insert({ conversation_id: conversationId, sender_id: uid, body: trimmed, message_type: 'user' })
       .select()
       .single();
 
@@ -123,14 +161,14 @@ export async function sendMessage(holdRequestId: string, body: string): Promise<
   }
 }
 
-/** Marks every message from the other participant in this thread as read. */
-export async function markThreadRead(holdRequestId: string): Promise<void> {
+/** Marks every message from the other participant in this conversation as read. */
+export async function markThreadRead(conversationId: string): Promise<void> {
   try {
     const uid = await requireUserId();
     await supabase
       .from('hold_request_messages')
       .update({ read_at: new Date().toISOString() })
-      .eq('hold_request_id', holdRequestId)
+      .eq('conversation_id', conversationId)
       .neq('sender_id', uid)
       .is('read_at', null);
   } catch (e) {
