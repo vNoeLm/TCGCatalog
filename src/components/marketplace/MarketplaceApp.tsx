@@ -47,6 +47,7 @@ export function MarketplaceApp() {
 
   // Search, Sort, and Grid
   const [searchQuery, setSearchQuery] = useState('');
+  const [sellerSearch, setSellerSearch] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('Price (Low to High)');
   const [sortOpen, setSortOpen] = useState(false);
   const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
@@ -116,6 +117,7 @@ export function MarketplaceApp() {
       const params = new URLSearchParams();
       if (filters.game) params.set('game', filters.game);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (sellerSearch.trim()) params.set('seller', sellerSearch.trim());
       if (filters.set) params.set('set', filters.set);
       if (filters.rarities && filters.rarities.length > 0) params.set('rarities', filters.rarities.join(','));
       if (filters.type) params.set('type', filters.type);
@@ -159,7 +161,7 @@ export function MarketplaceApp() {
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
       window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
     };
-  }, [filters, searchQuery, statusFilter]);
+  }, [filters, searchQuery, sellerSearch, statusFilter]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -322,6 +324,23 @@ export function MarketplaceApp() {
                   placeholder={'Search by card name, number, or artist…'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-11 rounded-xl pl-10 pr-4 text-sm outline-none transition border border-zinc-700/80 bg-zinc-900/90 text-white placeholder-zinc-500 focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Seller Search */}
+              <div className="relative sm:w-52 shrink-0">
+                <svg
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={'Filter by seller…'}
+                  value={sellerSearch}
+                  onChange={(e) => setSellerSearch(e.target.value)}
                   className="w-full h-11 rounded-xl pl-10 pr-4 text-sm outline-none transition border border-zinc-700/80 bg-zinc-900/90 text-white placeholder-zinc-500 focus:border-indigo-500"
                 />
               </div>
