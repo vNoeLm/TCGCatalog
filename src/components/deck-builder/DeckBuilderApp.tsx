@@ -316,6 +316,7 @@ export function DeckBuilderApp() {
             allowedDomains={allowedDomains}
             legendCard={legendCard}
             activeZone={activeZone}
+            deck={deck}
             onAddCard={(c) => addCard(c, activeZone, cards)}
             onPreviewCard={setPreviewCard}
             isWide={isWide}
