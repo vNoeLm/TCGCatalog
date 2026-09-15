@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     for (const l of listings) {
-      if (!l.cardId || l.priceHuf < 50 || l.quantity < 1) {
+      if (!l.cardId || l.priceHuf < 1 || l.quantity < 1) {
         return new Response(JSON.stringify({ error: 'Invalid price or quantity in batch' }), { status: 400 });
       }
     }

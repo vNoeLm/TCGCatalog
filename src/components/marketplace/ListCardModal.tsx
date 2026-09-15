@@ -69,7 +69,7 @@ export function ListCardModal({
         const cardObj = (initialCard as any).cards || initialCard;
         const eur = initialFoil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur;
         if (eur) {
-          setPriceHuf(Math.max(50, Math.round(eur * 400)));
+          setPriceHuf(Math.max(1, Math.round(eur * 400)));
         } else {
           setPriceHuf(500);
         }
@@ -122,7 +122,7 @@ export function ListCardModal({
     setSelectedCard(card);
     const eur = card.market_price_eur;
     if (eur) {
-      setPriceHuf(Math.max(50, Math.round(eur * 400)));
+      setPriceHuf(Math.max(1, Math.round(eur * 400)));
     } else {
       setPriceHuf(500);
     }
@@ -136,7 +136,7 @@ export function ListCardModal({
       const cardObj = (selectedCard as any).cards || selectedCard;
       const eur = foil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur;
       if (eur) {
-        setPriceHuf(Math.max(50, Math.round(eur * 400)));
+        setPriceHuf(Math.max(1, Math.round(eur * 400)));
       }
     }
   };
@@ -228,7 +228,7 @@ export function ListCardModal({
         body: JSON.stringify({
           card_id: cardId,
           quantity: Math.max(1, quantity),
-          price_huf: Math.max(50, priceHuf),
+          price_huf: Math.max(1, priceHuf),
           condition,
           is_foil: isFoil,
           images: photos,
@@ -572,8 +572,8 @@ export function ListCardModal({
                 <div className="relative">
                   <input
                     type="number"
-                    step={10}
-                    min={50}
+                    step={1}
+                    min={1}
                     value={priceHuf}
                     onChange={(e) => setPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0))}
                     className="w-full pl-3 pr-8 py-1.5 rounded-xl text-xs font-black border focus:outline-none focus:border-emerald-500 transition"

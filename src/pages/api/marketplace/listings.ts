@@ -342,7 +342,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const safeQty = Math.max(1, parseInt(String(quantity), 10) || 1);
-    const safePriceHuf = Math.max(50, parseInt(String(price_huf), 10) || 500);
+    const safePriceHuf = Math.max(1, parseInt(String(price_huf), 10) || 500);
 
     // ─── VALIDATION RULE: Cards above 5,000 HUF require >= 1 condition photo ───
     const photoList: string[] = Array.isArray(images)

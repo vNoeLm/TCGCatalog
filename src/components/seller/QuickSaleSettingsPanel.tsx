@@ -114,9 +114,9 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
 
   const handleSave = () => {
     // Validate empty prices
-    const invalid = localRules.find(r => r.basePriceHuf === '' || typeof r.basePriceHuf !== 'number' || r.basePriceHuf < 50);
+    const invalid = localRules.find(r => r.basePriceHuf === '' || typeof r.basePriceHuf !== 'number' || r.basePriceHuf < 1);
     if (invalid) {
-      alert('Every rule must have a valid price (min 50 HUF)!');
+      alert('Every rule must have a valid price (at least 1 HUF)!');
       return;
     }
     const invalidCard = localRules.find(r => r.type === 'specific_card' && !r.targetValue);
@@ -256,7 +256,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 <div className="md:col-span-1">
                   <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Price (HUF)</label>
                   <input
-                    type="number" min="50"
+                    type="number" min="1"
                     value={rule.basePriceHuf}
                     onChange={(e) => {
                       const val = e.target.value;
