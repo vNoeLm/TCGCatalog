@@ -100,6 +100,7 @@ export function CardListApp() {
   >("Card Number (Asc)");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -413,6 +414,28 @@ export function CardListApp() {
 
       return next;
     });
+  };
+
+  // Bulk-entry shortcut: type a card number/name in the search box and press Enter
+  // to add 1 copy instantly (Shift+Enter for foil), without ever reaching for the mouse.
+  const handleQuickAddKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    const query = searchQuery.trim();
+    if (!query) return;
+    e.preventDefault();
+
+    const sourceCards = allCards.length ? allCards : cards;
+    const matched = resolveCard(query, sourceCards);
+    if (!matched) {
+      showToast(`No card found for "${query}"`);
+      return;
+    }
+
+    const isFoil = e.shiftKey;
+    updateCardCount(matched.id, isFoil, 1);
+    showToast(`+1 ${isFoil ? 'foil ' : ''}${matched.name}${matched.card_number ? ` (${matched.card_number})` : ''}`);
+    setSearchQuery('');
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const toggleOwnership = (cardId: string, isFoil?: boolean) => {
@@ -1249,10 +1272,13 @@ export function CardListApp() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                   </svg>
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder={"Search cards by name, number, or artist..."}
+                    title={"Press Enter to add 1 copy of the matched card instantly (Shift+Enter for foil)"}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleQuickAddKeyDown}
                     className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
                   />
                 </div>
@@ -1315,10 +1341,13 @@ export function CardListApp() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                   </svg>
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder={"Search cards by name, number, or artist..."}
+                    title={"Press Enter to add 1 copy of the matched card instantly (Shift+Enter for foil)"}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleQuickAddKeyDown}
                     className={`w-full h-10 ${catalogTheme.inputClass} rounded-xl pl-10 pr-3 text-xs font-medium outline-none transition shadow-inner`}
                   />
                 </div>
@@ -1387,6 +1416,12 @@ export function CardListApp() {
                   </div>
                 </div>
               </>
+            )}
+
+            {searchQuery.trim() !== '' && (
+              <p className="text-[11px] text-zinc-500 -mt-1.5 px-0.5">
+                Press <span className="font-bold text-zinc-400">Enter</span> to add 1 copy instantly · hold <span className="font-bold text-zinc-400">Shift</span> for foil
+              </p>
             )}
 
             {/* Row 3: Dedicated Full-Width Collection Status Tabs (All, Owned, Playset, Missing) */}
