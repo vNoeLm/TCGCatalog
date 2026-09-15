@@ -13,6 +13,8 @@ import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { Modal } from '../ui/Modal';
 
+const BREAKPOINT = 1100;
+
 const DEFAULT_FILTERS = {
   set: "",
   rarities: [],
@@ -115,6 +117,14 @@ export function DeckBuilderApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
+  const [isWide, setIsWide] = useState(true);
+
+  useEffect(() => {
+    const check = () => setIsWide(window.innerWidth >= BREAKPOINT);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [activeGame, setActiveGame] = useState<'riftbound' | 'cyberpunk'>(() => {
     if (typeof window !== 'undefined') {
@@ -266,51 +276,58 @@ export function DeckBuilderApp() {
 
   return (
     <>
-      <div style={{ width: '100%', padding: "clamp(16px,2vw,24px)", display: "flex", gap: 24, height: 'calc(100vh - 70px)' }}>
-        
+      <div style={{
+        width: '100%',
+        padding: "clamp(16px,2vw,24px)",
+        display: "flex",
+        flexDirection: isWide ? 'row' : 'column',
+        gap: 24,
+        height: isWide ? 'calc(100vh - 70px)' : 'auto',
+      }}>
+
         {/* Left: Visual Preview */}
         <div style={{
-          flex: '0 0 clamp(280px, 25vw, 400px)',
+          flex: isWide ? '0 0 clamp(280px, 25vw, 400px)' : '0 0 320px',
           background: 'var(--bg-surface-2)',
           borderRadius: 16,
           border: '1px solid var(--border)',
           overflow: 'hidden',
           boxShadow: 'var(--shadow-card)',
         }}>
-          <DeckPreviewColumn 
-            deck={deck} 
-            cards={cards} 
+          <DeckPreviewColumn
+            deck={deck}
+            cards={cards}
             activeGame={activeGame}
             cyberpunkLegends={cyberpunkLegends}
-            legendCard={legendCard} 
-            championCard={championCard} 
+            legendCard={legendCard}
+            championCard={championCard}
             onCardClick={setPreviewCard}
             onRemoveCard={removeCardFromAnyZone}
-            
+            isWide={isWide}
           />
         </div>
 
         {/* Center: Catalog */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <DeckCatalog 
-            cards={cards} 
+        <div style={{ flex: isWide ? 1 : 'none', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <DeckCatalog
+            cards={cards}
             activeGame={activeGame}
             cyberpunkRamLimits={cyberpunkRamLimits}
-            allowedDomains={allowedDomains} 
-            legendCard={legendCard} 
+            allowedDomains={allowedDomains}
+            legendCard={legendCard}
             activeZone={activeZone}
             onAddCard={(c) => addCard(c, activeZone, cards)}
             onPreviewCard={setPreviewCard}
-            
+            isWide={isWide}
           />
         </div>
 
         {/* Right: Requirements & Management */}
         <div style={{
-          flex: '0 0 360px',
-          width: 360,
-          minWidth: 360,
-          maxWidth: 360,
+          flex: isWide ? '0 0 360px' : 'none',
+          width: isWide ? 360 : '100%',
+          minWidth: isWide ? 360 : undefined,
+          maxWidth: isWide ? 360 : undefined,
           background: 'var(--bg-surface)',
           borderRadius: 16,
           border: '1px solid var(--border)',
@@ -392,7 +409,7 @@ export function DeckBuilderApp() {
               onCardClick={setPreviewCard}
               activeZone={activeZone}
               onSetZone={setActiveZone}
-              
+              isWide={isWide}
             />
           </div>
         </div>

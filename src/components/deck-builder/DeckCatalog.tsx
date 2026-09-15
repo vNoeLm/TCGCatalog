@@ -14,6 +14,7 @@ interface DeckCatalogProps {
   activeZone: keyof DeckState | 'legends';
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
+  isWide?: boolean;
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -64,7 +65,7 @@ export function DeckCatalog({
   activeZone,
   onAddCard,
   onPreviewCard,
-  
+  isWide = true,
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
   const theme = {
@@ -378,7 +379,7 @@ export function DeckCatalog({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: isWide ? '100%' : 'auto' }}>
 
       {/* Legend prompt */}
       {!isCyberpunk && !legendCard && (
@@ -692,7 +693,10 @@ export function DeckCatalog({
       </div>
 
       {/* Card Grid */}
-      <div style={{ overflowY: 'auto', flex: 1, paddingRight: 4, willChange: 'scroll-position', transform: 'translateZ(0)' }}>
+      <div style={isWide
+        ? { overflowY: 'auto', flex: 1, paddingRight: 4, willChange: 'scroll-position', transform: 'translateZ(0)' }
+        : { paddingRight: 4 }
+      }>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 8px' }}>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
             {sortedCards.length} cards {onlyOwned && <span style={{ color: '#10b981' }}>(Owned Only)</span>}

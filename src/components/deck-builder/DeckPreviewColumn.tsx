@@ -13,6 +13,7 @@ interface DeckPreviewColumnProps {
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
   onRemoveCard?: (cardId: string) => void;
+  isWide?: boolean;
 }
 
 export function DeckPreviewColumn({
@@ -24,7 +25,7 @@ export function DeckPreviewColumn({
   championCard,
   onCardClick,
   onRemoveCard,
-  
+  isWide = true,
 }: DeckPreviewColumnProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
 
@@ -72,7 +73,7 @@ export function DeckPreviewColumn({
 
   if (previewCards.length === 0) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', height: isWide ? '100%' : 220, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3, marginBottom: 4 }}>
           <rect x="3" y="3" width="18" height="18" rx="3" />
           <path d="M7 7h.01" />
@@ -85,7 +86,7 @@ export function DeckPreviewColumn({
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: isWide ? '100%' : 'auto', overflowY: isWide ? 'auto' : 'visible', scrollbarGutter: 'stable', padding: '16px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{
           margin: 0,
