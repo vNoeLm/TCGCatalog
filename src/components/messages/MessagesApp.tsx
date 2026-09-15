@@ -164,7 +164,7 @@ export function MessagesApp() {
   const selected = conversations.find((c) => c.hold_request_id === selectedId) || null;
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+    <div style={{ maxWidth: 1600, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       <h1 className="text-2xl font-black mb-5" style={{ color: 'var(--text-primary)' }}>
         Messages
       </h1>
@@ -174,13 +174,14 @@ export function MessagesApp() {
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
+          height: 'calc(100vh - 180px)',
           minHeight: 500,
         }}
       >
         {/* Conversation list */}
         <div
           className={`${selectedId ? 'hidden md:block' : 'block'} border-r overflow-y-auto flex flex-col`}
-          style={{ borderColor: 'var(--border-subtle)', maxHeight: 640 }}
+          style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div className="flex items-center gap-1.5 p-2.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
             {(['active', 'closed'] as const).map((f) => (
@@ -266,7 +267,7 @@ export function MessagesApp() {
           </div>
         )}
         {selectedId && (
-          <div className="flex flex-col" style={{ maxHeight: 640 }}>
+          <div className="flex flex-col min-h-0">
             <div className="flex items-center gap-2 p-3.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <button
                 type="button"
