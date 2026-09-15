@@ -204,25 +204,27 @@ export function CardListItem(props: CardListItemProps) {
       </button>
 
       <div className={`${isSmall ? 'p-2.5' : 'p-3'} flex flex-col flex-grow`}>
-        {/* Card Title */}
+        {/* Card Title — fixed height + consistent centering so a long name on one
+            card can't stretch the whole grid row and leave others with dead space */}
         {(() => {
           const { main, sub } = splitCardTitle(card.name);
-          if (sub) {
-            return (
-              <div className="text-center my-0.5">
-                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black text-zinc-100 leading-tight uppercase tracking-tight truncate`}>
-                  {main}
-                </h3>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
-                  {sub}
-                </p>
-              </div>
-            );
-          }
           return (
-            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>
-              {card.name}
-            </h3>
+            <div className={`text-center flex flex-col justify-center gap-0.5 ${isSmall ? 'min-h-[30px]' : 'min-h-[36px]'}`}>
+              {sub ? (
+                <>
+                  <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black text-zinc-100 leading-tight uppercase tracking-tight truncate`}>
+                    {main}
+                  </h3>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
+                    {sub}
+                  </p>
+                </>
+              ) : (
+                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>
+                  {card.name}
+                </h3>
+              )}
+            </div>
           );
         })()}
 
