@@ -16,6 +16,7 @@ interface DeckListProps {
   onCardClick?: (card: CatalogCard) => void;
   activeZone: keyof DeckState | 'legends';
   onSetZone: (zone: keyof DeckState | 'legends') => void;
+  isWide?: boolean;
 }
 
 export function DeckList({
@@ -30,7 +31,7 @@ export function DeckList({
   onCardClick,
   activeZone,
   onSetZone,
-  
+  isWide = true,
 }: DeckListProps) {
   const [collapsedZones, setCollapsedZones] = useState<Set<string>>(new Set());
   const isCyberpunk = activeGame === 'cyberpunk';
@@ -318,7 +319,7 @@ export function DeckList({
     const isMainValid = mainTotal >= 40 && mainTotal <= 50;
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', paddingRight: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: isWide ? '100%' : 'auto', overflowY: isWide ? 'auto' : 'visible', scrollbarGutter: 'stable', paddingRight: 4 }}>
         {/* Cyberpunk RAM HUD */}
         <div style={{
           background: '#111218',
@@ -448,7 +449,7 @@ export function DeckList({
 
   // ────────────────── RIFTBOUND VIEW ──────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%', overflowY: 'auto', scrollbarGutter: 'stable', paddingRight: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: isWide ? '100%' : 'auto', overflowY: isWide ? 'auto' : 'visible', scrollbarGutter: 'stable', paddingRight: 4 }}>
       {/* Legend & Champion */}
       <ZoneHeader title={"Legend Zone"} count={legendCard ? 1 : 0} max={1} exact zoneKey="legend" />
       {!collapsedZones.has('legend') && (

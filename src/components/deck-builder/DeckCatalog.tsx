@@ -12,8 +12,10 @@ interface DeckCatalogProps {
   allowedDomains: string[] | null;
   legendCard: CatalogCard | null;
   activeZone: keyof DeckState | 'legends';
+  deck: DeckState;
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
+  isWide?: boolean;
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -62,9 +64,10 @@ export function DeckCatalog({
   allowedDomains,
   legendCard,
   activeZone,
+  deck,
   onAddCard,
   onPreviewCard,
-  
+  isWide = true,
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
   const theme = {
@@ -96,28 +99,41 @@ export function DeckCatalog({
     'Rarity (High to Low)' | 'Rarity (Low to High)'
   >('Cost (Low to High)');
   const [collection, setCollection]     = useState<Set<string>>(new Set());
+  const [collectionQty, setCollectionQty] = useState<Record<string, number>>({});
 
   // Load saved collection from localStorage and keep synchronized
   React.useEffect(() => {
+    // Array-shaped data has no quantities — treat presence as owning 1 copy.
+    const toQtyMap = (raw: Record<string, number> | string[]): Record<string, number> => {
+      if (Array.isArray(raw)) {
+        return Object.fromEntries(raw.map(id => [id, 1]));
+      }
+      const qty: Record<string, number> = {};
+      Object.entries(raw).forEach(([id, count]) => {
+        if (typeof count === 'number' && count > 0) qty[id] = count;
+      });
+      return qty;
+    };
+
     const loadCollection = () => {
       try {
         const saved = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setCollection(new Set(parsed));
-          } else if (parsed && typeof parsed === 'object') {
-            const ownedKeys = Object.entries(parsed)
-              .filter(([_, count]) => typeof count === 'number' && count > 0)
-              .map(([id]) => id);
-            setCollection(new Set(ownedKeys));
+          if (Array.isArray(parsed) || (parsed && typeof parsed === 'object')) {
+            const qty = toQtyMap(parsed);
+            setCollectionQty(qty);
+            setCollection(new Set(Object.keys(qty)));
           } else {
+            setCollectionQty({});
             setCollection(new Set());
           }
         } else {
+          setCollectionQty({});
           setCollection(new Set());
         }
       } catch (e) {
+        setCollectionQty({});
         setCollection(new Set());
       }
     };
@@ -127,15 +143,9 @@ export function DeckCatalog({
     const handleColChange = (e: Event) => {
       const custom = e as CustomEvent<{ collection: Record<string, number> | string[] }>;
       if (custom.detail?.collection) {
-        const raw = custom.detail.collection;
-        if (Array.isArray(raw)) {
-          setCollection(new Set(raw));
-        } else if (typeof raw === 'object') {
-          const ownedKeys = Object.entries(raw)
-            .filter(([_, count]) => typeof count === 'number' && count > 0)
-            .map(([id]) => id);
-          setCollection(new Set(ownedKeys));
-        }
+        const qty = toQtyMap(custom.detail.collection);
+        setCollectionQty(qty);
+        setCollection(new Set(Object.keys(qty)));
       } else {
         loadCollection();
       }
@@ -150,6 +160,50 @@ export function DeckCatalog({
       window.removeEventListener('focus', loadCollection);
     };
   }, []);
+
+  // How many physical copies of a card NAME the user owns, summed across every
+  // print/variant of that name and both normal + foil copies of each.
+  const getOwnedCopies = useCallback((name: string): number => {
+    let total = 0;
+    cards.forEach(c => {
+      if (c.name !== name) return;
+      total += (collectionQty[c.id] || 0) + (collectionQty[`${c.id}_foil`] || 0);
+    });
+    return total;
+  }, [cards, collectionQty]);
+
+  // How many copies of a card NAME are already placed anywhere in the deck
+  // (champion slot + every zone), mirroring the count useDeckBuilder's addCard uses.
+  const getDeckCopies = useCallback((name: string): number => {
+    let total = 0;
+    const champ = cards.find(c => c.id === deck.champion);
+    if (champ && champ.name === name) total += 1;
+
+    const countZone = (zoneMap: Record<string, number> | undefined) => {
+      if (!zoneMap) return;
+      Object.entries(zoneMap).forEach(([id, qty]) => {
+        const c = cards.find(x => x.id === id);
+        if (c && c.name === name) total += qty;
+      });
+    };
+    countZone(deck.mainDeck);
+    countZone(deck.runeDeck);
+    countZone(deck.battlefields);
+    countZone(deck.sideboard);
+    return total;
+  }, [cards, deck]);
+
+  const handleAddCard = useCallback((card: CatalogCard) => {
+    if (onlyOwned && card.card_type !== 'Rune') {
+      const owned = getOwnedCopies(card.name);
+      const inDeck = getDeckCopies(card.name);
+      if (inDeck >= owned) {
+        alert(`You only own ${owned} cop${owned === 1 ? 'y' : 'ies'} of "${card.name}". Turn off "Owned Only" to add more than you have.`);
+        return;
+      }
+    }
+    onAddCard(card);
+  }, [onlyOwned, getOwnedCopies, getDeckCopies, onAddCard]);
 
   // Derive available sets from cards
   const availableSets = useMemo(() => {
@@ -378,7 +432,7 @@ export function DeckCatalog({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: isWide ? '100%' : 'auto' }}>
 
       {/* Legend prompt */}
       {!isCyberpunk && !legendCard && (
@@ -692,7 +746,10 @@ export function DeckCatalog({
       </div>
 
       {/* Card Grid */}
-      <div style={{ overflowY: 'auto', flex: 1, paddingRight: 4, willChange: 'scroll-position', transform: 'translateZ(0)' }}>
+      <div style={isWide
+        ? { overflowY: 'auto', flex: 1, paddingRight: 4, willChange: 'scroll-position', transform: 'translateZ(0)' }
+        : { paddingRight: 4 }
+      }>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 8px' }}>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
             {sortedCards.length} cards {onlyOwned && <span style={{ color: '#10b981' }}>(Owned Only)</span>}
@@ -727,7 +784,7 @@ export function DeckCatalog({
                     willChange: 'transform',
                     opacity: hasRamIssue ? 0.82 : 1,
                   }}
-                  onClick={() => onAddCard(card)}
+                  onClick={() => handleAddCard(card)}
                   onContextMenu={e => { e.preventDefault(); onPreviewCard(card); }}
                 >
                   <img src={imgSrc} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -774,22 +831,44 @@ export function DeckCatalog({
                     </div>
                   )}
 
-                  {/* Owned check badge */}
-                  {isOwned && (
-                    <div 
-                      style={{
-                        position: 'absolute', top: 4, right: 4, zIndex: 3,
-                        background: 'rgba(16,185,129,0.95)', color: '#fff',
-                        borderRadius: '50%', width: 18, height: 18,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 900, boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                        border: '1px solid rgba(255,255,255,0.4)',
-                      }}
-                      title="In your collection"
-                    >
-                      ✓
-                    </div>
-                  )}
+                  {/* Owned check badge — shows owned/in-deck counts while Owned Only is active */}
+                  {isOwned && (() => {
+                    if (!onlyOwned || card.card_type === 'Rune') {
+                      return (
+                        <div
+                          style={{
+                            position: 'absolute', top: 4, right: 4, zIndex: 3,
+                            background: 'rgba(16,185,129,0.95)', color: '#fff',
+                            borderRadius: '50%', width: 18, height: 18,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 900, boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                            border: '1px solid rgba(255,255,255,0.4)',
+                          }}
+                          title="In your collection"
+                        >
+                          ✓
+                        </div>
+                      );
+                    }
+                    const ownedQty = getOwnedCopies(card.name);
+                    const deckQty = getDeckCopies(card.name);
+                    const atCap = deckQty >= ownedQty;
+                    return (
+                      <div
+                        style={{
+                          position: 'absolute', top: 4, right: 4, zIndex: 3,
+                          background: atCap ? 'rgba(239,68,68,0.95)' : 'rgba(16,185,129,0.95)', color: '#fff',
+                          borderRadius: 9, minWidth: 18, height: 18, padding: '0 5px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 900, fontFamily: 'monospace', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                          border: '1px solid rgba(255,255,255,0.4)',
+                        }}
+                        title={`You own ${ownedQty} cop${ownedQty === 1 ? 'y' : 'ies'} — ${deckQty} already in this deck`}
+                      >
+                        {deckQty}/{ownedQty}
+                      </div>
+                    );
+                  })()}
 
                   <div className="deck-overlay" style={{
                     position: 'absolute', inset: 0,
