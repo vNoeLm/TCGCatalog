@@ -1,6 +1,7 @@
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import type { SavedDeck } from './useSavedDecks';
+import { formatCleanCardNumber } from '../../lib/formatGameText';
 
 export type ImportResult =
   | { type: 'single'; name: string; deck: DeckState }
@@ -32,7 +33,8 @@ export function resolveCard(identifier: string, allCards: CatalogCard[]): Catalo
     if (byName) return byName;
   }
 
-  // 3. Match by card number (e.g. "VEN-024/166", "VEN-024", or "024")
+  // 3. Match by card number (e.g. "VEN-024/166", "VEN-024", "024", or the
+  // set-prefix-stripped form shown in the UI and printed on physical cards, e.g. "024/166")
   const cleanLower = clean.toLowerCase();
   found = allCards.find(c => {
     if (!c.card_number) return false;
@@ -40,6 +42,12 @@ export function resolveCard(identifier: string, allCards: CatalogCard[]): Catalo
     if (cn === cleanLower) return true;
     const baseCn = cn.split('/')[0].trim();
     if (baseCn === cleanLower) return true;
+
+    const cleanedCn = formatCleanCardNumber(c.card_number).toLowerCase();
+    if (cleanedCn === cleanLower) return true;
+    const baseCleanedCn = cleanedCn.split('/')[0].trim();
+    if (baseCleanedCn === cleanLower) return true;
+
     return false;
   });
   if (found) return found;

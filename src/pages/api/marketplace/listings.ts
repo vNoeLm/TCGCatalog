@@ -27,6 +27,7 @@ export const GET: APIRoute = async ({ url }) => {
     const domains = domainsParam ? domainsParam.split(',').filter(Boolean) : [];
     const foil = url.searchParams.get('foil');
     const sellerId = url.searchParams.get('seller_id') || '';
+    const sellerNameQuery = url.searchParams.get('seller')?.trim().toLowerCase() || '';
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10)));
 
@@ -202,6 +203,9 @@ export const GET: APIRoute = async ({ url }) => {
       if (sellerId && sId !== sellerId) return;
 
       const prof = profileMap.get(sId);
+      const resolvedSellerName = prof?.display_name || (prof?.role === 'owner' ? 'Noel :3' : 'Community Seller');
+      if (sellerNameQuery && !resolvedSellerName.toLowerCase().includes(sellerNameQuery)) return;
+
       const ratingInfo = ratingsMap.get(sId);
       const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.total / ratingInfo.count : null;
       const reviewCount = ratingInfo ? ratingInfo.count : 0;
@@ -272,7 +276,7 @@ export const GET: APIRoute = async ({ url }) => {
         set_code: cardObj.sets?.code,
         sets: cardObj.sets,
         seller_id: sId,
-        seller_name: prof?.display_name || (prof?.role === 'owner' ? 'Noel :3' : 'Community Seller'),
+        seller_name: resolvedSellerName,
         seller_avatar: prof?.avatar_url || null,
         seller_role: prof?.role || (prof?.is_admin ? 'admin' : 'user'),
         seller_rating_avg: avgRating,
