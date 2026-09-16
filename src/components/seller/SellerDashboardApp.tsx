@@ -35,6 +35,8 @@ export function SellerDashboardApp() {
   // `${card_id}::${'foil'|'normal'}` — powers the "Platform Price Health" KPI and
   // the per-listing undercut badge in the Stats table.
   const [platformLowestByCard, setPlatformLowestByCard] = useState<Map<string, number>>(new Map());
+  // Search-demand count (last 7 days) per card_id, platform-wide.
+  const [demandByCard, setDemandByCard] = useState<Record<string, number>>({});
 
   // Collection & Badges State
   const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
@@ -577,6 +579,23 @@ export function SellerDashboardApp() {
         });
         setPlatformLowestByCard(map);
       });
+    return () => { cancelled = true; };
+  }, [activeListings]);
+
+  // Fetch 7-day search-demand counts for every card this seller has actively listed.
+  useEffect(() => {
+    const cardIds = [...new Set(activeListings.map(item => item.card_id).filter(Boolean))];
+    if (cardIds.length === 0) {
+      setDemandByCard({});
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/analytics/card-demand?card_ids=${cardIds.join(',')}&days=7`)
+      .then(res => res.json())
+      .then(json => {
+        if (!cancelled && json?.success) setDemandByCard(json.data || {});
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [activeListings]);
 
@@ -1733,6 +1752,8 @@ export function SellerDashboardApp() {
                         const isUndercut = lowest !== null && item.price_huf > lowest;
                         const daysListed = item.created_at ? (Date.now() - new Date(item.created_at).getTime()) / 86400000 : 0;
                         const isStale = views === 0 && clicks === 0 && daysListed > 30;
+                        const demandCount = demandByCard[item.card_id] || 0;
+                        const isHighDemand = demandCount >= 5;
                         return (
                           <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
                             <td className="py-3 px-3">
@@ -1745,7 +1766,17 @@ export function SellerDashboardApp() {
                                   )}
                                 </div>
                                 <div>
-                                  <div className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</span>
+                                    {isHighDemand && (
+                                      <span
+                                        className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border text-orange-300 bg-orange-950/40 border-orange-500/40"
+                                        title={`Searched ${demandCount} times platform-wide in the last 7 days`}
+                                      >
+                                        High Demand
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="text-[10px] text-zinc-400 font-mono">{item.card_number} • {item.rarity}</div>
                                 </div>
                               </div>
