@@ -1229,20 +1229,40 @@ export function SellerDashboardApp() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredListings.map((item) => (
+              {filteredListings.map((item) => {
+                const isSelected = selectedListingIds.has(item.inventory_id);
+                // Once the user has started selecting (clicked at least one checkbox),
+                // clicking anywhere on any card toggles it too — a much bigger hitbox
+                // than hunting for the checkbox on every single card.
+                const selectionModeActive = selectedListingIds.size > 0;
+                return (
                 <div
                   key={item.inventory_id}
-                  className="p-4 rounded-2xl border flex flex-col justify-between gap-3 shadow-sm transition hover:border-[var(--accent)]"
-                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+                  onClick={() => { if (selectionModeActive) toggleListingSelected(item.inventory_id); }}
+                  className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 shadow-sm transition ${selectionModeActive ? 'cursor-pointer' : 'hover:border-[var(--accent)]'}`}
+                  style={{
+                    background: isSelected ? 'var(--accent-muted)' : 'var(--bg-surface)',
+                    borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
+                  }}
                 >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedListingIds.has(item.inventory_id)}
-                      onChange={() => toggleListingSelected(item.inventory_id)}
-                      className="w-4 h-4 mt-1 shrink-0 accent-emerald-500 cursor-pointer"
-                      aria-label={`Select ${item.name}`}
-                    />
+                  <div className="flex items-center gap-3">
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-center w-9 h-9 -m-1.5 shrink-0 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleListingSelected(item.inventory_id)}
+                        className="sr-only peer"
+                        aria-label={`Select ${item.name}`}
+                      />
+                      <div className="w-5 h-5 rounded-md border-2 flex items-center justify-center transition peer-checked:bg-emerald-500 peer-checked:border-emerald-500 border-zinc-500 bg-zinc-900">
+                        <svg className="w-3.5 h-3.5 text-zinc-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" style={{ display: isSelected ? 'block' : 'none' }}>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    </label>
                     <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
                       {item.image_path ? (
                         <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
@@ -1301,7 +1321,7 @@ export function SellerDashboardApp() {
                   </div>
 
                   {/* Views / Clicks Bar */}
-                  <div className="pt-2.5 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div onClick={(e) => e.stopPropagation()} className="pt-2.5 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1 text-cyan-400 font-semibold text-[11px]" title="Views">
                         <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1388,7 +1408,7 @@ export function SellerDashboardApp() {
                     </div>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
