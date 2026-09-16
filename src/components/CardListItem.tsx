@@ -47,7 +47,7 @@ export function CardListItem(props: CardListItemProps) {
   const domainStyle = parsedDomains[0];
   const hoverBorder = isCyberpunk && domainStyle ? domainStyle.border : rarityStyle.border;
   const hoverGlow = isCyberpunk && domainStyle ? domainStyle.glow : rarityStyle.glow;
-  const showFoilToggle = card.rarity === 'Common' || card.rarity === 'Uncommon';
+  const showFoilToggle = card.card_type !== 'Rune' && (card.rarity === 'Common' || card.rarity === 'Uncommon');
 
   const handleUpdateNormal = (e: React.MouseEvent, delta: number) => {
     e.preventDefault();
