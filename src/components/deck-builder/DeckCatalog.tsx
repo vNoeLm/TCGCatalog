@@ -200,6 +200,29 @@ export function DeckCatalog({
     return (card.card_type === 'Legend' || card.card_type === 'Champion') ? 1 : 3;
   };
 
+  // How many copies of this EXACT print (not every print sharing the name) the
+  // user owns, so two different art variants of the same card don't show each
+  // other's counts.
+  const getOwnedCopiesForPrint = useCallback((card: CatalogCard): number => {
+    return (collectionQty[card.id] || 0) + (collectionQty[`${card.id}_foil`] || 0);
+  }, [collectionQty]);
+
+  // How many copies of this EXACT print are already placed in the deck.
+  const getDeckCopiesForPrint = useCallback((card: CatalogCard): number => {
+    let total = 0;
+    if (deck.champion === card.id) total += 1;
+
+    const countZone = (zoneMap: Record<string, number> | undefined) => {
+      if (!zoneMap) return;
+      total += zoneMap[card.id] || 0;
+    };
+    countZone(deck.mainDeck);
+    countZone(deck.runeDeck);
+    countZone(deck.battlefields);
+    countZone(deck.sideboard);
+    return total;
+  }, [deck]);
+
   const handleAddCard = useCallback((card: CatalogCard) => {
     if (onlyOwned && card.card_type !== 'Rune') {
       const owned = Math.min(getOwnedCopies(card.name), getMaxCopiesAllowed(card));
@@ -862,8 +885,8 @@ export function DeckCatalog({
                         </div>
                       );
                     }
-                    const ownedQty = Math.min(getOwnedCopies(card.name), getMaxCopiesAllowed(card));
-                    const deckQty = getDeckCopies(card.name);
+                    const ownedQty = Math.min(getOwnedCopiesForPrint(card), getMaxCopiesAllowed(card));
+                    const deckQty = getDeckCopiesForPrint(card);
                     const atCap = deckQty >= ownedQty;
                     return (
                       <div
