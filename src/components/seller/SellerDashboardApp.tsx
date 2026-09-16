@@ -281,10 +281,13 @@ export function SellerDashboardApp() {
     try {
       const listing = listings.find(item => item.inventory_id === listingId);
       const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('No active user session. Please sign in again.');
+      }
       const res = await fetch(`/api/marketplace/listings?id=${listingId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
       if (res.ok) {
@@ -295,6 +298,9 @@ export function SellerDashboardApp() {
           adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(listing.quantity) || 0);
         }
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      } else {
+        const json = await res.json().catch(() => null);
+        showToast(json?.error || `Failed to remove listing (${res.status})`);
       }
     } catch (e: any) {
       showToast(e?.message || 'Error removing listing');
@@ -308,12 +314,15 @@ export function SellerDashboardApp() {
     try {
       const newQuantity = Math.max(1, editQuantity);
       const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('No active user session. Please sign in again.');
+      }
 
       const res = await fetch('/api/marketplace/listings', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           id: item.inventory_id,
@@ -366,12 +375,15 @@ export function SellerDashboardApp() {
     setBulkActionBusy(true);
     try {
       const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('No active user session. Please sign in again.');
+      }
       const targets = listings.filter(item => selectedListingIds.has(item.inventory_id));
       const results = await Promise.all(ids.map(id =>
         fetch(`/api/marketplace/listings?id=${id}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-        }).then(res => ({ id, ok: res.ok }))
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }).then(async res => ({ id, ok: res.ok, error: res.ok ? null : (await res.json().catch(() => null))?.error }))
       ));
       const removedIds = new Set(results.filter(r => r.ok).map(r => r.id));
       setListings(prev => prev.filter(item => !removedIds.has(item.inventory_id)));
@@ -383,8 +395,9 @@ export function SellerDashboardApp() {
       setSelectedListingIds(new Set());
       window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       const failedCount = ids.length - removedIds.size;
+      const firstError = results.find(r => !r.ok)?.error;
       showToast(failedCount > 0
-        ? `Removed ${removedIds.size} listings, ${failedCount} failed`
+        ? `Removed ${removedIds.size} listings, ${failedCount} failed${firstError ? `: ${firstError}` : ''}`
         : `Removed ${removedIds.size} listing${removedIds.size === 1 ? '' : 's'}`);
     } catch (e: any) {
       showToast(e?.message || 'Error removing listings');
@@ -401,15 +414,18 @@ export function SellerDashboardApp() {
     setBulkActionBusy(true);
     try {
       const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        throw new Error('No active user session. Please sign in again.');
+      }
       const results = await Promise.all(ids.map(id =>
         fetch('/api/marketplace/listings', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ id, price_huf: safePrice }),
-        }).then(res => ({ id, ok: res.ok }))
+        }).then(async res => ({ id, ok: res.ok, error: res.ok ? null : (await res.json().catch(() => null))?.error }))
       ));
       const succeededIds = new Set(results.filter(r => r.ok).map(r => r.id));
       const succeededCount = succeededIds.size;
@@ -420,8 +436,9 @@ export function SellerDashboardApp() {
       setSelectedListingIds(new Set());
       window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       const failedCount = ids.length - succeededCount;
+      const firstError = results.find(r => !r.ok)?.error;
       showToast(failedCount > 0
-        ? `Updated ${succeededCount} listings, ${failedCount} failed`
+        ? `Updated ${succeededCount} listings, ${failedCount} failed${firstError ? `: ${firstError}` : ''}`
         : `Updated ${succeededCount} listing${succeededCount === 1 ? '' : 's'} to ${safePrice.toLocaleString()} Ft`);
     } catch (e: any) {
       showToast(e?.message || 'Error updating listings');

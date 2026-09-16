@@ -887,12 +887,18 @@ export function DeckCatalog({
                     }
                     const ownedQty = Math.min(getOwnedCopiesForPrint(card), getMaxCopiesAllowed(card));
                     const deckQty = getDeckCopiesForPrint(card);
-                    const atCap = deckQty >= ownedQty;
+                    // Green: room to add more of this print. Amber: exactly at your owned
+                    // count. Red: more copies in the deck than you actually own of this print.
+                    const badgeColor = deckQty > ownedQty
+                      ? 'rgba(239,68,68,0.95)'
+                      : deckQty === ownedQty
+                        ? 'rgba(245,158,11,0.95)'
+                        : 'rgba(16,185,129,0.95)';
                     return (
                       <div
                         style={{
                           position: 'absolute', top: 4, right: 4, zIndex: 3,
-                          background: atCap ? 'rgba(239,68,68,0.95)' : 'rgba(16,185,129,0.95)', color: '#fff',
+                          background: badgeColor, color: '#fff',
                           borderRadius: 9, minWidth: 18, height: 18, padding: '0 5px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 10, fontWeight: 900, fontFamily: 'monospace', boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
