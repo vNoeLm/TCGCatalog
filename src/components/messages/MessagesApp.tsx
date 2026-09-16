@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getCurrentProfile } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
-import { fetchConversations, fetchMessages, sendMessage, markThreadRead } from '../../lib/messages';
+import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
 import { AuthModal } from '../auth/AuthModal';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
 
@@ -25,16 +25,12 @@ export function MessagesApp() {
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // A conversation is a persistent thread per (buyer, seller) pair, so it has no
+  // "closed" state of its own — every purchase between the two is just another
+  // event in the same ongoing thread. The list is one flat inbox by recency.
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // A completed/cancelled/rejected hold has nothing left to arrange — keep those
-  // threads out of the way instead of mixing them in with live conversations.
-  const [inboxFilter, setInboxFilter] = useState<'active' | 'closed'>('active');
-  const CLOSED_STATUSES = ['completed', 'cancelled', 'rejected'];
-  const activeConversations = conversations.filter((c) => !CLOSED_STATUSES.includes(c.status));
-  const closedConversations = conversations.filter((c) => CLOSED_STATUSES.includes(c.status));
-  const visibleConversations = inboxFilter === 'active' ? activeConversations : closedConversations;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingThread, setLoadingThread] = useState(false);
@@ -54,12 +50,12 @@ export function MessagesApp() {
     }
   }, []);
 
-  const loadThread = useCallback(async (holdRequestId: string) => {
+  const loadThread = useCallback(async (conversationId: string) => {
     try {
-      const list = await fetchMessages(holdRequestId);
+      const list = await fetchMessages(conversationId);
       setMessages(list);
-      markThreadRead(holdRequestId).then(() => {
-        setConversations((prev) => prev.map((c) => (c.hold_request_id === holdRequestId ? { ...c, unread_count: 0 } : c)));
+      markThreadRead(conversationId).then(() => {
+        setConversations((prev) => prev.map((c) => (c.conversation_id === conversationId ? { ...c, unread_count: 0 } : c)));
       });
     } catch (e) {
       console.warn('Failed to load thread:', e);
@@ -69,12 +65,21 @@ export function MessagesApp() {
   }, []);
 
   useEffect(() => {
-    getCurrentProfile().then((p) => {
+    getCurrentProfile().then(async (p) => {
       setProfile(p);
       setLoading(false);
       if (p) {
-        const urlId = new URLSearchParams(window.location.search).get('hold_request_id');
-        if (urlId) setSelectedId(urlId);
+        // Deep links from order/hold flows still carry ?hold_request_id= — resolve it
+        // to whichever conversation that purchase now lives in.
+        const params = new URLSearchParams(window.location.search);
+        const conversationParam = params.get('conversation_id');
+        const holdRequestParam = params.get('hold_request_id');
+        if (conversationParam) {
+          setSelectedId(conversationParam);
+        } else if (holdRequestParam) {
+          const resolved = await resolveConversationIdFromHoldRequest(holdRequestParam);
+          if (resolved) setSelectedId(resolved);
+        }
         loadConversations();
       }
     });
@@ -85,14 +90,6 @@ export function MessagesApp() {
     const timer = setInterval(loadConversations, INBOX_POLL_MS);
     return () => clearInterval(timer);
   }, [profile, loadConversations]);
-
-  // Deep-linking into a closed thread (e.g. from order history) should switch to
-  // the Closed tab automatically rather than appearing to not exist.
-  useEffect(() => {
-    if (!selectedId || conversations.length === 0) return;
-    const match = conversations.find((c) => c.hold_request_id === selectedId);
-    if (match && CLOSED_STATUSES.includes(match.status)) setInboxFilter('closed');
-  }, [selectedId, conversations]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -116,7 +113,7 @@ export function MessagesApp() {
     if (message) {
       setMessages((prev) => [...prev, message]);
       setConversations((prev) =>
-        prev.map((c) => (c.hold_request_id === selectedId ? { ...c, last_message: message.body, last_message_at: message.created_at } : c))
+        prev.map((c) => (c.conversation_id === selectedId ? { ...c, last_message: message.body, last_message_at: message.created_at } : c))
       );
     } else {
       setDraft(body);
@@ -161,10 +158,10 @@ export function MessagesApp() {
     );
   }
 
-  const selected = conversations.find((c) => c.hold_request_id === selectedId) || null;
+  const selected = conversations.find((c) => c.conversation_id === selectedId) || null;
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+    <div style={{ maxWidth: 1600, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       <h1 className="text-2xl font-black mb-5" style={{ color: 'var(--text-primary)' }}>
         Messages
       </h1>
@@ -174,59 +171,47 @@ export function MessagesApp() {
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
+          height: 'calc(100vh - 180px)',
           minHeight: 500,
         }}
       >
         {/* Conversation list */}
         <div
           className={`${selectedId ? 'hidden md:block' : 'block'} border-r overflow-y-auto flex flex-col`}
-          style={{ borderColor: 'var(--border-subtle)', maxHeight: 640 }}
+          style={{ borderColor: 'var(--border-subtle)' }}
         >
-          <div className="flex items-center gap-1.5 p-2.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-            {(['active', 'closed'] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setInboxFilter(f)}
-                className="flex-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition cursor-pointer"
-                style={
-                  inboxFilter === f
-                    ? { background: 'var(--accent-muted)', color: 'var(--text-accent)' }
-                    : { background: 'transparent', color: 'var(--text-tertiary)' }
-                }
-              >
-                {f === 'active' ? `Active (${activeConversations.length})` : `Closed (${closedConversations.length})`}
-              </button>
-            ))}
-          </div>
-
           {loadingConversations ? (
             <div className="p-6 text-center text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>
               Loading conversations…
             </div>
-          ) : visibleConversations.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {inboxFilter === 'active'
-                ? 'No active conversations. Requesting or receiving a hold on a marketplace card starts a thread here.'
-                : 'No closed conversations yet. Completed, cancelled, or rejected holds end up here.'}
+              No conversations yet. Requesting or receiving a hold on a marketplace card starts a thread here.
             </div>
           ) : (
-            visibleConversations.map((c) => (
+            conversations.map((c) => (
               <button
-                key={c.hold_request_id}
+                key={c.conversation_id}
                 type="button"
-                onClick={() => setSelectedId(c.hold_request_id)}
+                onClick={() => setSelectedId(c.conversation_id)}
                 className="w-full flex items-center gap-3 p-3.5 text-left border-b transition hover:bg-white/[0.03] cursor-pointer"
                 style={{
                   borderColor: 'var(--border-subtle)',
-                  background: selectedId === c.hold_request_id ? 'var(--accent-muted)' : undefined,
+                  background: selectedId === c.conversation_id ? 'var(--accent-muted)' : undefined,
                 }}
               >
-                <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border relative" style={{ borderColor: 'var(--border-subtle)' }}>
                   {c.image_path ? (
                     <img src={getCardImageUrl(c.image_path)} alt={c.card_name} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[9px] font-mono text-zinc-500">TCG</span>
+                  )}
+                  {c.has_open_request && (
+                    <span
+                      className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2"
+                      style={{ background: '#f59e0b', borderColor: 'var(--bg-surface)' }}
+                      title="Open hold request"
+                    />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -266,7 +251,7 @@ export function MessagesApp() {
           </div>
         )}
         {selectedId && (
-          <div className="flex flex-col" style={{ maxHeight: 640 }}>
+          <div className="flex flex-col min-h-0">
             <div className="flex items-center gap-2 p-3.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <button
                 type="button"
@@ -278,7 +263,7 @@ export function MessagesApp() {
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
                   {selected?.counterpart_name || 'Conversation'}
                 </div>
@@ -286,6 +271,11 @@ export function MessagesApp() {
                   {selected?.card_name}
                 </div>
               </div>
+              {selected?.has_open_request && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Open request
+                </span>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
@@ -299,6 +289,18 @@ export function MessagesApp() {
                 </div>
               ) : (
                 messages.map((m) => {
+                  if (m.message_type === 'system') {
+                    return (
+                      <div key={m.id} className="flex justify-center py-1">
+                        <span
+                          className="px-3 py-1.5 rounded-full text-[11px] font-semibold text-center"
+                          style={{ background: 'var(--bg-surface-2)', color: 'var(--text-tertiary)' }}
+                        >
+                          {m.body}
+                        </span>
+                      </div>
+                    );
+                  }
                   const mine = m.sender_id === profile.id;
                   return (
                     <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -325,14 +327,6 @@ export function MessagesApp() {
               <div ref={threadEndRef} />
             </div>
 
-            {selected && CLOSED_STATUSES.includes(selected.status) ? (
-              <div
-                className="p-3 border-t text-center text-[11px] font-semibold shrink-0"
-                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
-              >
-                This conversation is closed ({selected.status}) — no further messages can be sent.
-              </div>
-            ) : (
             <form onSubmit={handleSend} className="flex items-center gap-2 p-3 border-t shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
               <input
                 type="text"
@@ -351,7 +345,6 @@ export function MessagesApp() {
                 {sending ? '…' : 'Send'}
               </button>
             </form>
-            )}
           </div>
         )}
       </div>

@@ -212,6 +212,19 @@ CREATE TABLE IF NOT EXISTS public.hold_requests (
 ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS items JSONB;
 
+-- 12b. CONVERSATIONS (one persistent thread per buyer-seller pair. A new hold
+-- request between two people who have already talked reuses the same
+-- conversation instead of starting a fresh thread every time.)
+CREATE TABLE IF NOT EXISTS public.conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    buyer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    seller_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE (buyer_id, seller_id)
+);
+
+ALTER TABLE public.hold_requests ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES public.conversations(id) ON DELETE SET NULL;
+
 -- 13. USER COLLECTIONS TABLE (1 Row Per User JSONB Document)
 CREATE TABLE IF NOT EXISTS public.user_collections (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -220,15 +233,44 @@ CREATE TABLE IF NOT EXISTS public.user_collections (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 13b. HOLD REQUEST CHAT MESSAGES (basic buyer/seller chat, one thread per hold request)
+-- 13b. CONVERSATION MESSAGES (buyer/seller chat, scoped to the persistent
+-- conversation rather than any single hold request. hold_request_id is now
+-- optional context — a message may relate to one particular purchase, or be
+-- general chat with nothing currently pending. message_type distinguishes
+-- user-typed messages from auto-inserted purchase-event notices, whose
+-- structured details live in metadata (e.g. { action, card_name, price_huf }).
 CREATE TABLE IF NOT EXISTS public.hold_request_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    hold_request_id UUID NOT NULL REFERENCES public.hold_requests(id) ON DELETE CASCADE,
+    hold_request_id UUID REFERENCES public.hold_requests(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     body TEXT NOT NULL,
     read_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE public.hold_request_messages ALTER COLUMN hold_request_id DROP NOT NULL;
+ALTER TABLE public.hold_request_messages ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE;
+ALTER TABLE public.hold_request_messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(20) NOT NULL DEFAULT 'user';
+ALTER TABLE public.hold_request_messages ADD COLUMN IF NOT EXISTS metadata JSONB;
+
+-- Backfill: one conversation per distinct (buyer_id, seller_id) pair that has
+-- ever had a hold request, then stamp existing hold_requests and messages with
+-- it. Safe to re-run — every step only touches rows still missing a link.
+INSERT INTO public.conversations (buyer_id, seller_id)
+SELECT DISTINCT buyer_id, seller_id
+FROM public.hold_requests
+WHERE buyer_id IS NOT NULL
+ON CONFLICT (buyer_id, seller_id) DO NOTHING;
+
+UPDATE public.hold_requests hr
+SET conversation_id = c.id
+FROM public.conversations c
+WHERE hr.buyer_id = c.buyer_id AND hr.seller_id = c.seller_id AND hr.conversation_id IS NULL;
+
+UPDATE public.hold_request_messages m
+SET conversation_id = hr.conversation_id
+FROM public.hold_requests hr
+WHERE m.hold_request_id = hr.id AND m.conversation_id IS NULL AND hr.conversation_id IS NOT NULL;
 
 -- 14. DROP OBSOLETE LEGACY TABLES AND FUNCTIONS
 DROP TABLE IF EXISTS public.inventory_reservations CASCADE;
@@ -269,6 +311,10 @@ CREATE INDEX IF NOT EXISTS idx_hold_requests_status ON public.hold_requests(stat
 CREATE INDEX IF NOT EXISTS idx_user_collections_user_id ON public.user_collections(user_id);
 CREATE INDEX IF NOT EXISTS idx_hold_request_messages_hold_request_id ON public.hold_request_messages(hold_request_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_hold_request_messages_sender_id ON public.hold_request_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_buyer_id ON public.conversations(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_seller_id ON public.conversations(seller_id);
+CREATE INDEX IF NOT EXISTS idx_hold_requests_conversation_id ON public.hold_requests(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_hold_request_messages_conversation_id ON public.hold_request_messages(conversation_id, created_at);
 
 -- 16. ROW LEVEL SECURITY (RLS) POLICIES
 
@@ -285,6 +331,7 @@ ALTER TABLE public.seller_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hold_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hold_request_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 
 -- Games policies
 DROP POLICY IF EXISTS "Allow public read games" ON public.games;
@@ -375,36 +422,47 @@ CREATE POLICY "Users can update own collection" ON public.user_collections FOR U
 DROP POLICY IF EXISTS "Users can delete own collection" ON public.user_collections;
 CREATE POLICY "Users can delete own collection" ON public.user_collections FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
--- Hold request chat message policies: only the buyer and seller on a hold request
--- can see or write into its thread.
+-- Conversation policies: only its two participants can see it, and either one
+-- can create the row (find-or-create from the app on first contact).
+DROP POLICY IF EXISTS "Participants can view their conversations" ON public.conversations;
+CREATE POLICY "Participants can view their conversations" ON public.conversations FOR SELECT TO authenticated USING (
+    auth.uid() = buyer_id OR auth.uid() = seller_id
+);
+
+DROP POLICY IF EXISTS "Participants can create conversations" ON public.conversations;
+CREATE POLICY "Participants can create conversations" ON public.conversations FOR INSERT TO authenticated WITH CHECK (
+    auth.uid() = buyer_id OR auth.uid() = seller_id
+);
+
+-- Conversation message policies: only the two participants on a conversation can
+-- see or write into it. Unlike the old per-hold-request thread, a conversation is
+-- never locked once its current hold request closes — the relationship persists,
+-- so participants can always keep talking.
 DROP POLICY IF EXISTS "Participants can view messages" ON public.hold_request_messages;
 CREATE POLICY "Participants can view messages" ON public.hold_request_messages FOR SELECT TO authenticated USING (
     EXISTS (
-        SELECT 1 FROM public.hold_requests hr
-        WHERE hr.id = hold_request_messages.hold_request_id
-        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = hold_request_messages.conversation_id
+        AND (c.buyer_id = auth.uid() OR c.seller_id = auth.uid())
     )
 );
 
--- A closed hold request (completed/cancelled/rejected) has nothing left to arrange,
--- so its thread is locked to new messages at the database level, not just in the UI.
 DROP POLICY IF EXISTS "Participants can send messages" ON public.hold_request_messages;
 CREATE POLICY "Participants can send messages" ON public.hold_request_messages FOR INSERT TO authenticated WITH CHECK (
     auth.uid() = sender_id
     AND EXISTS (
-        SELECT 1 FROM public.hold_requests hr
-        WHERE hr.id = hold_request_messages.hold_request_id
-        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
-        AND hr.status NOT IN ('completed', 'cancelled', 'rejected')
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = hold_request_messages.conversation_id
+        AND (c.buyer_id = auth.uid() OR c.seller_id = auth.uid())
     )
 );
 
 DROP POLICY IF EXISTS "Participants can mark messages read" ON public.hold_request_messages;
 CREATE POLICY "Participants can mark messages read" ON public.hold_request_messages FOR UPDATE TO authenticated USING (
     EXISTS (
-        SELECT 1 FROM public.hold_requests hr
-        WHERE hr.id = hold_request_messages.hold_request_id
-        AND (hr.buyer_id = auth.uid() OR hr.seller_id = auth.uid())
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = hold_request_messages.conversation_id
+        AND (c.buyer_id = auth.uid() OR c.seller_id = auth.uid())
     )
 );
 

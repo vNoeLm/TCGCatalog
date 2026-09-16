@@ -27,6 +27,10 @@ export function SellerDashboardApp() {
   const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
   const [editQuantity, setEditQuantity] = useState<number>(1);
   const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
+  const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
+  const [bulkActionBusy, setBulkActionBusy] = useState(false);
+  const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
+  const [bulkPriceHuf, setBulkPriceHuf] = useState<number>(500);
 
   // Collection & Badges State
   const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
@@ -307,7 +311,7 @@ export function SellerDashboardApp() {
         },
         body: JSON.stringify({
           id: item.inventory_id,
-          price_huf: Math.max(50, editPriceHuf),
+          price_huf: Math.max(1, editPriceHuf),
           quantity: newQuantity,
         }),
       });
@@ -328,6 +332,95 @@ export function SellerDashboardApp() {
       showToast(e?.message || 'Error updating listing');
     } finally {
       setUpdatingListingId(null);
+    }
+  };
+
+  const toggleListingSelected = (id: string) => {
+    setSelectedListingIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedListingIds(prev => {
+      const allVisible = filteredListings.every(item => prev.has(item.inventory_id));
+      if (allVisible) return new Set();
+      return new Set(filteredListings.map(item => item.inventory_id));
+    });
+  };
+
+  const handleBulkUnlist = async () => {
+    const ids = Array.from(selectedListingIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Remove ${ids.length} selected listing${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+    setBulkActionBusy(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const targets = listings.filter(item => selectedListingIds.has(item.inventory_id));
+      const results = await Promise.all(ids.map(id =>
+        fetch(`/api/marketplace/listings?id=${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        }).then(res => ({ id, ok: res.ok }))
+      ));
+      const removedIds = new Set(results.filter(r => r.ok).map(r => r.id));
+      setListings(prev => prev.filter(item => !removedIds.has(item.inventory_id)));
+      targets.forEach(listing => {
+        if (removedIds.has(listing.inventory_id)) {
+          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(listing.quantity) || 0);
+        }
+      });
+      setSelectedListingIds(new Set());
+      window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      const failedCount = ids.length - removedIds.size;
+      showToast(failedCount > 0
+        ? `Removed ${removedIds.size} listings, ${failedCount} failed`
+        : `Removed ${removedIds.size} listing${removedIds.size === 1 ? '' : 's'}`);
+    } catch (e: any) {
+      showToast(e?.message || 'Error removing listings');
+    } finally {
+      setBulkActionBusy(false);
+    }
+  };
+
+  const handleBulkPriceChange = async () => {
+    const ids = Array.from(selectedListingIds);
+    if (ids.length === 0) return;
+    const safePrice = Math.max(1, bulkPriceHuf);
+
+    setBulkActionBusy(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const results = await Promise.all(ids.map(id =>
+        fetch('/api/marketplace/listings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ id, price_huf: safePrice }),
+        }).then(res => ({ id, ok: res.ok }))
+      ));
+      const succeededIds = new Set(results.filter(r => r.ok).map(r => r.id));
+      const succeededCount = succeededIds.size;
+      setListings(prev => prev.map(item =>
+        succeededIds.has(item.inventory_id) ? { ...item, price_huf: safePrice } : item
+      ));
+      setShowBulkPriceModal(false);
+      setSelectedListingIds(new Set());
+      window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      const failedCount = ids.length - succeededCount;
+      showToast(failedCount > 0
+        ? `Updated ${succeededCount} listings, ${failedCount} failed`
+        : `Updated ${succeededCount} listing${succeededCount === 1 ? '' : 's'} to ${safePrice.toLocaleString()} Ft`);
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating listings');
+    } finally {
+      setBulkActionBusy(false);
     }
   };
 
@@ -1051,10 +1144,61 @@ export function SellerDashboardApp() {
               )}
             </div>
 
+            {filteredListings.length > 0 && (
+              <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none" style={{ color: 'var(--text-tertiary)' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredListings.length > 0 && filteredListings.every(item => selectedListingIds.has(item.inventory_id))}
+                  onChange={toggleSelectAllVisible}
+                  className="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
+                />
+                Select all
+              </label>
+            )}
+
             <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
               {filteredListings.length} items
             </div>
           </div>
+
+          {selectedListingIds.size > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-2.5 mb-4 p-3 rounded-xl border"
+              style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border, var(--border))' }}
+            >
+              <span className="text-xs font-black" style={{ color: 'var(--text-accent)' }}>
+                {selectedListingIds.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const first = listings.find(item => selectedListingIds.has(item.inventory_id));
+                  setBulkPriceHuf(first?.price_huf || 500);
+                  setShowBulkPriceModal(true);
+                }}
+                disabled={bulkActionBusy}
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 disabled:opacity-50"
+              >
+                Set Price…
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkUnlist}
+                disabled={bulkActionBusy}
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+              >
+                {bulkActionBusy ? '…' : 'Unlist Selected'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedListingIds(new Set())}
+                disabled={bulkActionBusy}
+                className="px-3 py-1.5 text-[11px] font-semibold rounded-lg cursor-pointer text-zinc-400 hover:text-white transition disabled:opacity-50"
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           {loadingListings ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
@@ -1092,6 +1236,13 @@ export function SellerDashboardApp() {
                   style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                 >
                   <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedListingIds.has(item.inventory_id)}
+                      onChange={() => toggleListingSelected(item.inventory_id)}
+                      className="w-4 h-4 mt-1 shrink-0 accent-emerald-500 cursor-pointer"
+                      aria-label={`Select ${item.name}`}
+                    />
                     <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
                       {item.image_path ? (
                         <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
@@ -1818,9 +1969,9 @@ export function SellerDashboardApp() {
                 </label>
                 <input
                   type="number"
-                  min="50"
+                  min="1"
                   value={editPriceHuf}
-                  onChange={(e) => setEditPriceHuf(Math.max(50, parseInt(e.target.value, 10) || 50))}
+                  onChange={(e) => setEditPriceHuf(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
                   style={{
                     background: 'var(--bg-input)',
@@ -1865,6 +2016,69 @@ export function SellerDashboardApp() {
                 className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
               >
                 {updatingListingId === editingListing.inventory_id ? '…' : ('Save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Price Edit Modal */}
+      {showBulkPriceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className="w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
+                Set Price for {selectedListingIds.size} Listings
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowBulkPriceModal(false)}
+                className="text-xs text-zinc-400 hover:text-white cursor-pointer"
+                aria-label="Close"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                New Price (HUF), applied to all selected
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={bulkPriceHuf}
+                onChange={(e) => setBulkPriceHuf(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
+                style={{
+                  background: 'var(--bg-input)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkPriceModal(false)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkPriceChange}
+                disabled={bulkActionBusy}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
+              >
+                {bulkActionBusy ? '…' : 'Apply'}
               </button>
             </div>
           </div>

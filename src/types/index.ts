@@ -238,21 +238,27 @@ export interface HoldRequestItem {
 
 export interface ChatMessage {
   id: string;
-  hold_request_id: string;
+  conversation_id: string;
+  /** The specific purchase this message relates to, if any — null for general chat. */
+  hold_request_id: string | null;
   sender_id: string;
   body: string;
+  /** 'system' messages are auto-inserted purchase-lifecycle events (requested/held/sold/etc). */
+  message_type: 'user' | 'system';
+  metadata: Record<string, any> | null;
   read_at: string | null;
   created_at: string;
 }
 
 export interface ConversationSummary {
-  hold_request_id: string;
+  conversation_id: string;
   counterpart_id: string;
   counterpart_name: string;
   card_name: string;
   image_path?: string | null;
-  status: string;
   is_seller: boolean;
+  /** True if the most recent hold request between these two is still pending/held. */
+  has_open_request: boolean;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;

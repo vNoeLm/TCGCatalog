@@ -246,11 +246,11 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
                     
                     <div className="w-28">
                       <label className="text-[9px] uppercase text-zinc-500 font-bold px-1">Price (HUF)</label>
-                      <input 
+                      <input
                         type="number"
-                        min="50"
+                        min="1"
                         value={c.priceHuf}
-                        onChange={(e) => updatePrice(c.tempId, parseInt(e.target.value) || 50)}
+                        onChange={(e) => updatePrice(c.tempId, parseInt(e.target.value) || 1)}
                         className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-emerald-400 font-mono font-bold"
                         disabled={!c.selected}
                       />
