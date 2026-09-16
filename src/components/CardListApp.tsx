@@ -101,6 +101,7 @@ export function CardListApp() {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const lastLoggedSearchRef = useRef<string>('');
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -469,6 +470,16 @@ export function CardListApp() {
     setPage(1);
 
     const timer = setTimeout(async () => {
+      const trimmedQuery = searchQuery.trim();
+      if (trimmedQuery.length >= 2 && trimmedQuery !== lastLoggedSearchRef.current) {
+        lastLoggedSearchRef.current = trimmedQuery;
+        fetch('/api/analytics/search-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmedQuery, game: filters.game, context: 'catalog' }),
+        }).catch(() => {});
+      }
+
       const { data } = await fetchCardsCatalog(filters, searchQuery);
       if (isMounted) {
         setCards(data || []);

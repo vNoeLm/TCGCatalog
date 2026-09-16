@@ -62,6 +62,7 @@ export function MarketplaceApp() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
 
   const sortRef = useRef<HTMLDivElement>(null);
+  const lastLoggedSearchRef = useRef<string>('');
 
   useEffect(() => {
     // Global Game Sync
@@ -149,6 +150,15 @@ export function MarketplaceApp() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const trimmedQuery = searchQuery.trim();
+      if (trimmedQuery.length >= 2 && trimmedQuery !== lastLoggedSearchRef.current) {
+        lastLoggedSearchRef.current = trimmedQuery;
+        fetch('/api/analytics/search-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmedQuery, game: filters.game, context: 'marketplace' }),
+        }).catch(() => {});
+      }
       fetchMarketplaceListings();
     }, 150);
 

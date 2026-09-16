@@ -272,6 +272,19 @@ SET conversation_id = hr.conversation_id
 FROM public.hold_requests hr
 WHERE m.hold_request_id = hr.id AND m.conversation_id IS NULL AND hr.conversation_id IS NOT NULL;
 
+-- 13c. SEARCH EVENTS (anonymous — no user identity is stored) for internal
+-- "high demand" signals: which cards get searched for often, whether or not
+-- the searching buyer's seller has one listed. card_id is a best-effort match
+-- resolved server-side at insert time so aggregation is a plain GROUP BY.
+CREATE TABLE IF NOT EXISTS public.search_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query TEXT NOT NULL,
+    game VARCHAR(50),
+    context VARCHAR(20) NOT NULL DEFAULT 'catalog',
+    card_id UUID REFERENCES public.cards(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 14. DROP OBSOLETE LEGACY TABLES AND FUNCTIONS
 DROP TABLE IF EXISTS public.inventory_reservations CASCADE;
 DROP TABLE IF EXISTS public.order_items CASCADE;
@@ -315,6 +328,8 @@ CREATE INDEX IF NOT EXISTS idx_conversations_buyer_id ON public.conversations(bu
 CREATE INDEX IF NOT EXISTS idx_conversations_seller_id ON public.conversations(seller_id);
 CREATE INDEX IF NOT EXISTS idx_hold_requests_conversation_id ON public.hold_requests(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_hold_request_messages_conversation_id ON public.hold_request_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_card_id ON public.search_events(card_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_created_at ON public.search_events(created_at);
 
 -- 16. ROW LEVEL SECURITY (RLS) POLICIES
 
@@ -332,6 +347,7 @@ ALTER TABLE public.hold_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hold_request_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.search_events ENABLE ROW LEVEL SECURITY;
 
 -- Games policies
 DROP POLICY IF EXISTS "Allow public read games" ON public.games;
@@ -465,6 +481,13 @@ CREATE POLICY "Participants can mark messages read" ON public.hold_request_messa
         AND (c.buyer_id = auth.uid() OR c.seller_id = auth.uid())
     )
 );
+
+-- Search events are written by the search-event API route using the service role
+-- (which bypasses RLS), and read back only through server-side aggregation — so
+-- there is deliberately no public SELECT policy here; individual search queries
+-- are never exposed to any client, anon or authenticated.
+DROP POLICY IF EXISTS "Anyone can log a search event" ON public.search_events;
+CREATE POLICY "Anyone can log a search event" ON public.search_events FOR INSERT TO public WITH CHECK (true);
 
 -- 17. AUTH SYNC TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
