@@ -193,9 +193,16 @@ export function DeckCatalog({
     return total;
   }, [cards, deck]);
 
+  // Legends/Champions only ever occupy a single deck slot no matter how many
+  // prints of that name exist, so owning 2 art variants still means a max of 1
+  // usable copy — everything else keeps the normal 3-copy deckbuilding cap.
+  const getMaxCopiesAllowed = (card: CatalogCard): number => {
+    return (card.card_type === 'Legend' || card.card_type === 'Champion') ? 1 : 3;
+  };
+
   const handleAddCard = useCallback((card: CatalogCard) => {
     if (onlyOwned && card.card_type !== 'Rune') {
-      const owned = getOwnedCopies(card.name);
+      const owned = Math.min(getOwnedCopies(card.name), getMaxCopiesAllowed(card));
       const inDeck = getDeckCopies(card.name);
       if (inDeck >= owned) {
         alert(`You only own ${owned} cop${owned === 1 ? 'y' : 'ies'} of "${card.name}". Turn off "Owned Only" to add more than you have.`);
@@ -564,14 +571,18 @@ export function DeckCatalog({
             boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 16px ${theme.accentGlow}`,
           }}>
 
-            {/* Owned Only Filter Switch */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 14px',
-              background: theme.inputBg,
-              borderRadius: 10,
-              border: `1px solid ${theme.inputBorder}`,
-            }}>
+            {/* Owned Only Filter Switch — whole row toggles it, not just the pill */}
+            <div
+              onClick={() => setOnlyOwned(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: theme.inputBg,
+                borderRadius: 10,
+                border: `1px solid ${theme.inputBorder}`,
+                cursor: 'pointer',
+              }}
+            >
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
                   Only Show Owned Cards
@@ -581,13 +592,14 @@ export function DeckCatalog({
                 </div>
               </div>
               <button
-                onClick={() => setOnlyOwned(o => !o)}
+                onClick={(e) => { e.stopPropagation(); setOnlyOwned(o => !o); }}
                 style={{
                   padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, cursor: 'pointer',
                   background: onlyOwned ? theme.accent : 'transparent',
                   border: `1px solid ${onlyOwned ? theme.accent : theme.inputBorder}`,
                   color: onlyOwned ? theme.textOnAccent : 'var(--text-muted)',
                   transition: 'all 0.15s',
+                  flexShrink: 0,
                 }}
               >
                 {onlyOwned ? 'ON' : 'OFF'}
@@ -850,7 +862,7 @@ export function DeckCatalog({
                         </div>
                       );
                     }
-                    const ownedQty = getOwnedCopies(card.name);
+                    const ownedQty = Math.min(getOwnedCopies(card.name), getMaxCopiesAllowed(card));
                     const deckQty = getDeckCopies(card.name);
                     const atCap = deckQty >= ownedQty;
                     return (
