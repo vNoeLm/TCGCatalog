@@ -9,7 +9,7 @@ import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
 import { adjustLocalCollection } from '../../lib/collectionClient';
-import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
+import type { UserProfile, Order, SellerReview, QuickSaleRule, CatalogCard } from '../../types';
 
 export function SellerDashboardApp() {
   const { theme: effectiveTheme } = useSiteTheme();
@@ -23,6 +23,7 @@ export function SellerDashboardApp() {
   const [loadingListings, setLoadingListings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [prefilledListCard, setPrefilledListCard] = useState<CatalogCard | null>(null);
   const [editingListing, setEditingListing] = useState<any | null>(null);
   const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
   const [editQuantity, setEditQuantity] = useState<number>(1);
@@ -37,6 +38,9 @@ export function SellerDashboardApp() {
   const [platformLowestByCard, setPlatformLowestByCard] = useState<Map<string, number>>(new Map());
   // Search-demand count (last 7 days) per card_id, platform-wide.
   const [demandByCard, setDemandByCard] = useState<Record<string, number>>({});
+  // High-demand cards (platform-wide, last 14 days) this seller doesn't have listed.
+  const [inventorySuggestions, setInventorySuggestions] = useState<any[]>([]);
+  const [matchingLowestPrices, setMatchingLowestPrices] = useState(false);
 
   // Collection & Badges State
   const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
@@ -430,6 +434,61 @@ export function SellerDashboardApp() {
     }
   };
 
+  // One-click fix for every undercut listing: drop each one's price to tie the
+  // current lowest active price for that same card elsewhere on the platform.
+  // Unlike handleBulkPriceChange, every listing gets its OWN target price.
+  const handleMatchLowestPrices = async () => {
+    if (undercutListings.length === 0) return;
+    if (!confirm(`Match the lowest platform price on ${undercutListings.length} undercut listing${undercutListings.length === 1 ? '' : 's'}?`)) return;
+
+    setMatchingLowestPrices(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const targets = undercutListings.map(item => ({ id: item.inventory_id, price: getPlatformLowest(item) as number }));
+      const results = await Promise.all(targets.map(t =>
+        fetch('/api/marketplace/listings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ id: t.id, price_huf: t.price }),
+        }).then(res => ({ id: t.id, price: t.price, ok: res.ok }))
+      ));
+      const succeeded = new Map(results.filter(r => r.ok).map(r => [r.id, r.price]));
+      setListings(prev => prev.map(item =>
+        succeeded.has(item.inventory_id) ? { ...item, price_huf: succeeded.get(item.inventory_id) } : item
+      ));
+      window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      const failedCount = targets.length - succeeded.size;
+      showToast(failedCount > 0
+        ? `Matched ${succeeded.size} listings, ${failedCount} failed`
+        : `Matched the lowest price on ${succeeded.size} listing${succeeded.size === 1 ? '' : 's'}`);
+    } catch (e: any) {
+      showToast(e?.message || 'Error matching prices');
+    } finally {
+      setMatchingLowestPrices(false);
+    }
+  };
+
+  const openListModalForSuggestion = (suggestion: any) => {
+    setPrefilledListCard({
+      id: suggestion.id,
+      card_number: suggestion.card_number,
+      name: suggestion.name,
+      rarity: suggestion.rarity,
+      card_type: suggestion.card_type,
+      cost: suggestion.cost,
+      image_path: suggestion.image_path,
+      set_id: suggestion.set_id,
+      set_name: suggestion.set_name,
+      set_code: suggestion.set_code,
+      sets: suggestion.sets,
+      game: suggestion.game,
+    } as CatalogCard);
+    setIsListModalOpen(true);
+  };
+
   // Hold Request Management Actions
   const handleHoldAction = async (requestId: string, action: 'hold' | 'confirm_sale' | 'release' | 'reject') => {
     const confirmPrompt =
@@ -598,6 +657,20 @@ export function SellerDashboardApp() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [activeListings]);
+
+  // High-demand cards platform-wide (last 14 days) this seller doesn't already have listed.
+  useEffect(() => {
+    if (!profile) return;
+    const excludeIds = [...new Set(activeListings.map(item => item.card_id).filter(Boolean))];
+    let cancelled = false;
+    fetch(`/api/analytics/top-demand?exclude_card_ids=${excludeIds.join(',')}&days=14&limit=6`)
+      .then(res => res.json())
+      .then(json => {
+        if (!cancelled && json?.success) setInventorySuggestions(json.data || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeListings, profile]);
 
   const getPlatformLowest = (item: any): number | null => {
     const key = `${item.card_id}::${item.is_foil ? 'foil' : 'normal'}`;
@@ -1005,6 +1078,16 @@ export function SellerDashboardApp() {
                 ? `${undercutListings.length} card${undercutListings.length === 1 ? '' : 's'} undercut by other sellers`
                 : "You're the lowest (or tied) on everything!"}
           </div>
+          {undercutListings.length > 0 && (
+            <button
+              type="button"
+              onClick={handleMatchLowestPrices}
+              disabled={matchingLowestPrices}
+              className="mt-2.5 w-full px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 disabled:opacity-50"
+            >
+              {matchingLowestPrices ? 'Matching…' : 'Match Lowest on Platform'}
+            </button>
+          )}
         </div>
 
         {/* 4. Pipeline & Action Items */}
@@ -1838,6 +1921,49 @@ export function SellerDashboardApp() {
               </table>
             </div>
           </div>
+
+          {/* Inventory Suggestions — high-demand cards this seller doesn't have listed */}
+          {inventorySuggestions.length > 0 && (
+            <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
+                Inventory Suggestions
+              </h3>
+              <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
+                Cards searched for often on this platform in the last 14 days that you don't currently have listed.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {inventorySuggestions.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-3 rounded-xl border flex items-center gap-3"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                  >
+                    <div className="w-9 h-12 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
+                      {s.image_path ? (
+                        <img src={getCardImageUrl(s.image_path)} alt={s.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{s.name}</div>
+                      <div className="text-[10px] text-zinc-400 font-mono truncate">{s.card_number} • {s.rarity}</div>
+                      <div className="text-[10px] font-bold text-orange-300 mt-0.5">
+                        Searched {s.search_count}x
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openListModalForSuggestion(s)}
+                      className="shrink-0 px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950"
+                    >
+                      + List
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2141,13 +2267,14 @@ export function SellerDashboardApp() {
       {isListModalOpen && (
         <ListCardModal
           isOpen={isListModalOpen}
-          onClose={() => setIsListModalOpen(false)}
+          initialCard={prefilledListCard}
+          onClose={() => { setIsListModalOpen(false); setPrefilledListCard(null); }}
           onSuccess={() => {
             setIsListModalOpen(false);
+            setPrefilledListCard(null);
             loadSellerListings();
             showToast('Card successfully listed!');
           }}
-          
         />
       )}
     </div>
