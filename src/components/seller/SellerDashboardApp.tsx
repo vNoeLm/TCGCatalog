@@ -31,6 +31,10 @@ export function SellerDashboardApp() {
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
   const [bulkPriceHuf, setBulkPriceHuf] = useState<number>(500);
+  // Lowest active price per card (across every seller on the platform), keyed by
+  // `${card_id}::${'foil'|'normal'}` — powers the "Platform Price Health" KPI and
+  // the per-listing undercut badge in the Stats table.
+  const [platformLowestByCard, setPlatformLowestByCard] = useState<Map<string, number>>(new Map());
 
   // Collection & Badges State
   const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
@@ -539,21 +543,65 @@ export function SellerDashboardApp() {
     }, 0);
   }, [sellerOrders]);
 
-  const totalViews = useMemo(() => {
-    return listings.reduce((sum, item) => sum + (item.views || 0), 0);
-  }, [listings]);
-
   const activeListings = useMemo(() => {
     return listings.filter(it => it.status !== 'Sold');
-  }, [listings]);
-
-  const totalClicks = useMemo(() => {
-    return listings.reduce((sum, item) => sum + (item.clicks || 0), 0);
   }, [listings]);
 
   const totalListedValueHuf = useMemo(() => {
     return activeListings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity ?? 1)), 0);
   }, [activeListings]);
+
+  // Fetch the lowest active price per (card, foil/normal) across the whole platform,
+  // for every card this seller currently has listed — the `inventory` table's active
+  // rows are publicly readable, so this needs no new API route.
+  useEffect(() => {
+    const cardIds = [...new Set(activeListings.map(item => item.card_id).filter(Boolean))];
+    if (cardIds.length === 0) {
+      setPlatformLowestByCard(new Map());
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('inventory')
+      .select('card_id, is_foil, price_huf')
+      .in('card_id', cardIds)
+      .eq('status', 'In Stock')
+      .gt('quantity', 0)
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        const map = new Map<string, number>();
+        data.forEach((row: any) => {
+          const key = `${row.card_id}::${row.is_foil ? 'foil' : 'normal'}`;
+          const cur = map.get(key);
+          if (cur === undefined || row.price_huf < cur) map.set(key, row.price_huf);
+        });
+        setPlatformLowestByCard(map);
+      });
+    return () => { cancelled = true; };
+  }, [activeListings]);
+
+  const getPlatformLowest = (item: any): number | null => {
+    const key = `${item.card_id}::${item.is_foil ? 'foil' : 'normal'}`;
+    return platformLowestByCard.get(key) ?? null;
+  };
+
+  // A listing is "undercut" when another seller has the same card active for less.
+  const undercutListings = useMemo(() => {
+    return activeListings.filter(item => {
+      const lowest = getPlatformLowest(item);
+      return lowest !== null && item.price_huf > lowest;
+    });
+  }, [activeListings, platformLowestByCard]);
+
+  const priceHealthPct = useMemo(() => {
+    if (activeListings.length === 0) return 100;
+    const competitive = activeListings.length - undercutListings.length;
+    return Math.round((competitive / activeListings.length) * 100);
+  }, [activeListings.length, undercutListings.length]);
+
+  const avgOrderValueHuf = completedSalesCount > 0 ? Math.round(totalRevenueHuf / completedSalesCount) : 0;
+  const pendingOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'pending').length, [holdRequests]);
+  const heldOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'held').length, [holdRequests]);
 
   const averageRating = useMemo<number | null>(() => {
     if (sellerReviews.length === 0) return null;
@@ -872,10 +920,10 @@ export function SellerDashboardApp() {
         </div>
       </div>
 
-      {/* ─── Performance Metrics Grid ───────────────────────────────── */}
-      {/* Row 1: business stats — earnings, sales made (tier basis), cards sold, active listings */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        {/* Total Revenue */}
+      {/* ─── KPI Row: 4 consolidated, actionable cards instead of 7 fragmented ones.
+          Rating already lives in the profile header above, so it isn't repeated here. ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {/* 1. Net Sales & Volume */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
@@ -884,61 +932,18 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Total Earnings
+              Net Sales & Volume
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-emerald-400 truncate">
-            {totalRevenueHuf.toLocaleString()} Ft
+            {totalRevenueHuf.toLocaleString()} Ft <span className="text-xs font-normal text-zinc-400">({completedSalesCount} orders)</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {completedSalesCount} orders
+            {itemsSold} cards sold · Avg order: {avgOrderValueHuf.toLocaleString()} Ft
           </div>
         </div>
 
-        {/* Sales Made — distinct completed transactions, gates seller tier */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Sales Made
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-indigo-300 truncate">
-            {completedSalesCount} <span className="text-xs font-normal text-zinc-400">txns</span>
-          </div>
-          <div className="text-[10px] mt-1 font-semibold flex items-center gap-1" style={{ color: sellerTier.color }}>
-            <BadgeIconSvg iconType={sellerTier.iconType} className="w-3.5 h-3.5" />
-            <span>{sellerTier.nameEn}</span>
-          </div>
-        </div>
-
-        {/* Cards Sold — total units, informational only */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Cards Sold
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-amber-400 truncate">
-            {itemsSold} <span className="text-xs font-normal text-zinc-400">pcs</span>
-          </div>
-          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {completedSalesCount > 0 ? (itemsSold / completedSalesCount).toFixed(1) : '0'} / sale avg
-          </div>
-        </div>
-
-        {/* Active Listings */}
+        {/* 2. Active Inventory */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
@@ -948,80 +953,59 @@ export function SellerDashboardApp() {
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Active Listings
+              Active Inventory
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
             {activeListings.length} <span className="text-xs font-normal text-zinc-400">pcs</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {totalListedValueHuf.toLocaleString()} Ft value
+            Listed Value: {totalListedValueHuf.toLocaleString()} Ft
           </div>
         </div>
-      </div>
 
-      {/* Row 2: engagement stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {/* Total Views */}
+        {/* 3. Platform Price Health — how competitive this seller's prices are vs. everyone else's */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(34, 211, 238, 0.15)', color: '#22d3ee' }}>
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: undercutListings.length > 0 ? 'rgba(251, 191, 36, 0.15)' : 'rgba(52, 211, 153, 0.15)', color: undercutListings.length > 0 ? '#fbbf24' : '#34d399' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
+                <path d="M12 20V10M18 20V4M6 20v-4" />
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Total Views
+              Platform Price Health
             </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-cyan-400 truncate">
-            {totalViews}
+          <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+            {priceHealthPct}% <span className="text-xs font-normal text-zinc-400">Lowest Price</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {activeListings.length > 0 ? (totalViews / activeListings.length).toFixed(1) : (listings.length > 0 ? (totalViews / listings.length).toFixed(1) : '0')} / post
+            {activeListings.length === 0
+              ? 'No active listings yet'
+              : undercutListings.length > 0
+                ? `${undercutListings.length} card${undercutListings.length === 1 ? '' : 's'} undercut by other sellers`
+                : "You're the lowest (or tied) on everything!"}
           </div>
         </div>
 
-        {/* Total Clicks */}
+        {/* 4. Pipeline & Action Items */}
         <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(244, 114, 182, 0.15)', color: '#f472b6' }}>
+            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: pendingOnlyCount > 0 ? 'rgba(244, 114, 182, 0.15)' : 'rgba(129, 140, 248, 0.15)', color: pendingOnlyCount > 0 ? '#f472b6' : '#818cf8' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
               </svg>
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Total Clicks
+              Pipeline & Action Items
             </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-pink-400 truncate">
-            {totalClicks}
+          <div className={`text-lg sm:text-xl font-black truncate ${pendingOnlyCount > 0 ? 'text-pink-400' : 'text-indigo-300'}`}>
+            {pendingOnlyCount} <span className="text-xs font-normal text-zinc-400">Pending</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : '0'}% CTR
-          </div>
-        </div>
-
-        {/* Seller Rating */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(252, 211, 77, 0.15)', color: '#fcd34d' }}>
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Rating
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-amber-300 truncate">
-            {averageRating !== null ? averageRating.toFixed(1) : '—'}
-          </div>
-          <div className="text-[10px] mt-1 text-zinc-400">
-            {sellerReviews.length > 0
-              ? `${sellerReviews.length} ${'buyer reviews'}`
-              : ('No ratings yet')}
+            {pendingOnlyCount} order{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
           </div>
         </div>
       </div>
@@ -1695,10 +1679,10 @@ export function SellerDashboardApp() {
         <div className="space-y-6">
           <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
             <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
-              {'Listing Engagement & Click Analysis'}
+              {'Listing Performance & Price Competitiveness'}
             </h3>
             <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
-              Track which card listings receive the highest engagement and click-through rates.
+              Engagement per listing, and how your price compares to the lowest active price for the same card elsewhere on the platform.
             </p>
 
             <div className="overflow-x-auto">
@@ -1706,7 +1690,8 @@ export function SellerDashboardApp() {
                 <thead>
                   <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
                     <th className="py-2.5 px-3">Card</th>
-                    <th className="py-2.5 px-3">Price</th>
+                    <th className="py-2.5 px-3">Your Price</th>
+                    <th className="py-2.5 px-3">Lowest on Site</th>
                     <th className="py-2.5 px-3 text-center">
                       <span className="inline-flex items-center gap-1 justify-center">
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1731,7 +1716,7 @@ export function SellerDashboardApp() {
                 <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {activeListings.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      <td colSpan={7} className="py-8 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         No active listings yet — list a card to start tracking views and clicks.
                       </td>
                     </tr>
@@ -1744,6 +1729,10 @@ export function SellerDashboardApp() {
                         const clicks = item.clicks || 0;
                         const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
                         const displayStatus = item.status === 'On Hold' || item.status === 'Reserved' ? 'On Hold' : 'In Stock';
+                        const lowest = getPlatformLowest(item);
+                        const isUndercut = lowest !== null && item.price_huf > lowest;
+                        const daysListed = item.created_at ? (Date.now() - new Date(item.created_at).getTime()) / 86400000 : 0;
+                        const isStale = views === 0 && clicks === 0 && daysListed > 30;
                         return (
                           <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
                             <td className="py-3 px-3">
@@ -1764,6 +1753,17 @@ export function SellerDashboardApp() {
                             <td className="py-3 px-3 font-mono font-bold text-emerald-400">
                               {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                             </td>
+                            <td className="py-3 px-3 font-mono">
+                              {lowest === null ? (
+                                <span className="text-zinc-500">—</span>
+                              ) : isUndercut ? (
+                                <span className="font-bold text-amber-300">{lowest.toLocaleString()} Ft</span>
+                              ) : (
+                                <span className="font-bold text-zinc-300">
+                                  {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-emerald-400">(Lowest)</span>
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3 px-3 text-center font-mono font-bold text-cyan-400">
                               {views}
                             </td>
@@ -1778,15 +1778,26 @@ export function SellerDashboardApp() {
                               </span>
                             </td>
                             <td className="py-3 px-3 text-right">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                  displayStatus === 'On Hold'
-                                    ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
-                                    : 'text-emerald-400 bg-emerald-950/40 border-emerald-500/40'
-                                }`}
-                              >
-                                {displayStatus}
-                              </span>
+                              <div className="flex flex-col items-end gap-1">
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                    displayStatus === 'On Hold'
+                                      ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
+                                      : 'text-emerald-400 bg-emerald-950/40 border-emerald-500/40'
+                                  }`}
+                                >
+                                  {displayStatus}
+                                </span>
+                                {isUndercut ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-rose-300 bg-rose-950/40 border-rose-500/40">
+                                    Undercut by {(item.price_huf - (lowest as number)).toLocaleString()} Ft
+                                  </span>
+                                ) : isStale ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-zinc-400 bg-zinc-800/60 border-zinc-700">
+                                    Stale ({Math.floor(daysListed)}d)
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         );
