@@ -50,7 +50,6 @@ export async function loadUserCollection(userId?: string): Promise<Record<string
 
 /**
  * Saves a user's full collection dictionary to the 1-row-per-user user_collections table.
- * Also keeps user_metadata.saved_collection synchronized as an instant backup.
  */
 export async function saveUserCollection(
   collection: Record<string, number>
@@ -60,42 +59,18 @@ export async function saveUserCollection(
     return { success: false, error: new Error('User not authenticated') };
   }
 
-  let tableSuccess = false;
-  let tableError: any = null;
+  // Save to public.user_collections table. This used to also be mirrored into
+  // auth user_metadata as a backup, but that embeds the entire collection into
+  // every JWT Supabase issues for this user — for large collections that grows
+  // the access token past the size reverse proxies allow in a request header,
+  // breaking every authenticated request (494 Request Header Too Large).
+  const { error } = await supabase
+    .from('user_collections')
+    .upsert({
+      user_id: user.id,
+      cards: collection,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
 
-  // 1. Save to public.user_collections table
-  try {
-    const { error } = await supabase
-      .from('user_collections')
-      .upsert({
-        user_id: user.id,
-        cards: collection,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
-
-    if (!error) {
-      tableSuccess = true;
-    } else {
-      tableError = error;
-    }
-  } catch (e: any) {
-    tableError = e;
-  }
-
-  // 2. Sync to auth user_metadata for redundancy and offline token caching
-  try {
-    await supabase.auth.updateUser({
-      data: {
-        saved_collection: collection,
-        collection_updated_at: new Date().toISOString(),
-      },
-    });
-  } catch (e) {
-    // Non-critical if user_metadata update fails
-  }
-
-  return {
-    success: tableSuccess || !tableError,
-    error: tableSuccess ? null : tableError,
-  };
+  return { success: !error, error };
 }
