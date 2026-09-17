@@ -111,6 +111,7 @@ export function CardListApp() {
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -904,12 +905,50 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  // A self-describing backup: card names/numbers/sets ride alongside the raw ids so the
+  // file stays readable and can still be matched back up (via resolveCard) if ids ever
+  // don't line up on re-import, instead of being an opaque id -> quantity blob.
+  const buildCollectionBackupObject = () => {
+    const sourceCards = allCards.length ? allCards : cards;
+    const cardMap = new Map<string, CatalogCard>();
+    sourceCards.forEach(c => cardMap.set(c.id, c));
+
+    const entries: any[] = [];
+    let totalCopies = 0;
+    Object.entries(collection).forEach(([key, qty]) => {
+      if (!qty || qty <= 0) return;
+      const isFoil = key.endsWith('_foil');
+      const baseId = isFoil ? key.replace(/_foil$/, '') : key;
+      const card = cardMap.get(baseId);
+      totalCopies += qty;
+      entries.push({
+        id: baseId,
+        name: card?.name || null,
+        cardNumber: card?.card_number || null,
+        setName: card?.sets?.name || card?.set_name || null,
+        setCode: card?.sets?.code || card?.set_code || null,
+        foil: isFoil,
+        qty,
+      });
+    });
+
+    return {
+      title: 'TCG Vault - My Collection',
+      version: 1,
+      game: filters.game || 'riftbound',
+      exportedAt: new Date().toISOString(),
+      totalCopies,
+      uniqueCards: entries.length,
+      cards: entries,
+    };
+  };
+
   const handleDownloadJson = () => {
     if (uniqueOwnedKeys.length === 0) {
       showToast('Collection is empty.');
       return;
     }
-    const data = JSON.stringify(collection, null, 2);
+    const data = JSON.stringify(buildCollectionBackupObject(), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1133,13 +1172,44 @@ export function CardListApp() {
     }
   };
 
-  const handleImportCollection = () => {
-    if (!importText.trim()) return;
+  const handleImportCollection = (rawContent?: string) => {
+    const content = rawContent ?? importText;
+    if (!content.trim()) return;
 
-    // 1. Try parsing as JSON (array or quantity object)
+    // 1. Try parsing as JSON (array, quantity object, or a full backup file)
     try {
-      const parsed = JSON.parse(importText.trim());
-      if (Array.isArray(parsed)) {
+      const parsed = JSON.parse(content.trim());
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.cards)) {
+        // Full backup format (see buildCollectionBackupObject): resolve primarily by id,
+        // falling back to name/card number in case ids don't line up (e.g. a backup
+        // taken from a different environment).
+        const sourceCards = allCards.length ? allCards : cards;
+        const idSet = new Set(sourceCards.map(c => c.id));
+        const next = { ...collection };
+        let countAdded = 0;
+        parsed.cards.forEach((entry: any) => {
+          if (!entry) return;
+          const qty = typeof entry.qty === 'number' ? entry.qty : parseInt(String(entry.qty), 10);
+          if (!qty || qty <= 0) return;
+          let cardId: string | null = typeof entry.id === 'string' && idSet.has(entry.id) ? entry.id : null;
+          if (!cardId) {
+            const matched = resolveCard(entry.cardNumber || entry.name || entry.id || '', sourceCards);
+            if (matched) cardId = matched.id;
+          }
+          if (!cardId) return;
+          const key = entry.foil ? `${cardId}_foil` : cardId;
+          next[key] = (next[key] || 0) + qty;
+          countAdded += qty;
+        });
+        setCollection(next);
+        localStorage.setItem("tcg_user_collection", JSON.stringify(next));
+        localStorage.setItem("tcg_collection", JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+        setShowImportModal(false);
+        setImportText("");
+        showToast(`✓ Successfully imported ${countAdded} cards from backup file!`);
+        return;
+      } else if (Array.isArray(parsed)) {
         const next = { ...collection };
         parsed.forEach((id: string) => {
           if (typeof id === 'string' && id.trim()) {
@@ -1179,7 +1249,7 @@ export function CardListApp() {
     }
 
     // 2. Parse as text list line-by-line with multiplier support (e.g. 3x Card Name)
-    const lines = importText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//') && !l.startsWith('#') && !l.startsWith('==='));
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//') && !l.startsWith('#') && !l.startsWith('==='));
     const sourceCards = allCards.length ? allCards : cards;
     const addedEntries: { key: string; qty: number }[] = [];
 
@@ -1219,6 +1289,18 @@ export function CardListApp() {
     } else {
       alert("Could not recognize any valid cards in the provided input. Please check the format.");
     }
+  };
+
+  const handleImportFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) handleImportCollection(content);
+      if (importFileInputRef.current) importFileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
   };
 
   const handleResetCollection = () => {
@@ -1863,7 +1945,7 @@ export function CardListApp() {
                         Copy Raw JSON to Clipboard
                       </div>
                       <div className="text-xs text-zinc-400 mt-0.5">
-                        Array of card IDs for quick pasting into the Import modal
+                        Compact id → quantity map for quick pasting into the Import modal
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
@@ -2053,8 +2135,34 @@ export function CardListApp() {
               </div>
             )}
 
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".json,.txt,application/json,text/plain"
+              onChange={handleImportFileUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => importFileInputRef.current?.click()}
+              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group mb-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-zinc-100">Import from File</div>
+                  <div className="text-[11px] text-zinc-500">Upload a .json backup or .txt card list</div>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200 shrink-0 pl-2">Choose File →</span>
+            </button>
+
             <p className="text-xs text-zinc-400 mb-4">
-              Paste a collection list (text with card names/numbers or JSON array) to add to your collection:
+              Or paste a collection list (text with card names/numbers or JSON array) to add to your collection:
             </p>
             <textarea
               rows={7}
@@ -2071,7 +2179,7 @@ export function CardListApp() {
                 Cancel
               </button>
               <button
-                onClick={handleImportCollection}
+                onClick={() => handleImportCollection()}
                 className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-lg text-xs font-black transition cursor-pointer shadow-md"
               >
                 Import Cards
