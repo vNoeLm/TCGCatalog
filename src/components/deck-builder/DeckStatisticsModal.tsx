@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
+import { getCardImageUrl } from '../../lib/supabase';
+import { CardDetail } from '../CardDetail';
 
 interface DeckStatisticsModalProps {
   deck: DeckState;
@@ -176,6 +178,50 @@ export function DeckStatisticsModal({
   );
   const displayRarities = [...defaultRarities, ...extraRarities];
 
+  // 6. Opening Hand Simulator -- samples from the Main Deck only (the Rune Deck is a
+  // separate resource pool you reveal from, not a card you draw into hand).
+  const [activeTab, setActiveTab] = useState<'overview' | 'simulator'>('overview');
+  const [handSize, setHandSize] = useState(6);
+  const [hand, setHand] = useState<CatalogCard[]>([]);
+  const [remainingPool, setRemainingPool] = useState<CatalogCard[]>([]);
+  const [simPreviewCard, setSimPreviewCard] = useState<CatalogCard | null>(null);
+
+  const buildDrawPool = (): CatalogCard[] => {
+    const pool: CatalogCard[] = [];
+    mainEntries.forEach(e => { for (let i = 0; i < e.qty; i++) pool.push(e.card); });
+    return pool;
+  };
+
+  const drawNewHand = () => {
+    const pool = buildDrawPool();
+    // Fisher-Yates shuffle
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const size = Math.min(handSize, pool.length);
+    setHand(pool.slice(0, size));
+    setRemainingPool(pool.slice(size));
+  };
+
+  const drawOneMore = () => {
+    if (remainingPool.length === 0) return;
+    const idx = Math.floor(Math.random() * remainingPool.length);
+    const card = remainingPool[idx];
+    setHand(prev => [...prev, card]);
+    setRemainingPool(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handAvgCost = hand.length > 0
+    ? (hand.reduce((sum, c) => sum + Math.max(0, typeof c.cost === 'number' ? c.cost : Number(c.energy) || 0), 0) / hand.length).toFixed(2)
+    : '0.00';
+
+  const handDomainNeeds: Record<string, number> = {};
+  hand.forEach(c => {
+    const req = getCardPowerRequirement(c);
+    req.domains.forEach(d => { handDomainNeeds[d] = (handDomainNeeds[d] || 0) + 1; });
+  });
+
   return (
     <div
       onClick={onClose}
@@ -254,6 +300,34 @@ export function DeckStatisticsModal({
           </button>
         </div>
 
+        {/* Tab Toggle */}
+        <div style={{ display: 'flex', gap: 6, padding: 4, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12 }}>
+          {(['overview', 'simulator'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 9,
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+                background: activeTab === tab ? 'var(--accent)' : 'transparent',
+                color: activeTab === tab ? 'var(--text-on-accent, #000)' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {tab === 'overview' ? 'Overview' : 'Opening Hand Simulator'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
+        <>
         {/* Quick Highlights Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
@@ -586,6 +660,102 @@ export function DeckStatisticsModal({
             </div>
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === 'simulator' && (
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
+                  Opening Hand Simulator
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
+                  Draws randomly from your {mainCardCount}-card Main Deck. Rune Deck resources aren't drawn into hand, so they're not simulated here.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Hand Size</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={handSize}
+                  onChange={e => setHandSize(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+                  style={{ width: 52, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input, var(--bg-surface))', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={drawNewHand}
+                disabled={mainCardCount === 0}
+                style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--accent)', color: 'var(--text-on-accent, #000)', border: 'none', fontSize: 12, fontWeight: 800, cursor: mainCardCount === 0 ? 'not-allowed' : 'pointer', opacity: mainCardCount === 0 ? 0.5 : 1 }}
+              >
+                {hand.length > 0 ? 'Mulligan (New Hand)' : 'Draw Opening Hand'}
+              </button>
+              <button
+                onClick={drawOneMore}
+                disabled={hand.length === 0 || remainingPool.length === 0}
+                style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 800, cursor: (hand.length === 0 || remainingPool.length === 0) ? 'not-allowed' : 'pointer', opacity: (hand.length === 0 || remainingPool.length === 0) ? 0.5 : 1 }}
+              >
+                Draw Next Turn's Card
+              </button>
+            </div>
+
+            {mainCardCount === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>
+                Add cards to your Main Deck to simulate an opening hand.
+              </p>
+            ) : hand.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>
+                Hit "Draw Opening Hand" to sample a random hand from your current deck list.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {hand.map((card, i) => (
+                    <div
+                      key={`${card.id}-${i}`}
+                      onClick={() => setSimPreviewCard(card)}
+                      title={card.name}
+                      style={{ width: 78, cursor: 'pointer' }}
+                    >
+                      <div style={{ width: 78, height: 109, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: '#09090b' }}>
+                        {card.image_path && (
+                          <img src={getCardImageUrl(card.image_path)} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {card.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <span style={{ fontWeight: 800, color: 'var(--text-accent)' }}>{hand.length}</span> cards in hand &middot; avg cost <span style={{ fontWeight: 800, color: 'var(--text-accent)' }}>{handAvgCost}</span>
+                  </div>
+                  {Object.keys(handDomainNeeds).length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Rune needs:</span>
+                      {Object.entries(handDomainNeeds).map(([dom, count]) => {
+                        const style = DOMAIN_COLORS[dom.toLowerCase()] || DOMAIN_COLORS.colorless;
+                        return (
+                          <span key={dom} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: style.text, background: `${style.bg}22`, border: `1px solid ${style.border}`, padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize' }}>
+                            {dom} &times;{count}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 6 }}>
@@ -615,6 +785,21 @@ export function DeckStatisticsModal({
           </button>
         </div>
       </div>
+
+      {simPreviewCard && (
+        <div
+          onClick={(e) => { e.stopPropagation(); setSimPreviewCard(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)' }}
+            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+          >
+            <CardDetail cardId={simPreviewCard.id} onClose={() => setSimPreviewCard(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
