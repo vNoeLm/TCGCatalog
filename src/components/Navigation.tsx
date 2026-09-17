@@ -98,6 +98,8 @@ export function Navigation({ currentPath }: NavigationProps) {
 
         <NavLink href="/marketplace" label={'Marketplace'} />
 
+        <NavLink href="/decks" label={'Decks'} />
+
         {userProfile && (
           <NavLink href="/seller" label={'Seller Hub'} />
         )}
@@ -391,6 +393,28 @@ export function Navigation({ currentPath }: NavigationProps) {
                 }
               >
                 <span>Marketplace</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>→</span>
+              </a>
+
+              <a
+                href="/decks"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition border"
+                style={
+                  isActive('/decks')
+                    ? {
+                        background: 'var(--accent-muted)',
+                        borderColor: 'var(--accent)',
+                        color: 'var(--text-accent)'
+                      }
+                    : {
+                        background: 'var(--bg-surface-2)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)'
+                      }
+                }
+              >
+                <span>Decks</span>
                 <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 

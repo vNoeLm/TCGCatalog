@@ -285,6 +285,26 @@ CREATE TABLE IF NOT EXISTS public.search_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 13d. PUBLIC DECKS -- decks a user chose to publish from the Deck Builder, browsable
+-- by anyone when is_public is true. This is separate from the legacy per-user
+-- saved_decks table dropped below: local "Saved Decks" in the Deck Builder stay in
+-- localStorage as before, and only publishing pushes a copy here. legend/champion
+-- card ids are denormalized so the browse grid can filter/render without hydrating
+-- the full deck JSON for every row.
+CREATE TABLE IF NOT EXISTS public.public_decks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    game VARCHAR(50) NOT NULL DEFAULT 'riftbound',
+    deck JSONB NOT NULL,
+    legend_card_id UUID REFERENCES public.cards(id) ON DELETE SET NULL,
+    champion_card_id UUID REFERENCES public.cards(id) ON DELETE SET NULL,
+    is_public BOOLEAN NOT NULL DEFAULT true,
+    views INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 14. DROP OBSOLETE LEGACY TABLES AND FUNCTIONS
 DROP TABLE IF EXISTS public.inventory_reservations CASCADE;
 DROP TABLE IF EXISTS public.order_items CASCADE;
@@ -330,6 +350,9 @@ CREATE INDEX IF NOT EXISTS idx_hold_requests_conversation_id ON public.hold_requ
 CREATE INDEX IF NOT EXISTS idx_hold_request_messages_conversation_id ON public.hold_request_messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_card_id ON public.search_events(card_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_created_at ON public.search_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_public_decks_user_id ON public.public_decks(user_id);
+CREATE INDEX IF NOT EXISTS idx_public_decks_game ON public.public_decks(game);
+CREATE INDEX IF NOT EXISTS idx_public_decks_public_browse ON public.public_decks(is_public, created_at DESC) WHERE is_public = true;
 
 -- 16. ROW LEVEL SECURITY (RLS) POLICIES
 
@@ -347,6 +370,7 @@ ALTER TABLE public.hold_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hold_request_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.public_decks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.search_events ENABLE ROW LEVEL SECURITY;
 
 -- Games policies
@@ -488,6 +512,24 @@ CREATE POLICY "Participants can mark messages read" ON public.hold_request_messa
 -- are never exposed to any client, anon or authenticated.
 DROP POLICY IF EXISTS "Anyone can log a search event" ON public.search_events;
 CREATE POLICY "Anyone can log a search event" ON public.search_events FOR INSERT TO public WITH CHECK (true);
+
+-- Public decks: writes go through the /api/decks route using the service role with an
+-- explicit ownership check (same pattern as marketplace listings), so these policies are
+-- defense-in-depth for any direct client-side read/write, not the primary enforcement.
+DROP POLICY IF EXISTS "Anyone can view public decks" ON public.public_decks;
+CREATE POLICY "Anyone can view public decks" ON public.public_decks FOR SELECT TO public USING (is_public = true);
+
+DROP POLICY IF EXISTS "Owners can view their own decks" ON public.public_decks;
+CREATE POLICY "Owners can view their own decks" ON public.public_decks FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Owners can publish their own decks" ON public.public_decks;
+CREATE POLICY "Owners can publish their own decks" ON public.public_decks FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Owners can update their own decks" ON public.public_decks;
+CREATE POLICY "Owners can update their own decks" ON public.public_decks FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Owners can delete their own decks" ON public.public_decks;
+CREATE POLICY "Owners can delete their own decks" ON public.public_decks FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- 17. AUTH SYNC TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()

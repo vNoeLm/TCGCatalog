@@ -2,13 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { getCardImageUrl } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import type { SellerProfileSummary, SellerReview } from '../../types';
+
+const DOMAIN_COLORS: Record<string, string> = {
+  fury: '#ef4444', calm: '#22c55e', mind: '#3b82f6',
+  body: '#f97316', chaos: '#a855f7', order: '#eab308', colorless: '#94a3b8',
+};
 
 export function PublicProfileApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SellerProfileSummary | null>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<SellerReview[]>([]);
+  const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,9 +28,14 @@ export function PublicProfileApp() {
 
     (async () => {
       try {
-        const [sum, revs] = await Promise.all([fetchSellerRatingSummary(id), fetchSellerReviews(id)]);
+        const [sum, revs, publicDecks] = await Promise.all([
+          fetchSellerRatingSummary(id),
+          fetchSellerReviews(id),
+          fetchPublicDecksForUser(id),
+        ]);
         setSummary(sum);
         setReviews(revs);
+        setDecks(publicDecks);
 
         const res = await fetch(`/api/marketplace/listings?seller_id=${id}`);
         if (res.ok) {
@@ -210,6 +222,57 @@ export function PublicProfileApp() {
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </a>
+      )}
+
+      {/* Decks — decks this collector has published publicly from the Deck Builder */}
+      <h2 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
+        Decks ({decks.length})
+      </h2>
+      {decks.length === 0 ? (
+        <div
+          className="p-10 text-center rounded-2xl border mb-8"
+          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+            {displayName} hasn't published any decks yet.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-8">
+          {decks.map(d => {
+            const domains = d.legend_card?.domain ? d.legend_card.domain.split(',').map(x => x.trim().toLowerCase()) : [];
+            return (
+              <a
+                key={d.id}
+                href={`/decks/view?id=${d.id}`}
+                className="rounded-xl border p-3 transition hover:-translate-y-0.5 cursor-pointer"
+                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+              >
+                <div className="flex -space-x-6 mb-2">
+                  <div className="w-14 h-20 rounded-lg overflow-hidden border bg-zinc-950 shrink-0 z-10" style={{ borderColor: 'var(--border)' }}>
+                    {d.legend_card?.image_path ? (
+                      <img src={getCardImageUrl(d.legend_card.image_path)} alt={d.legend_card.name} className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                  {d.champion_card && (
+                    <div className="w-14 h-20 rounded-lg overflow-hidden border bg-zinc-950 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                      <img src={getCardImageUrl(d.champion_card.image_path || undefined)} alt={d.champion_card.name} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{d.name}</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {domains.map(dom => (
+                    <div key={dom} className="w-2 h-2 rounded-full" style={{ background: DOMAIN_COLORS[dom] || '#94a3b8' }} title={dom} />
+                  ))}
+                  <span className="text-[10px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>{d.views} views</span>
+                </div>
+              </a>
+            );
+          })}
+        </div>
       )}
 
       {/* Reviews */}

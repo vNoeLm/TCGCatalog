@@ -12,6 +12,7 @@ import { CardDetail } from '../CardDetail';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { Modal } from '../ui/Modal';
+import { publishDeck, setDeckVisibility, deletePublishedDeck, fetchMyDecks, type PublicDeckSummary } from '../../lib/publicDecks';
 
 const BREAKPOINT = 1100;
 
@@ -148,6 +149,28 @@ export function DeckBuilderApp() {
   const [pasteInput, setPasteInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [publishedDecks, setPublishedDecks] = useState<PublicDeckSummary[]>([]);
+  const [publishingSavedDeckId, setPublishingSavedDeckId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user || null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const refreshPublishedDecks = () => {
+    if (!currentUser) { setPublishedDecks([]); return; }
+    fetchMyDecks().then(setPublishedDecks);
+  };
+
+  useEffect(() => {
+    refreshPublishedDecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
 
   // Listen to game switch from top header selector
   useEffect(() => {
@@ -224,6 +247,32 @@ export function DeckBuilderApp() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
+  };
+
+  const handlePublishSavedDeck = async (sd: { id: string; name: string; deck: DeckState }) => {
+    if (!currentUser) {
+      alert('Sign in to publish decks to your profile.');
+      return;
+    }
+    setPublishingSavedDeckId(sd.id);
+    try {
+      const result = await publishDeck(sd.name, (sd.deck.game || activeGame) as 'riftbound' | 'cyberpunk', sd.deck);
+      if (result.success) {
+        refreshPublishedDecks();
+        alert(`"${sd.name}" is now public on your profile!`);
+      } else {
+        alert(result.error || 'Failed to publish deck.');
+      }
+    } finally {
+      setPublishingSavedDeckId(null);
+    }
+  };
+
+  const handleUnpublishDeck = async (publishedId: string) => {
+    if (!confirm('Remove this deck from your public profile?')) return;
+    const ok = await deletePublishedDeck(publishedId);
+    if (ok) refreshPublishedDecks();
+    else alert('Failed to unpublish deck.');
   };
 
   // Fetch cards whenever activeGame changes
@@ -548,7 +597,7 @@ export function DeckBuilderApp() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>💾 Download Current Deck (JSON)</div>
+                <div style={{ fontWeight: 700 }}>Download Current Deck (JSON)</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Single deck file with card names and metadata</div>
               </div>
               <span>↓</span>
@@ -569,10 +618,39 @@ export function DeckBuilderApp() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>📋 Copy Decklist to Clipboard</div>
+                <div style={{ fontWeight: 700 }}>Copy Decklist to Clipboard</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Plain text format with card names for Discord or forums</div>
               </div>
-              <span>📋</span>
+              <span>→</span>
+            </button>
+
+            {/* Publish Current Deck to Public Profile */}
+            <button
+              onClick={async () => {
+                if (!currentUser) {
+                  alert('Sign in to publish decks to your profile.');
+                  return;
+                }
+                const deckName = deckNameInput.trim() || (legendCard ? `${legendCard.name} Deck` : 'My Deck');
+                const result = await publishDeck(deckName, activeGame, deck);
+                if (result.success) {
+                  refreshPublishedDecks();
+                  alert(`"${deckName}" is now public on your profile!`);
+                  setShowExportModal(false);
+                } else {
+                  alert(result.error || 'Failed to publish deck.');
+                }
+              }}
+              style={{
+                ...btnStyle('var(--bg-input)', 'var(--text-primary)', 'var(--border)'),
+                padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>Publish to Your Profile</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Make this deck browsable by anyone on your public profile</div>
+              </div>
+              <span>→</span>
             </button>
 
             {/* Export All Saved Decks Backup */}
@@ -664,6 +742,15 @@ export function DeckBuilderApp() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => handlePublishSavedDeck(sd)}
+                    disabled={publishingSavedDeckId === sd.id}
+                    title="Publish a snapshot of this deck to your public profile"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {publishingSavedDeckId === sd.id ? 'Publishing…' : 'Publish'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { loadDeck(sd.deck); setShowBrowserModal(false); }}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition cursor-pointer"
                   >
@@ -673,6 +760,44 @@ export function DeckBuilderApp() {
               </div>
             );
           })}
+
+          {currentUser && (
+            <div className="pt-2 mt-1 border-t border-zinc-800">
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">
+                Published to Your Profile ({publishedDecks.length})
+              </div>
+              {publishedDecks.length === 0 ? (
+                <p className="text-zinc-500 text-xs py-2">Nothing published yet — hit "Publish" on a saved deck above to let others browse it.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {publishedDecks.map(pd => (
+                    <div key={pd.id} className="flex items-center justify-between gap-3 p-3 bg-zinc-950/60 rounded-xl border border-zinc-800">
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-zinc-100 truncate">{pd.name}</div>
+                        <div className="text-[11px] text-zinc-500">{pd.views} view{pd.views === 1 ? '' : 's'} &middot; {pd.is_public ? 'Public' : 'Unlisted'}</div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={async () => { const ok = await setDeckVisibility(pd.id, !pd.is_public); if (ok) refreshPublishedDecks(); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition cursor-pointer"
+                        >
+                          {pd.is_public ? 'Unlist' : 'Make Public'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUnpublishDeck(pd.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

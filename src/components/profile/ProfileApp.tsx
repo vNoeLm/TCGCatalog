@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getCardImageUrl } from '../../lib/supabase';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
 import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
@@ -8,6 +8,7 @@ import { AuthModal } from '../auth/AuthModal';
 import { useSiteTheme } from '../../lib/theme';
 import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
 import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
@@ -23,6 +24,15 @@ export function ProfileApp() {
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
   const [payingProvider, setPayingProvider] = useState<'stripe'>('stripe');
   const [payingSessionId, setPayingSessionId] = useState<string>('');
+
+  // Published Decks State
+  const [myDecks, setMyDecks] = useState<PublicDeckSummary[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState(true);
+
+  const refreshMyDecks = () => {
+    setLoadingDecks(true);
+    fetchMyDecks().then(decks => { setMyDecks(decks); setLoadingDecks(false); });
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -255,6 +265,9 @@ export function ProfileApp() {
         setProfile(p);
         setDisplayName(p.display_name || '');
         loadSellerSalesCount(p.id);
+        refreshMyDecks();
+      } else {
+        setLoadingDecks(false);
       }
       loadCollectionStats();
       const userOrders = await fetchUserOrders();
@@ -552,6 +565,78 @@ export function ProfileApp() {
     </div>
   );
 
+  const renderMyDecksSection = () => (
+    <div
+      className="rounded-2xl p-6 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div>
+          <h2 className="text-lg sm:text-xl font-black" style={{ color: 'var(--text-primary)' }}>My Decks</h2>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            Decks published from the Deck Builder. Public decks show up in the <a href="/decks" className="underline">Deck Browser</a> and on your public profile.
+          </p>
+        </div>
+        <a
+          href="/deck-builder"
+          className="px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0"
+          style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', color: 'var(--accent)' }}
+        >
+          Open Deck Builder
+        </a>
+      </div>
+
+      {loadingDecks ? (
+        <div className="text-center py-8 text-sm font-semibold" style={{ color: 'var(--text-tertiary)' }}>Loading your decks…</div>
+      ) : myDecks.length === 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-tertiary)' }}>
+          You haven't published any decks yet. Build one and hit "Publish" from the Export or Browse menu.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {myDecks.map(d => (
+            <div key={d.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-16 rounded-lg overflow-hidden border bg-zinc-950 shrink-0" style={{ borderColor: 'var(--border)' }}>
+                  {d.legend_card?.image_path && (
+                    <img src={getCardImageUrl(d.legend_card.image_path)} alt={d.legend_card.name} className="w-full h-full object-cover" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <a href={`/decks/view?id=${d.id}`} className="text-sm font-bold hover:underline truncate block" style={{ color: 'var(--text-primary)' }}>{d.name}</a>
+                  <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {d.views} view{d.views === 1 ? '' : 's'} &middot; {d.is_public ? 'Public' : 'Unlisted'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={async () => { const ok = await setDeckVisibility(d.id, !d.is_public); if (ok) refreshMyDecks(); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  {d.is_public ? 'Unlist' : 'Make Public'}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`Remove "${d.name}" from your published decks?`)) return;
+                    const ok = await deletePublishedDeck(d.id);
+                    if (ok) refreshMyDecks();
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   if (!profile) {
     return (
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
@@ -804,6 +889,8 @@ export function ProfileApp() {
       {/* Theme & Appearance Override Section */}
       {renderThemeSection()}
 
+      {/* My Decks Section */}
+      {renderMyDecksSection()}
 
       {/* Orders Section */}
       <div className="mb-8">
