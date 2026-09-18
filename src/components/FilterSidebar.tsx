@@ -3,6 +3,8 @@ import type { FilterState } from "../types";
 import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES } from "../lib/constants";
 import { useSiteTheme } from "../lib/theme";
 import { DOMAIN_STYLES, RARITY_STYLES } from "../lib/domainColors";
+import { SEARCHABLE_KEYWORDS } from "../lib/keywordSearch";
+import { keywordSolidColor } from "../lib/formatGameText";
 
 interface FilterSidebarProps {
   filters: FilterState;
@@ -65,6 +67,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const [rarityOpen, setRarityOpen] = useState(false);
   const [sealedOpen, setSealedOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [keywordsOpen, setKeywordsOpen] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
   const [eddiesOpen, setEddiesOpen] = useState(true);
   const [tagSearch, setTagSearch] = useState("");
@@ -99,6 +102,12 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     set("tags", next);
   };
 
+  const toggleKeyword = (k: string) => {
+    const current = filters.keywords || [];
+    const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
+    set("keywords", next);
+  };
+
   const toggleSealedType = (st: string) => {
     const current = filters.sealedTypes || [];
     const next = current.includes(st)
@@ -117,6 +126,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       type: "",
       domains: [],
       tags: [],
+      keywords: [],
       sealedTypes: [],
       costMin: 1,
       costMax: 10,
@@ -626,6 +636,42 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   </div>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 7b. KEYWORDS SECTION (Riftbound only, Default COLLAPSED) */}
+      {!isSealedCategory && isRiftbound && (
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
+          <SectionHeader
+            label={"Keywords"}
+            badge={(filters.keywords || []).length}
+            open={keywordsOpen}
+            onToggle={() => setKeywordsOpen(o => !o)}
+            theme={sidebarTheme}
+          />
+          {keywordsOpen && (
+            <div className="mt-1.5">
+              <div className="flex flex-wrap gap-1">
+                {SEARCHABLE_KEYWORDS.map((k) => {
+                  const active = (filters.keywords || []).includes(k);
+                  const color = keywordSolidColor(k);
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => toggleKeyword(k)}
+                      className={`px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer font-medium inline-flex items-center gap-1 ${
+                        active ? sidebarTheme.btnActive : sidebarTheme.btnDefault
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                      {k}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-1.5">Cards must have every selected keyword.</p>
             </div>
           )}
         </div>

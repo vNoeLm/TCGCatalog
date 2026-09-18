@@ -29,6 +29,7 @@ const DEFAULT_FILTERS: FilterState = {
   type: "",
   domains: [],
   tags: [],
+  keywords: [],
   costMin: 1,
   costMax: 10,
   page: 1,
@@ -729,6 +730,7 @@ export function CardListApp() {
     if (filters.costMin && filters.costMin > 1) count++;
     if (filters.costMax && filters.costMax < 10) count++;
     if (filters.tags && filters.tags.length > 0) count += filters.tags.length;
+    if (filters.keywords && filters.keywords.length > 0) count += filters.keywords.length;
     return count;
   }, [filters]);
 
@@ -996,6 +998,7 @@ export function CardListApp() {
     if (filters.type) parts.push(filters.type);
     if (filters.domains && filters.domains.length > 0) parts.push(filters.domains.join(', '));
     if (filters.tags && filters.tags.length > 0) parts.push(filters.tags.join(', '));
+    if (filters.keywords && filters.keywords.length > 0) parts.push(filters.keywords.join(', '));
     if (signedFilter && signedFilter !== 'all') parts.push(signedFilter === 'only' ? 'Signed' : 'Non-signed');
     if (altArtFilter && altArtFilter !== 'all') parts.push(altArtFilter === 'only' ? 'Alt Art' : 'Standard Art');
     if (overnumberedFilter && overnumberedFilter !== 'all') parts.push(overnumberedFilter === 'only' ? 'Overnumbered' : 'Standard Num');
