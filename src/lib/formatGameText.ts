@@ -1,6 +1,50 @@
 import { GLYPH_ICONS } from './riftboundIcons';
 
 /**
+ * Riftbound keyword badge colors, sampled directly from the colored pill printed on
+ * real cards (e.g. Miss Fortune, Captain OGN-162 for Accelerate/Ganking; Rengar,
+ * Unseen UNL-024 for Assault) rather than guessed, so the in-app pill and any other
+ * UI referencing a keyword's color (e.g. deck stats) matches what's actually printed.
+ * Keywords not listed here don't have a confirmed sample yet and fall back to a
+ * generic color rather than a guessed one.
+ */
+export const KEYWORD_COLORS: Record<string, string> = {
+  accelerate: 'linear-gradient(135deg,#2f8a72,#1f6b56)',
+  ganking:    'linear-gradient(135deg,#a8c93f,#8aab2a)',
+  assault:    'linear-gradient(135deg,#d63a7a,#b82f68)',
+  deflect:    'linear-gradient(135deg,#22c55e,#16a34a)',
+  shield:     'linear-gradient(135deg,#3b82f6,#2563eb)',
+  empower:    'linear-gradient(135deg,#a855f7,#9333ea)',
+  empowered:  'linear-gradient(135deg,#a855f7,#9333ea)',
+  predict:    'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+  hunt:       'linear-gradient(135deg,#eab308,#ca8a04)',
+  burn:       'linear-gradient(135deg,#f97316,#ea580c)',
+  deathknell: 'linear-gradient(135deg,#475569,#334155)',
+  flow:       'linear-gradient(135deg,#06b6d4,#0891b2)',
+  ambush:     'linear-gradient(135deg,#10b981,#059669)',
+  vanguard:   'linear-gradient(135deg,#6366f1,#4f46e5)',
+  intercept:  'linear-gradient(135deg,#6366f1,#4f46e5)',
+  stun:       'linear-gradient(135deg,#fbbf24,#d97706)',
+};
+
+export const KEYWORD_FALLBACK_COLOR = 'linear-gradient(135deg,#ec4899,#db2777)';
+
+export const KEYWORD_LIST = [
+  'Assault', 'Shield', 'Deflect', 'Hunt', 'Burn', 'Predict', 'Level',
+  'Accelerate', 'Deathknell', 'Ambush', 'Flow', 'Repeat', 'Empower', 'Empowered',
+  'Ganking', 'Backline', 'Tank', 'Stun', 'Hidden', 'Legion', 'Mighty',
+  'Quick-Draw', 'Unique', 'Vision', 'Weaponmaster', 'Equip', 'Equipment',
+  'Temporary', 'Buff', 'Spellshield', 'Lifesteal', 'Vanguard', 'Intercept', 'Retaliate',
+];
+
+/** First solid color stop from a KEYWORD_COLORS gradient string, for chips/bars that can't use a CSS gradient. */
+export function keywordSolidColor(kw: string): string {
+  const gradient = KEYWORD_COLORS[kw.toLowerCase()] || KEYWORD_FALLBACK_COLOR;
+  const match = gradient.match(/#[0-9a-fA-F]{3,8}/);
+  return match ? match[0] : '#ec4899';
+}
+
+/**
  * Formats Riftbound card ability text with styled keywords, energy circles, icons.
  *
  * COLORING RULES:
@@ -29,26 +73,9 @@ export function formatGameText(text: string | null | undefined): string {
     `<span style="display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; border:1px solid #818cf8; border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:900; margin:0 2px; vertical-align:middle; box-shadow:0 0 6px rgba(99,102,241,0.5);">${n}</span>`;
 
   // Helper: keyword pill with context color
-  const kwColors: Record<string, string> = {
-    assault:    'linear-gradient(135deg,#ef4444,#dc2626)',
-    deflect:    'linear-gradient(135deg,#22c55e,#16a34a)',
-    shield:     'linear-gradient(135deg,#3b82f6,#2563eb)',
-    empower:    'linear-gradient(135deg,#a855f7,#9333ea)',
-    empowered:  'linear-gradient(135deg,#a855f7,#9333ea)',
-    predict:    'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-    hunt:       'linear-gradient(135deg,#eab308,#ca8a04)',
-    burn:       'linear-gradient(135deg,#f97316,#ea580c)',
-    deathknell: 'linear-gradient(135deg,#475569,#334155)',
-    flow:       'linear-gradient(135deg,#06b6d4,#0891b2)',
-    ambush:     'linear-gradient(135deg,#10b981,#059669)',
-    vanguard:   'linear-gradient(135deg,#6366f1,#4f46e5)',
-    intercept:  'linear-gradient(135deg,#6366f1,#4f46e5)',
-    stun:       'linear-gradient(135deg,#fbbf24,#d97706)',
-  };
-
   const pill = (kw: string, val?: string) => {
     const key = kw.toLowerCase();
-    const bg = kwColors[key] || 'linear-gradient(135deg,#ec4899,#db2777)';
+    const bg = KEYWORD_COLORS[key] || KEYWORD_FALLBACK_COLOR;
     const label = val ? `${kw.toUpperCase()} ${val}` : kw.toUpperCase();
     return `<span style="display:inline-flex; align-items:center; background:${bg}; color:#fff; font-weight:900; font-size:11px; letter-spacing:0.04em; padding:2px 7px; border-radius:5px; margin:0 2px; text-transform:uppercase; vertical-align:middle; white-space:nowrap;">${label}</span>`;
   };
@@ -83,18 +110,9 @@ export function formatGameText(text: string | null | undefined): string {
 
   // 8. KEYWORDS â€” ONLY inside [brackets], preserving surrounding plain text.
   //    Handles: [Assault 4], [Empower], [Deflect 2], [Empower] optionally followed by [5]
-  const kwList = [
-    'Assault', 'Shield', 'Deflect', 'Hunt', 'Burn', 'Predict', 'Level',
-    'Accelerate', 'Deathknell', 'Ambush', 'Flow', 'Repeat', 'Empower', 'Empowered',
-    'Ganking', 'Backline', 'Tank', 'Stun', 'Hidden', 'Legion', 'Mighty',
-    'Quick-Draw', 'Unique', 'Vision', 'Weaponmaster', 'Equip', 'Equipment',
-    'Temporary', 'Buff', 'Spellshield', 'Lifesteal', 'Vanguard', 'Intercept', 'Retaliate',
-    'Intercept',
-  ];
-
   // Match [Keyword] or [Keyword N], optionally followed by whitespace + [N]
   const kwBracketRe = new RegExp(
-    `\\[(${kwList.join('|')})(?: (\\d+))?\\](?:\\s*\\[(\\d+)\\])?`,
+    `\\[(${KEYWORD_LIST.join('|')})(?: (\\d+))?\\](?:\\s*\\[(\\d+)\\])?`,
     'gi'
   );
   f = f.replace(kwBracketRe, (_: string, kw: string, inlineVal: string, separateVal: string) => {

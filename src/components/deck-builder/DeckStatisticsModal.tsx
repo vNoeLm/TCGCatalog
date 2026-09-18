@@ -6,6 +6,7 @@ import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
 import { getCardImageUrl } from '../../lib/supabase';
 import { CardDetail } from '../CardDetail';
+import { KEYWORD_LIST, keywordSolidColor } from '../../lib/formatGameText';
 
 interface DeckStatisticsModalProps {
   deck: DeckState;
@@ -180,7 +181,7 @@ export function DeckStatisticsModal({
 
   // 6. Opening Hand Simulator -- samples from the Main Deck only (the Rune Deck is a
   // separate resource pool you reveal from, not a card you draw into hand).
-  const [activeTab, setActiveTab] = useState<'overview' | 'simulator'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'simulator' | 'probability'>('overview');
   const [handSize, setHandSize] = useState(6);
   const [hand, setHand] = useState<CatalogCard[]>([]);
   const [remainingPool, setRemainingPool] = useState<CatalogCard[]>([]);
@@ -221,6 +222,52 @@ export function DeckStatisticsModal({
     const req = getCardPowerRequirement(c);
     req.domains.forEach(d => { handDomainNeeds[d] = (handDomainNeeds[d] || 0) + 1; });
   });
+
+  // 7. Keyword Frequency -- how many instances of each printed keyword are in the deck,
+  // counted per bracket mention (e.g. a card that says "[Assault 2]" once contributes
+  // once per copy of that card).
+  const keywordRe = new RegExp(`\\[(${KEYWORD_LIST.join('|')})(?:\\s+\\d+)?\\]`, 'gi');
+  const keywordCounts: Record<string, number> = {};
+  const scanKeywords = (card: CatalogCard, qty: number) => {
+    const raw = `${card.ability || ''} ${card.text || ''}`;
+    if (!raw.trim()) return;
+    let m;
+    keywordRe.lastIndex = 0;
+    while ((m = keywordRe.exec(raw))) {
+      const kw = m[1].toLowerCase();
+      keywordCounts[kw] = (keywordCounts[kw] || 0) + qty;
+    }
+  };
+  if (championCard) scanKeywords(championCard, 1);
+  mainEntries.forEach(e => scanKeywords(e.card, e.qty));
+  const sortedKeywords = Object.entries(keywordCounts).sort((a, b) => b[1] - a[1]);
+  const maxKeywordCount = Math.max(1, ...sortedKeywords.map(([, c]) => c));
+
+  // 8. Draw Probability Calculator (hypergeometric): odds of having drawn at least
+  // one copy of a chosen card by a given number of cards seen.
+  const uniqueMainCards = mainEntries
+    .map(e => e.card)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const [probCardId, setProbCardId] = useState<string>('');
+  const [probDrawn, setProbDrawn] = useState(10);
+
+  const logChoose = (n: number, k: number): number => {
+    if (k < 0 || k > n) return -Infinity;
+    let res = 0;
+    for (let i = 0; i < k; i++) res += Math.log(n - i) - Math.log(i + 1);
+    return res;
+  };
+  const probAtLeastOne = (deckSize: number, copies: number, drawn: number): number => {
+    if (copies <= 0 || drawn <= 0 || deckSize <= 0) return 0;
+    if (drawn >= deckSize) return 1;
+    const p0 = Math.exp(logChoose(deckSize - copies, drawn) - logChoose(deckSize, drawn));
+    return Math.max(0, Math.min(1, 1 - p0));
+  };
+
+  const selectedProbCard = uniqueMainCards.find(c => c.id === probCardId) || uniqueMainCards[0] || null;
+  const selectedProbCopies = selectedProbCard ? (mainEntries.find(e => e.card.id === selectedProbCard.id)?.qty || 0) : 0;
+  const probMilestones = [handSize, handSize + 1, handSize + 2, handSize + 3, handSize + 4, handSize + 5, handSize + 6, handSize + 7]
+    .filter(n => n <= mainCardCount);
 
   return (
     <div
@@ -302,7 +349,7 @@ export function DeckStatisticsModal({
 
         {/* Tab Toggle */}
         <div style={{ display: 'flex', gap: 6, padding: 4, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12 }}>
-          {(['overview', 'simulator'] as const).map(tab => (
+          {(['overview', 'simulator', 'probability'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -321,7 +368,7 @@ export function DeckStatisticsModal({
                 transition: 'all 0.15s ease',
               }}
             >
-              {tab === 'overview' ? 'Overview' : 'Opening Hand Simulator'}
+              {tab === 'overview' ? 'Overview' : tab === 'simulator' ? 'Opening Hand Simulator' : 'Draw Odds'}
             </button>
           ))}
         </div>
@@ -659,6 +706,33 @@ export function DeckStatisticsModal({
               })}
             </div>
           </div>
+
+          {/* Keyword Frequency */}
+          {sortedKeywords.length > 0 && (
+            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16 }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
+                Keywords
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sortedKeywords.map(([kw, count]) => {
+                  const color = keywordSolidColor(kw);
+                  const pct = Math.round((count / maxKeywordCount) * 100);
+                  return (
+                    <div key={kw} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
+                        <span style={{ color, textTransform: 'capitalize' }}>{kw}</span>
+                        <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>{count}</span>
+                      </div>
+                      <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         </>
         )}
@@ -752,6 +826,90 @@ export function DeckStatisticsModal({
                     </div>
                   )}
                 </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'probability' && (
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-accent)' }}>
+                Draw Odds
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
+                Hypergeometric odds of having drawn at least one copy of a card by a given number of cards seen, out of your {mainCardCount}-card Main Deck.
+              </p>
+            </div>
+
+            {uniqueMainCards.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>
+                Add cards to your Main Deck to calculate draw odds.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <select
+                    value={selectedProbCard?.id || ''}
+                    onChange={e => setProbCardId(e.target.value)}
+                    style={{ flex: '1 1 220px', padding: '8px 10px', borderRadius: 8, background: 'var(--bg-input, var(--bg-surface))', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+                  >
+                    {uniqueMainCards.map(c => {
+                      const qty = mainEntries.find(e => e.card.id === c.id)?.qty || 0;
+                      return <option key={c.id} value={c.id}>{c.name} ({qty} cop{qty === 1 ? 'y' : 'ies'})</option>;
+                    })}
+                  </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Cards Seen</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={mainCardCount}
+                      value={probDrawn}
+                      onChange={e => setProbDrawn(Math.max(1, Math.min(mainCardCount, parseInt(e.target.value, 10) || 1)))}
+                      style={{ width: 56, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input, var(--bg-surface))', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+
+                {selectedProbCard && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 12 }}>
+                      <div style={{ width: 52, height: 73, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: '#09090b', flexShrink: 0 }}>
+                        {selectedProbCard.image_path && (
+                          <img src={getCardImageUrl(selectedProbCard.image_path)} alt={selectedProbCard.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                          Odds of at least 1 copy of <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{selectedProbCard.name}</span> ({selectedProbCopies} in deck) after {probDrawn} cards seen
+                        </div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--text-accent)' }}>
+                          {(probAtLeastOne(mainCardCount, selectedProbCopies, probDrawn) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+                        By turn, assuming a {handSize}-card opening hand and 1 draw per turn after
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 110 }}>
+                        {probMilestones.map((n, i) => {
+                          const p = probAtLeastOne(mainCardCount, selectedProbCopies, n) * 100;
+                          const label = i === 0 ? 'Open' : `Turn ${i}`;
+                          return (
+                            <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-accent)' }}>{p.toFixed(0)}%</span>
+                              <div style={{ width: '100%', maxWidth: 34, height: `${Math.max(4, p)}%`, background: 'var(--accent)', borderRadius: '6px 6px 2px 2px', boxShadow: '0 0 10px var(--accent-glow)' }} />
+                              <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
