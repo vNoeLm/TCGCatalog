@@ -603,7 +603,7 @@ export function ProfileApp() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <a href={`/decks/view?id=${d.id}`} className="text-sm font-bold hover:underline truncate block" style={{ color: 'var(--text-primary)' }}>{d.name}</a>
+                  <a href={`/decks/view?deck=${d.id}`} className="text-sm font-bold hover:underline truncate block" style={{ color: 'var(--text-primary)' }}>{d.name}</a>
                   <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                     {d.views} view{d.views === 1 ? '' : 's'} &middot; {d.is_public ? 'Public' : 'Unlisted'}
                   </div>

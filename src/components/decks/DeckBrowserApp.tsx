@@ -82,31 +82,31 @@ export function DeckBrowserApp() {
             return (
               <a
                 key={d.id}
-                href={`/decks/view?id=${d.id}`}
-                className="rounded-xl border p-3 transition hover:-translate-y-0.5 cursor-pointer"
+                href={`/decks/view?deck=${d.id}`}
+                className="rounded-xl border overflow-hidden transition hover:-translate-y-0.5 cursor-pointer flex flex-col"
                 style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
               >
-                <div className="flex -space-x-6 mb-2">
-                  <div className="w-16 h-24 rounded-lg overflow-hidden border bg-zinc-950 shrink-0 z-10" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex w-full" style={{ aspectRatio: '3 / 4', background: '#09090b' }}>
+                  <div className="flex-1 h-full min-w-0">
                     {d.legend_card?.image_path && (
                       <img src={getCardImageUrl(d.legend_card.image_path)} alt={d.legend_card.name} className="w-full h-full object-cover" />
                     )}
                   </div>
-                  {d.champion_card && (
-                    <div className="w-16 h-24 rounded-lg overflow-hidden border bg-zinc-950 shrink-0" style={{ borderColor: 'var(--border)' }}>
-                      {d.champion_card.image_path && (
-                        <img src={getCardImageUrl(d.champion_card.image_path)} alt={d.champion_card.name} className="w-full h-full object-cover" />
-                      )}
+                  {d.champion_card?.image_path && (
+                    <div className="flex-1 h-full min-w-0 border-l" style={{ borderColor: 'var(--border)' }}>
+                      <img src={getCardImageUrl(d.champion_card.image_path)} alt={d.champion_card.name} className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>
-                <div className="text-xs font-bold truncate mb-0.5" style={{ color: 'var(--text-primary)' }}>{d.name}</div>
-                <div className="text-[11px] truncate mb-1" style={{ color: 'var(--text-tertiary)' }}>by {d.owner_name}</div>
-                <div className="flex items-center gap-1">
-                  {domains.map(dom => (
-                    <div key={dom} className="w-2 h-2 rounded-full" style={{ background: DOMAIN_COLORS[dom] || '#94a3b8' }} title={dom} />
-                  ))}
-                  <span className="text-[10px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>{d.views} views</span>
+                <div className="p-2.5">
+                  <div className="text-xs font-bold truncate mb-0.5" style={{ color: 'var(--text-primary)' }}>{d.name}</div>
+                  <div className="text-[11px] truncate mb-1" style={{ color: 'var(--text-tertiary)' }}>by {d.owner_name}</div>
+                  <div className="flex items-center gap-1">
+                    {domains.map(dom => (
+                      <div key={dom} className="w-2 h-2 rounded-full" style={{ background: DOMAIN_COLORS[dom] || '#94a3b8' }} title={dom} />
+                    ))}
+                    <span className="text-[10px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>{d.views} views</span>
+                  </div>
                 </div>
               </a>
             );

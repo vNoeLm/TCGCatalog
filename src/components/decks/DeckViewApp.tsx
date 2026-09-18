@@ -24,7 +24,10 @@ export function DeckViewApp() {
   const { saveDeck } = useSavedDecks((deckRow?.game as any) || 'riftbound');
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('id');
+    // Deliberately not "id" -- CardDetail (rendered below on card click) falls back to
+    // reading a `?id=` query param as an inventory id when no prop is passed, which
+    // would collide with this page's own id and make every card preview 404.
+    const id = new URLSearchParams(window.location.search).get('deck');
     setDeckId(id);
     if (!id) { setLoading(false); setNotFound(true); return; }
 
@@ -70,7 +73,7 @@ export function DeckViewApp() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(16px,3vw,32px)' }}>
+    <div style={{ maxWidth: 1600, margin: '0 auto', padding: 'clamp(16px,2vw,24px)' }}>
       <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>{deckRow.name}</h1>
@@ -93,7 +96,7 @@ export function DeckViewApp() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'row', gap: 24, flexWrap: 'wrap' }}>
-        <div style={{ flex: '0 0 320px', background: 'var(--bg-surface-2)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
+        <div style={{ flex: '0 0 clamp(280px, 28vw, 420px)', background: 'var(--bg-surface-2)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
           <DeckPreviewColumn
             deck={deck}
             cards={cards}
@@ -105,7 +108,7 @@ export function DeckViewApp() {
             isWide
           />
         </div>
-        <div style={{ flex: '1 1 360px', minWidth: 320, background: 'var(--bg-surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 16 }}>
+        <div style={{ flex: '1 1 500px', minWidth: 320, background: 'var(--bg-surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 16 }}>
           <DeckList
             deck={deck}
             cards={cards}
@@ -124,7 +127,23 @@ export function DeckViewApp() {
       </div>
 
       {previewCard && (
-        <CardDetail cardId={previewCard.id} onClose={() => setPreviewCard(null)} />
+        <div
+          onClick={() => setPreviewCard(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              touchAction: 'auto',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)',
+            }}
+            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+          >
+            <CardDetail cardId={previewCard.id} onClose={() => setPreviewCard(null)} />
+          </div>
+        </div>
       )}
     </div>
   );
