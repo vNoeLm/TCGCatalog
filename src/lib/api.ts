@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
+import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
 import { OWNER_ID, SETS, CYBERPUNK_SETS, DOMAINS, CYBERPUNK_COLORS, RARITIES, CYBERPUNK_RARITIES } from './constants';
 
 export const PAGE_SIZE = 36;
@@ -133,7 +134,11 @@ export async function fetchCardsCatalog(
     .select(selectFields);
 
   if (searchQuery.trim() !== '') {
-    query = query.or(`name.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`);
+    const clauses = [`name.ilike.%${searchQuery}%`, `card_number.ilike.%${searchQuery}%`, `artist.ilike.%${searchQuery}%`];
+    // Typing a known keyword ("deflect", "xp") also finds cards with that keyword in their text.
+    const searchedKeyword = findSearchableKeyword(searchQuery);
+    if (searchedKeyword) clauses.push(...keywordOrClauses(searchedKeyword));
+    query = query.or(clauses.join(','));
   }
 
   // Game filter (defaults to riftbound if not specified or if 'riftbound')
@@ -189,6 +194,14 @@ export async function fetchCardsCatalog(
   if (filters.tags && filters.tags.length > 0) {
     const tagQuery = filters.tags.map(t => `tags.cs.["${t}"]`).join(',');
     query = query.or(tagQuery);
+  }
+
+  // Selected keywords narrow the result (a card must have every one), so each gets its
+  // own OR-group over ability/text and PostgREST ANDs the groups together.
+  if (targetGame === 'riftbound' && filters.keywords && filters.keywords.length > 0) {
+    filters.keywords
+      .filter(k => (SEARCHABLE_KEYWORDS as readonly string[]).includes(k))
+      .forEach(k => { query = query.or(keywordOrClauses(k).join(',')); });
   }
 
   query = query.order('card_number').limit(5000);

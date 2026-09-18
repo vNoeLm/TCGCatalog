@@ -4,6 +4,7 @@ import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
+import { findSearchableKeyword, cardHasKeyword } from '../../lib/keywordSearch';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -318,7 +319,12 @@ export function DeckCatalog({
       }
 
       // 4. Search
-      if (search && !card.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search) {
+        // A known keyword ("deflect", "xp") also matches cards carrying it in their text.
+        const searchedKeyword = findSearchableKeyword(search);
+        const nameMatch = card.name.toLowerCase().includes(search.toLowerCase());
+        if (!nameMatch && !(searchedKeyword && cardHasKeyword(card, searchedKeyword))) return false;
+      }
 
       // 5. Type sub-filter
       if (typeFilter !== 'All' && card.card_type !== typeFilter) return false;

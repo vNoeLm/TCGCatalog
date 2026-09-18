@@ -93,6 +93,8 @@ export interface FilterState {
   type: string;
   domains: string[];
   tags: string[];
+  /** Riftbound keywords (e.g. Deflect, Hidden, XP) matched against card ability/text. */
+  keywords?: string[];
   sealedTypes?: string[];
   costMin: number;
   costMax: number;
