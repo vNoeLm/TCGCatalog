@@ -72,6 +72,10 @@ ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME
 ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS market_price_eur DECIMAL(10, 2);
 ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS market_price_foil_eur DECIMAL(10, 2);
 ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS last_price_updated_at TIMESTAMP WITH TIME ZONE;
+-- Gear (and a few spells) print a separate effect box below the ability, and gear also grants a
+-- might bonus to the unit it's attached to. `ability` only ever held the Equip line.
+ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS effect TEXT;
+ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS might_bonus INTEGER;
 
 -- 6. INVENTORY TABLE
 CREATE TABLE IF NOT EXISTS public.inventory (
