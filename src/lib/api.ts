@@ -196,12 +196,15 @@ export async function fetchCardsCatalog(
     query = query.or(tagQuery);
   }
 
-  // Selected keywords narrow the result (a card must have every one), so each gets its
-  // own OR-group over ability/text and PostgREST ANDs the groups together.
+  // "and" (default): each keyword gets its own OR-group over ability/text and PostgREST ANDs
+  // the groups together. "or": one group holding every keyword's clauses.
   if (targetGame === 'riftbound' && filters.keywords && filters.keywords.length > 0) {
-    filters.keywords
-      .filter(k => (SEARCHABLE_KEYWORDS as readonly string[]).includes(k))
-      .forEach(k => { query = query.or(keywordOrClauses(k).join(',')); });
+    const valid = filters.keywords.filter(k => (SEARCHABLE_KEYWORDS as readonly string[]).includes(k));
+    if (filters.keywordMode === 'or') {
+      if (valid.length > 0) query = query.or(valid.flatMap(k => keywordOrClauses(k)).join(','));
+    } else {
+      valid.forEach(k => { query = query.or(keywordOrClauses(k).join(',')); });
+    }
   }
 
   query = query.order('card_number').limit(5000);

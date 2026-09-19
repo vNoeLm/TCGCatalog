@@ -47,6 +47,12 @@ export function useSavedDecks(activeGame: 'riftbound' | 'cyberpunk' = 'riftbound
     return newDeck;
   };
 
+  const updateDeck = (id: string, deck: DeckState, name?: string) => {
+    setSavedDecks(prev => prev.map(d => (
+      d.id === id ? { ...d, name: name?.trim() || d.name, deck: { ...deck, game: activeGame } } : d
+    )));
+  };
+
   const deleteDeck = (id: string) => {
     setSavedDecks(prev => prev.filter(d => d.id !== id));
   };
@@ -70,5 +76,5 @@ export function useSavedDecks(activeGame: 'riftbound' | 'cyberpunk' = 'riftbound
     return result;
   };
 
-  return { savedDecks, saveDeck, deleteDeck, importDeck, importDecksBatch, loaded };
+  return { savedDecks, saveDeck, updateDeck, deleteDeck, importDeck, importDecksBatch, loaded };
 }

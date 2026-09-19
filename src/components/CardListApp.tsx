@@ -53,6 +53,8 @@ const SORT_OPTIONS = [
   { mode: "Rarity (Low to High)", labelKey: 'sort_rarity_low' },
   { mode: "Name (A to Z)", labelKey: 'sort_name_asc' },
   { mode: "Name (Z to A)", labelKey: 'sort_name_desc' },
+  { mode: "Energy Cost (Low to High)", labelKey: 'sort_cost_low' },
+  { mode: "Energy Cost (High to Low)", labelKey: 'sort_cost_high' },
 ] as const;
 
 function getSortLabel(mode: string): string {
@@ -98,7 +100,8 @@ export function CardListApp() {
     "Card Number (Asc)" | "Card Number (Desc)" |
     "Rarity (High to Low)" | "Rarity (Low to High)" |
     "Quantity (High to Low)" | "Quantity (Low to High)" |
-    "Name (A to Z)" | "Name (Z to A)"
+    "Name (A to Z)" | "Name (Z to A)" |
+    "Energy Cost (Low to High)" | "Energy Cost (High to Low)"
   >("Card Number (Asc)");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -663,6 +666,12 @@ export function CardListApp() {
         const qA = (displayCollection[a.id] || 0) + (displayCollection[`${a.id}_foil`] || 0);
         const qB = (displayCollection[b.id] || 0) + (displayCollection[`${b.id}_foil`] || 0);
         if (qA !== qB) return qA - qB;
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
+      if (sortMode === 'Energy Cost (Low to High)' || sortMode === 'Energy Cost (High to Low)') {
+        const cA = typeof a.cost === 'number' ? a.cost : Number(a.energy) || 0;
+        const cB = typeof b.cost === 'number' ? b.cost : Number(b.energy) || 0;
+        if (cA !== cB) return sortMode === 'Energy Cost (Low to High)' ? cA - cB : cB - cA;
         return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
       }
       if (sortMode === 'Name (A to Z)') {

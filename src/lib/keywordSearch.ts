@@ -25,6 +25,17 @@ export function keywordOrClauses(keyword: string): string[] {
   return [`ability.ilike.%[${keyword}%`, `text.ilike.%[${keyword}%`];
 }
 
+export function cardMatchesKeywords(
+  card: { ability?: string | null; text?: string | null },
+  keywords: string[] | undefined,
+  mode: 'and' | 'or' = 'and'
+): boolean {
+  if (!keywords || keywords.length === 0) return true;
+  return mode === 'or'
+    ? keywords.some(k => cardHasKeyword(card, k))
+    : keywords.every(k => cardHasKeyword(card, k));
+}
+
 export function cardHasKeyword(card: { ability?: string | null; text?: string | null }, keyword: string): boolean {
   const raw = `${card.ability || ''} ${card.text || ''}`;
   if (keyword === 'XP') return /\bXP\b/.test(raw);
