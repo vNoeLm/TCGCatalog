@@ -144,6 +144,11 @@ export function DeckBuilderApp() {
   const loadedSavedDeck = savedDecks.find(d => d.id === loadedSavedDeckId) || null;
   const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>(activeGame === 'cyberpunk' ? 'legends' : 'legend');
 
+  // Left column shows either the deck preview or the catalog filters. The filter panel itself
+  // is owned by DeckCatalog and portaled into this slot so its state stays next to the catalog logic.
+  const [leftTab, setLeftTab] = useState<'preview' | 'filters'>('preview');
+  const [filtersSlot, setFiltersSlot] = useState<HTMLElement | null>(null);
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showBrowserModal, setShowBrowserModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -339,26 +344,77 @@ export function DeckBuilderApp() {
         height: isWide ? 'calc(100vh - 70px)' : 'auto',
       }}>
 
-        {/* Left: Visual Preview */}
+        {/* Left: Deck Preview / Filters */}
         <div style={{
-          flex: isWide ? '0 0 clamp(280px, 25vw, 400px)' : '0 0 320px',
+          flex: isWide ? '0 0 clamp(280px, 25vw, 400px)' : (leftTab === 'filters' ? '0 0 auto' : '0 0 320px'),
           background: 'var(--bg-surface-2)',
           borderRadius: 16,
           border: '1px solid var(--border)',
           overflow: 'hidden',
           boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
         }}>
-          <DeckPreviewColumn
-            deck={deck}
-            cards={cards}
-            activeGame={activeGame}
-            cyberpunkLegends={cyberpunkLegends}
-            legendCard={legendCard}
-            championCard={championCard}
-            onCardClick={setPreviewCard}
-            onRemoveCard={removeCardFromAnyZone}
-            isWide={isWide}
-          />
+          <div style={{ display: 'flex', gap: 6, padding: 8, borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+            {([
+              { id: 'preview' as const, label: 'Preview' },
+              { id: 'filters' as const, label: 'Filters' },
+            ]).map(tab => {
+              const active = leftTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setLeftTab(tab.id)}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    background: active ? 'var(--accent)' : 'transparent',
+                    color: active ? 'var(--text-on-accent, #000)' : 'var(--text-secondary)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {tab.label}
+                  {tab.id === 'filters' && activeFiltersCount > 0 && (
+                    <span style={{
+                      background: active ? 'rgba(0,0,0,0.25)' : 'var(--accent)',
+                      color: active ? 'inherit' : 'var(--text-on-accent, #000)',
+                      borderRadius: 10, padding: '0 7px', fontSize: 11, fontWeight: 900,
+                    }}>
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <div style={{ height: isWide ? '100%' : 'auto', display: leftTab === 'preview' ? 'block' : 'none' }}>
+              <DeckPreviewColumn
+                deck={deck}
+                cards={cards}
+                activeGame={activeGame}
+                cyberpunkLegends={cyberpunkLegends}
+                legendCard={legendCard}
+                championCard={championCard}
+                onCardClick={setPreviewCard}
+                onRemoveCard={removeCardFromAnyZone}
+                isWide={isWide}
+              />
+            </div>
+            <div
+              ref={setFiltersSlot}
+              className="custom-scrollbar"
+              style={{
+                height: isWide ? '100%' : 'auto',
+                maxHeight: isWide ? undefined : '70vh',
+                overflowY: 'auto',
+                display: leftTab === 'filters' ? 'block' : 'none',
+              }}
+            />
+          </div>
         </div>
 
         {/* Center: Catalog */}
@@ -374,6 +430,8 @@ export function DeckBuilderApp() {
             onAddCard={(c) => addCard(c, activeZone, cards)}
             onPreviewCard={setPreviewCard}
             isWide={isWide}
+            filtersSlot={filtersSlot}
+            onActiveFiltersCountChange={setActiveFiltersCount}
           />
         </div>
 
