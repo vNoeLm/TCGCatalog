@@ -45,6 +45,8 @@ export interface InventoryCard {
   last_price_updated_at?: string | null;
   inventory_images?: Array<{ image_path: string; display_order?: number }>;
   inventory_image?: string | null;
+  /** The card's official art; `image_path` may instead be a seller's condition photo. */
+  card_image_path?: string | null;
   seller_id?: string;
   seller_name?: string;
   seller_avatar?: string | null;
