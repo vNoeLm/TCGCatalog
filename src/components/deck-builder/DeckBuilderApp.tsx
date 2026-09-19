@@ -411,6 +411,7 @@ export function DeckBuilderApp() {
                 height: isWide ? '100%' : 'auto',
                 maxHeight: isWide ? undefined : '70vh',
                 overflowY: 'auto',
+                overflowX: 'hidden',
                 display: leftTab === 'filters' ? 'block' : 'none',
               }}
             />
