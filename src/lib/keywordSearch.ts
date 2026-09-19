@@ -19,14 +19,14 @@ export function findSearchableKeyword(query: string): string | null {
 /** PostgREST `or` clauses matching a keyword in a card's ability/text. */
 export function keywordOrClauses(keyword: string): string[] {
   // Case-sensitive like: ilike would also match words such as "expend" or "explore".
-  if (keyword === 'XP') return ['ability.like.%XP%', 'text.like.%XP%'];
+  if (keyword === 'XP') return ['ability.like.%XP%', 'text.like.%XP%', 'effect.like.%XP%'];
   // "[Empower" also covers "[Empowered]"; the bracket keeps "Level" or "Tank" from
   // matching ordinary prose like "level" or "tank".
-  return [`ability.ilike.%[${keyword}%`, `text.ilike.%[${keyword}%`];
+  return [`ability.ilike.%[${keyword}%`, `text.ilike.%[${keyword}%`, `effect.ilike.%[${keyword}%`];
 }
 
 export function cardMatchesKeywords(
-  card: { ability?: string | null; text?: string | null },
+  card: { ability?: string | null; text?: string | null; effect?: string | null },
   keywords: string[] | undefined,
   mode: 'and' | 'or' = 'and'
 ): boolean {
@@ -36,8 +36,9 @@ export function cardMatchesKeywords(
     : keywords.every(k => cardHasKeyword(card, k));
 }
 
-export function cardHasKeyword(card: { ability?: string | null; text?: string | null }, keyword: string): boolean {
-  const raw = `${card.ability || ''} ${card.text || ''}`;
+export function cardHasKeyword(card: { ability?: string | null; text?: string | null; effect?: string | null }, keyword: string): boolean {
+  // effect is the separate box printed on gear (e.g. "Your units here have [Ganking]").
+  const raw = `${card.ability || ''} ${card.text || ''} ${card.effect || ''}`;
   if (keyword === 'XP') return /\bXP\b/.test(raw);
   return raw.toLowerCase().includes(`[${keyword.toLowerCase()}`);
 }
