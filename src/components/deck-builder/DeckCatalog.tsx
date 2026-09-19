@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { CatalogCard } from '../../types';
 import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { isCardRamSufficient } from './useDeckBuilder';
@@ -20,6 +21,9 @@ interface DeckCatalogProps {
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
   isWide?: boolean;
+  /** Where the filter panel (with the Owned Only switch) is rendered: the Deck Builder's left column. */
+  filtersSlot?: HTMLElement | null;
+  onActiveFiltersCountChange?: (count: number) => void;
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -111,6 +115,8 @@ export function DeckCatalog({
   onAddCard,
   onPreviewCard,
   isWide = true,
+  filtersSlot = null,
+  onActiveFiltersCountChange,
 }: DeckCatalogProps) {
   const isCyberpunk = activeGame === 'cyberpunk';
   const theme = {
@@ -143,7 +149,6 @@ export function DeckCatalog({
   const [costMin, setCostMin]           = useState<number>(0);
   const [costMax, setCostMax]           = useState<number>(10);
   const [onlyOwned, setOnlyOwned]       = useState<boolean>(false);
-  const [showFilters, setShowFilters]   = useState(false);
   const [sortMode, setSortMode]         = useState<
     'Cost (Low to High)' | 'Cost (High to Low)' |
     'Card Number (Asc)' | 'Card Number (Desc)' |
@@ -566,137 +571,14 @@ export function DeckCatalog({
     input: { background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 15, flex: 1, minWidth: 0, height: 40, textAlign: 'center', fontWeight: 600 } as React.CSSProperties,
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: isWide ? '100%' : 'auto' }}>
+  React.useEffect(() => { onActiveFiltersCountChange?.(activeFiltersCount); }, [activeFiltersCount, onActiveFiltersCountChange]);
 
-      {/* Legend prompt */}
-      {!isCyberpunk && !legendCard && (
-        <div style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border, var(--border))', color: 'var(--text-accent)', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          Select your Legend first — it determines which domains you can play.
-        </div>
-      )}
-
-      {/* Cyberpunk Legend Helper Note */}
-      {isCyberpunk && (activeZone === 'legends' || activeZone === 'legend') && (
-        <div style={{
-          background: 'rgba(252, 238, 10, 0.08)',
-          border: '1px solid rgba(252, 238, 10, 0.3)',
-          borderRadius: 8,
-          padding: '8px 12px',
-          marginBottom: 10,
-          fontSize: 12,
-          color: '#fcee0a',
-          fontWeight: 600,
-        }}>
-          Choose exactly 3 unique Legends — their cumulative RAM determines which cards you can include in your deck.
-        </div>
-      )}
-
-      {/* Search + Filters toggle + Sort By + Owned Only */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? "Search Legends…" : "Search cards…")}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{
-              flex: '1 1 160px', padding: '9px 14px', borderRadius: 8,
-              background: theme.inputBg,
-              border: `1px solid ${theme.inputBorder}`,
-              color: '#f4f4f5', outline: 'none', fontSize: 14,
-            }}
-          />
-
-          {/* Sort By Dropdown */}
-          <select
-            value={sortMode}
-            onChange={e => setSortMode(e.target.value as any)}
-            style={{
-              padding: '9px 12px', borderRadius: 8,
-              background: theme.inputBg,
-              border: `1px solid ${theme.inputBorder}`,
-              color: '#f4f4f5',
-              fontWeight: 700, fontSize: 13, outline: 'none', cursor: 'pointer'
-            }}
-            title={'Sort by'}
-          >
-            <option value="Cost (Low to High)">Cost: Low to High</option>
-            <option value="Cost (High to Low)">Cost: High to Low</option>
-            <option value="Card Number (Asc)">Card Number (Asc)</option>
-            <option value="Card Number (Desc)">Card Number (Desc)</option>
-            <option value="Name (A to Z)">Name (A to Z)</option>
-            <option value="Name (Z to A)">Name (Z to A)</option>
-            <option value="Rarity (High to Low)">Rarity (High to Low)</option>
-            <option value="Rarity (Low to High)">Rarity (Low to High)</option>
-          </select>
-
-          <button
-            onClick={() => setOnlyOwned(o => !o)}
-            style={{
-              padding: '9px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13,
-              background: onlyOwned ? 'rgba(52,211,153,0.18)' : theme.inputBg,
-              border: onlyOwned ? '1px solid rgba(52,211,153,0.5)' : `1px solid ${theme.inputBorder}`,
-              color: onlyOwned ? '#10b981' : 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-            }}
-            title={onlyOwned ? ("Showing only owned cards (Click to show all cards)") : ("Click to filter and show only cards in your collection")}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: onlyOwned ? '#10b981' : 'var(--text-muted)', display: 'inline-block' }} />
-            <span>Owned Only</span>
-            {collection.size > 0 && (
-              <span style={{
-                fontSize: 11, padding: '1px 6px', borderRadius: 10,
-                background: onlyOwned ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.08)',
-                color: onlyOwned ? '#10b981' : 'var(--text-muted)'
-              }}>
-                {ownedInCatalogCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            style={{
-              padding: '9px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-              background: showFilters ? theme.accentMuted : theme.inputBg,
-              border: showFilters ? `1px solid ${theme.accentBorder}` : `1px solid ${theme.inputBorder}`,
-              color: showFilters ? theme.accent : 'var(--text-primary)',
-              boxShadow: showFilters ? `0 0 12px ${theme.accentGlow}` : 'none',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            Filters
-            {activeFiltersCount > 0 && (
-              <span style={{
-                background: theme.accent,
-                color: theme.textOnAccent,
-                borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 900,
-              }}>
-                {activeFiltersCount}
-              </span>
-            )}
-            <span style={{
-              fontSize: 9, opacity: 0.8, display: 'inline-block',
-              transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s'
-            }}>▼</span>
-          </button>
-        </div>
-
-        {/* Expandable filter panel with game styling */}
-        {showFilters && (
+  const filtersPanel = (
           <div style={{
-            background: theme.panelBg,
-            border: `1px solid ${theme.panelBorder}`,
-            borderRadius: 12,
             padding: 16,
             display: 'flex',
             flexDirection: 'column',
             gap: 14,
-            boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 16px ${theme.accentGlow}`,
           }}>
 
             {/* Owned Only Filter Switch — whole row toggles it, not just the pill */}
@@ -1018,7 +900,76 @@ export function DeckCatalog({
               </div>
             )}
           </div>
-        )}
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: isWide ? '100%' : 'auto' }}>
+
+      {/* Legend prompt */}
+      {!isCyberpunk && !legendCard && (
+        <div style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border, var(--border))', color: 'var(--text-accent)', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+          Select your Legend first — it determines which domains you can play.
+        </div>
+      )}
+
+      {/* Cyberpunk Legend Helper Note */}
+      {isCyberpunk && (activeZone === 'legends' || activeZone === 'legend') && (
+        <div style={{
+          background: 'rgba(252, 238, 10, 0.08)',
+          border: '1px solid rgba(252, 238, 10, 0.3)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          marginBottom: 10,
+          fontSize: 12,
+          color: '#fcee0a',
+          fontWeight: 600,
+        }}>
+          Choose exactly 3 unique Legends — their cumulative RAM determines which cards you can include in your deck.
+        </div>
+      )}
+
+      {/* Search + Filters toggle + Sort By + Owned Only */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? "Search Legends…" : "Search cards…")}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              flex: '1 1 160px', padding: '9px 14px', borderRadius: 8,
+              background: theme.inputBg,
+              border: `1px solid ${theme.inputBorder}`,
+              color: '#f4f4f5', outline: 'none', fontSize: 14,
+            }}
+          />
+
+          {/* Sort By Dropdown */}
+          <select
+            value={sortMode}
+            onChange={e => setSortMode(e.target.value as any)}
+            style={{
+              padding: '9px 12px', borderRadius: 8,
+              background: theme.inputBg,
+              border: `1px solid ${theme.inputBorder}`,
+              color: '#f4f4f5',
+              fontWeight: 700, fontSize: 13, outline: 'none', cursor: 'pointer'
+            }}
+            title={'Sort by'}
+          >
+            <option value="Cost (Low to High)">Cost: Low to High</option>
+            <option value="Cost (High to Low)">Cost: High to Low</option>
+            <option value="Card Number (Asc)">Card Number (Asc)</option>
+            <option value="Card Number (Desc)">Card Number (Desc)</option>
+            <option value="Name (A to Z)">Name (A to Z)</option>
+            <option value="Name (Z to A)">Name (Z to A)</option>
+            <option value="Rarity (High to Low)">Rarity (High to Low)</option>
+            <option value="Rarity (Low to High)">Rarity (Low to High)</option>
+          </select>
+
+        </div>
+
+        {filtersSlot && createPortal(filtersPanel, filtersSlot)}
       </div>
 
       {/* Card Grid */}
