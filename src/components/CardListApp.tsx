@@ -4,6 +4,7 @@ import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CardDetail } from "./CardDetail";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
+import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { consolidateRunes, getConsolidatedOwnedQty } from "../lib/runeConsolidation";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
@@ -109,11 +110,20 @@ export function CardListApp() {
   const lastLoggedSearchRef = useRef<string>('');
 
   const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    const touch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    setCanScan(Boolean(navigator.mediaDevices?.getUserMedia) && touch);
+  }, []);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  // The scanner needs a camera, so it's only offered where one is plausible.
+  const [canScan, setCanScan] = useState(false);
   const [importText, setImportText] = useState("");
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1628,6 +1638,22 @@ export function CardListApp() {
                   Deck Builder
                 </a>
 
+                {/* Scan Cards (camera devices only) */}
+                {canScan && (
+                  <button
+                    onClick={() => setShowScanner(true)}
+                    title="Scan cards with your camera"
+                    className="flex items-center justify-center gap-1.5 h-10 sm:h-9 px-3 rounded-xl text-xs font-bold transition cursor-pointer border"
+                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9V7a2 2 0 0 1 2-2h2M17 5h2a2 2 0 0 1 2 2v2M21 15v2a2 2 0 0 1-2 2h-2M7 19H5a2 2 0 0 1-2-2v-2" />
+                      <line x1="3" y1="12" x2="21" y2="12" />
+                    </svg>
+                    Scan
+                  </button>
+                )}
+
                 {/* Quick List Button */}
                 <button
                   onClick={() => setShowQuickSalePreview(true)}
@@ -2115,6 +2141,14 @@ export function CardListApp() {
       )}
 
       {/* Import Modal */}
+      <CardScannerModal
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        cards={allCards.length ? allCards : cards}
+        game={filters.game || 'riftbound'}
+        onAddCard={(card, isFoil, delta) => updateCardCount(card.id, isFoil, delta)}
+      />
+
       {/* Quick List Preview Modal */}
       {showQuickSalePreview && (
         <QuickSalePreviewModal
