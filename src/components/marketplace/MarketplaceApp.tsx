@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { CardItem } from '../CardItem';
+import { CardGroupTile } from './CardGroupTile';
+import { CardListingsModal } from './CardListingsModal';
+import { groupListingsByCard, type CardListingGroup } from '../../lib/marketplaceGrouping';
 import { CardDetail } from '../CardDetail';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
@@ -52,6 +55,10 @@ export function MarketplaceApp() {
   const [sortOpen, setSortOpen] = useState(false);
   const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'on_hold'>('in_stock');
+  // "cards" groups every listing of a card into one tile (Cardmarket-style); "listings" shows
+  // each listing separately. Left unset it follows whether the view is scoped to one seller.
+  const [viewOverride, setViewOverride] = useState<'cards' | 'listings' | null>(null);
+  const [selectedGroupCardId, setSelectedGroupCardId] = useState<string | null>(null);
 
   // Listings State
   const [cards, setCards] = useState<InventoryCard[]>([]);
@@ -126,6 +133,7 @@ export function MarketplaceApp() {
       if (filters.foilFilter) params.set('foil', 'true');
       if (filters.sellerId) params.set('seller_id', filters.sellerId);
       if (statusFilter !== 'all') params.set('status', statusFilter);
+      params.set('pageSize', '500');
 
       setFetchError(null);
       const res = await fetch(`/api/marketplace/listings?${params.toString()}`);
@@ -175,14 +183,14 @@ export function MarketplaceApp() {
 
   // Lock body scroll when detail modal open
   useEffect(() => {
-    if (selectedInventoryId) {
+    if (selectedInventoryId || selectedGroupCardId) {
       const orig = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = orig;
       };
     }
-  }, [selectedInventoryId]);
+  }, [selectedInventoryId, selectedGroupCardId]);
 
   // Close sort dropdown on outside click
   useEffect(() => {
@@ -220,6 +228,33 @@ export function MarketplaceApp() {
       return 0;
     });
   }, [cards, filters, sortMode]);
+
+  const sellerScoped = Boolean(filters.sellerId) || sellerSearch.trim() !== '';
+  useEffect(() => { setViewOverride(null); }, [sellerScoped]);
+  const view: 'cards' | 'listings' = viewOverride ?? (sellerScoped ? 'listings' : 'cards');
+
+  const groupedCards = useMemo(() => {
+    const groups = groupListingsByCard(cards.filter(card => matchesCardVariants(card, filters)));
+    const rarityRank = (g: CardListingGroup) => RARITIES.indexOf(g.representative.rarity);
+    return groups.sort((a, b) => {
+      if (sortMode === 'Price (Low to High)') return (a.lowest_price || Infinity) - (b.lowest_price || Infinity);
+      if (sortMode === 'Price (High to Low)') return b.lowest_price - a.lowest_price;
+      if (sortMode === 'Quantity (High to Low)') return b.total_quantity - a.total_quantity;
+      if (sortMode === 'Quantity (Low to High)') return a.total_quantity - b.total_quantity;
+      if (sortMode === 'Name (A to Z)') return (a.representative.name || '').localeCompare(b.representative.name || '');
+      if (sortMode === 'Name (Z to A)') return (b.representative.name || '').localeCompare(a.representative.name || '');
+      if (sortMode === 'Card Number (Asc)') return (a.representative.card_number || '').localeCompare(b.representative.card_number || '', undefined, { numeric: true });
+      if (sortMode === 'Card Number (Desc)') return (b.representative.card_number || '').localeCompare(a.representative.card_number || '', undefined, { numeric: true });
+      if (sortMode === 'Rarity (High to Low)') return rarityRank(b) - rarityRank(a);
+      if (sortMode === 'Rarity (Low to High)') return rarityRank(a) - rarityRank(b);
+      return 0;
+    });
+  }, [cards, filters, sortMode]);
+
+  const selectedGroup = useMemo(
+    () => (selectedGroupCardId ? groupedCards.find(g => g.card_id === selectedGroupCardId) || null : null),
+    [groupedCards, selectedGroupCardId]
+  );
 
   const availableSets = useMemo(() => {
     const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
@@ -439,8 +474,31 @@ export function MarketplaceApp() {
               ))}
             </div>
 
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <span className="text-xs font-bold text-zinc-400">View:</span>
+              {([
+                { id: 'cards', label: 'By card' },
+                { id: 'listings', label: 'All listings' },
+              ] as const).map(pill => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setViewOverride(pill.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                    view === pill.id
+                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50 shadow-sm'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
             <p className="mt-2.5 text-xs text-zinc-300 font-semibold">
-              {`${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
+              {view === 'cards'
+                ? `${groupedCards.length} ${groupedCards.length === 1 ? 'card' : 'cards'} for sale across ${sortedCards.length} ${sortedCards.length === 1 ? 'listing' : 'listings'}`
+                : `${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
             </p>
           </div>
 
@@ -477,7 +535,7 @@ export function MarketplaceApp() {
                 Retry
               </button>
             </div>
-          ) : sortedCards.length === 0 ? (
+          ) : (view === 'cards' ? groupedCards.length : sortedCards.length) === 0 ? (
             <div 
               className="rounded-3xl p-12 text-center border shadow-sm"
               style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
@@ -517,6 +575,17 @@ export function MarketplaceApp() {
                 </a>
               </div>
             </div>
+          ) : view === 'cards' ? (
+            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+              {groupedCards.map(group => (
+                <CardGroupTile
+                  key={group.card_id}
+                  group={group}
+                  onClick={(g) => setSelectedGroupCardId(g.card_id)}
+                  gridSize={gridSize}
+                />
+              ))}
+            </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
               {sortedCards.map(card => (
@@ -531,6 +600,15 @@ export function MarketplaceApp() {
           )}
         </main>
       </div>
+
+      {/* Per-card listings (Cardmarket-style detail) */}
+      {selectedGroup && (
+        <CardListingsModal
+          group={selectedGroup}
+          onClose={() => setSelectedGroupCardId(null)}
+          onSelectListing={(id) => setSelectedInventoryId(id)}
+        />
+      )}
 
       {/* Card Detail Modal */}
       {selectedInventoryId && (

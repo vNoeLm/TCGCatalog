@@ -29,7 +29,9 @@ export const GET: APIRoute = async ({ url }) => {
     const sellerId = url.searchParams.get('seller_id') || '';
     const sellerNameQuery = url.searchParams.get('seller')?.trim().toLowerCase() || '';
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10)));
+    // The grouped "cards" marketplace view needs every active listing at once to compute
+    // per-card lowest/average prices, hence the higher ceiling.
+    const pageSize = Math.min(500, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10)));
 
     // 1. Fetch from inventory table (Community marketplace listings + showcase items)
     let invQuery = supabaseAdmin
@@ -258,6 +260,7 @@ export const GET: APIRoute = async ({ url }) => {
         card_type: cardObj.card_type,
         cost: cardObj.cost,
         image_path: firstCustomPhoto || cardObj.image_path,
+        card_image_path: cardObj.image_path,
         inventory_image: firstCustomPhoto,
         inventory_images: invImgs,
         subtype: cardObj.subtype,
