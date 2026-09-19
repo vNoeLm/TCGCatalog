@@ -136,7 +136,12 @@ export function DeckBuilderApp() {
   });
 
   const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder(activeGame);
-  const { savedDecks, saveDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
+  const { savedDecks, saveDeck, updateDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
+  // The saved deck currently being edited, so Save can offer to update it instead of always
+  // creating a copy. Cleared when the deck is emptied or the game changes.
+  const [loadedSavedDeckId, setLoadedSavedDeckId] = useState<string | null>(null);
+  const [saveMode, setSaveMode] = useState<'update' | 'new'>('update');
+  const loadedSavedDeck = savedDecks.find(d => d.id === loadedSavedDeckId) || null;
   const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>(activeGame === 'cyberpunk' ? 'legends' : 'legend');
 
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -411,7 +416,11 @@ export function DeckBuilderApp() {
               </ActionButton>
 
               <ActionButton
-                onClick={() => setShowSaveModal(true)}
+                onClick={() => {
+                  setSaveMode('update');
+                  if (loadedSavedDeck) setDeckNameInput(loadedSavedDeck.name);
+                  setShowSaveModal(true);
+                }}
                 type="save"
               >
                 Save
@@ -439,7 +448,7 @@ export function DeckBuilderApp() {
               </ActionButton>
 
               <ActionButton
-                onClick={() => { if(confirm('Clear entire deck?')) clearDeck(); }}
+                onClick={() => { if(confirm('Clear entire deck?')) { clearDeck(); setLoadedSavedDeckId(null); } }}
                 type="clear"
               >
                 Clear Deck
@@ -509,10 +518,55 @@ export function DeckBuilderApp() {
           onClose={() => setShowSaveModal(false)}
           title={"Save Deck"}
         >
+          {loadedSavedDeck && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+                You loaded "{loadedSavedDeck.name}" from your saved decks. What do you want to do with your changes?
+              </p>
+              {([
+                { mode: 'update' as const, title: `Update "${loadedSavedDeck.name}"`, desc: 'Replace the saved deck list with the current one' },
+                { mode: 'new' as const, title: 'Save as a new deck', desc: 'Keep the original as it was and add this as a separate deck' },
+              ]).map(opt => (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  onClick={() => {
+                    setSaveMode(opt.mode);
+                    setDeckNameInput(opt.mode === 'update' ? loadedSavedDeck.name : `${loadedSavedDeck.name} (copy)`);
+                  }}
+                  style={{
+                    textAlign: 'left', cursor: 'pointer', padding: '10px 14px', borderRadius: 10,
+                    background: saveMode === opt.mode ? 'var(--accent-muted)' : 'var(--bg-input)',
+                    border: `1px solid ${saveMode === opt.mode ? 'var(--accent)' : 'var(--border)'}`,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 800 }}>{opt.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          )}
           <input autoFocus type="text" value={deckNameInput} onChange={e => setDeckNameInput(e.target.value)} placeholder={"Deck Name"} style={inputStyle} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
             <button onClick={() => setShowSaveModal(false)} style={btnStyle()}>Cancel</button>
-            <button onClick={() => { if(deckNameInput.trim()){ saveDeck(deckNameInput.trim(), deck); setDeckNameInput(''); setShowSaveModal(false); } }} style={btnStyle('#6366f1', '#fff', '#6366f1')}>Save</button>
+            <button
+              onClick={() => {
+                const name = deckNameInput.trim();
+                if (!name) return;
+                if (loadedSavedDeck && saveMode === 'update') {
+                  updateDeck(loadedSavedDeck.id, deck, name);
+                } else {
+                  const created = saveDeck(name, deck);
+                  setLoadedSavedDeckId(created.id);
+                }
+                setDeckNameInput('');
+                setShowSaveModal(false);
+              }}
+              style={btnStyle('#6366f1', '#fff', '#6366f1')}
+            >
+              {loadedSavedDeck && saveMode === 'update' ? 'Update Deck' : 'Save'}
+            </button>
           </div>
         </Modal>
       )}
@@ -751,7 +805,7 @@ export function DeckBuilderApp() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { loadDeck(sd.deck); setShowBrowserModal(false); }}
+                    onClick={() => { loadDeck(sd.deck); setLoadedSavedDeckId(sd.id); setSaveMode('update'); setShowBrowserModal(false); }}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition cursor-pointer"
                   >
                     Load Deck

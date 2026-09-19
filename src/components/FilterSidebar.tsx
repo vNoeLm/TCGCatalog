@@ -127,6 +127,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       domains: [],
       tags: [],
       keywords: [],
+      keywordMode: 'and',
       sealedTypes: [],
       costMin: 1,
       costMax: 10,
@@ -671,7 +672,24 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   );
                 })}
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1.5">Cards must have every selected keyword.</p>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Match</span>
+                {(['and', 'or'] as const).map(m => {
+                  const active = (filters.keywordMode || 'and') === m;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => set("keywordMode", m)}
+                      title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
+                      className={`px-3 py-0.5 text-[11px] rounded-md border transition cursor-pointer font-bold ${
+                        active ? sidebarTheme.btnActive : sidebarTheme.btnDefault
+                      }`}
+                    >
+                      {m === 'and' ? 'All (AND)' : 'Any (OR)'}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

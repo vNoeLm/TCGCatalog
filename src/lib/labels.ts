@@ -29,6 +29,8 @@ export const labels = {
   sort_qty_low: "Quantity (Low to High)",
   sort_name_asc: "Name (A to Z)",
   sort_name_desc: "Name (Z to A)",
+  sort_cost_low: "Energy Cost (Low to High)",
+  sort_cost_high: "Energy Cost (High to Low)",
   all: "All",
   owned: "Owned",
   have: "Owned",

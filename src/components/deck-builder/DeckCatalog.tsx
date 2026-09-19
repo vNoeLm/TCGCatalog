@@ -4,7 +4,10 @@ import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl } from '../../lib/supabase';
-import { findSearchableKeyword, cardHasKeyword } from '../../lib/keywordSearch';
+import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
+import { keywordSolidColor } from '../../lib/formatGameText';
+import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard } from '../../lib/cardVariants';
+import { TAGS, CYBERPUNK_TAGS } from '../../lib/constants';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -58,6 +61,45 @@ const CYBERPUNK_ZONE_TYPE_OPTIONS: Record<string, string[]> = {
   sideboard:   ['Unit', 'Gear', 'Program'],
 };
 
+type TriState = 'all' | 'only' | 'none';
+const nextTriState = (t: TriState): TriState => (t === 'all' ? 'only' : t === 'only' ? 'none' : 'all');
+
+/** Number input that lets you clear it while typing; an empty box only falls back to a
+ * default when you leave it, instead of snapping to 0 the moment you delete the digits. */
+function CostInput({ label, value, fallback, onCommit, style }: {
+  label: string;
+  value: number;
+  fallback: number;
+  onCommit: (n: number) => void;
+  style: { box: React.CSSProperties; label: React.CSSProperties; input: React.CSSProperties };
+}) {
+  const [draft, setDraft] = useState<string>(String(value));
+  const [focused, setFocused] = useState(false);
+  React.useEffect(() => { if (!focused) setDraft(String(value)); }, [value, focused]);
+
+  return (
+    <label style={{ ...style.box, cursor: 'text' }}>
+      <span style={style.label}>{label}</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={draft}
+        onFocus={e => { setFocused(true); e.currentTarget.select(); }}
+        onChange={e => {
+          const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+          setDraft(digits);
+          if (digits !== '') onCommit(parseInt(digits, 10));
+        }}
+        onBlur={() => {
+          setFocused(false);
+          if (draft === '') { onCommit(fallback); setDraft(String(fallback)); }
+        }}
+        style={style.input}
+      />
+    </label>
+  );
+}
+
 export function DeckCatalog({
   cards,
   activeGame = 'riftbound',
@@ -85,8 +127,17 @@ export function DeckCatalog({
 
   const [search, setSearch]             = useState('');
   const [typeFilter, setTypeFilter]     = useState<string>('All');
-  const [rarityFilter, setRarityFilter] = useState<string>('All');
-  const [domainFilter, setDomainFilter] = useState<string>('All');
+  const [rarityFilter, setRarityFilter] = useState<string[]>([]);
+  const [domainFilter, setDomainFilter] = useState<string[]>([]);
+  const [altArtFilter, setAltArtFilter] = useState<TriState>('all');
+  const [overnumberedFilter, setOvernumberedFilter] = useState<TriState>('all');
+  const [signedFilter, setSignedFilter] = useState<TriState>('all');
+  const [spFilter, setSpFilter] = useState<TriState>('all');
+  const [baseSetOnly, setBaseSetOnly] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
+  const [keywordFilter, setKeywordFilter] = useState<string[]>([]);
+  const [keywordMode, setKeywordMode] = useState<'and' | 'or'>('and');
   const [ramFilter, setRamFilter]       = useState<string>('All');
   const [setFilter, setSetFilter]       = useState<string>('All');
   const [costMin, setCostMin]           = useState<number>(0);
@@ -329,24 +380,48 @@ export function DeckCatalog({
       // 5. Type sub-filter
       if (typeFilter !== 'All' && card.card_type !== typeFilter) return false;
 
-      // 6. Rarity
-      if (rarityFilter !== 'All' && card.rarity !== rarityFilter) return false;
+      // 6. Rarity (any of the selected)
+      if (rarityFilter.length > 0 && !rarityFilter.includes(card.rarity)) return false;
 
-      // 7. Domain / Color filter chip
-      if (domainFilter !== 'All') {
-        if (isCyberpunk) {
-          const meta = getCyberpunkMeta(card);
-          const col = (meta?.color || card.domain || '').toLowerCase();
-          if (col !== domainFilter.toLowerCase()) return false;
-        } else {
-          const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
-          if (domainFilter === 'colorless') {
-            if (cardDomains.length > 0 && !cardDomains.includes('colorless')) return false;
-          } else {
-            if (!cardDomains.includes(domainFilter.toLowerCase())) return false;
+      // 7. Domain / Color filter chips (any of the selected)
+      if (domainFilter.length > 0) {
+        const matchesDomain = domainFilter.some(sel => {
+          if (isCyberpunk) {
+            const meta = getCyberpunkMeta(card);
+            const col = (meta?.color || card.domain || '').toLowerCase();
+            return col === sel.toLowerCase();
           }
+          const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
+          if (sel === 'colorless') return cardDomains.length === 0 || cardDomains.includes('colorless');
+          return cardDomains.includes(sel.toLowerCase());
+        });
+        if (!matchesDomain) return false;
+      }
+
+      // 7c. Card variants (same rules as the catalog's Card Variant filters)
+      if (baseSetOnly) {
+        if (!isBaseSetCard(card)) return false;
+      } else {
+        const variantChecks: Array<[TriState, boolean]> = [
+          [signedFilter, isSigned(card)],
+          [altArtFilter, isAltArt(card)],
+          [overnumberedFilter, isOvernumbered(card)],
+          [spFilter, isSp(card)],
+        ];
+        for (const [mode, has] of variantChecks) {
+          if (mode === 'only' && !has) return false;
+          if (mode === 'none' && has) return false;
         }
       }
+
+      // 7d. Tags (any of the selected, as in the catalog)
+      if (tagFilter.length > 0) {
+        const cardTags = Array.isArray(card.tags) ? card.tags.map((t: any) => String(t).toLowerCase()) : [];
+        if (!tagFilter.some(t => cardTags.includes(t.toLowerCase()))) return false;
+      }
+
+      // 7e. Keywords (AND / OR)
+      if (!isCyberpunk && !cardMatchesKeywords(card, keywordFilter, keywordMode)) return false;
 
       // 7b. RAM filter for Cyberpunk
       if (isCyberpunk && ramFilter !== 'All') {
@@ -373,7 +448,7 @@ export function DeckCatalog({
 
       return true;
     });
-  }, [cards, search, typeFilter, rarityFilter, domainFilter, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, activeZone]);
+  }, [cards, search, typeFilter, rarityFilter, domainFilter, ramFilter, cyberpunkRamLimits, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, isCyberpunk, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, activeZone]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];
@@ -430,16 +505,34 @@ export function DeckCatalog({
   const activeFiltersCount =
     (onlyOwned ? 1 : 0) +
     (typeFilter !== 'All' ? 1 : 0) +
-    (rarityFilter !== 'All' ? 1 : 0) +
-    (domainFilter !== 'All' ? 1 : 0) +
+    rarityFilter.length +
+    domainFilter.length +
+    (altArtFilter !== 'all' ? 1 : 0) +
+    (overnumberedFilter !== 'all' ? 1 : 0) +
+    (signedFilter !== 'all' ? 1 : 0) +
+    (spFilter !== 'all' ? 1 : 0) +
+    (baseSetOnly ? 1 : 0) +
+    tagFilter.length +
+    keywordFilter.length +
+    (ramFilter !== 'All' ? 1 : 0) +
     (setFilter !== 'All' ? 1 : 0) +
     (costMin !== 0 || costMax !== 10 ? 1 : 0);
 
   const resetFilters = useCallback(() => {
     setOnlyOwned(false);
     setTypeFilter('All');
-    setRarityFilter('All');
-    setDomainFilter('All');
+    setRarityFilter([]);
+    setDomainFilter([]);
+    setAltArtFilter('all');
+    setOvernumberedFilter('all');
+    setSignedFilter('all');
+    setSpFilter('all');
+    setBaseSetOnly(false);
+    setTagFilter([]);
+    setTagSearch('');
+    setKeywordFilter([]);
+    setKeywordMode('and');
+    setRamFilter('All');
     setSetFilter('All');
     setCostMin(0);
     setCostMax(10);
@@ -465,6 +558,12 @@ export function DeckCatalog({
     fontSize: 13,
     outline: 'none',
     cursor: 'pointer',
+  };
+
+  const costInputStyle = {
+    box: { display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '0 14px', flex: 1, minHeight: 42 } as React.CSSProperties,
+    label: { fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 } as React.CSSProperties,
+    input: { background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 15, flex: 1, minWidth: 0, height: 40, textAlign: 'center', fontWeight: 600 } as React.CSSProperties,
   };
 
   return (
@@ -638,8 +737,24 @@ export function DeckCatalog({
             {/* Row 1: Type (when applicable) + Rarity */}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 140px' }}>
-                <label style={currentLabelStyle}>Type</label>
-                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={currentSelectStyle} disabled={!showTypeFilter}>
+                <label style={currentLabelStyle}>
+                  Type
+                  {!showTypeFilter && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      Locked by zone
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={showTypeFilter ? typeFilter : (typeOptions[0] || '')}
+                  onChange={e => setTypeFilter(e.target.value)}
+                  style={showTypeFilter ? currentSelectStyle : { ...currentSelectStyle, opacity: 0.55, cursor: 'not-allowed', background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 6px, transparent 6px 12px)', borderStyle: 'dashed' }}
+                  disabled={!showTypeFilter}
+                  title={showTypeFilter ? undefined : `Only ${typeOptions[0] || 'these'} cards can go in this zone - switch zones to change it`}
+                >
                   {showTypeFilter && <option value="All">All Types</option>}
                   {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -658,11 +773,11 @@ export function DeckCatalog({
               <label style={currentLabelStyle}>Rarity</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {['All', ...rarityOptions].map(r => {
-                  const isActive = rarityFilter === r;
+                  const isActive = r === 'All' ? rarityFilter.length === 0 : rarityFilter.includes(r);
                   return (
                     <button
                       key={r}
-                      onClick={() => setRarityFilter(isActive ? 'All' : r)}
+                      onClick={() => setRarityFilter(r === 'All' ? [] : (isActive ? rarityFilter.filter(x => x !== r) : [...rarityFilter, r]))}
                       style={{
                         padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                         background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
@@ -685,12 +800,12 @@ export function DeckCatalog({
                 <label style={currentLabelStyle}>Domain</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                   {domainOptions.map(d => {
-                    const isActive = domainFilter === d;
+                    const isActive = d === 'All' ? domainFilter.length === 0 : domainFilter.includes(d);
                     const color = DOMAIN_COLORS[d] || theme.accent;
                     return (
                       <button
                         key={d}
-                        onClick={() => setDomainFilter(isActive ? 'All' : d)}
+                        onClick={() => setDomainFilter(d === 'All' ? [] : (isActive ? domainFilter.filter(x => x !== d) : [...domainFilter, d]))}
                         style={{
                           padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           background: isActive ? color + '30' : 'rgba(255,255,255,0.03)',
@@ -736,27 +851,147 @@ export function DeckCatalog({
               </div>
             )}
 
+            {/* Row 3c: Card variants */}
+            <div>
+              <label style={currentLabelStyle}>Card Variant</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                {([
+                  { label: 'Alt Art', value: altArtFilter, set: setAltArtFilter },
+                  { label: 'Overnumbered', value: overnumberedFilter, set: setOvernumberedFilter },
+                  { label: 'Signed', value: signedFilter, set: setSignedFilter },
+                  { label: 'SP', value: spFilter, set: setSpFilter },
+                ]).map(v => {
+                  const on = v.value === 'only';
+                  const off = v.value === 'none';
+                  return (
+                    <button
+                      key={v.label}
+                      onClick={() => v.set(nextTriState(v.value))}
+                      title="Click to cycle: only these, exclude these, or show all"
+                      style={{
+                        padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        background: on ? theme.accentMuted : off ? 'rgba(244,63,94,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${on ? theme.accent : off ? 'rgba(244,63,94,0.7)' : theme.inputBorder}`,
+                        color: on ? theme.accent : off ? '#fda4af' : 'var(--text-muted)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {v.label}{on ? ': only' : off ? ': no' : ''}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setBaseSetOnly(b => !b)}
+                  title="Only the standard numbered cards of each set (no alt arts, overnumbered, signed, SP or tokens)"
+                  style={{
+                    padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    background: baseSetOnly ? theme.accentMuted : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${baseSetOnly ? theme.accent : theme.inputBorder}`,
+                    color: baseSetOnly ? theme.accent : 'var(--text-muted)',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  Base Set{baseSetOnly ? ': only' : ''}
+                </button>
+              </div>
+            </div>
+
+            {/* Row 3d: Tags */}
+            <div>
+              <label style={currentLabelStyle}>Tags {tagFilter.length > 0 && <span style={{ color: theme.accent }}>({tagFilter.length})</span>}</label>
+              <input
+                type="text"
+                value={tagSearch}
+                onChange={e => setTagSearch(e.target.value)}
+                placeholder="Search tags..."
+                style={{ ...currentSelectStyle, cursor: 'text', marginBottom: 6 }}
+              />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 96, overflowY: 'auto' }}>
+                {(isCyberpunk ? CYBERPUNK_TAGS : TAGS)
+                  .filter((t: string) => !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase()))
+                  .map((t: string) => {
+                    const isActive = tagFilter.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTagFilter(isActive ? tagFilter.filter(x => x !== t) : [...tagFilter, t])}
+                        style={{
+                          padding: '3px 10px', borderRadius: 16, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                          background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
+                          color: isActive ? theme.accent : 'var(--text-muted)',
+                        }}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Row 3e: Keywords with AND / OR */}
+            {!isCyberpunk && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <label style={{ ...currentLabelStyle, marginBottom: 0 }}>Keywords {keywordFilter.length > 0 && <span style={{ color: theme.accent }}>({keywordFilter.length})</span>}</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Match</span>
+                    {(['and', 'or'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setKeywordMode(m)}
+                        title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
+                        style={{
+                          padding: '3px 12px', borderRadius: 16, fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                          background: keywordMode === m ? theme.accentMuted : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${keywordMode === m ? theme.accent : theme.inputBorder}`,
+                          color: keywordMode === m ? theme.accent : 'var(--text-muted)',
+                        }}
+                      >
+                        {m === 'and' ? 'All (AND)' : 'Any (OR)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {SEARCHABLE_KEYWORDS.map(k => {
+                    const isActive = keywordFilter.includes(k);
+                    return (
+                      <button
+                        key={k}
+                        onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
+                        style={{
+                          padding: '3px 10px', borderRadius: 16, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
+                          color: isActive ? theme.accent : 'var(--text-muted)',
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k) }} />
+                        {k}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Row 4: Cost range */}
             <div>
               <label style={currentLabelStyle}>Cost Range</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '4px 12px', flex: 1 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MIN</span>
-                  <input
-                    type="number" min={0} max={20} value={costMin}
-                    onChange={e => { const v = +e.target.value; if (v <= costMax) setCostMin(v); }}
-                    style={{ background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
-                  />
-                </div>
-                <span style={{ color: 'var(--text-muted)' }}>–</span>
-                <div style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '4px 12px', flex: 1 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 }}>MAX</span>
-                  <input
-                    type="number" min={0} max={20} value={costMax}
-                    onChange={e => { const v = +e.target.value; if (v >= costMin) setCostMax(v); }}
-                    style={{ background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 14, width: 40, textAlign: 'center', fontWeight: 600 }}
-                  />
-                </div>
+                <CostInput
+                  label="MIN" value={costMin} fallback={0}
+                  onCommit={n => { setCostMin(n); if (n > costMax) setCostMax(n); }}
+                  style={costInputStyle}
+                />
+                <span style={{ color: 'var(--text-muted)' }}>-</span>
+                <CostInput
+                  label="MAX" value={costMax} fallback={10}
+                  onCommit={n => { setCostMax(n); if (n < costMin) setCostMin(n); }}
+                  style={costInputStyle}
+                />
               </div>
             </div>
 

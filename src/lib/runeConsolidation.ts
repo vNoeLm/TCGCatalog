@@ -3,11 +3,11 @@ import type { CatalogCard } from '../types';
 /**
  * Basic Rune cards (Fury/Calm/Mind/Body/Chaos/Order) are reprinted identically —
  * same name, same effect, no foil variant — in every single set release, so the
- * catalog carries one row per set per rune per finish (basic vs. alt-art
- * Showcase). Those are the same physical card to a collector and should show up
- * once, "universal" across sets. The distinctly-named Nexus Night promo runes
- * (e.g. "Fury Rune (Origins Nexus Night Promo)") are real, separately collected
- * items and are deliberately left untouched — they're excluded by the "(" check.
+ * catalog carries one row per set per rune. Those are the same physical card to a
+ * collector and should show up once, "universal" across sets. Left untouched:
+ * the distinctly-named promo runes (e.g. "Fury Rune (Origins Nexus Night Promo)",
+ * excluded by the "(" check) and the alt-art (Showcase) runes, which are a
+ * genuinely different print in every set and must stay listed per set.
  *
  * This is a display + collection-counting layer only. It never touches the
  * database: every underlying `cards` row (and any inventory/listing tied to a
@@ -16,11 +16,10 @@ import type { CatalogCard } from '../types';
  * math are affected.
  */
 export function isUniversalRune(card: CatalogCard): boolean {
-  return card.card_type === 'Rune' && !card.name.includes('(');
+  return card.card_type === 'Rune' && !card.name.includes('(') && card.rarity !== 'Showcase';
 }
 
-/** Every set's reprint of the same rune name + finish (rarity distinguishes
- * the plain "Common" basic print from the "Showcase" alt-art print) shares a key. */
+/** Every set's reprint of the same basic rune shares a key. */
 export function runeGroupKey(card: CatalogCard): string {
   return `${card.name}::${card.rarity}`;
 }
@@ -61,10 +60,9 @@ export function consolidateRunes(cards: CatalogCard[]): RuneConsolidationResult 
 
   groups.forEach(group => {
     const canonical = pickCanonical(group);
-    const isAltArt = canonical.rarity === 'Showcase';
     result.push({
       ...canonical,
-      set_name: isAltArt ? 'Alt Art Rune' : 'Basic Rune',
+      set_name: 'Basic Rune',
       set_code: '',
       sets: undefined,
     });
