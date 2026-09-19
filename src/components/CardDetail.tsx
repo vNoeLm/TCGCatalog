@@ -22,7 +22,7 @@ import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { HoldRequestModal } from './marketplace/HoldRequestModal';
-import { addToCart, replaceCart, getCartSellerId } from '../lib/marketplaceCart';
+import { addToCart } from '../lib/marketplaceCart';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -1247,13 +1247,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </button>
                 )}
 
-                {/* Add to a multi-card cart request for this seller */}
+                {/* Add to the cart (grouped per seller at checkout) */}
                 {data.status === 'In Stock' && !isSeller && (
                   <button
                     type="button"
                     onClick={() => {
-                      const currentCartSeller = getCartSellerId();
-                      const newItem = {
+                      addToCart({
                         inventoryId: data.id,
                         sellerId: data.seller_id,
                         sellerName: sellerSummary?.display_name || data.seller_name || 'Seller',
@@ -1265,17 +1264,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         maxQuantity: Math.max(1, data.quantity || 1),
                         isFoil: Boolean(data.is_foil),
                         condition: data.condition || 'Near Mint',
-                      };
-                      if (currentCartSeller && currentCartSeller !== data.seller_id) {
-                        if (!confirm("Your cart has cards from a different seller. Starting a new cart will clear it. Continue?")) return;
-                        replaceCart(newItem);
-                      } else {
-                        addToCart(newItem);
-                      }
+                      });
                     }}
                     className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer"
                     style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-                    title="Add this card to a combined cart request for this seller"
+                    title="Add this card to your cart"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
