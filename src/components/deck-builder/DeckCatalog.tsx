@@ -565,10 +565,32 @@ export function DeckCatalog({
     cursor: 'pointer',
   };
 
+  // Every filter pill shares one size so the panel reads as a tidy grid instead of a jumble of
+  // differently sized chips; text that doesn't fit is truncated (full name in the tooltip).
+  const pillGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(82px, 1fr))',
+    gap: 6,
+    marginTop: 6,
+  };
+  const pillStyle = (active: boolean, opts: { color?: string; negative?: boolean } = {}): React.CSSProperties => {
+    const color = opts.color || theme.accent;
+    return {
+      height: 28, minWidth: 0, padding: '0 6px', borderRadius: 8,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+      fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      background: opts.negative ? 'rgba(244,63,94,0.15)' : active ? (opts.color ? color + '30' : theme.accentMuted) : 'rgba(255,255,255,0.03)',
+      border: `1px solid ${opts.negative ? 'rgba(244,63,94,0.7)' : active ? color : theme.inputBorder}`,
+      color: opts.negative ? '#fda4af' : active ? color : 'var(--text-muted)',
+      textDecoration: opts.negative ? 'line-through' : 'none',
+      transition: 'all 0.15s',
+    };
+  };
+
   const costInputStyle = {
-    box: { display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '0 14px', flex: 1, minHeight: 42 } as React.CSSProperties,
-    label: { fontSize: 12, color: 'var(--text-muted)', marginRight: 8, fontWeight: 700 } as React.CSSProperties,
-    input: { background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 15, flex: 1, minWidth: 0, height: 40, textAlign: 'center', fontWeight: 600 } as React.CSSProperties,
+    box: { display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: '0 10px', flex: 1, minWidth: 0, minHeight: 42 } as React.CSSProperties,
+    label: { fontSize: 11, color: 'var(--text-muted)', marginRight: 6, fontWeight: 700 } as React.CSSProperties,
+    input: { background: 'transparent', border: 'none', color: '#f4f4f5', outline: 'none', fontSize: 15, flex: 1, minWidth: 0, width: '100%', height: 40, textAlign: 'center', fontWeight: 600 } as React.CSSProperties,
   };
 
   React.useEffect(() => { onActiveFiltersCountChange?.(activeFiltersCount); }, [activeFiltersCount, onActiveFiltersCountChange]);
@@ -653,21 +675,15 @@ export function DeckCatalog({
             {/* Row 2: Rarity chips */}
             <div>
               <label style={currentLabelStyle}>Rarity</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+              <div style={pillGrid}>
                 {['All', ...rarityOptions].map(r => {
                   const isActive = r === 'All' ? rarityFilter.length === 0 : rarityFilter.includes(r);
                   return (
                     <button
                       key={r}
                       onClick={() => setRarityFilter(r === 'All' ? [] : (isActive ? rarityFilter.filter(x => x !== r) : [...rarityFilter, r]))}
-                      style={{
-                        padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
-                        color: isActive ? theme.accent : 'var(--text-muted)',
-                        boxShadow: isActive ? `0 0 10px ${theme.accentGlow}` : 'none',
-                        transition: 'all 0.15s',
-                      }}
+                      style={pillStyle(isActive)}
+                      title={r}
                     >
                       {r === 'All' ? "All" : r}
                     </button>
@@ -680,7 +696,7 @@ export function DeckCatalog({
             {!['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
                 <label style={currentLabelStyle}>Domain</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                <div style={pillGrid}>
                   {domainOptions.map(d => {
                     const isActive = d === 'All' ? domainFilter.length === 0 : domainFilter.includes(d);
                     const color = DOMAIN_COLORS[d] || theme.accent;
@@ -688,16 +704,10 @@ export function DeckCatalog({
                       <button
                         key={d}
                         onClick={() => setDomainFilter(d === 'All' ? [] : (isActive ? domainFilter.filter(x => x !== d) : [...domainFilter, d]))}
-                        style={{
-                          padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          background: isActive ? color + '30' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${isActive ? color : theme.inputBorder}`,
-                          color: isActive ? color : 'var(--text-muted)',
-                          boxShadow: isActive ? `0 0 10px ${color}35` : 'none',
-                          transition: 'all 0.15s', textTransform: 'capitalize',
-                        }}
+                        style={{ ...pillStyle(isActive, { color }), textTransform: 'capitalize' }}
+                        title={d}
                       >
-                        {d === 'All' ? "All Domains" : d}
+                        {d === 'All' ? "All" : d}
                       </button>
                     );
                   })}
@@ -709,23 +719,17 @@ export function DeckCatalog({
             {isCyberpunk && (
               <div>
                 <label style={currentLabelStyle}>RAM Requirement</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                <div style={pillGrid}>
                   {['All', '1', '2', '3+', 'Within RAM'].map(r => {
                     const isActive = ramFilter === r;
                     return (
                       <button
                         key={r}
                         onClick={() => setRamFilter(isActive ? 'All' : r)}
-                        style={{
-                          padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          background: isActive ? 'rgba(252, 238, 10, 0.2)' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${isActive ? '#fcee0a' : theme.inputBorder}`,
-                          color: isActive ? '#fcee0a' : 'var(--text-muted)',
-                          boxShadow: isActive ? '0 0 10px rgba(252,238,10,0.3)' : 'none',
-                          transition: 'all 0.15s',
-                        }}
+                        style={pillStyle(isActive, { color: '#fcee0a' })}
+                        title={r === 'Within RAM' ? 'Within Deck RAM' : (r === 'All' ? 'All RAM' : `${r} RAM`)}
                       >
-                        {r === 'Within RAM' ? 'Within Deck RAM' : (r === 'All' ? 'All RAM' : `${r} RAM`)}
+                        {r === 'Within RAM' ? 'In RAM' : (r === 'All' ? 'All' : `${r} RAM`)}
                       </button>
                     );
                   })}
@@ -736,7 +740,7 @@ export function DeckCatalog({
             {/* Row 3c: Card variants */}
             <div>
               <label style={currentLabelStyle}>Card Variant</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              <div style={pillGrid}>
                 {([
                   { label: 'Alt Art', value: altArtFilter, set: setAltArtFilter },
                   { label: 'Overnumbered', value: overnumberedFilter, set: setOvernumberedFilter },
@@ -749,31 +753,19 @@ export function DeckCatalog({
                     <button
                       key={v.label}
                       onClick={() => v.set(nextTriState(v.value))}
-                      title="Click to cycle: only these, exclude these, or show all"
-                      style={{
-                        padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        background: on ? theme.accentMuted : off ? 'rgba(244,63,94,0.15)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${on ? theme.accent : off ? 'rgba(244,63,94,0.7)' : theme.inputBorder}`,
-                        color: on ? theme.accent : off ? '#fda4af' : 'var(--text-muted)',
-                        transition: 'all 0.15s',
-                      }}
+                      title={`${v.label}: click to cycle - only these (highlighted), exclude these (struck through), or show all`}
+                      style={pillStyle(on, { negative: off })}
                     >
-                      {v.label}{on ? ': only' : off ? ': no' : ''}
+                      {v.label}
                     </button>
                   );
                 })}
                 <button
                   onClick={() => setBaseSetOnly(b => !b)}
                   title="Only the standard numbered cards of each set (no alt arts, overnumbered, signed, SP or tokens)"
-                  style={{
-                    padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    background: baseSetOnly ? theme.accentMuted : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${baseSetOnly ? theme.accent : theme.inputBorder}`,
-                    color: baseSetOnly ? theme.accent : 'var(--text-muted)',
-                    transition: 'all 0.15s',
-                  }}
+                  style={pillStyle(baseSetOnly)}
                 >
-                  Base Set{baseSetOnly ? ': only' : ''}
+                  Base Set
                 </button>
               </div>
             </div>
@@ -788,7 +780,7 @@ export function DeckCatalog({
                 placeholder="Search tags..."
                 style={{ ...currentSelectStyle, cursor: 'text', marginBottom: 6 }}
               />
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 96, overflowY: 'auto' }}>
+              <div style={{ ...pillGrid, marginTop: 0, maxHeight: 132, overflowY: 'auto', overflowX: 'hidden' }} className="custom-scrollbar">
                 {(isCyberpunk ? CYBERPUNK_TAGS : TAGS)
                   .filter((t: string) => !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase()))
                   .map((t: string) => {
@@ -797,12 +789,8 @@ export function DeckCatalog({
                       <button
                         key={t}
                         onClick={() => setTagFilter(isActive ? tagFilter.filter(x => x !== t) : [...tagFilter, t])}
-                        style={{
-                          padding: '3px 10px', borderRadius: 16, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                          background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
-                          color: isActive ? theme.accent : 'var(--text-muted)',
-                        }}
+                        style={pillStyle(isActive)}
+                        title={t}
                       >
                         {t}
                       </button>
@@ -823,35 +811,25 @@ export function DeckCatalog({
                         key={m}
                         onClick={() => setKeywordMode(m)}
                         title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
-                        style={{
-                          padding: '3px 12px', borderRadius: 16, fontSize: 11, fontWeight: 800, cursor: 'pointer',
-                          background: keywordMode === m ? theme.accentMuted : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${keywordMode === m ? theme.accent : theme.inputBorder}`,
-                          color: keywordMode === m ? theme.accent : 'var(--text-muted)',
-                        }}
+                        style={{ ...pillStyle(keywordMode === m), width: 70 }}
                       >
                         {m === 'and' ? 'All (AND)' : 'Any (OR)'}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                <div style={{ ...pillGrid, marginTop: 8 }}>
                   {SEARCHABLE_KEYWORDS.map(k => {
                     const isActive = keywordFilter.includes(k);
                     return (
                       <button
                         key={k}
                         onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
-                        style={{
-                          padding: '3px 10px', borderRadius: 16, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          background: isActive ? theme.accentMuted : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${isActive ? theme.accent : theme.inputBorder}`,
-                          color: isActive ? theme.accent : 'var(--text-muted)',
-                        }}
+                        style={pillStyle(isActive)}
+                        title={k}
                       >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k) }} />
-                        {k}
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k), flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
                       </button>
                     );
                   })}
@@ -862,7 +840,7 @@ export function DeckCatalog({
             {/* Row 4: Cost range */}
             <div>
               <label style={currentLabelStyle}>Cost Range</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, minWidth: 0 }}>
                 <CostInput
                   label="MIN" value={costMin} fallback={0}
                   onCommit={n => { setCostMin(n); if (n > costMax) setCostMax(n); }}
