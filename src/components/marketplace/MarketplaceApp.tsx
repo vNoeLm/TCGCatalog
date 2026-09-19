@@ -4,6 +4,7 @@ import { useSiteTheme } from '../../lib/theme';
 import { CardItem } from '../CardItem';
 import { CardGroupTile } from './CardGroupTile';
 import { CardListingsModal } from './CardListingsModal';
+import { QuickShopModal } from './QuickShopModal';
 import { groupListingsByCard, type CardListingGroup } from '../../lib/marketplaceGrouping';
 import { CardDetail } from '../CardDetail';
 import { FilterSidebar } from '../FilterSidebar';
@@ -67,9 +68,23 @@ export function MarketplaceApp() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [isQuickShopOpen, setIsQuickShopOpen] = useState(false);
+  const [quickShopText, setQuickShopText] = useState('');
 
   const sortRef = useRef<HTMLDivElement>(null);
   const lastLoggedSearchRef = useRef<string>('');
+
+  // The catalog's "Quick Shop this list" button hands its want-list over through sessionStorage.
+  useEffect(() => {
+    try {
+      const prefill = sessionStorage.getItem('tcg_quickshop_prefill');
+      if (prefill) {
+        sessionStorage.removeItem('tcg_quickshop_prefill');
+        setQuickShopText(prefill);
+        setIsQuickShopOpen(true);
+      }
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     // Global Game Sync
@@ -310,8 +325,20 @@ export function MarketplaceApp() {
           </p>
         </div>
 
-        {/* Action: List Card for Sale Button */}
-        <div className="shrink-0 flex items-center gap-3">
+        {/* Actions: Quick Shop + List Card for Sale */}
+        <div className="shrink-0 flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsQuickShopOpen(true)}
+            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95 flex items-center gap-2 border"
+            style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+            title="Paste a want-list and let us find the cards for you"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>Quick Shop</span>
+          </button>
           <button
             type="button"
             onClick={() => setIsListModalOpen(true)}
@@ -640,6 +667,13 @@ export function MarketplaceApp() {
           </div>
         </div>
       )}
+
+      <QuickShopModal
+        isOpen={isQuickShopOpen}
+        onClose={() => setIsQuickShopOpen(false)}
+        game={filters.game || 'riftbound'}
+        initialText={quickShopText}
+      />
 
       {/* List Card Modal */}
       <ListCardModal

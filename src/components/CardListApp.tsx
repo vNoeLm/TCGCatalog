@@ -1093,6 +1093,17 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  const handleQuickShopMissing = () => {
+    if (getMissingCards().length === 0) {
+      showToast('No missing cards with current filters.');
+      return;
+    }
+    try {
+      sessionStorage.setItem('tcg_quickshop_prefill', exportMissingCardsToSimpleText());
+    } catch (e) {}
+    window.location.href = '/marketplace';
+  };
+
   const handleCopyMissingSimpleText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
@@ -2007,6 +2018,22 @@ export function CardListApp() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2.5 mb-4">
+                    {/* Quick Shop: hand the want-list to the marketplace */}
+                    <button
+                      onClick={handleQuickShopMissing}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                          Quick Shop This List
+                        </div>
+                        <div className="text-xs text-indigo-200/70 mt-0.5">
+                          Find these cards on the marketplace (cheapest or fewest sellers) and add them to your cart
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-indigo-300 group-hover:text-white">Shop →</span>
+                    </button>
+
                     {/* Missing Option 1: Copy Detailed Want-List */}
                     <button
                       onClick={handleCopyMissingText}

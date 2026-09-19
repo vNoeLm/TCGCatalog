@@ -1,5 +1,6 @@
 const CART_KEY = 'tcg_marketplace_cart';
 export const CART_EVENT = 'tcg-marketplace-cart-changed';
+export const CART_OPEN_EVENT = 'tcg-marketplace-cart-open';
 
 export interface MarketplaceCartItem {
   inventoryId: string;
@@ -16,10 +17,9 @@ export interface MarketplaceCartItem {
 }
 
 /**
- * A buyer's cart, scoped to one seller at a time — a single hold request can only
- * arrange handover with one seller, so mixing sellers isn't supported. Adding an
- * item from a different seller than what's already in the cart is the caller's
- * responsibility to confirm with the user before calling replaceCart/addToCart.
+ * A buyer's cart. It can hold cards from several sellers; a hold request can only
+ * arrange handover with one seller, so the cart drawer groups items by seller and
+ * sends one request per seller.
  */
 
 function readCart(): MarketplaceCartItem[] {
@@ -43,11 +43,6 @@ export function getCart(): MarketplaceCartItem[] {
   return readCart();
 }
 
-export function getCartSellerId(): string | null {
-  const cart = readCart();
-  return cart.length > 0 ? cart[0].sellerId : null;
-}
-
 /** Adds an item, or increases its quantity (capped at maxQuantity) if already present. */
 export function addToCart(item: MarketplaceCartItem): MarketplaceCartItem[] {
   const cart = readCart();
@@ -61,9 +56,24 @@ export function addToCart(item: MarketplaceCartItem): MarketplaceCartItem[] {
   return cart;
 }
 
-/** Clears the cart and adds this one item — for when the caller confirmed switching sellers. */
-export function replaceCart(item: MarketplaceCartItem): MarketplaceCartItem[] {
-  const cart = [{ ...item, quantity: Math.min(item.maxQuantity, Math.max(1, item.quantity)) }];
+/** Adds several items with a single cart update. */
+export function addManyToCart(items: MarketplaceCartItem[]): MarketplaceCartItem[] {
+  const cart = readCart();
+  items.forEach((item) => {
+    const existing = cart.find((c) => c.inventoryId === item.inventoryId);
+    if (existing) {
+      existing.quantity = Math.min(existing.maxQuantity, existing.quantity + item.quantity);
+    } else {
+      cart.push({ ...item, quantity: Math.min(item.maxQuantity, Math.max(1, item.quantity)) });
+    }
+  });
+  writeCart(cart);
+  return cart;
+}
+
+/** Removes every item belonging to one seller (after their request was sent). */
+export function removeSellerFromCart(sellerId: string): MarketplaceCartItem[] {
+  const cart = readCart().filter((c) => c.sellerId !== sellerId);
   writeCart(cart);
   return cart;
 }
