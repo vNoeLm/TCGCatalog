@@ -804,10 +804,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             const hasPowerCost = powerReq.power > 0 && powerReq.domains.length > 0;
             const hasEnergy = card.energy != null;
             const hasMight = card.might != null;
+            const hasMightBonus = card.might_bonus != null;
 
-            if (!hasEnergy && !hasMight && !hasPowerCost) return null;
+            if (!hasEnergy && !hasMight && !hasMightBonus && !hasPowerCost) return null;
 
-            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0);
+            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
             const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
             return (
@@ -897,18 +898,29 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might}</div>
                   </div>
                 )}
+
+                {/* 4. Might Bonus (gear grants this to the unit it's attached to) */}
+                {hasMightBonus && (
+                  <div
+                    className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center"
+                    title="Might added to the unit this is attached to"
+                  >
+                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">Might Bonus</div>
+                    <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might_bonus >= 0 ? `+${card.might_bonus}` : card.might_bonus}</div>
+                  </div>
+                )}
               </div>
             );
           })()}
 
           {/* Text Abilities */}
-          {(card.text || card.ability) && (
+          {(card.text || card.ability || card.effect) && (
             <div 
               className="rounded-2xl p-4 sm:p-5 mb-4 border"
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
             >
               {card.ability && (
-                <div className={card.text ? "mb-4" : ""}>
+                <div className={card.effect || card.text ? "mb-4" : ""}>
                   <div 
                     className="text-sm font-black uppercase tracking-wider pb-1.5 mb-2"
                     style={{ color: 'var(--text-accent)', borderBottom: '1px solid var(--border-subtle)' }}
@@ -919,6 +931,19 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 </div>
               )}
               
+              {/* The separate effect box printed on gear and a few spells */}
+              {card.effect && (
+                <div
+                  className={`rounded-xl p-3.5 border ${card.text ? 'mb-4' : ''}`}
+                  style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border, var(--border))' }}
+                >
+                  <div className="text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-accent)' }}>
+                    Effect
+                  </div>
+                  <div className="text-sm sm:text-base leading-relaxed space-y-1" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.effect) }} />
+                </div>
+              )}
+
               {card.text && (
                 <div className={card.ability ? "pt-3" : ""} style={card.ability ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
                   <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>

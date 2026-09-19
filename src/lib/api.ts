@@ -31,7 +31,7 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
 }
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v26';
+const CACHE_VERSION = 'v27';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -117,17 +117,11 @@ export async function fetchCardsCatalog(
     if (cached) return cached;
   }
 
+  // `*` rather than a column list so newer columns (effect, might_bonus) come through as soon as
+  // they exist without the query breaking on databases that haven't added them yet.
   const selectFields = filters.set
-    ? `
-      id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-      game, energy, might, domain, tags, ability, artist, market_price_eur, market_price_foil_eur, last_price_updated_at,
-      sets!inner ( id, name, code )
-    `
-    : `
-      id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-      game, energy, might, domain, tags, ability, artist, market_price_eur, market_price_foil_eur, last_price_updated_at,
-      sets ( id, name, code )
-    `;
+    ? `*, sets!inner ( id, name, code )`
+    : `*, sets ( id, name, code )`;
 
   let query = supabase
     .from('cards')
@@ -232,6 +226,8 @@ export async function fetchCardsCatalog(
       domain: row.domain,
       tags: row.tags,
       ability: row.ability,
+      effect: row.effect ?? null,
+      might_bonus: row.might_bonus ?? null,
       artist: row.artist,
       market_price_eur: row.market_price_eur ?? null,
       market_price_foil_eur: row.market_price_foil_eur ?? null,
@@ -506,8 +502,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     .select(`
       id, condition, is_foil, price_huf, status, notes, is_bulk, quantity,
       cards (
-        id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-        game, energy, might, domain, tags, ability, artist,
+        *,
         sets ( name, code )
       ),
       inventory_images ( image_path, display_order )
@@ -577,11 +572,7 @@ export async function fetchCardOnly(cardId: string, bypassCache = false) {
 
   const { data, error } = await supabase
     .from('cards')
-    .select(`
-      id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-      game, energy, might, domain, tags, ability, artist,
-      sets ( name, code )
-    `)
+    .select(`*, sets ( name, code )`)
     .eq('id', cardId)
     .single();
   if (error) throw error;

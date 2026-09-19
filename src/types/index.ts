@@ -81,6 +81,10 @@ export interface CatalogCard {
   domain?: string;
   tags?: any;
   ability?: string;
+  /** Text of the separate effect box printed on gear (and a few spells). */
+  effect?: string | null;
+  /** Might a gear card grants to the unit it's attached to. */
+  might_bonus?: number | null;
   artist?: string;
   market_price_eur?: number | null;
   market_price_foil_eur?: number | null;
