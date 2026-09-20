@@ -5,6 +5,9 @@ import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolve
 import { AuthModal } from '../auth/AuthModal';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
 
+/** Vertical padding around the page; also subtracted when sizing the inbox to the viewport. */
+const PAGE_PAD_Y = 'clamp(16px,3vw,32px)';
+
 const THREAD_POLL_MS = 20000; // active thread: fairly responsive without needing websockets
 const INBOX_POLL_MS = 60000; // conversation list, while just browsing it
 
@@ -161,7 +164,7 @@ export function MessagesApp() {
   const selected = conversations.find((c) => c.conversation_id === selectedId) || null;
 
   return (
-    <div style={{ maxWidth: 1600, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+    <div style={{ maxWidth: 1600, margin: '0 auto', padding: `${PAGE_PAD_Y} clamp(16px,3vw,24px)` }}>
       <h1 className="text-2xl font-black mb-5" style={{ color: 'var(--text-primary)' }}>
         Messages
       </h1>
@@ -171,7 +174,9 @@ export function MessagesApp() {
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
-          height: 'calc(100vh - 180px)',
+          // Fills what's left of the viewport: the layout chrome, the page's own padding, and the
+          // title block (2rem line + 1.25rem margin) all come off the top.
+          height: `calc(100dvh - var(--page-chrome-h) - 2 * ${PAGE_PAD_Y} - 3.25rem)`,
           minHeight: 500,
         }}
       >

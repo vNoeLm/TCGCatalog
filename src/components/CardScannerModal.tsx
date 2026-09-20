@@ -15,8 +15,8 @@ interface CardScannerModalProps {
   onClose: () => void;
   cards: CatalogCard[];
   game: string;
-  /** Adds copies to the collection; the catalog owns the actual storage. */
-  onAddCard: (card: CatalogCard, isFoil: boolean, delta: number) => void;
+  /** Changes a card's owned count by a signed amount; the catalog owns the actual storage. */
+  onChangeCount: (card: CatalogCard, isFoil: boolean, delta: number) => void;
 }
 
 interface ScannedEntry {
@@ -36,13 +36,14 @@ const FRAMES_TO_CLEAR = 4;
 /** Frames are examined at this width; enough for both locating and the signature. */
 const WORKING_WIDTH = 640;
 
-export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: CardScannerModalProps) {
+export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }: CardScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const indexRef = useRef<ArtIndexEntry[] | null>(null);
   const busyRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const aliveRef = useRef(false);
 
   /** Which card the recent frames have been agreeing on, for how many, and the best look so far. */
@@ -55,10 +56,11 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [choices, setChoices] = useState<CatalogCard[]>([]);
   const [seeing, setSeeing] = useState<CardBounds | null>(null);
-  const [videoAspect, setVideoAspect] = useState(3 / 4);
   const [addFoil, setAddFoil] = useState(false);
   const [session, setSession] = useState<ScannedEntry[]>([]);
-  const [justAdded, setJustAdded] = useState<CatalogCard | null>(null);
+  /** The most recent add, kept so a wrong one can be undone in a tap. */
+  const [lastAdded, setLastAdded] = useState<{ card: CatalogCard; isFoil: boolean } | null>(null);
+  const [listOpen, setListOpen] = useState(true);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
   const [readingPhoto, setReadingPhoto] = useState(false);
@@ -70,6 +72,13 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
 
   const addFoilRef = useRef(addFoil);
   addFoilRef.current = addFoil;
+
+  // The catalog hands over a new callback on every render; reading it through a ref keeps the scan
+  // loop's identity stable so adding a card never restarts the camera.
+  const onChangeCountRef = useRef(onChangeCount);
+  onChangeCountRef.current = onChangeCount;
+  const sessionRef = useRef<ScannedEntry[]>([]);
+  sessionRef.current = session;
 
   useEffect(() => {
     aliveRef.current = isOpen;
@@ -94,17 +103,49 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
   const addToSession = useCallback(
     (card: CatalogCard) => {
       const isFoil = addFoilRef.current;
-      onAddCard(card, isFoil, 1);
+      onChangeCountRef.current(card, isFoil, 1);
       setSession((prev) => {
         const same = (e: ScannedEntry) => e.card.id === card.id && e.isFoil === isFoil;
         if (prev.some(same)) return prev.map((e) => (same(e) ? { ...e, count: e.count + 1 } : e));
         return [{ card, isFoil, count: 1 }, ...prev];
       });
-      setJustAdded(card);
+      setLastAdded({ card, isFoil });
       setChoices([]);
     },
-    [onAddCard]
+    []
   );
+
+  /** Adjusts one row of the scanned list, in the collection and in the list together. */
+  const changeEntry = useCallback((entry: ScannedEntry, delta: number) => {
+    onChangeCountRef.current(entry.card, entry.isFoil, delta);
+    setSession((prev) =>
+      prev.flatMap((e) => {
+        if (e.card.id !== entry.card.id || e.isFoil !== entry.isFoil) return [e];
+        const count = e.count + delta;
+        return count > 0 ? [{ ...e, count }] : [];
+      })
+    );
+    setLastAdded((last) => (last && last.card.id === entry.card.id && last.isFoil === entry.isFoil ? null : last));
+  }, []);
+
+  const removeEntry = useCallback((entry: ScannedEntry) => changeEntry(entry, -entry.count), [changeEntry]);
+
+  /**
+   * Takes back the card that was just added. The card is usually still under the lens, so it stays
+   * "held" and won't be scanned straight back in; it has to leave view first.
+   */
+  const undoLast = useCallback(() => {
+    if (!lastAdded) return;
+    const entry = sessionRef.current.find((e) => e.card.id === lastAdded.card.id && e.isFoil === lastAdded.isFoil);
+    if (entry) changeEntry(entry, -1);
+    setLastAdded(null);
+  }, [lastAdded, changeEntry]);
+
+  /** Dismisses an unanswered prompt without letting the same card re-open it while still in view. */
+  const dismissChoices = useCallback(() => {
+    if (choices[0]) heldIdRef.current = choices[0].id;
+    setChoices([]);
+  }, [choices]);
 
   /**
    * Locates the card in one image and ranks the catalog against its artwork.
@@ -134,16 +175,37 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
     [ensureIndex]
   );
 
-  /** Draws the current frame into the reusable working canvas. */
+  /**
+   * Draws what the screen is showing into the reusable working canvas.
+   *
+   * The video fills the stage with object-cover, which crops whichever axis overflows. The frame is
+   * cropped the same way here, so a card the user can see is a card that gets read, and positions
+   * found in it map straight back onto the screen.
+   */
   const grabFrame = useCallback(() => {
     const video = videoRef.current;
-    if (!video?.videoWidth) return null;
+    const stage = stageRef.current;
+    if (!video?.videoWidth || !stage?.clientWidth || !stage.clientHeight) return null;
+
+    const stageAspect = stage.clientWidth / stage.clientHeight;
+    const videoAspect = video.videoWidth / video.videoHeight;
+    let sx = 0;
+    let sy = 0;
+    let sw = video.videoWidth;
+    let sh = video.videoHeight;
+    if (videoAspect > stageAspect) {
+      sw = video.videoHeight * stageAspect;
+      sx = (video.videoWidth - sw) / 2;
+    } else {
+      sh = video.videoWidth / stageAspect;
+      sy = (video.videoHeight - sh) / 2;
+    }
 
     const canvas = (workCanvasRef.current ||= document.createElement('canvas'));
-    const scale = Math.min(1, WORKING_WIDTH / video.videoWidth);
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    canvas.getContext('2d', { willReadFrequently: true })!.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const scale = Math.min(1, WORKING_WIDTH / sw);
+    canvas.width = Math.round(sw * scale);
+    canvas.height = Math.round(sh * scale);
+    canvas.getContext('2d', { willReadFrequently: true })!.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     return canvas;
   }, []);
 
@@ -225,8 +287,16 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
     (async () => {
       try {
         await ensureIndex();
+        // Ask for frames shaped like the screen. The view crops to fill, so a landscape stream on a
+        // portrait screen would zoom in and cut the card off at the sides.
+        const stage = stageRef.current;
+        const portrait = !stage || stage.clientHeight >= stage.clientWidth;
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: portrait ? 1080 : 1920 },
+            height: { ideal: portrait ? 1920 : 1080 },
+          },
         });
         if (!aliveRef.current) {
           stream.getTracks().forEach((t) => t.stop());
@@ -272,11 +342,18 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
     if (isOpen) return;
     setChoices([]);
     setSession([]);
-    setJustAdded(null);
+    setLastAdded(null);
     setSeeing(null);
     streakRef.current = { id: null, frames: 0, confidence: 0 };
     heldIdRef.current = null;
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -322,175 +399,238 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onAddCard }: Ca
 
   const live = status === 'scanning';
   const sessionTotal = session.reduce((sum, e) => sum + e.count, 0);
+  const foundCard = live && Boolean(seeing);
 
   return (
     <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(6px)', padding: 12, overflowY: 'auto' }}
+      className="fixed inset-0 z-[120] bg-black text-white select-none overflow-hidden"
+      style={{ height: '100dvh' }}
+      role="dialog"
+      aria-label="Scan cards"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md my-auto rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div>
-            <h2 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Scan Cards</h2>
-            <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-              Hold cards in view one at a time — each is added as it's recognised.
-            </p>
+      {/* The camera fills the screen. Frames are cropped to exactly this view before they're read, so
+          what's on screen is what's being scanned and the outline sits on the card it found. */}
+      <div ref={stageRef} className="absolute inset-0 overflow-hidden">
+        <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
+
+        {foundCard && seeing && (
+          <div
+            className="absolute rounded-xl pointer-events-none"
+            style={{
+              left: `${seeing.x * 100}%`,
+              top: `${seeing.y * 100}%`,
+              width: `${seeing.width * 100}%`,
+              height: `${seeing.height * 100}%`,
+              border: `2px solid ${lastAdded ? '#10b981' : 'rgba(255,255,255,0.9)'}`,
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.35)',
+              transition: 'all 0.12s linear',
+            }}
+          />
+        )}
+
+        {status === 'starting' && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-zinc-300">
+            Starting camera…
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close scanner"
-            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 cursor-pointer"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
+        )}
+      </div>
+
+      {/* Top bar */}
+      <div
+        className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 px-3 pb-8"
+        style={{
+          paddingTop: 'max(12px, env(safe-area-inset-top))',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close scanner"
+          className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-black/55 border border-white/15 text-white cursor-pointer active:scale-95"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-black leading-tight">Scan cards</div>
+          <div className="text-[11px] text-white/70 leading-tight truncate">Each card is added as it's recognised</div>
         </div>
 
-        <div className="overflow-y-auto custom-scrollbar">
-          {/* The whole camera frame, uncropped, so what's on screen is what's being read. */}
-          <div className="relative bg-black" style={{ aspectRatio: String(videoAspect) }}>
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              onLoadedMetadata={(e) => {
-                const v = e.currentTarget;
-                if (v.videoWidth) setVideoAspect(v.videoWidth / v.videoHeight);
-              }}
-              className="w-full h-full object-contain"
-            />
+        <button
+          type="button"
+          onClick={() => setAddFoil((v) => !v)}
+          aria-pressed={addFoil}
+          className="h-10 px-3.5 rounded-full text-xs font-black border cursor-pointer active:scale-95"
+          style={{
+            background: addFoil ? 'var(--accent)' : 'rgba(0,0,0,0.55)',
+            borderColor: addFoil ? 'var(--accent)' : 'rgba(255,255,255,0.15)',
+            color: addFoil ? 'var(--text-on-accent, #000)' : '#fff',
+          }}
+        >
+          Foil
+        </button>
+        {hasTorch && live && (
+          <button
+            type="button"
+            onClick={toggleTorch}
+            aria-pressed={torchOn}
+            aria-label="Toggle light"
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full border cursor-pointer active:scale-95"
+            style={{
+              background: torchOn ? 'var(--accent)' : 'rgba(0,0,0,0.55)',
+              borderColor: torchOn ? 'var(--accent)' : 'rgba(255,255,255,0.15)',
+              color: torchOn ? 'var(--text-on-accent, #000)' : '#fff',
+            }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill={torchOn ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+          </button>
+        )}
+      </div>
 
-            {/* Outline of the card the scanner has actually found */}
-            {live && seeing && (
-              <div
-                className="absolute rounded-lg pointer-events-none"
-                style={{
-                  left: `${seeing.x * 100}%`,
-                  top: `${seeing.y * 100}%`,
-                  width: `${seeing.width * 100}%`,
-                  height: `${seeing.height * 100}%`,
-                  border: `2px solid ${justAdded ? '#10b981' : 'rgba(255,255,255,0.85)'}`,
-                  transition: 'all 0.12s linear',
-                }}
-              />
-            )}
-
-            {status === 'starting' && (
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-zinc-300">
-                Starting camera…
-              </div>
-            )}
-
-            {hasTorch && live && (
-              <button
-                type="button"
-                onClick={toggleTorch}
-                className="absolute bottom-3 right-3 px-3 py-2 rounded-xl text-xs font-black cursor-pointer border"
-                style={{ background: torchOn ? 'var(--accent)' : 'rgba(0,0,0,0.6)', borderColor: 'var(--accent)', color: torchOn ? 'var(--text-on-accent, #000)' : '#fff' }}
-              >
-                {torchOn ? 'Light on' : 'Light'}
-              </button>
-            )}
+      {/* Everything below sits on top of the camera, so nothing needs scrolling to see. */}
+      <div
+        className="absolute bottom-0 inset-x-0 z-10 flex flex-col gap-2 px-3 pt-16 pointer-events-none"
+        style={{
+          paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.85) 50%, transparent)',
+        }}
+      >
+        {errorMsg && (
+          <div className="pointer-events-auto p-2.5 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-100 text-xs font-semibold backdrop-blur-sm">
+            {errorMsg}
           </div>
+        )}
 
-          <div className="p-4 space-y-3">
-            {errorMsg && (
-              <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-semibold">
-                {errorMsg}
+        {choices.length > 0 ? (
+          <div className="pointer-events-auto rounded-2xl border border-amber-400/50 bg-black/70 backdrop-blur-md p-2.5">
+            <div className="flex items-start justify-between gap-2 mb-2 px-0.5">
+              <div className="text-[11px] font-black uppercase tracking-wider text-amber-300 leading-snug">
+                {choices.length > 1 ? 'Same artwork on several printings — which one?' : 'Is this the card?'}
               </div>
-            )}
-
-            {choices.length > 0 ? (
-              <div className="rounded-xl border p-3" style={{ background: 'var(--bg-surface-2)', borderColor: 'rgba(245,158,11,0.45)' }}>
-                <div className="text-[10px] font-black uppercase tracking-wider mb-2" style={{ color: '#fbbf24' }}>
-                  {choices.length > 1 ? 'Same artwork on several printings — which one?' : 'Is this it?'}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {choices.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => { heldIdRef.current = c.id; addToSession(c); }}
-                      className="flex items-center gap-2.5 p-1.5 rounded-lg text-left cursor-pointer border"
-                      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}
-                    >
-                      <div className="w-8 h-11 rounded overflow-hidden bg-zinc-950 shrink-0">
-                        {c.image_path && <img src={getCardImageUrl(c.image_path)} alt="" className="w-full h-full object-cover" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</div>
-                        <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                          {c.card_number} · {c.set_name || c.sets?.name}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : justAdded ? (
-              <div className="flex items-center gap-3 rounded-xl border p-2.5" style={{ background: 'var(--bg-surface-2)', borderColor: 'rgba(16,185,129,0.45)' }}>
-                <div className="w-9 h-12 rounded overflow-hidden bg-zinc-950 shrink-0">
-                  {justAdded.image_path && <img src={getCardImageUrl(justAdded.image_path)} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-black uppercase tracking-wider" style={{ color: '#34d399' }}>Added</div>
-                  <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{justAdded.name}</div>
-                  <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>{justAdded.card_number}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addToSession(justAdded)}
-                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border shrink-0"
-                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-                >
-                  +1
-                </button>
-              </div>
-            ) : (
-              <div className="text-center text-xs py-2" style={{ color: 'var(--text-tertiary)' }}>
-                {live ? (seeing ? 'Looking…' : 'Hold a card in view.') : 'Camera not running.'}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={addFoil} onChange={(e) => setAddFoil(e.target.checked)} className="w-4 h-4 accent-amber-400 cursor-pointer" />
-                Add as foil
-              </label>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={readingPhoto}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer disabled:opacity-50"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                onClick={dismissChoices}
+                aria-label="Dismiss"
+                className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-white/70 hover:text-white cursor-pointer"
               >
-                {readingPhoto ? 'Reading…' : 'Scan a photo'}
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
-
-            {session.length > 0 && (
-              <div className="pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div className="text-[10px] font-black uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                  Added this session ({sessionTotal})
-                </div>
-                <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar">
-                  {session.map((e) => (
-                    <div key={`${e.card.id}-${e.isFoil}`} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate" style={{ color: 'var(--text-secondary)' }}>
-                        {e.count}× {e.card.name}{e.isFoil ? ' (foil)' : ''}
-                      </span>
-                      <span className="font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>{e.card.card_number}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex flex-col gap-1.5">
+              {choices.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => { heldIdRef.current = choices[0].id; addToSession(c); }}
+                  className="flex items-center gap-3 p-1.5 rounded-xl text-left cursor-pointer bg-white/10 border border-white/10 active:bg-white/20"
+                >
+                  <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-900 shrink-0">
+                    {c.image_path && <img src={getCardImageUrl(c.image_path)} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold truncate">{c.name}</div>
+                    <div className="text-[11px] font-mono text-white/60">{c.card_number} · {c.set_name || c.sets?.name}</div>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-lg text-xs font-black shrink-0" style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}>Add</span>
+                </button>
+              ))}
+            </div>
           </div>
+        ) : lastAdded ? (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-400/50 bg-black/70 backdrop-blur-md p-2">
+            <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-900 shrink-0">
+              {lastAdded.card.image_path && <img src={getCardImageUrl(lastAdded.card.image_path)} alt="" className="w-full h-full object-cover" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Added{lastAdded.isFoil ? ' (foil)' : ''}</div>
+              <div className="text-sm font-bold truncate">{lastAdded.card.name}</div>
+              <div className="text-[11px] font-mono text-white/60">{lastAdded.card.card_number}</div>
+            </div>
+            <button
+              type="button"
+              onClick={undoLast}
+              className="h-9 px-3.5 rounded-full text-xs font-black border border-white/25 bg-white/10 cursor-pointer shrink-0 active:bg-white/25"
+            >
+              Wrong card
+            </button>
+          </div>
+        ) : (
+          live && (
+            <div className="self-center px-3.5 py-1.5 rounded-full bg-black/55 border border-white/10 text-xs font-semibold text-white/80">
+              {foundCard ? 'Looking…' : 'Hold a card in view'}
+            </div>
+          )
+        )}
+
+        {/* What's been scanned this session, with a way to fix mistakes */}
+        <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md overflow-hidden">
+          <div className="flex items-center justify-between gap-2 pl-3 pr-1.5 py-1.5">
+            <button
+              type="button"
+              onClick={() => setListOpen((v) => !v)}
+              aria-expanded={listOpen}
+              className="flex items-center gap-1.5 py-1 text-[11px] font-black uppercase tracking-wider text-white/80 cursor-pointer"
+            >
+              <svg className={`w-3.5 h-3.5 transition-transform ${listOpen ? '' : '-rotate-90'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              Scanned ({sessionTotal})
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={readingPhoto}
+              className="h-8 px-3 rounded-full text-[11px] font-bold border border-white/15 bg-white/10 cursor-pointer disabled:opacity-50 active:bg-white/25"
+            >
+              {readingPhoto ? 'Reading…' : 'Scan a photo'}
+            </button>
+          </div>
+
+          {listOpen && (
+            session.length === 0 ? (
+              <div className="px-3 pb-3 pt-0.5 text-xs text-white/50">Cards you scan will appear here.</div>
+            ) : (
+              <ul className={`${choices.length > 0 ? 'max-h-[16dvh]' : 'max-h-[30dvh]'} overflow-y-auto custom-scrollbar divide-y divide-white/10 border-t border-white/10`}>
+                {session.map((e) => (
+                  <li key={`${e.card.id}-${e.isFoil}`} className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1.5">
+                    <div className="w-7 h-10 rounded overflow-hidden bg-zinc-900 shrink-0">
+                      {e.card.image_path && <img src={getCardImageUrl(e.card.image_path)} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold truncate">{e.card.name}{e.isFoil ? ' (foil)' : ''}</div>
+                      <div className="text-[10px] font-mono text-white/50">{e.card.card_number}</div>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => changeEntry(e, -1)}
+                        aria-label={`Remove one ${e.card.name}`}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 cursor-pointer active:bg-white/25"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                      </button>
+                      <span className="w-6 text-center text-sm font-black tabular-nums">{e.count}</span>
+                      <button
+                        type="button"
+                        onClick={() => changeEntry(e, 1)}
+                        aria-label={`Add one more ${e.card.name}`}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 cursor-pointer active:bg-white/25"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(e)}
+                        aria-label={`Remove ${e.card.name} from this scan`}
+                        className="w-8 h-8 ml-0.5 flex items-center justify-center rounded-full text-red-300 bg-red-500/15 cursor-pointer active:bg-red-500/35"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
         </div>
       </div>
     </div>
