@@ -6,7 +6,6 @@ import { getAllReviews, submitSellerReview } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
 import { useSiteTheme } from '../../lib/theme';
-import { PaymentGatewaySheet } from '../checkout/PaymentGatewaySheet';
 import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
@@ -21,9 +20,6 @@ export function ProfileApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Repay Pending Order State
-  const [payingOrder, setPayingOrder] = useState<Order | null>(null);
-  const [payingProvider, setPayingProvider] = useState<'stripe'>('stripe');
-  const [payingSessionId, setPayingSessionId] = useState<string>('');
 
   // Published Decks State
   const [myDecks, setMyDecks] = useState<PublicDeckSummary[]>([]);
@@ -179,56 +175,6 @@ export function ProfileApp() {
     } finally {
       setIsSubmittingReview(false);
     }
-  };
-
-  const handleOpenPayment = async (order: Order) => {
-    try {
-      const res = await fetch('/api/checkout/stripe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderNumber: order.order_number,
-          customerEmail: order.customer_info?.email || profile?.email || 'customer@tcgvault.hu',
-          totalHuf: order.total_price_huf ?? order.total_huf ?? 0,
-          items: order.items?.map(it => ({
-            name: `${it.quantity}x ${it.card_name}`,
-            priceHuf: it.price_huf,
-            quantity: it.quantity,
-          })) || [{ name: `Order #${order.order_number}`, priceHuf: order.total_price_huf ?? order.total_huf ?? 0, quantity: 1 }],
-        }),
-      });
-
-      let data: any = {};
-      try {
-        const rawText = await res.text();
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        data = {};
-      }
-
-      if (res.ok && data.mode === 'hosted' && data.url) {
-        window.location.href = data.url;
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        showToast(data.error || 'Failed to initialize Stripe checkout.');
-        return;
-      }
-
-      // Simulator sandbox mode
-      setPayingOrder(order);
-      setPayingProvider('stripe');
-      setPayingSessionId(data.sessionId || order.payment_id || `stripe-repay-${order.order_number}-${Date.now()}`);
-    } catch (e: any) {
-      showToast(e?.message || 'Failed to open payment gateway.');
-    }
-  };
-
-  const handleProfilePaymentSuccess = (updatedOrder: Order) => {
-    setOrders(prev => prev.map(o => o.order_number === updatedOrder.order_number ? updatedOrder : o));
-    setPayingOrder(null);
-    showToast('Payment confirmed successfully!');
   };
 
   const handleCancelOrder = async (orderNumber: string) => {
@@ -1257,19 +1203,6 @@ export function ProfileApp() {
                           Order can be cancelled prior to dispatch.
                         </span>
                         <div className="flex items-center gap-2">
-                          {order.payment_status !== 'paid' && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenPayment(order)}
-                              className="px-3.5 py-1.5 rounded-lg font-bold transition cursor-pointer border flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-600/25 active:scale-95"
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                <rect x="2" y="5" width="20" height="14" rx="2" />
-                                <line x1="2" y1="10" x2="22" y2="10" />
-                              </svg>
-                              <span>Pay Now</span>
-                            </button>
-                          )}
                           <button
                             type="button"
                             onClick={() => handleCancelOrder(order.order_number)}
@@ -1348,53 +1281,6 @@ export function ProfileApp() {
             </div>
           )}
         </div>
-
-      {/* Pay Pending Order Modal */}
-      {payingOrder && (
-        <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPayingOrder(null);
-          }}
-        >
-          <div
-            className="relative w-full max-w-lg rounded-2xl p-5 sm:p-7 shadow-2xl border transition-all my-8 max-h-[90vh] overflow-y-auto"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--border)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px var(--accent-glow)',
-            }}
-          >
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setPayingOrder(null)}
-              aria-label="Close payment"
-              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center transition border cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{
-                background: 'var(--bg-surface-2)',
-                borderColor: 'var(--border)',
-                color: 'var(--text-secondary)',
-              }}
-              title={"Close"}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            <PaymentGatewaySheet
-              order={payingOrder}
-              provider={payingProvider}
-              sessionId={payingSessionId}
-              
-              onPaymentSuccess={handleProfilePaymentSuccess}
-              onCancel={() => setPayingOrder(null)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Rate Seller Modal */}
       {ratingModalOrder && (
