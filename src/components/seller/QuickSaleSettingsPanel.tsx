@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { QuickSaleRule } from '../../types';
-import { GAMES, RARITIES, CYBERPUNK_RARITIES, POKEMON_RARITIES } from '../../lib/constants';
+import { GAMES, RARITIES, CYBERPUNK_RARITIES, POKEMON_RARITIES, SETS, CYBERPUNK_SETS } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
+import {
+  CARD_TYPES_BY_GAME,
+  DEFAULT_EXCLUDED_TYPES,
+  RULE_TARGET_LABELS,
+  excludedTypesOf,
+} from '../../lib/quickSaleRules';
 
 interface Props {
   rules: QuickSaleRule[];
@@ -14,6 +20,49 @@ const getRaritiesForGame = (gameId: string) => {
   if (gameId === 'pokemon') return POKEMON_RARITIES;
   return RARITIES;
 };
+
+const getSetsForGame = (gameId: string) => (gameId === 'cyberpunk' ? CYBERPUNK_SETS : gameId === 'pokemon' ? [] : SETS);
+const getTypesForGame = (gameId: string) => CARD_TYPES_BY_GAME[gameId] || [];
+
+/** "Rune" -> "Runes", but Gear stays Gear. */
+const pluralType = (type: string) => (type === 'Gear' ? type : type.endsWith('s') ? type : `${type}s`);
+
+/** The first sensible value for a target type, so switching type never leaves a stale value behind. */
+const defaultTargetValue = (type: QuickSaleRule['type'], game: string) => {
+  if (type === 'rarity') return getRaritiesForGame(game)[0] || '';
+  if (type === 'set') return getSetsForGame(game)[0] || '';
+  if (type === 'card_type') return getTypesForGame(game)[0] || '';
+  return '';
+};
+
+const TARGET_HINTS: Record<QuickSaleRule['type'], string> = {
+  rarity: 'Every card of this rarity.',
+  set: 'Every card from this set.',
+  card_type: 'Every card of this type.',
+  all: 'Every card in your collection that is not skipped below.',
+  specific_card: 'Just this one card. Skips are ignored.',
+};
+
+const SkipChip = ({ active, disabled, label, title, onClick }: { active: boolean; disabled?: boolean; label: string; title?: string; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-pressed={active}
+    title={title}
+    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+      active
+        ? 'bg-red-500/15 border-red-500/40 text-red-300'
+        : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-zinc-200 hover:border-white/25'
+    }`}
+  >
+    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      {active && <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />}
+    </svg>
+    {label}
+  </button>
+);
 
 const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName }: any) => {
   const [query, setQuery] = useState(initialName || '');
@@ -99,7 +148,8 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
       basePriceHuf: 500,
       handoverMethods: ['personal'],
       condition: 'Near Mint',
-      enabled: true
+      enabled: true,
+      excludeTypes: [...DEFAULT_EXCLUDED_TYPES],
     };
     setLocalRules([...localRules, newRule]);
   };
@@ -124,7 +174,17 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
       alert('Please select a card for every "Specific Card" rule.');
       return;
     }
+    const missingTarget = localRules.find(r => r.type !== 'all' && r.type !== 'specific_card' && !r.targetValue);
+    if (missingTarget) {
+      alert(`Please choose a ${RULE_TARGET_LABELS[missingTarget.type].toLowerCase()} for every rule that targets one.`);
+      return;
+    }
     onSave(localRules);
+  };
+
+  const toggleSkippedType = (rule: QuickSaleRule, type: string) => {
+    const current = excludedTypesOf(rule);
+    updateRule(rule.id, { excludeTypes: current.includes(type) ? current.filter(t => t !== type) : [...current, type] });
   };
 
   const toggleHandover = (rule: QuickSaleRule, method: string) => {
@@ -161,6 +221,10 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
         <div className="space-y-3">
           {localRules.map(rule => {
             const rarities = getRaritiesForGame(rule.game);
+            const sets = getSetsForGame(rule.game);
+            const types = getTypesForGame(rule.game);
+            const skippedTypes = excludedTypesOf(rule);
+            const isSpecific = rule.type === 'specific_card';
             
             return (
             <div key={rule.id} className="p-4 rounded-xl border border-white/5 bg-black/20 flex flex-col gap-4">
@@ -182,7 +246,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                     <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Game</label>
                     <select
                       value={rule.game || 'riftbound'}
-                      onChange={(e) => updateRule(rule.id, { game: e.target.value, targetValue: getRaritiesForGame(e.target.value)[0], type: 'rarity' })}
+                      onChange={(e) => updateRule(rule.id, { game: e.target.value, targetValue: getRaritiesForGame(e.target.value)[0], type: 'rarity', excludeTypes: undefined, excludePromos: false, excludeShowcase: false })}
                       className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
                     >
                       {GAMES.filter(g => g.active).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -192,11 +256,15 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                     <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Target Type</label>
                     <select
                       value={rule.type}
-                      onChange={(e) => updateRule(rule.id, { type: e.target.value as 'rarity'|'specific_card', targetValue: e.target.value === 'rarity' ? rarities[0] : '' })}
+                      onChange={(e) => {
+                        const type = e.target.value as QuickSaleRule['type'];
+                        updateRule(rule.id, { type, targetValue: defaultTargetValue(type, rule.game), targetCardName: undefined });
+                      }}
                       className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
                     >
-                      <option value="rarity">Rarity</option>
-                      <option value="specific_card">Specific Card</option>
+                      {(Object.keys(RULE_TARGET_LABELS) as QuickSaleRule['type'][]).map(t => (
+                        <option key={t} value={t}>{RULE_TARGET_LABELS[t]}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -204,14 +272,16 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 {/* Target Value */}
                 <div className="md:col-span-1">
                   <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Target Value</label>
-                  {rule.type === 'rarity' ? (
+                  {rule.type === 'rarity' || rule.type === 'set' || rule.type === 'card_type' ? (
                     <select
                       value={rule.targetValue}
                       onChange={(e) => updateRule(rule.id, { targetValue: e.target.value })}
                       className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
                     >
-                      {rarities.map(r => <option key={r} value={r}>{r}</option>)}
+                      {(rule.type === 'rarity' ? rarities : rule.type === 'set' ? sets : types).map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
+                  ) : rule.type === 'all' ? (
+                    <div className="px-2 py-1.5 rounded-lg border border-dashed border-white/10 text-zinc-500 text-xs">Everything</div>
                   ) : (
                     <CardAutocomplete 
                       game={rule.game} 
@@ -287,6 +357,47 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                       </label>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Skips: kinds of card this rule never lists */}
+              <div className="pt-3 border-t border-white/5">
+                <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
+                  <label className="block text-[10px] uppercase text-zinc-500 font-bold">Never list</label>
+                  <span className="text-[11px] text-zinc-500">
+                    {TARGET_HINTS[rule.type]}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {types.map(t => {
+                    const isTarget = rule.type === 'card_type' && rule.targetValue === t;
+                    return (
+                      <SkipChip
+                        key={t}
+                        label={pluralType(t)}
+                        active={!isSpecific && !isTarget && skippedTypes.includes(t)}
+                        disabled={isSpecific || isTarget}
+                        title={isTarget ? 'This rule targets this type on purpose' : undefined}
+                        onClick={() => toggleSkippedType(rule, t)}
+                      />
+                    );
+                  })}
+                  <SkipChip
+                    label="Promos"
+                    active={!isSpecific && !!rule.excludePromos && !(rule.type === 'set' && /promo/i.test(rule.targetValue))}
+                    disabled={isSpecific || (rule.type === 'set' && /promo/i.test(rule.targetValue))}
+                    title={rule.type === 'set' && /promo/i.test(rule.targetValue) ? 'This rule targets promos on purpose' : undefined}
+                    onClick={() => updateRule(rule.id, { excludePromos: !rule.excludePromos })}
+                  />
+                  {rarities.includes('Showcase') && (
+                    <SkipChip
+                      label="Showcase / alt art"
+                      active={!isSpecific && !!rule.excludeShowcase && !(rule.type === 'rarity' && rule.targetValue === 'Showcase')}
+                      disabled={isSpecific || (rule.type === 'rarity' && rule.targetValue === 'Showcase')}
+                      title={rule.type === 'rarity' && rule.targetValue === 'Showcase' ? 'This rule targets Showcase on purpose' : undefined}
+                      onClick={() => updateRule(rule.id, { excludeShowcase: !rule.excludeShowcase })}
+                    />
+                  )}
                 </div>
               </div>
             </div>

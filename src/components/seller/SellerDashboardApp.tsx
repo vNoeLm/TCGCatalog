@@ -5,6 +5,8 @@ import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
+import { InfoTip, TipTerm } from './InfoTip';
+import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
@@ -960,8 +962,14 @@ export function SellerDashboardApp() {
           Rating already lives in the profile header above, so it isn't repeated here. ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {/* 1. Net Sales & Volume */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <InfoTip title="Net Sales & Volume" align="left">
+            <TipTerm term="Net sales">is the combined value of all your orders, with cancelled orders left out. Nothing else is subtracted: no fees or refunds are taken off.</TipTerm>
+            <TipTerm term="Orders">counts every order that is not cancelled, including ones still in progress.</TipTerm>
+            <TipTerm term="Cards sold">adds up the quantity on those orders.</TipTerm>
+            <TipTerm term="Avg order">is net sales divided by the number of orders.</TipTerm>
+          </InfoTip>
+          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
@@ -980,8 +988,12 @@ export function SellerDashboardApp() {
         </div>
 
         {/* 2. Active Inventory */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <InfoTip title="Active Inventory" align="right">
+            <TipTerm term="Listings">is how many listings you have on sale right now: everything you have listed that is not sold yet, including cards on hold.</TipTerm>
+            <TipTerm term="Listed value">is each listing's price times its quantity, added up. It is what you would take in if everything sold at your asking prices.</TipTerm>
+          </InfoTip>
+          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.59 13.41L11 3.83V3H3v8l.83.83L13.41 20.6a2 2 0 002.83 0l4.35-4.35a2 2 0 000-2.84z" />
@@ -993,7 +1005,7 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
-            {activeListings.length} <span className="text-xs font-normal text-zinc-400">pcs</span>
+            {activeListings.length} <span className="text-xs font-normal text-zinc-400">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Listed Value: {totalListedValueHuf.toLocaleString()} Ft
@@ -1001,8 +1013,12 @@ export function SellerDashboardApp() {
         </div>
 
         {/* 3. Platform Price Health — how competitive this seller's prices are vs. everyone else's */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <InfoTip title="Platform Price Health" align="left">
+            <span className="block">The share of your active listings that are the cheapest, or tied for cheapest, of any seller's listing for that exact card. Foil and non-foil are compared separately.</span>
+            <span className="block">100% means nobody undercuts you. Lower means other sellers list the same card for less; the line below the number says how many. It also shows 100% when you have no listings yet.</span>
+          </InfoTip>
+          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: undercutListings.length > 0 ? 'rgba(251, 191, 36, 0.15)' : 'rgba(52, 211, 153, 0.15)', color: undercutListings.length > 0 ? '#fbbf24' : '#34d399' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 20V10M18 20V4M6 20v-4" />
@@ -1025,8 +1041,14 @@ export function SellerDashboardApp() {
         </div>
 
         {/* 4. Pipeline & Action Items */}
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <InfoTip title="Pipeline & Action Items" align="right">
+            <span className="block">Buyer requests that are waiting on you.</span>
+            <TipTerm term="Pending">requests are buyers who asked to reserve a card and are waiting for you to accept or reject.</TipTerm>
+            <TipTerm term="On hold">are requests you accepted. The card stays reserved until you confirm the handover or release it.</TipTerm>
+            <span className="block">Manage both on the Holds tab.</span>
+          </InfoTip>
+          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
             <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: pendingOnlyCount > 0 ? 'rgba(244, 114, 182, 0.15)' : 'rgba(129, 140, 248, 0.15)', color: pendingOnlyCount > 0 ? '#f472b6' : '#818cf8' }}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -1041,7 +1063,7 @@ export function SellerDashboardApp() {
             {pendingOnlyCount} <span className="text-xs font-normal text-zinc-400">Pending</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {pendingOnlyCount} order{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
+            {pendingOnlyCount} request{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
           </div>
         </div>
       </div>
@@ -1164,17 +1186,21 @@ export function SellerDashboardApp() {
               )}
             </div>
 
-            {filteredListings.length > 0 && (
-              <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none" style={{ color: 'var(--text-tertiary)' }}>
-                <input
-                  type="checkbox"
-                  checked={filteredListings.length > 0 && filteredListings.every(item => selectedListingIds.has(item.inventory_id))}
-                  onChange={toggleSelectAllVisible}
-                  className="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
-                />
-                Select all
-              </label>
-            )}
+            {filteredListings.length > 0 && (() => {
+              const selectedVisible = filteredListings.filter(item => selectedListingIds.has(item.inventory_id)).length;
+              const allSelected = selectedVisible === filteredListings.length;
+              return (
+                <label className="flex items-center gap-2 text-xs font-bold cursor-pointer select-none" style={{ color: 'var(--text-tertiary)' }}>
+                  <SelectBox
+                    checked={allSelected}
+                    indeterminate={selectedVisible > 0 && !allSelected}
+                    onChange={toggleSelectAllVisible}
+                    label="Select all listings"
+                  />
+                  Select all
+                </label>
+              );
+            })()}
 
             <div className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
               {filteredListings.length} items
@@ -1270,18 +1296,11 @@ export function SellerDashboardApp() {
                       onClick={(e) => e.stopPropagation()}
                       className="flex items-center justify-center w-9 h-9 -m-1.5 shrink-0 cursor-pointer"
                     >
-                      <input
-                        type="checkbox"
+                      <SelectBox
                         checked={isSelected}
                         onChange={() => toggleListingSelected(item.inventory_id)}
-                        className="sr-only peer"
-                        aria-label={`Select ${item.name}`}
+                        label={`Select ${item.name}`}
                       />
-                      <div className="w-5 h-5 rounded-md border-2 flex items-center justify-center transition peer-checked:bg-emerald-500 peer-checked:border-emerald-500 border-zinc-500 bg-zinc-900">
-                        <svg className="w-3.5 h-3.5 text-zinc-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" style={{ display: isSelected ? 'block' : 'none' }}>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </div>
                     </label>
                     <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
                       {item.image_path ? (
