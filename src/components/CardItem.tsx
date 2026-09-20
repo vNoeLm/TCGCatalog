@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
-import { getCardImageUrl, supabase } from "../lib/supabase";
+import { supabase, cardThumbProps } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
@@ -87,7 +87,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5">
           {card.image_path ? (
             <img
-              src={getCardImageUrl(card.image_path)}
+              {...cardThumbProps(card.image_path, 'grid')}
               alt={card.name}
               className="w-full h-full object-cover relative z-[1]"
             />

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogCard } from '../types';
-import { getCardImageUrl } from '../lib/supabase';
+import { cardThumbProps } from '../lib/supabase';
 import { detectCardBounds, type CardBounds } from '../lib/cardDetect';
 import {
   computeSignature,
@@ -564,7 +564,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
                   className="flex items-center gap-3 p-1.5 rounded-xl text-left cursor-pointer bg-white/10 border border-white/10 active:bg-white/20"
                 >
                   <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-900 shrink-0">
-                    {c.image_path && <img src={getCardImageUrl(c.image_path)} alt="" className="w-full h-full object-cover" />}
+                    {c.image_path && <img {...cardThumbProps(c.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-bold truncate">{c.name}</div>
@@ -578,7 +578,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
         ) : lastAdded ? (
           <div className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-400/50 bg-black/70 backdrop-blur-md p-2">
             <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-900 shrink-0">
-              {lastAdded.card.image_path && <img src={getCardImageUrl(lastAdded.card.image_path)} alt="" className="w-full h-full object-cover" />}
+              {lastAdded.card.image_path && <img {...cardThumbProps(lastAdded.card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Added{lastAdded.isFoil ? ' (foil)' : ''}</div>
@@ -632,7 +632,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
                 {session.map((e) => (
                   <li key={`${e.card.id}-${e.isFoil}`} className="flex items-center gap-2.5 pl-2.5 pr-1.5 py-1.5">
                     <div className="w-7 h-10 rounded overflow-hidden bg-zinc-900 shrink-0">
-                      {e.card.image_path && <img src={getCardImageUrl(e.card.image_path)} alt="" className="w-full h-full object-cover" />}
+                      {e.card.image_path && <img {...cardThumbProps(e.card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-bold truncate">{e.card.name}{e.isFoil ? ' (foil)' : ''}</div>

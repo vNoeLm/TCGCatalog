@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getCardImageUrl } from '../../lib/supabase';
+import { cardThumbProps } from '../../lib/supabase';
 import { browsePublicDecks, type PublicDeckSummary } from '../../lib/publicDecks';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -89,12 +89,12 @@ export function DeckBrowserApp() {
                 <div className="flex w-full" style={{ aspectRatio: '3 / 4', background: '#09090b' }}>
                   <div className="flex-1 h-full min-w-0">
                     {d.legend_card?.image_path && (
-                      <img src={getCardImageUrl(d.legend_card.image_path)} alt={d.legend_card.name} className="w-full h-full object-cover" />
+                      <img {...cardThumbProps(d.legend_card.image_path, 'tile')} alt={d.legend_card.name} className="w-full h-full object-cover" />
                     )}
                   </div>
                   {d.champion_card?.image_path && (
                     <div className="flex-1 h-full min-w-0 border-l" style={{ borderColor: 'var(--border)' }}>
-                      <img src={getCardImageUrl(d.champion_card.image_path)} alt={d.champion_card.name} className="w-full h-full object-cover" />
+                      <img {...cardThumbProps(d.champion_card.image_path, 'tile')} alt={d.champion_card.name} className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>

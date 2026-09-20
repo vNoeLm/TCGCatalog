@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase, getCardImageUrl } from '../../lib/supabase';
+import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
 import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
@@ -545,7 +545,7 @@ export function ProfileApp() {
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-11 h-16 rounded-lg overflow-hidden border bg-zinc-950 shrink-0" style={{ borderColor: 'var(--border)' }}>
                   {d.legend_card?.image_path && (
-                    <img src={getCardImageUrl(d.legend_card.image_path)} alt={d.legend_card.name} className="w-full h-full object-cover" />
+                    <img {...cardThumbProps(d.legend_card.image_path, 'avatar')} alt={d.legend_card.name} className="w-full h-full object-cover" />
                   )}
                 </div>
                 <div className="min-w-0">

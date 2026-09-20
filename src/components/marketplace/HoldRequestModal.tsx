@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { CatalogCard, UserProfile } from '../../types';
-import { getCardImageUrl } from '../../lib/supabase';
+import { cardThumbProps } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
 
 export interface HoldRequestModalProps {
@@ -207,7 +207,7 @@ export function HoldRequestModal({
           <div className="w-14 h-20 shrink-0 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 flex items-center justify-center">
             {card.image_path ? (
               <img
-                src={getCardImageUrl(card.image_path)}
+                {...cardThumbProps(card.image_path, 'avatar')}
                 alt={card.name}
                 className="w-full h-full object-cover"
               />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { CatalogCard } from "../types";
-import { getCardImageUrl } from "../lib/supabase";
+import { cardThumbProps } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
@@ -99,7 +99,7 @@ export function CardListItem(props: CardListItemProps) {
         >
           {card.image_path ? (
             <img
-              src={getCardImageUrl(card.image_path)}
+              {...cardThumbProps(card.image_path, 'grid')}
               alt={card.name}
               className="w-full h-full object-cover relative z-[1]"
               style={{

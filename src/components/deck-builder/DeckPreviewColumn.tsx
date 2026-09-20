@@ -2,7 +2,7 @@ import React from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
-import { getCardImageUrl } from '../../lib/supabase';
+import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
@@ -125,7 +125,7 @@ export function DeckPreviewColumn({
               }}
             >
               <img
-                src={imgSrc}
+                {...(card.image_path ? cardThumbProps(card.image_path, 'tile') : { src: imgSrc })}
                 alt={card.name}
                 draggable={false}
                 style={{

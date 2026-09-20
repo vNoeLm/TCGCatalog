@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
@@ -1285,7 +1285,7 @@ export function SellerDashboardApp() {
                     </label>
                     <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
                       {item.image_path ? (
-                        <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                        <img {...cardThumbProps(item.image_path, 'avatar')} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
                       )}
@@ -1521,7 +1521,7 @@ export function SellerDashboardApp() {
                       <div className="flex items-start gap-3.5">
                         <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
                           {cardImage ? (
-                            <img src={getCardImageUrl(cardImage)} alt={cardName} className="w-full h-full object-cover" />
+                            <img {...cardThumbProps(cardImage, 'avatar')} alt={cardName} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
                           )}
@@ -1797,7 +1797,7 @@ export function SellerDashboardApp() {
                               <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-11 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
                                   {item.image_path ? (
-                                    <img src={getCardImageUrl(item.image_path)} alt={item.name} className="w-full h-full object-cover" />
+                                    <img {...cardThumbProps(item.image_path, 'avatar')} alt={item.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
                                   )}
