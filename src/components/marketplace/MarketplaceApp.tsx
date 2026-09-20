@@ -375,7 +375,7 @@ export function MarketplaceApp() {
       {/* Main Content Layout with Responsive Filter Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
         {/* Sidebar */}
-        <aside className="w-full lg:sticky lg:top-[88px] lg:self-start">
+        <aside className="w-full lg:sticky lg:top-[88px] lg:self-start lg:max-h-[calc(100dvh-88px-5rem)] lg:overflow-y-auto lg:overscroll-contain custom-scrollbar">
           {sidebar}
         </aside>
 

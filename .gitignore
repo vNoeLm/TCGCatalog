@@ -25,3 +25,8 @@ pnpm-debug.log*
 .vercel
 scratch/
 inspect_*.mjs
+
+# raw data from the one-time card import scripts (regenerate with scripts/dump_next_data.ts)
+next_data.json
+riftbound_cards_final.json
+images/

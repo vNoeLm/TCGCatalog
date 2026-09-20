@@ -93,17 +93,6 @@ export function LegalFooter() {
 
               <div className="h-3.5 w-px bg-zinc-800" />
 
-              <a
-                href="/api-docs"
-                className="text-[11px] font-bold text-zinc-400 hover:text-emerald-400 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
-                title="Public REST API & Developer Documentation"
-              >
-                <span>API Docs</span>
-                <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">v1</span>
-              </a>
-
-              <div className="h-3.5 w-px bg-zinc-800" />
-
               <button
                 type="button"
                 onClick={() => handleToggle(true)}
@@ -160,16 +149,16 @@ export function LegalFooter() {
                   {'1. Copyright & Intellectual Property'}
                 </h4>
                 <p className="text-zinc-400">
-                  All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. TCG Vault is an unofficial, fan-created tool operating under fair use principles for informational, collection-tracking, and community deckbuilding purposes. It is not affiliated with, endorsed, or sponsored by official game publishers.
+                  All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. TCG Vault is an unofficial, fan-made tool for tracking collections, building decks, and arranging trades between collectors. It is not affiliated with, endorsed, or sponsored by any game publisher. If you are a rights holder and would like something changed or removed, please contact us using the address below.
                 </p>
               </section>
 
               <section>
                 <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
-                  {'2. Privacy, Local Storage & Cloud Sync'}
+                  {'2. Your Data & Privacy'}
                 </h4>
                 <p className="text-zinc-400">
-                  Your personal collection counts, filter preferences, and local deck lists are stored on your device via browser localStorage. When authenticated, collection data is securely synced and stored in Supabase. We do not sell, track, or share your personal data with third-party advertisers.
+                  Your collection counts, filter preferences, and draft decks are kept in your browser (localStorage). If you create an account, we store your email address, display name and avatar, and sync your collection to our database (Supabase); decks you publish are stored there too, and are visible to others only if you make them public. Your public profile, marketplace listings, and the reviews you write or receive are visible to other users. Hold requests, including the handover details you enter, and messages are visible only to the people involved in that trade. We also count views and clicks on listings, and record search terms without your account attached, to show sellers what is in demand. We do not sell your data, and the site uses no advertising or third-party analytics trackers. Our hosting and database providers keep standard server logs.
                 </p>
               </section>
 
@@ -184,10 +173,10 @@ export function LegalFooter() {
 
               <section>
                 <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
-                  {'4. Third-Party Services & Market Data'}
+                  {'4. Third-Party Services & Prices'}
                 </h4>
                 <p className="text-zinc-400">
-                  We use Vercel for hosting and Supabase for authentication and database management. Market price references and external links (such as Cardmarket) are provided strictly for informational and estimation purposes. TCG Vault is not responsible for market price fluctuations or third-party transactions.
+                  We use Vercel for hosting, Supabase for authentication and the database, and Google Fonts for typography, which means your browser contacts Google's servers to load the font. Prices shown for cards are rough estimates, not live market data. Links to other sites, such as Cardmarket, are provided for reference only; we are not responsible for their content or for any price changes or transactions made elsewhere.
                 </p>
               </section>
 
@@ -196,7 +185,7 @@ export function LegalFooter() {
                   {'5. Disclaimer of Warranty & Data Rights'}
                 </h4>
                 <p className="text-zinc-400">
-                  TCG Vault is provided on an "as-is" basis without warranties of any kind. We are not liable for accidental data loss, local browser cache clearing, or service interruptions. You retain the right to request the permanent deletion of your synchronized account data at any time.
+                  TCG Vault is provided on an "as-is" basis without warranties of any kind. We are not liable for accidental data loss, cleared browser storage, or service interruptions. To have your account and its synced data deleted, contact us using the address below.
                 </p>
               </section>
 

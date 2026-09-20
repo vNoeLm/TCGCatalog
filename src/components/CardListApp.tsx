@@ -1382,9 +1382,12 @@ export function CardListApp() {
       
       <div style={{ display: "grid", gridTemplateColumns: isWide ? "264px 1fr" : "1fr", gap: isWide ? 24 : 16 }}>
         
-        {/* Desktop Sidebar / Filters (Shown only on wider screens) */}
+        {/* Desktop Sidebar / Filters (Shown only on wider screens).
+            Sticky, and capped to the space between the header and the fixed legal bar: without the cap a
+            sidebar with several sections open is taller than the screen, and a sticky element only moves
+            with the page until it sticks, so its lower half could never be reached. */}
         {isWide && (
-          <aside style={{ position: "sticky", top: 88, alignSelf: "start" }}>
+          <aside className="sticky top-[88px] self-start max-h-[calc(100dvh-88px-5rem)] overflow-y-auto overscroll-contain custom-scrollbar">
             <FilterSidebar 
               filters={filters} 
               setFilters={setFilters} 

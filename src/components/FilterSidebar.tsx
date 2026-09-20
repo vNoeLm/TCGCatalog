@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { FilterState } from "../types";
-import { SEALED_PRODUCT_TYPES, POKEMON_TYPES, POKEMON_RARITIES } from "../lib/constants";
+import { SEALED_PRODUCT_TYPES } from "../lib/constants";
 import { useSiteTheme } from "../lib/theme";
 import { DOMAIN_STYLES, RARITY_STYLES } from "../lib/domainColors";
 import { SEARCHABLE_KEYWORDS } from "../lib/keywordSearch";
@@ -75,7 +75,6 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
-  const isPokemon = filters.game === 'pokemon';
   const isCyberpunk = filters.game === 'cyberpunk';
 
   const set = (key: keyof FilterState, val: any) =>
@@ -320,7 +319,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={isPokemon ? "Energy Type" : (isCyberpunk ? ('Color') : "Domain")}
+            label={isCyberpunk ? 'Color' : "Domain"}
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
@@ -328,7 +327,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
           />
           {domainOpen && (
             <div className="grid grid-cols-3 gap-1 mt-1">
-              {(isPokemon ? POKEMON_TYPES : options.domains).map((d, index, arr) => {
+              {options.domains.map((d, index, arr) => {
                 const active = filters.domains.includes(d);
                 const isLastOdd = index === arr.length - 1 && arr.length % 3 === 1;
                 const ds = DOMAIN_STYLES[d] ?? {
@@ -491,7 +490,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
           />
           {rarityOpen && (
             <div className="grid grid-cols-2 gap-1 mt-1">
-              {(isPokemon ? POKEMON_RARITIES : options.rarities).map((r) => {
+              {options.rarities.map((r) => {
                 const active = filters.rarities.includes(r);
                 const rs = RARITY_STYLES[r] ?? { 
                   dot: "var(--accent)",
@@ -696,7 +695,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       )}
 
       {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
-      {!isSealedCategory && !isPokemon && (
+      {!isSealedCategory && (
         <div className={isCyberpunk ? `border-b ${sidebarTheme.divider} pb-2` : ""}>
           <SectionHeader
             label={isCyberpunk ? ('Cost (€$)') : ('Energy Cost')}
