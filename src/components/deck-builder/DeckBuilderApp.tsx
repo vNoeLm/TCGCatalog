@@ -341,7 +341,7 @@ export function DeckBuilderApp() {
         display: "flex",
         flexDirection: isWide ? 'row' : 'column',
         gap: 24,
-        height: isWide ? 'calc(100vh - 70px)' : 'auto',
+        height: isWide ? 'calc(100dvh - var(--page-chrome-h))' : 'auto',
       }}>
 
         {/* Left: Deck Preview / Filters */}

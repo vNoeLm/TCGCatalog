@@ -1049,7 +1049,7 @@ export function SellerDashboardApp() {
       {/* ─── Navigation Tabs: horizontally-scrollable underline bar ──── */}
       {/* Single row on every viewport width (scrolls instead of wrapping into a ragged grid). */}
       <div
-        className="flex items-center gap-1 overflow-x-auto border-b mb-6"
+        className="flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b mb-6"
         style={{ borderColor: 'var(--border-subtle)', scrollbarWidth: 'thin' }}
       >
         {([
@@ -1103,7 +1103,7 @@ export function SellerDashboardApp() {
               key={tabDef.id}
               type="button"
               onClick={() => setActiveTab(tabDef.id)}
-              className={`relative shrink-0 px-3.5 py-3 -mb-px text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
+              className={`relative shrink-0 px-3.5 py-3 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
                 isActive
                   ? 'border-[var(--accent)] text-[var(--text-accent)]'
                   : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'

@@ -60,6 +60,18 @@ const pathname = Astro.url.pathname;
     <slot />
     <MarketplaceCartDrawer client:load />
     <LegalFooter client:load />
+    <script is:inline>
+      // Publishes the sticky header's real height as --header-h (see --page-chrome-h in global.css).
+      (function () {
+        var header = document.querySelector('header');
+        if (!header || !window.ResizeObserver) return;
+        var publish = function () {
+          document.documentElement.style.setProperty('--header-h', header.getBoundingClientRect().height + 'px');
+        };
+        publish();
+        new ResizeObserver(publish).observe(header);
+      })();
+    </script>
   </body>
 </html>
 

@@ -2146,7 +2146,7 @@ export function CardListApp() {
         onClose={() => setShowScanner(false)}
         cards={allCards.length ? allCards : cards}
         game={filters.game || 'riftbound'}
-        onAddCard={(card, isFoil, delta) => updateCardCount(card.id, isFoil, delta)}
+        onChangeCount={(card, isFoil, delta) => updateCardCount(card.id, isFoil, delta)}
       />
 
       {/* Quick List Preview Modal */}

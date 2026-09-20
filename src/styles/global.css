@@ -141,6 +141,14 @@ html[data-theme="dark"] {
 /* ─────────────────────────────────────────────
    BASE
 ───────────────────────────────────────────── */
+:root {
+  /* Space the layout already spends before a page's own content: the sticky header plus the bottom
+     padding on <body> that keeps content clear of the fixed legal bar (4rem). Pages that fill the
+     viewport subtract this instead of a hand-tuned number, so they fit without scrolling.
+     --header-h is measured live by Layout.astro, since the header's height changes with width. */
+  --page-chrome-h: calc(var(--header-h, 55px) + 4rem);
+}
+
 html {
   background: var(--bg-page);
   transition: background 0.2s;
