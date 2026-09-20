@@ -1,5 +1,5 @@
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
-import { getCardImageUrl } from '../../lib/supabase';
+import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 
 const fmtHuf = (n: number) =>
@@ -27,7 +27,7 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroup
     >
       <div className="relative w-full aspect-[63/88] bg-zinc-950 overflow-hidden border-b border-white/5">
         {imagePath ? (
-          <img src={getCardImageUrl(imagePath)} alt={card.name} className="w-full h-full object-cover" loading="lazy" />
+          <img {...cardThumbProps(imagePath, 'grid')} alt={card.name} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-100">
             {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}

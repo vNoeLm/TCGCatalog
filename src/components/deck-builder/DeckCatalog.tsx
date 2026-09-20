@@ -4,7 +4,7 @@ import type { CatalogCard } from '../../types';
 import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { isCardRamSufficient } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
-import { getCardImageUrl } from '../../lib/supabase';
+import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard } from '../../lib/cardVariants';
@@ -992,7 +992,7 @@ export function DeckCatalog({
                   onClick={() => handleAddCard(card)}
                   onContextMenu={e => { e.preventDefault(); onPreviewCard(card); }}
                 >
-                  <img src={imgSrc} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img {...(card.image_path ? cardThumbProps(card.image_path, 'tile') : { src: imgSrc })} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   
                   {/* Cyberpunk RAM badge */}
                   {isCyberpunk && ram !== null && (

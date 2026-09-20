@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase, getCardImageUrl } from '../../lib/supabase';
+import { supabase, cardThumbProps } from '../../lib/supabase';
 import { addManyToCart, CART_OPEN_EVENT } from '../../lib/marketplaceCart';
 import { parseWantList, planPurchase, CONDITION_ORDER, type ShopPlan, type ShopStrategy } from '../../lib/quickShop';
 import type { InventoryCard } from '../../types';
@@ -271,7 +271,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                       return (
                         <div key={listing.inventory_id} className="flex items-center gap-3 px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                           <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-950 border border-white/10 shrink-0">
-                            {img && <img src={getCardImageUrl(img)} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                            {img && <img {...cardThumbProps(img, 'avatar')} alt="" className="w-full h-full object-cover" loading="lazy" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{listing.name}</div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase, getCardImageUrl } from '../../lib/supabase';
+import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import {
   getCart,
@@ -250,7 +250,7 @@ export function MarketplaceCartDrawer() {
                           <div key={item.inventoryId} className="flex items-center gap-3 p-2.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
                             <div className="w-11 h-15 rounded-lg overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border" style={{ borderColor: 'var(--border-subtle)' }}>
                               {item.imagePath ? (
-                                <img src={getCardImageUrl(item.imagePath)} alt={item.cardName} className="w-full h-full object-cover" />
+                                <img {...cardThumbProps(item.imagePath, 'avatar')} alt={item.cardName} className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-[8px] font-mono text-zinc-500">TCG</span>
                               )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, getCardImageUrl } from '../../lib/supabase';
+import { supabase, getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import { adjustLocalCollection } from '../../lib/collectionClient';
@@ -434,7 +434,7 @@ export function ListCardModal({
               >
                 <div className="w-10 h-14 rounded-md bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
                   {cardData?.image_path ? (
-                    <img src={getCardImageUrl(cardData.image_path)} alt={cardData.name} className="w-full h-full object-cover" />
+                    <img {...cardThumbProps(cardData.image_path, 'avatar')} alt={cardData.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[9px] text-zinc-500">TCG</div>
                   )}

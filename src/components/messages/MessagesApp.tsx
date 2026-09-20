@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getCurrentProfile } from '../../lib/auth';
-import { getCardImageUrl } from '../../lib/supabase';
+import { cardThumbProps } from '../../lib/supabase';
 import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
 import { AuthModal } from '../auth/AuthModal';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
@@ -207,7 +207,7 @@ export function MessagesApp() {
               >
                 <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border relative" style={{ borderColor: 'var(--border-subtle)' }}>
                   {c.image_path ? (
-                    <img src={getCardImageUrl(c.image_path)} alt={c.card_name} className="w-full h-full object-cover" />
+                    <img {...cardThumbProps(c.image_path, 'avatar')} alt={c.card_name} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[9px] font-mono text-zinc-500">TCG</span>
                   )}

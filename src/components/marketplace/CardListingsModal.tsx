@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import type { InventoryCard } from '../../types';
-import { getCardImageUrl } from '../../lib/supabase';
+import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 
 const fmtHuf = (n: number) =>
@@ -72,7 +72,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
         <div className="overflow-y-auto custom-scrollbar">
           <div className="flex gap-4 sm:gap-6 p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden bg-zinc-950 border border-white/10">
-              {imagePath && <img src={getCardImageUrl(imagePath)} alt={card.name} className="w-full h-full object-cover" />}
+              {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1 pr-8">
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
