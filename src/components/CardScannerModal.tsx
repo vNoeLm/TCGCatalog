@@ -41,18 +41,18 @@ const MAX_CHOICES = 6;
 const isPromo = (card: CatalogCard) => /-P(-|$)/i.test(card.card_number || '') || /promo/i.test(card.name || '');
 
 /**
- * A fixed order for cards that share artwork: regular printings first, promos last, then by number.
- *
- * Their match distances differ by a bit or two of camera noise, so ranking by distance reshuffles
- * them on every frame and the button under the user's thumb moves as they tap it.
- */
-/**
  * Identifies what is under the lens as a set of cards rather than as whichever one ranked first.
  * Printings of the same artwork trade places at the top from frame to frame; the group they form
  * doesn't change.
  */
 const groupKey = (cards: CatalogCard[]) => cards.map((c) => c.id).sort().join('|');
 
+/**
+ * A fixed order for cards that share artwork: regular printings first, promos last, then by number.
+ *
+ * Their match distances differ by a bit or two of camera noise, so ranking by distance reshuffles
+ * them on every frame and the button under the user's thumb moves as they tap it.
+ */
 function stableOrder(cards: CatalogCard[]): CatalogCard[] {
   return [...cards].sort(
     (a, b) => Number(isPromo(a)) - Number(isPromo(b)) || (a.card_number || '').localeCompare(b.card_number || '')

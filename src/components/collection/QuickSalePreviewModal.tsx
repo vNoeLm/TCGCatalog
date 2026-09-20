@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
 import { adjustLocalCollection } from '../../lib/collectionClient';
+import { findMatchingRule } from '../../lib/quickSaleRules';
 import type { CatalogCard, QuickSaleRule } from '../../types';
 
 interface Props {
@@ -60,8 +61,6 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
   };
 
   const generateCandidates = (activeRules: QuickSaleRule[], alreadyListed: Map<string, number>) => {
-    const enabledRules = activeRules.filter(r => r.enabled);
-    
     // Create a map for fast card lookup
     const cardMap = new Map<string, CatalogCard>();
     for (const c of allCards) {
@@ -74,16 +73,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
       const card = cardMap.get(owned.cardId);
       if (!card) continue;
 
-      // Find first matching rule
-      let matchingRule: QuickSaleRule | undefined = undefined;
-
-      // Priority 1: Specific Card ID rule
-      matchingRule = enabledRules.find(r => r.type === 'specific_card' && r.targetValue === card.id);
-      
-      // Priority 2: Rarity rule
-      if (!matchingRule) {
-        matchingRule = enabledRules.find(r => r.type === 'rarity' && r.targetValue.toLowerCase() === card.rarity.toLowerCase());
-      }
+      const matchingRule = findMatchingRule(activeRules, card);
 
       if (matchingRule) {
         const listed = alreadyListed.get(card.id) || 0;
@@ -95,6 +85,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
             cardName: card.name,
             cardNumber: card.card_number,
             rarity: card.rarity,
+            cardType: card.card_type,
             quantity: copiesToSell,
             priceHuf: matchingRule.basePriceHuf,
             condition: matchingRule.condition || 'Near Mint',
@@ -228,7 +219,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
 
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white truncate text-sm">{c.cardName}</div>
-                    <div className="text-xs text-zinc-400 mt-0.5">{c.cardNumber} • {c.rarity}</div>
+                    <div className="text-xs text-zinc-400 mt-0.5">{c.cardNumber} • {c.cardType ? `${c.cardType} • ` : ''}{c.rarity}</div>
                   </div>
 
                   <div className="flex items-center gap-3">

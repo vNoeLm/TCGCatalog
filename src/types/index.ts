@@ -277,9 +277,18 @@ export interface ConversationSummary {
 export interface QuickSaleRule {
   id: string;
   game: string; // The game this rule applies to
-  type: 'rarity' | 'specific_card';
-  targetValue: string; // rarity string or card ID
+  /** What the rule aims at. 'all' takes every card not excluded below. */
+  type: 'rarity' | 'set' | 'card_type' | 'all' | 'specific_card';
+  targetValue: string; // rarity / set name / card type, or a card ID; unused for 'all'
   targetCardName?: string; // Optional name for display if specific_card
+  /**
+   * Card types this rule never lists. Absent on rules saved before exclusions existed, which fall
+   * back to skipping runes and tokens (see DEFAULT_EXCLUDED_TYPES in lib/quickSaleRules).
+   */
+  excludeTypes?: string[];
+  excludePromos?: boolean;
+  /** Skips the Showcase rarity (alt-art / overnumbered prints). */
+  excludeShowcase?: boolean;
   minCopiesToKeep: number;
   basePriceHuf: number | ''; // Allow empty for typing
   handoverMethods: string[];
