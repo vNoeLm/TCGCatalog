@@ -35,6 +35,29 @@ const AUTO_ACCEPT_CONFIDENCE = 0.62;
 const FRAMES_TO_CLEAR = 4;
 /** Frames are examined at this width; enough for both locating and the signature. */
 const WORKING_WIDTH = 640;
+/** Most printings listed in a which-one prompt. */
+const MAX_CHOICES = 6;
+
+const isPromo = (card: CatalogCard) => /-P(-|$)/i.test(card.card_number || '') || /promo/i.test(card.name || '');
+
+/**
+ * A fixed order for cards that share artwork: regular printings first, promos last, then by number.
+ *
+ * Their match distances differ by a bit or two of camera noise, so ranking by distance reshuffles
+ * them on every frame and the button under the user's thumb moves as they tap it.
+ */
+/**
+ * Identifies what is under the lens as a set of cards rather than as whichever one ranked first.
+ * Printings of the same artwork trade places at the top from frame to frame; the group they form
+ * doesn't change.
+ */
+const groupKey = (cards: CatalogCard[]) => cards.map((c) => c.id).sort().join('|');
+
+function stableOrder(cards: CatalogCard[]): CatalogCard[] {
+  return [...cards].sort(
+    (a, b) => Number(isPromo(a)) - Number(isPromo(b)) || (a.card_number || '').localeCompare(b.card_number || '')
+  );
+}
 
 export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }: CardScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,6 +73,8 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
   const streakRef = useRef<{ id: string | null; frames: number; confidence: number }>({ id: null, frames: 0, confidence: 0 });
   /** Blocks re-adding the card still sitting under the lens; cleared once it leaves. */
   const heldIdRef = useRef<string | null>(null);
+  /** The printing group in view on the latest frame, so dismissing/choosing can mark exactly it as handled. */
+  const currentGroupRef = useRef<string | null>(null);
   const emptyFramesRef = useRef(0);
 
   const [status, setStatus] = useState<'idle' | 'starting' | 'scanning' | 'error'>('idle');
@@ -141,9 +166,21 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
     setLastAdded(null);
   }, [lastAdded, changeEntry]);
 
+  /**
+   * Shows a which-printing prompt, leaving it untouched if it already lists the same cards so the
+   * options stay put under the user's finger for as long as the card stays in view.
+   */
+  const showChoices = useCallback((next: CatalogCard[]) => {
+    // Order first, then cap, so which printings make the cut can't vary with the frame's noise.
+    const ordered = stableOrder(next).slice(0, MAX_CHOICES);
+    setChoices((prev) =>
+      prev.length === ordered.length && prev.every((c, i) => c.id === ordered[i].id) ? prev : ordered
+    );
+  }, []);
+
   /** Dismisses an unanswered prompt without letting the same card re-open it while still in view. */
   const dismissChoices = useCallback(() => {
-    if (choices[0]) heldIdRef.current = choices[0].id;
+    if (currentGroupRef.current) heldIdRef.current = currentGroupRef.current;
     setChoices([]);
   }, [choices]);
 
@@ -229,6 +266,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
         // Once the card is out of view the same one may be scanned again.
         if (++emptyFramesRef.current >= FRAMES_TO_CLEAR) {
           heldIdRef.current = null;
+          currentGroupRef.current = null;
           streakRef.current = { id: null, frames: 0, confidence: 0 };
           setChoices([]);
         }
@@ -236,7 +274,8 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
       }
       emptyFramesRef.current = 0;
 
-      const topId = matches[0].id;
+      const topId = groupKey(matches);
+      currentGroupRef.current = topId;
       const streak = streakRef.current;
       // A card is judged over a run of frames, not one: any single frame can be caught mid-blur,
       // so the run has to agree on the card and only its clearest look has to be convincing.
@@ -249,11 +288,11 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
 
       if (matches.length > 1) {
         // Several printings share this artwork, so it isn't ours to choose.
-        setChoices(matches.slice(0, 4));
+        showChoices(matches);
         return;
       }
       if (streakRef.current.confidence < AUTO_ACCEPT_CONFIDENCE) {
-        setChoices(matches.slice(0, 1));
+        showChoices(matches);
         return;
       }
 
@@ -264,7 +303,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
     } finally {
       busyRef.current = false;
     }
-  }, [grabFrame, identify, addToSession]);
+  }, [grabFrame, identify, addToSession, showChoices]);
 
   /**
    * The scan loop is reached through a ref so the camera effect can depend on nothing but isOpen.
@@ -387,7 +426,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
         setErrorMsg("Couldn't find a card in that photo. Try a plainer background.");
         return;
       }
-      setChoices(matches.slice(0, 4));
+      showChoices(matches);
     } catch (err) {
       setErrorMsg("Couldn't read that image.");
     } finally {
@@ -521,7 +560,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => { heldIdRef.current = choices[0].id; addToSession(c); }}
+                  onClick={() => { heldIdRef.current = currentGroupRef.current; addToSession(c); }}
                   className="flex items-center gap-3 p-1.5 rounded-xl text-left cursor-pointer bg-white/10 border border-white/10 active:bg-white/20"
                 >
                   <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-900 shrink-0">
