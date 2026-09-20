@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { QuickSaleRule } from '../../types';
-import { GAMES, RARITIES, CYBERPUNK_RARITIES, POKEMON_RARITIES, SETS, CYBERPUNK_SETS } from '../../lib/constants';
+import { GAMES, RARITIES, CYBERPUNK_RARITIES, SETS, CYBERPUNK_SETS } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
 import {
   CARD_TYPES_BY_GAME,
@@ -17,11 +17,10 @@ interface Props {
 
 const getRaritiesForGame = (gameId: string) => {
   if (gameId === 'cyberpunk') return CYBERPUNK_RARITIES;
-  if (gameId === 'pokemon') return POKEMON_RARITIES;
   return RARITIES;
 };
 
-const getSetsForGame = (gameId: string) => (gameId === 'cyberpunk' ? CYBERPUNK_SETS : gameId === 'pokemon' ? [] : SETS);
+const getSetsForGame = (gameId: string) => (gameId === 'cyberpunk' ? CYBERPUNK_SETS : SETS);
 const getTypesForGame = (gameId: string) => CARD_TYPES_BY_GAME[gameId] || [];
 
 /** "Rune" -> "Runes", but Gear stays Gear. */

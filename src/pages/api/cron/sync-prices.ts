@@ -45,13 +45,13 @@ export const ALL: APIRoute = async ({ request }) => {
   // 1. Validate Cron Authorization Header
   const cronSecret = process.env.CRON_SECRET || (import.meta as any).env?.CRON_SECRET;
   const authHeader = request.headers.get('Authorization');
-  const vercelCronHeader = request.headers.get('x-vercel-cron');
 
   if (cronSecret) {
+    // Vercel sends its cron calls with "Authorization: Bearer <CRON_SECRET>" when the variable is set.
+    // An x-vercel-cron header is not proof of anything: any client can add it to a request.
     const isBearerValid = authHeader === `Bearer ${cronSecret}`;
-    const isVercelCronValid = Boolean(vercelCronHeader);
 
-    if (!isBearerValid && !isVercelCronValid) {
+    if (!isBearerValid) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Invalid CRON_SECRET or missing authorization header' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
