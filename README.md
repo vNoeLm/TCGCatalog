@@ -36,7 +36,6 @@ Other commands: `npm run build`, `npm run preview`, and `npx tsc --noEmit` to ty
 | `PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `PUBLIC_SUPABASE_ANON_KEY` | Public key used by the browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only key used by API routes and scripts. Keep it secret |
-| `CRON_SECRET` | Protects the daily price-estimate job |
 
 ## After adding cards or card images
 
@@ -49,6 +48,17 @@ node scripts/sync_card_effects.mjs --apply       # effect text (needs next_data.
 ```
 
 A card missing from the thumbnails still shows, using the full image. A card missing from the art index cannot be scanned.
+
+## Updating prices
+
+Market prices are loaded by hand from a CSV, whenever you like:
+
+```bash
+node scripts/import_prices.mjs data/card_prices.csv          # report only, changes nothing
+node scripts/import_prices.mjs data/card_prices.csv --apply  # write them
+```
+
+The dry run shows what matched and what was dropped as unreliable, and `--apply` saves the old prices to `data/price-backups/` first. See DOCUMENTATION.md for the CSV format.
 
 ## More
 
