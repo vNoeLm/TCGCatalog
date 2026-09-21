@@ -26,6 +26,7 @@ import { addToCart } from '../lib/marketplaceCart';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
+import { CardValuePanel } from './CardValuePanel';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -954,6 +955,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               )}
             </div>
           )}
+
+          {/* What it's worth: market reference, what's for sale here, and the estimate from both */}
+          <CardValuePanel card={card} />
 
           {card.artist && (
             <div className="mb-4">

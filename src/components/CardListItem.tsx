@@ -4,6 +4,7 @@ import { cardThumbProps } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
+import { useCardValueData, valueOfCard } from "../lib/cardValues";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -34,6 +35,14 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 export function CardListItem(props: CardListItemProps) {
   const { card, onClick, gridSize = 'normal' } = props;
   const isSmall = gridSize === 'small';
+
+  // Estimated value: the market reference combined with what sellers here are asking. A card with
+  // only a foil price (a few Commons) shows that one, marked as foil.
+  const values = useCardValueData();
+  const normalValue = valueOfCard(card, false, values).valueHuf;
+  const foilValue = valueOfCard(card, true, values).valueHuf;
+  const shownValue = normalValue ?? foilValue;
+  const valueIsFoil = normalValue === null && foilValue !== null;
 
 
   const normalQty = typeof props.count === 'number' ? props.count : (props.isOwned ?? props.isCollected ? 1 : 0);
@@ -245,6 +254,16 @@ export function CardListItem(props: CardListItemProps) {
             {card.rarity || ''}
           </span>
         </div>
+
+        {shownValue !== null && (
+          <div
+            className={`flex items-center justify-between ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2'}`}
+            title="Estimated value: the market reference combined with what sellers here are asking"
+          >
+            <span className="text-zinc-400 font-medium">Est. value{valueIsFoil ? ' (foil)' : ''}</span>
+            <span className="font-black font-mono text-emerald-400">~{shownValue.toLocaleString('en-US')} Ft</span>
+          </div>
+        )}
 
         {/* Action Steppers */}
         <div 

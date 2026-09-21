@@ -294,7 +294,7 @@ export function ListCardModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
       <div
-        className="relative w-full max-w-[460px] rounded-2xl p-4 sm:p-5 border shadow-2xl my-auto max-h-[92vh] flex flex-col transition-all"
+        className="relative w-full max-w-[540px] rounded-2xl p-4 sm:p-6 border shadow-2xl my-auto max-h-[92vh] flex flex-col transition-all"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
@@ -475,11 +475,6 @@ export function ListCardModal({
                       </>
                     )}
                   </div>
-                  {suggestion.referenceHuf && (
-                    <div className="text-[10px] mt-0.5 text-emerald-400 font-semibold">
-                      {`Market Ref: ~${roundHuf(suggestion.referenceHuf).toLocaleString()} HUF`}
-                    </div>
-                  )}
                 </div>
                 <button
                   type="button"
@@ -614,36 +609,58 @@ export function ListCardModal({
             </div>
 
             {/* Price Helper & Dynamic Total */}
-            <div className="text-[10px] px-0.5 text-zinc-400 space-y-1">
-              <div className="flex items-center justify-between">
-                {suggestedHuf ? (
-                  <div className="flex items-center gap-1">
-                    <span>Suggested price:</span>
+            <div className="space-y-2">
+              {suggestion.basis !== 'none' && suggestedHuf ? (
+                <div
+                  className="rounded-xl border p-3.5 space-y-2.5"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">Suggested price</div>
+                      <div className="text-2xl font-black leading-tight" style={{ color: 'var(--text-primary)' }}>
+                        {suggestedHuf.toLocaleString()} Ft
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => { setPriceTouched(false); setPriceHuf(suggestedHuf); }}
-                      className="text-indigo-400 hover:text-indigo-300 underline font-semibold cursor-pointer"
+                      disabled={priceHuf === suggestedHuf}
+                      className="px-3.5 py-2 rounded-lg text-sm font-bold border transition cursor-pointer disabled:opacity-40 disabled:cursor-default"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
-                      {suggestedHuf.toLocaleString()} Ft
+                      {priceHuf === suggestedHuf ? 'In use' : 'Use this price'}
                     </button>
                   </div>
-                ) : <div />}
 
-                {quantity > 1 && (
-                  <div className="font-semibold text-emerald-400">
-                    {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
-                  </div>
-                )}
-              </div>
+                  {/* Where the suggestion comes from, so a seller can judge it rather than trust it */}
+                  <p className="text-sm leading-relaxed text-zinc-300">{suggestion.reason}</p>
 
-              {/* Where the suggestion comes from, so a seller can judge it rather than trust it */}
-              {suggestion.basis !== 'none' && (
-                <div className="text-zinc-500 leading-snug">
-                  {suggestion.reason}
-                  {suggestion.site && suggestion.site.count > 1 && (
-                    <> The median is {roundHuf(suggestion.site.median).toLocaleString()} Ft.</>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm pt-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div>
+                      <dt className="text-xs text-zinc-500">Market reference</dt>
+                      <dd className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {suggestion.referenceHuf ? `~${roundHuf(suggestion.referenceHuf).toLocaleString()} Ft` : 'none'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-zinc-500">Others selling here</dt>
+                      <dd className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {suggestion.site
+                          ? `${suggestion.site.count} from ${roundHuf(suggestion.site.lowest).toLocaleString()} Ft`
+                          : 'nobody yet'}
+                      </dd>
+                    </div>
+                  </dl>
+                  {suggestion.referenceHuf && (
+                    <p className="text-xs text-zinc-500">The market reference is a rough estimate from US prices.</p>
                   )}
-                  {suggestion.referenceHuf && <> The market reference is a rough estimate from US prices.</>}
+                </div>
+              ) : null}
+
+              {quantity > 1 && (
+                <div className="text-sm font-semibold text-emerald-400 text-right">
+                  {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
                 </div>
               )}
             </div>
