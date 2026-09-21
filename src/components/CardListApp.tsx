@@ -12,7 +12,9 @@ import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUN
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
 import { supabase } from "../lib/supabase";
-import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionFromCloud } from "../lib/auth";
+import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionRecordFromCloud } from "../lib/auth";
+import { saveLocalCollection, getLocalCollectionStamp } from "../lib/collectionClient";
+import { resolveCollectionSync } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
 
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -339,56 +341,66 @@ export function CardListApp() {
     };
   }, []);
 
-  // Sync collection with cloud backup on login / mount for authenticated users
+  // ── Keeping this browser's collection and the cloud copy in step ──
+  // The browser's copy carries the time it was last changed (saveLocalCollection) and the cloud's
+  // carries the time it was last saved. Whichever changed last wins (lib/collectionSync.ts), which is
+  // what lets a reset or a lowered count stick instead of being undone by an older copy.
+  const collectionRef = useRef(collection);
+  collectionRef.current = collection;
+  /** The time last known to be identical in the cloud, so data that has not changed is never re-saved. */
+  const syncedStampRef = useRef<string | null>(null);
+  /**
+   * Nothing is saved to the cloud until the sign-in comparison below has run. Before that this
+   * browser does not know what the cloud holds, and a fresh one could otherwise overwrite it.
+   */
+  const [cloudSyncReady, setCloudSyncReady] = useState(false);
+
+  /** Saves the collection to the cloud and records that this browser is now exactly in step with it. */
+  const pushCollectionToCloud = async (): Promise<boolean> => {
+    const result = await saveCollectionToCloud(collectionRef.current);
+    if (result.error || !result.updatedAt) return false;
+    saveLocalCollection(collectionRef.current, result.updatedAt, false);
+    syncedStampRef.current = result.updatedAt;
+    return true;
+  };
+
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setCloudSyncReady(false);
+      syncedStampRef.current = null;
+      return;
+    }
 
     let isMounted = true;
     (async () => {
       try {
-        const cloudData = await loadCollectionFromCloud();
+        const record = await loadCollectionRecordFromCloud();
         if (!isMounted) return;
+        // Not being able to read the cloud copy is not the same as it being empty: change nothing.
+        if (record === null) return;
 
-        if (cloudData && Object.keys(cloudData).length > 0) {
-          setCollection(prev => {
-            const merged: Record<string, number> = { ...prev };
-            let updated = false;
+        const decision = resolveCollectionSync({
+          local: collectionRef.current,
+          localStamp: getLocalCollectionStamp(),
+          cloud: record.cards,
+          cloudStamp: record.updatedAt,
+        });
 
-            // Union merge: take the highest count for each card
-            Object.entries(cloudData).forEach(([k, cloudCount]) => {
-              const localCount = merged[k] || 0;
-              const best = Math.max(localCount, cloudCount);
-              if (best > 0) {
-                if (merged[k] !== best) updated = true;
-                merged[k] = best;
-              }
-            });
-
-            // Also check if any local cards were not in cloud
-            Object.entries(prev).forEach(([k, localCount]) => {
-              const cloudCount = cloudData[k] || 0;
-              if (localCount > cloudCount) updated = true;
-            });
-
-            if (updated) {
-              localStorage.setItem("tcg_user_collection", JSON.stringify(merged));
-              localStorage.setItem("tcg_collection", JSON.stringify(merged));
-              window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: merged } }));
-              // Save merged union back to cloud in background
-              saveCollectionToCloud(merged).catch(() => {});
-            }
-
-            return merged;
-          });
-        } else {
-          // Cloud is empty but local has cards: auto-backup to cloud
-          setCollection(prev => {
-            if (Object.keys(prev).length > 0) {
-              saveCollectionToCloud(prev).catch(() => {});
-            }
-            return prev;
-          });
+        if (decision.action === 'use-cloud') {
+          saveLocalCollection(decision.collection, record.updatedAt ?? new Date().toISOString());
+          syncedStampRef.current = record.updatedAt;
+        } else if (decision.action === 'merge') {
+          // Stamped now, so the auto-save below sends the combined collection up.
+          saveLocalCollection(decision.collection);
+        } else if (decision.action === 'push-local') {
+          // A collection saved before timestamps existed gets its first one here, so it is picked up.
+          if (!getLocalCollectionStamp()) saveLocalCollection(collectionRef.current);
+        } else if (record.updatedAt) {
+          // Already the same: line the browser's time up with the cloud's.
+          saveLocalCollection(collectionRef.current, record.updatedAt, false);
+          syncedStampRef.current = record.updatedAt;
         }
+        setCloudSyncReady(true);
       } catch (e) {
         console.warn('Auto cloud sync on auth:', e);
       }
@@ -399,36 +411,29 @@ export function CardListApp() {
     };
   }, [currentUser]);
 
-  // Debounced auto-save to cloud for authenticated users (2.5s debounce)
-  const cloudDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const isInitialCollectionLoad = useRef(true);
+  // Debounced auto-save: a change made in this browser goes up 1.5s after the last edit.
+  const cloudDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isInitialCollectionLoad.current) {
-      isInitialCollectionLoad.current = false;
-      return;
-    }
-    if (!currentUser) return;
-    if (Object.keys(collection).length === 0) return;
+    if (!currentUser || !cloudSyncReady) return;
+    // Only what was changed here is saved. An empty collection is a valid thing to save (that is
+    // what a reset is); what must never happen is a browser that has changed nothing saving one.
+    const stamp = getLocalCollectionStamp();
+    if (!stamp || stamp === syncedStampRef.current) return;
 
-    if (cloudDebounceTimer.current) {
-      clearTimeout(cloudDebounceTimer.current);
-    }
-
+    if (cloudDebounceTimer.current) clearTimeout(cloudDebounceTimer.current);
     cloudDebounceTimer.current = setTimeout(async () => {
       try {
-        await saveCollectionToCloud(collection);
+        if (!(await pushCollectionToCloud())) console.warn('Could not save the collection to the cloud; it will be retried on the next change.');
       } catch (e) {
         console.warn('Debounced cloud save warning:', e);
       }
     }, 1500);
 
     return () => {
-      if (cloudDebounceTimer.current) {
-        clearTimeout(cloudDebounceTimer.current);
-      }
+      if (cloudDebounceTimer.current) clearTimeout(cloudDebounceTimer.current);
     };
-  }, [collection, currentUser]);
+  }, [collection, currentUser, cloudSyncReady]);
 
   const updateCardCount = (cardId: string, isFoil: boolean, delta: number) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
@@ -441,9 +446,7 @@ export function CardListApp() {
       } else {
         next[targetKey] = updated;
       }
-      localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-      localStorage.setItem("tcg_collection", JSON.stringify(next));
-      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+      saveLocalCollection(next);
 
       return next;
     });
@@ -480,9 +483,7 @@ export function CardListApp() {
       } else {
         next[targetKey] = 1;
       }
-      localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-      localStorage.setItem("tcg_collection", JSON.stringify(next));
-      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+      saveLocalCollection(next);
 
       return next;
     });
@@ -989,8 +990,8 @@ export function CardListApp() {
     }
     setSavingToCloud(true);
     try {
-      const { error: authError } = await saveCollectionToCloud(collection);
-      if (authError) throw authError;
+      collectionRef.current = collection;
+      if (!(await pushCollectionToCloud())) throw new Error('the cloud did not accept it');
 
       showToast(`${"Collection successfully saved to your cloud account!"} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
@@ -1187,15 +1188,15 @@ export function CardListApp() {
     if (!currentUser) return;
     setRestoringFromCloud(true);
     try {
-      const cloudData = await loadCollectionFromCloud();
-      if (!cloudData || Object.keys(cloudData).length === 0) {
+      const record = await loadCollectionRecordFromCloud();
+      if (!record || Object.keys(record.cards).length === 0) {
         showToast('No saved collection found in your cloud account.');
         return;
       }
+      const cloudData = record.cards;
       setCollection(cloudData);
-      localStorage.setItem("tcg_user_collection", JSON.stringify(cloudData));
-      localStorage.setItem("tcg_collection", JSON.stringify(cloudData));
-      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: cloudData } }));
+      saveLocalCollection(cloudData, record.updatedAt ?? new Date().toISOString());
+      syncedStampRef.current = record.updatedAt;
       showToast(`☁️ ${"Collection restored from cloud!"}`);
       setShowImportModal(false);
       setShowExportModal(false);
@@ -1236,9 +1237,7 @@ export function CardListApp() {
           countAdded += qty;
         });
         setCollection(next);
-        localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-        localStorage.setItem("tcg_collection", JSON.stringify(next));
-        window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+        saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${countAdded} cards from backup file!`);
@@ -1252,9 +1251,7 @@ export function CardListApp() {
           }
         });
         setCollection(next);
-        localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-        localStorage.setItem("tcg_collection", JSON.stringify(next));
-        window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+        saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`);
@@ -1270,9 +1267,7 @@ export function CardListApp() {
           }
         });
         setCollection(next);
-        localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-        localStorage.setItem("tcg_collection", JSON.stringify(next));
-        window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+        saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${countAdded} cards from JSON!`);
@@ -1314,9 +1309,7 @@ export function CardListApp() {
         totalAdded += qty;
       });
       setCollection(next);
-      localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-      localStorage.setItem("tcg_collection", JSON.stringify(next));
-      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+      saveLocalCollection(next);
       setShowImportModal(false);
       setImportText("");
       showToast(`✓ Successfully imported ${totalAdded} cards from text list!`);
@@ -1337,15 +1330,25 @@ export function CardListApp() {
     reader.readAsText(file);
   };
 
-  const handleResetCollection = () => {
+  const handleResetCollection = async () => {
     if (uniqueOwnedKeys.length === 0) return;
-    if (window.confirm(`Are you sure you want to clear your collection? This will remove all ${totalOwnedCopies} saved cards from your browser.`)) {
-      setCollection({});
-      localStorage.removeItem("tcg_user_collection");
-      localStorage.removeItem("tcg_collection");
-      window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: {} } }));
+    const where = currentUser
+      ? 'This clears them from this browser and from your cloud account, so they will be gone on your other devices too.'
+      : 'This will remove them from your browser.';
+    if (!window.confirm(`Are you sure you want to clear your collection? All ${totalOwnedCopies} saved cards will be removed. ${where}`)) return;
+
+    setCollection({});
+    collectionRef.current = {};
+    saveLocalCollection({});
+
+    if (!currentUser) {
       showToast('Collection reset.');
+      return;
     }
+    // Saved straight away rather than after the usual delay: moving to another page within that
+    // delay would cancel it, and the next visit would find the old cloud copy still there.
+    const cleared = await pushCollectionToCloud();
+    showToast(cleared ? 'Collection reset everywhere.' : 'Collection reset here, but the cloud copy could not be cleared. Try Save to cloud.');
   };
 
   const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);

@@ -201,15 +201,20 @@ export async function deleteSavedDeck(id: string) {
 
 // ─── Cloud Collection Sync ──────────────────────────────────────────
 
-import { saveUserCollection, loadUserCollection } from './userCollections';
+import { saveUserCollection, loadUserCollection, loadUserCollectionRecord } from './userCollections';
 
 export async function saveCollectionToCloud(collection: Record<string, number>) {
   const res = await saveUserCollection(collection);
-  return { data: res.success, error: res.error };
+  return { data: res.success, error: res.error, updatedAt: res.updatedAt };
 }
 
 export async function loadCollectionFromCloud(): Promise<Record<string, number> | null> {
   return loadUserCollection();
+}
+
+/** The saved collection with the time it was saved; null if it could not be read. */
+export async function loadCollectionRecordFromCloud() {
+  return loadUserCollectionRecord();
 }
 
 // ─── User Orders ──────────────────────────────────────────────────

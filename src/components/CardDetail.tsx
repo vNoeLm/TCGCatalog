@@ -27,6 +27,7 @@ import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
 import { CardValuePanel } from './CardValuePanel';
+import { saveLocalCollection } from '../lib/collectionClient';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -118,9 +119,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       next[targetKey] = updated;
     }
     setCollection(next);
-    localStorage.setItem("tcg_user_collection", JSON.stringify(next));
-    localStorage.setItem("tcg_collection", JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection: next } }));
+    saveLocalCollection(next);
   };
 
   // ── Admin Quick Edit Handlers ──
