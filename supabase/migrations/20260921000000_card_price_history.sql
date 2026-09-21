@@ -1,5 +1,5 @@
 -- Price history for the graph in the marketplace: one row each time a card's market reference price
--- is new or changes (written by scripts/import_prices.mjs). Run this once in the Supabase SQL editor.
+-- is new or changes (written by the price upload page). Run this once in the Supabase SQL editor.
 
 CREATE TABLE IF NOT EXISTS public.card_price_history (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

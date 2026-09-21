@@ -2,7 +2,7 @@
  * What a card is worth, and what to suggest a seller ask for it.
  *
  * Two signals go in. The market reference is an estimate of what the card sells for in general
- * (imported by scripts/import_prices.mjs, stored in euros, and based on US prices). The site
+ * (imported by the price upload page (/admin/prices), stored in euros, and based on US prices). The site
  * listings are what sellers on this marketplace are asking right now, which is what a buyer here
  * can actually get, so they count for more: when there are any, they decide the number, and the
  * market reference only stops a single odd listing from pulling it somewhere silly.

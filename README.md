@@ -51,14 +51,7 @@ A card missing from the thumbnails still shows, using the full image. A card mis
 
 ## Updating prices
 
-Market prices are loaded by hand from a CSV, whenever you like:
-
-```bash
-node scripts/import_prices.mjs data/card_prices.csv          # report only, changes nothing
-node scripts/import_prices.mjs data/card_prices.csv --apply  # write them
-```
-
-The dry run shows what matched and what was dropped as unreliable, and `--apply` saves the old prices to `data/price-backups/` first. See DOCUMENTATION.md for the CSV format.
+Market prices are loaded from a CSV whenever you like. Sign in as the owner, open your profile and choose **Market prices** (or go to `/admin/prices`), drop the file in and press **Check file**. It shows how many prices would change, the biggest moves and anything it left out as unreliable; **Load** then saves them. Nothing changes until you load. See DOCUMENTATION.md for the CSV format and the one-time database setup.
 
 ## More
 
