@@ -16,6 +16,9 @@
  * Nothing is written without --apply, and the old prices of every card are saved to
  * data/price-backups/ first. The CSV and backups are not committed (see .gitignore).
  *
+ * Every card whose price is new or changed also gets a row in card_price_history, which is what
+ * the price graph in the marketplace draws. Unchanged prices are not repeated.
+ *
  * How rows are read (all of this comes from looking at the data, see the report it prints):
  *  - Card IDs are matched ignoring case, spaces and the "/total" on our card numbers, and our
  *    "*" alt-arts are the CSV's "-STAR". The six basic runes are stored under numbers like "R04" but
@@ -288,12 +291,29 @@ async function main() {
   );
   process.stdout.write('\n');
 
+  // ---- price history: one row per card whose price is new or has changed ----
+  const same = (a, b) => (a === null || a === undefined ? null : Number(a)) === (b === null || b === undefined ? null : Number(b));
+  const changed = updates
+    .filter((u) => u.eur !== null || u.eurFoil !== null)
+    .filter((u) => !same(u.card.market_price_eur, u.eur) || !same(u.card.market_price_foil_eur, u.eurFoil))
+    .map((u) => ({ card_id: u.card.id, price_eur: u.eur, price_foil_eur: u.eurFoil, recorded_at: now }));
+  let historyNote = '';
+  for (let i = 0; i < changed.length; i += 500) {
+    const { error: historyError } = await supabase.from('card_price_history').insert(changed.slice(i, i + 500));
+    if (historyError) {
+      historyNote = ` The price history could not be saved (${historyError.message}); if the table is missing, run supabase/migrations/20260921000000_card_price_history.sql first.`;
+      break;
+    }
+    historyNote = ` Recorded ${Math.min(i + 500, changed.length)} of ${changed.length} price changes in the history.`;
+  }
+  if (!changed.length) historyNote = ' No prices changed, so nothing was added to the history.';
+
   const { error: fxError } = await supabase
     .from('settings')
     .upsert({ key: 'fx_rates', value: JSON.stringify({ usd_eur: rates.usdEur, eur_huf: rates.eurHuf, date: rates.date }) }, { onConflict: 'key' });
   if (fxError) failures.push(`fx_rates: ${fxError.message}`);
 
-  console.log(`Updated ${jobs.length - failures.length} cards and saved the exchange rates.`);
+  console.log(`Updated ${jobs.length - failures.length} cards and saved the exchange rates.${historyNote}`);
   if (failures.length) {
     console.log(`${failures.length} failed:`);
     failures.slice(0, 10).forEach((f) => console.log('  ' + f));

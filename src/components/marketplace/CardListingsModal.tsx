@@ -3,6 +3,8 @@ import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import type { InventoryCard } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
+import { getListingDescription } from '../../lib/sellerNotes';
+import { PriceHistoryChart } from './PriceHistoryChart';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -10,6 +12,10 @@ const fmtHuf = (n: number) =>
 const CONDITION_ORDER = ['Mint', 'Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
 
 type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
+
+// Seller | Description | Condition | Amount | Price | (View). On a phone the seller, price and View share
+// the first line and the rest wrap underneath.
+const ROW_COLUMNS = 'md:grid-cols-[minmax(150px,1.1fr)_minmax(0,1.5fr)_minmax(150px,auto)_56px_100px_68px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -57,7 +63,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
       >
         <button
@@ -69,7 +75,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="overflow-y-auto custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:flex lg:flex-row custom-scrollbar">
+         <div className="lg:w-[44%] lg:shrink-0 lg:overflow-y-auto lg:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex gap-4 sm:gap-6 p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden bg-zinc-950 border border-white/10">
               {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
@@ -97,7 +104,11 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity }} />
+         </div>
+
+         <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar">
+          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 lg:pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ListingSort)}
@@ -131,6 +142,14 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           </div>
 
           <div className="px-2 sm:px-4 py-2">
+            <div className={`hidden md:grid ${ROW_COLUMNS} gap-x-3 px-2 sm:px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 border-b`} style={{ borderColor: 'var(--border-subtle)' }}>
+              <div>Seller</div>
+              <div>Description</div>
+              <div>Condition</div>
+              <div className="text-right">Amount</div>
+              <div className="text-right">Price</div>
+              <div />
+            </div>
             {visible.length === 0 ? (
               <p className="text-center text-sm text-zinc-500 py-10">No listings match these filters.</p>
             ) : (
@@ -140,12 +159,12 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   return (
                     <div
                       key={l.inventory_id}
-                      className="flex items-center gap-3 px-2 sm:px-3 py-2.5 rounded-xl hover:bg-white/[0.04] transition"
+                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-3 gap-y-1.5 px-2 sm:px-3 py-2.5 rounded-xl hover:bg-white/[0.04] transition`}
                       style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}
                     >
                       <a
                         href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
-                        className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80"
+                        className="flex items-center gap-2 min-w-0 hover:opacity-80 order-1"
                         title={`View ${rowSeller(l)}'s profile`}
                       >
                         {l.seller_avatar ? (
@@ -166,21 +185,31 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         </div>
                       </a>
 
-                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end max-w-[42%]">
+                      <div className="order-5 md:order-2 col-span-3 md:col-span-1 min-w-0 text-xs leading-snug">
+                        {(() => {
+                          const description = getListingDescription(l.notes);
+                          return description
+                            ? <span className="text-zinc-300 line-clamp-2 break-words" title={description}>{description}</span>
+                            : <span className="text-zinc-600 hidden md:inline" aria-label="No description">&mdash;</span>;
+                        })()}
+                      </div>
+
+                      <div className="order-4 md:order-3 col-span-3 md:col-span-1 flex items-center gap-1.5 flex-wrap md:justify-start">
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-zinc-800 text-zinc-200 border border-zinc-700">{l.condition || 'Near Mint'}</span>
                         {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
                         {(l.inventory_images || []).length > 0 && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40" title="Condition photos attached">Photos</span>
                         )}
                         {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">On hold</span>}
+                        <span className="md:hidden text-xs font-semibold text-zinc-400 ml-auto">{l.quantity}&times;</span>
                       </div>
 
-                      <div className="text-xs font-semibold text-zinc-400 w-12 text-right shrink-0">{l.quantity}&times;</div>
-                      <div className="text-base font-black text-emerald-400 w-24 text-right shrink-0">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
+                      <div className="hidden md:block md:order-4 text-xs font-semibold text-zinc-400 text-right">{l.quantity}&times;</div>
+                      <div className="order-2 md:order-5 text-base font-black text-emerald-400 text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
                       <button
                         type="button"
                         onClick={() => onSelectListing(l.inventory_id)}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0 cursor-pointer transition"
+                        className="order-3 md:order-6 px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition"
                         style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
                       >
                         View
@@ -191,6 +220,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               </div>
             )}
           </div>
+         </div>
         </div>
       </div>
     </div>
