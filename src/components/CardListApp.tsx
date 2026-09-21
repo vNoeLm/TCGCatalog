@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import type { CatalogCard, FilterState, UserProfile } from "../types";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
+import { CollectionValueChip } from "./CollectionValueChip";
 import { CardDetail } from "./CardDetail";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
@@ -1629,6 +1630,9 @@ export function CardListApp() {
                   );
                 })}
               </div>
+
+              {/* What the collection is worth, between the size switcher and the actions */}
+              <CollectionValueChip collection={collection} cards={allCards.length ? allCards : cards} />
 
               {/* Collection Actions Buttons - 100% full-width on mobile */}
               <div className="grid grid-cols-3 sm:flex items-center gap-1.5 w-full sm:w-auto">

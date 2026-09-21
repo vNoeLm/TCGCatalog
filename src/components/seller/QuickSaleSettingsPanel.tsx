@@ -5,8 +5,10 @@ import { supabase } from '../../lib/supabase';
 import {
   CARD_TYPES_BY_GAME,
   DEFAULT_EXCLUDED_TYPES,
+  PRICE_MODE_LABELS,
   RULE_TARGET_LABELS,
   excludedTypesOf,
+  type QuickSalePriceMode,
 } from '../../lib/quickSaleRules';
 
 interface Props {
@@ -224,6 +226,8 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
             const types = getTypesForGame(rule.game);
             const skippedTypes = excludedTypesOf(rule);
             const isSpecific = rule.type === 'specific_card';
+            const priceMode: QuickSalePriceMode = rule.priceMode ?? 'fixed';
+            const isAdaptive = priceMode !== 'fixed';
             
             return (
             <div key={rule.id} className="p-4 rounded-xl border border-white/5 bg-black/20 flex flex-col gap-4">
@@ -322,17 +326,43 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 </div>
 
                 {/* Price */}
-                <div className="md:col-span-1">
-                  <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Price (HUF)</label>
-                  <input
-                    type="number" min="1"
-                    value={rule.basePriceHuf}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateRule(rule.id, { basePriceHuf: val === '' ? '' : parseInt(val) });
-                    }}
-                    className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
-                  />
+                <div className="md:col-span-1 space-y-2">
+                  <div>
+                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Pricing</label>
+                    <select
+                      value={priceMode}
+                      onChange={(e) => updateRule(rule.id, { priceMode: e.target.value as QuickSalePriceMode })}
+                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                    >
+                      {(Object.keys(PRICE_MODE_LABELS) as QuickSalePriceMode[]).map(mode => (
+                        <option key={mode} value={mode}>{PRICE_MODE_LABELS[mode]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {isAdaptive ? (
+                    <div>
+                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Adjust (%)</label>
+                      <input
+                        type="number" step="1" min="-90" max="500"
+                        value={rule.priceAdjustPct ?? 0}
+                        onChange={(e) => updateRule(rule.id, { priceAdjustPct: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Price (HUF)</label>
+                      <input
+                        type="number" min="1"
+                        value={rule.basePriceHuf}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          updateRule(rule.id, { basePriceHuf: val === '' ? '' : parseInt(val) });
+                        }}
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Handover Methods */}
@@ -358,6 +388,41 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                   </div>
                 </div>
               </div>
+
+              {/* Adaptive pricing: what the rule does instead of one price for every card */}
+              {isAdaptive && (
+                <div className="pt-3 border-t border-white/5 space-y-2.5">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    {priceMode === 'market'
+                      ? 'Each card is listed at its own market price.'
+                      : 'Each card is listed at its estimated value: the market price combined with what sellers here are asking.'}
+                    {(rule.priceAdjustPct ?? 0) !== 0 && (
+                      <> Then {Math.abs(rule.priceAdjustPct ?? 0)}% {(rule.priceAdjustPct ?? 0) < 0 ? 'is taken off' : 'is added'}.</>
+                    )}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <div>
+                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Never below (HUF)</label>
+                      <input
+                        type="number" min="0"
+                        value={rule.minPriceHuf ?? ''}
+                        placeholder="10"
+                        onChange={(e) => updateRule(rule.id, { minPriceHuf: e.target.value === '' ? undefined : parseInt(e.target.value) })}
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">If a card has no price (HUF)</label>
+                      <input
+                        type="number" min="1"
+                        value={rule.basePriceHuf}
+                        onChange={(e) => updateRule(rule.id, { basePriceHuf: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Skips: kinds of card this rule never lists */}
               <div className="pt-3 border-t border-white/5">

@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
 import { adjustLocalCollection } from '../../lib/collectionClient';
-import { findMatchingRule } from '../../lib/quickSaleRules';
+import { findMatchingRule, quickSalePrice, type QuickSalePriceSource } from '../../lib/quickSaleRules';
+import { loadCardValueData, valueOfCard, type CardValueData } from '../../lib/cardValues';
+import { roundHuf } from '../../lib/priceSuggestion';
 import type { CatalogCard, QuickSaleRule } from '../../types';
 
 interface Props {
@@ -11,6 +13,13 @@ interface Props {
   ownedCards: { cardId: string, count: number }[];
   allCards: CatalogCard[];
 }
+
+const PRICE_SOURCE_LABELS: Record<QuickSalePriceSource, string> = {
+  fixed: 'Fixed price',
+  market: 'Market price',
+  estimate: 'Estimated value',
+  fallback: 'No price data, fixed price used',
+};
 
 export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }: Props) {
   const [rules, setRules] = useState<QuickSaleRule[]>([]);
@@ -30,7 +39,9 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     if (u?.user_metadata?.quick_sale_settings) {
       const userRules = u.user_metadata.quick_sale_settings as QuickSaleRule[];
       setRules(userRules);
-      generateCandidates(userRules, await fetchAlreadyListed(u.id));
+      // Prices that follow each card's market price or estimated value need that data first.
+      const [alreadyListed, values] = await Promise.all([fetchAlreadyListed(u.id), loadCardValueData()]);
+      generateCandidates(userRules, alreadyListed, values);
     } else {
       setRules([]);
       setListingCandidates([]);
@@ -60,7 +71,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     return listed;
   };
 
-  const generateCandidates = (activeRules: QuickSaleRule[], alreadyListed: Map<string, number>) => {
+  const generateCandidates = (activeRules: QuickSaleRule[], alreadyListed: Map<string, number>, values: CardValueData) => {
     // Create a map for fast card lookup
     const cardMap = new Map<string, CatalogCard>();
     for (const c of allCards) {
@@ -79,6 +90,12 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         const listed = alreadyListed.get(card.id) || 0;
         const copiesToSell = owned.count - matchingRule.minCopiesToKeep - listed;
         if (copiesToSell > 0) {
+          // Quick List only lists normal copies, so it is the normal finish that is priced.
+          const value = valueOfCard(card, false, values);
+          const { priceHuf, source } = quickSalePrice(matchingRule, {
+            marketHuf: value.referenceHuf ? roundHuf(value.referenceHuf) : null,
+            estimateHuf: value.valueHuf,
+          });
           candidates.push({
             tempId: Math.random().toString(36).substring(2),
             cardId: card.id,
@@ -87,7 +104,8 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
             rarity: card.rarity,
             cardType: card.card_type,
             quantity: copiesToSell,
-            priceHuf: matchingRule.basePriceHuf,
+            priceHuf,
+            priceSource: source as QuickSalePriceSource,
             condition: matchingRule.condition || 'Near Mint',
             handoverMethods: matchingRule.handoverMethods || ['personal'],
             selected: true
@@ -245,6 +263,11 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
                         className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-emerald-400 font-mono font-bold"
                         disabled={!c.selected}
                       />
+                      {c.priceSource && c.priceSource !== 'fixed' && (
+                        <div className="text-[9px] px-1 mt-0.5 text-zinc-500 truncate" title={PRICE_SOURCE_LABELS[c.priceSource as QuickSalePriceSource]}>
+                          {PRICE_SOURCE_LABELS[c.priceSource as QuickSalePriceSource]}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

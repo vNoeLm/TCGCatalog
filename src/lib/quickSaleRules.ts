@@ -1,4 +1,5 @@
 import type { CatalogCard, QuickSaleRule } from '../types';
+import { roundHuf } from './priceSuggestion';
 
 /**
  * Which cards a Quick List rule picks up, and which it leaves alone.
@@ -106,3 +107,41 @@ export function findMatchingRule(rules: QuickSaleRule[], card: CatalogCard): Qui
     forGame.find((r) => r.type === 'all' && applies(r))
   );
 }
+
+// ---- pricing -----------------------------------------------------------------------------------
+
+export type QuickSalePriceMode = NonNullable<QuickSaleRule['priceMode']>;
+
+export const PRICE_MODE_LABELS: Record<QuickSalePriceMode, string> = {
+  fixed: 'Fixed price',
+  market: 'Market price',
+  estimate: 'Estimated value',
+};
+
+export type QuickSalePriceSource = 'fixed' | 'market' | 'estimate' | 'fallback';
+
+/**
+ * The price a rule lists a card at.
+ *
+ * One price for every card a rule picks up only works when they are all worth about the same, so a
+ * rule can instead price each card from its own data: its market price, or its estimated value
+ * (the market price combined with what sellers here are asking). A card with no such price to go on
+ * is listed at the rule's fixed price instead, so nothing is left without one.
+ */
+export function quickSalePrice(
+  rule: QuickSaleRule,
+  card: { marketHuf: number | null; estimateHuf: number | null }
+): { priceHuf: number; source: QuickSalePriceSource } {
+  const fixed = typeof rule.basePriceHuf === 'number' && rule.basePriceHuf > 0 ? rule.basePriceHuf : MIN_QUICK_PRICE_HUF;
+  const mode = rule.priceMode ?? 'fixed';
+  if (mode === 'fixed') return { priceHuf: fixed, source: 'fixed' };
+
+  const base = mode === 'market' ? card.marketHuf : card.estimateHuf;
+  if (base === null || !Number.isFinite(base) || base <= 0) return { priceHuf: fixed, source: 'fallback' };
+
+  const adjusted = base * (1 + (rule.priceAdjustPct ?? 0) / 100);
+  const floor = rule.minPriceHuf && rule.minPriceHuf > 0 ? rule.minPriceHuf : 0;
+  return { priceHuf: Math.max(roundHuf(adjusted), floor), source: mode };
+}
+
+const MIN_QUICK_PRICE_HUF = 10;
