@@ -7,7 +7,7 @@ import { hasFoilVariant } from './cardVariants';
  * The exchange rate and every asking price on the site, loaded once and shared, so a catalog
  * page showing sixty cards makes two requests rather than one hundred and twenty.
  */
-interface CardValueData {
+export interface CardValueData {
   ready: boolean;
   eurHuf: number;
   site: Map<string, number[]>;
@@ -40,6 +40,12 @@ function load(): Promise<void> {
       loading = null;
     });
   return loading;
+}
+
+/** The same data for code that is not a component: waits for it to load, then returns it. */
+export async function loadCardValueData(): Promise<CardValueData> {
+  await load();
+  return data;
 }
 
 const subscribe = (notify: () => void) => {
