@@ -30,3 +30,6 @@ inspect_*.mjs
 next_data.json
 riftbound_cards_final.json
 images/
+
+# price CSVs and the backups the import script takes (third-party data, not ours to commit)
+data/

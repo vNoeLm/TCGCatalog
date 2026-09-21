@@ -3,6 +3,8 @@ import { supabase, getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import { adjustLocalCollection } from '../../lib/collectionClient';
+import { getEurToHuf, fetchSiteListingPrices } from '../../lib/prices';
+import { DEFAULT_EUR_TO_HUF, eurToHuf, roundHuf, suggestPrice } from '../../lib/priceSuggestion';
 import type { CatalogCard, InventoryCard, UserProfile } from '../../types';
 
 interface ListCardModalProps {
@@ -39,6 +41,11 @@ export function ListCardModal({
   const [isFoil, setIsFoil] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [priceHuf, setPriceHuf] = useState<number>(500);
+  // Until the seller types a price themselves, the price box follows the suggestion as it firms up
+  // (the listings on the site arrive a moment after the card is picked).
+  const [priceTouched, setPriceTouched] = useState(false);
+  const [eurHuf, setEurHuf] = useState<number>(DEFAULT_EUR_TO_HUF);
+  const [sitePrices, setSitePrices] = useState<number[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [allowedHandovers, setAllowedHandovers] = useState<string[]>([
     'personal',
@@ -66,13 +73,8 @@ export function ListCardModal({
         setSelectedCard(initialCard);
         const initialFoil = (initialCard as any).is_foil || false;
         setIsFoil(initialFoil);
-        const cardObj = (initialCard as any).cards || initialCard;
-        const eur = initialFoil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur;
-        if (eur) {
-          setPriceHuf(Math.max(1, Math.round(eur * 400)));
-        } else {
-          setPriceHuf(500);
-        }
+        setPriceHuf(500);
+        setPriceTouched(false);
       } else {
         setSelectedCard(null);
         setSearchQuery('');
@@ -116,29 +118,54 @@ export function ListCardModal({
     return () => clearTimeout(timer);
   }, [searchQuery, selectedCard, isOpen]);
 
+  const cardData: any = selectedCard ? ((selectedCard as any).cards || selectedCard) : null;
+  const selectedCardId: string | null = selectedCard ? ((selectedCard as any).card_id || cardData?.id || null) : null;
+
+  useEffect(() => {
+    if (isOpen) getEurToHuf().then(setEurHuf);
+  }, [isOpen]);
+
+  // What other sellers on the site are asking for this card in this finish.
+  useEffect(() => {
+    if (!isOpen || !selectedCardId) {
+      setSitePrices([]);
+      return;
+    }
+    let cancelled = false;
+    fetchSiteListingPrices(selectedCardId, isFoil, profile?.id).then((prices) => {
+      if (!cancelled) setSitePrices(prices);
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, selectedCardId, isFoil, profile?.id]);
+
+  // Rare, Epic and Showcase cards have a single finish, so a card with only one price uses it either way.
+  const marketEur: number | null = cardData
+    ? (isFoil ? (cardData.market_price_foil_eur ?? cardData.market_price_eur) : cardData.market_price_eur) ?? null
+    : null;
+  const suggestion = suggestPrice({
+    referenceHuf: marketEur ? eurToHuf(marketEur, eurHuf) : null,
+    sitePrices,
+  });
+  const suggestedHuf = suggestion.suggestedHuf;
+
+  useEffect(() => {
+    if (!priceTouched && suggestedHuf) setPriceHuf(suggestedHuf);
+  }, [priceTouched, suggestedHuf]);
+
   if (!isOpen) return null;
 
   const handleSelectCard = (card: CatalogCard) => {
     setSelectedCard(card);
-    const eur = card.market_price_eur;
-    if (eur) {
-      setPriceHuf(Math.max(1, Math.round(eur * 400)));
-    } else {
-      setPriceHuf(500);
-    }
+    setPriceHuf(500);
+    setPriceTouched(false);
     setSearchQuery('');
     setSearchResults([]);
   };
 
   const handleFoilToggle = (foil: boolean) => {
     setIsFoil(foil);
-    if (selectedCard) {
-      const cardObj = (selectedCard as any).cards || selectedCard;
-      const eur = foil ? (cardObj.market_price_foil_eur ?? cardObj.market_price_eur) : cardObj.market_price_eur;
-      if (eur) {
-        setPriceHuf(Math.max(1, Math.round(eur * 400)));
-      }
-    }
+    // A different finish is a different price, so the suggestion takes over again.
+    setPriceTouched(false);
   };
 
   // Upload condition photos to /api/marketplace/upload-image
@@ -263,10 +290,6 @@ export function ListCardModal({
       setSubmitting(false);
     }
   };
-
-  const cardData: any = selectedCard ? ((selectedCard as any).cards || selectedCard) : null;
-  const suggestedPriceEur = cardData ? (isFoil ? (cardData.market_price_foil_eur ?? cardData.market_price_eur) : cardData.market_price_eur) : null;
-  const suggestedHuf = suggestedPriceEur ? Math.round(suggestedPriceEur * 400) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
@@ -418,7 +441,7 @@ export function ListCardModal({
                           </div>
                           {card.market_price_eur && (
                             <div className="text-right shrink-0 text-[11px] font-black text-emerald-400">
-                              ~{Math.round(card.market_price_eur * 400).toLocaleString()} Ft
+                              ~{roundHuf(eurToHuf(card.market_price_eur, eurHuf)).toLocaleString()} Ft
                             </div>
                           )}
                         </button>
@@ -452,9 +475,9 @@ export function ListCardModal({
                       </>
                     )}
                   </div>
-                  {suggestedHuf && (
+                  {suggestion.referenceHuf && (
                     <div className="text-[10px] mt-0.5 text-emerald-400 font-semibold">
-                      {`Market Ref: ~${suggestedHuf.toLocaleString()} HUF`}
+                      {`Market Ref: ~${roundHuf(suggestion.referenceHuf).toLocaleString()} HUF`}
                     </div>
                   )}
                 </div>
@@ -575,7 +598,7 @@ export function ListCardModal({
                     step={1}
                     min={1}
                     value={priceHuf}
-                    onChange={(e) => setPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => { setPriceTouched(true); setPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0)); }}
                     className="w-full pl-3 pr-8 py-1.5 rounded-xl text-xs font-black border focus:outline-none focus:border-emerald-500 transition"
                     style={{
                       background: 'var(--bg-input)',
@@ -591,23 +614,36 @@ export function ListCardModal({
             </div>
 
             {/* Price Helper & Dynamic Total */}
-            <div className="flex items-center justify-between text-[10px] px-0.5 text-zinc-400">
-              {suggestedHuf ? (
-                <div className="flex items-center gap-1">
-                  <span>Suggested market:</span>
-                  <button
-                    type="button"
-                    onClick={() => setPriceHuf(suggestedHuf)}
-                    className="text-indigo-400 hover:text-indigo-300 underline font-semibold cursor-pointer"
-                  >
-                    {suggestedHuf.toLocaleString()} Ft
-                  </button>
-                </div>
-              ) : <div />}
+            <div className="text-[10px] px-0.5 text-zinc-400 space-y-1">
+              <div className="flex items-center justify-between">
+                {suggestedHuf ? (
+                  <div className="flex items-center gap-1">
+                    <span>Suggested price:</span>
+                    <button
+                      type="button"
+                      onClick={() => { setPriceTouched(false); setPriceHuf(suggestedHuf); }}
+                      className="text-indigo-400 hover:text-indigo-300 underline font-semibold cursor-pointer"
+                    >
+                      {suggestedHuf.toLocaleString()} Ft
+                    </button>
+                  </div>
+                ) : <div />}
 
-              {quantity > 1 && (
-                <div className="font-semibold text-emerald-400">
-                  {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
+                {quantity > 1 && (
+                  <div className="font-semibold text-emerald-400">
+                    {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
+                  </div>
+                )}
+              </div>
+
+              {/* Where the suggestion comes from, so a seller can judge it rather than trust it */}
+              {suggestion.basis !== 'none' && (
+                <div className="text-zinc-500 leading-snug">
+                  {suggestion.reason}
+                  {suggestion.site && suggestion.site.count > 1 && (
+                    <> The median is {roundHuf(suggestion.site.median).toLocaleString()} Ft.</>
+                  )}
+                  {suggestion.referenceHuf && <> The market reference is a rough estimate from US prices.</>}
                 </div>
               )}
             </div>

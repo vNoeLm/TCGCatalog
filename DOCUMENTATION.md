@@ -6,7 +6,7 @@ A short guide for whoever works on the code next. For setup and commands see the
 
 - The site is Astro pages, each mostly one large React component (`CardListApp`, `MarketplaceApp`, `SellerDashboardApp` and so on) that lives in `src/components`.
 - The browser talks to **Supabase directly** for reading the catalog and for anything a signed-in user is allowed to do. Row level security in the database decides what each person can see and change.
-- Work that needs more power runs as an **API route** in `src/pages/api` using the service role key: marketplace listings and holds, bulk listing, decks, admin tools, the price job and the public API.
+- Work that needs more power runs as an **API route** in `src/pages/api` using the service role key: marketplace listings and holds, bulk listing, decks, admin tools and the public API.
 - It is deployed on Vercel. Card images are served from Supabase Storage.
 
 ## Where things are
@@ -44,7 +44,10 @@ Things worth knowing:
 
 **Images.** The full images are in the `card-images` bucket. Grids and lists use smaller copies at `thumbs/v1/<width>/<path>`, built by `scripts/build_card_thumbnails.mjs`; `cardThumbProps()` in `src/lib/supabase.ts` picks the right size. If the thumbnails ever need rebuilding, change the version in both places.
 
-**Prices.** The daily job (`/api/cron/sync-prices`) sets rough estimates by rarity. They are not real market prices.
+**Prices.** There are two kinds, kept apart.
+
+- The **market reference** is loaded by hand with `scripts/import_prices.mjs` from a CSV with the columns `Card ID, Detailed Name, Set, Rarity, Normal Price, Foil Price` (dollars). It is stored in euros in `cards.market_price_eur` and `market_price_foil_eur`, and the exchange rates used are saved in the `settings` row `fx_rates`, which the site reads to show forints. Common and Uncommon cards have a normal and a foil price; Rare, Epic and Showcase are a single entry, so one price fills both. The script skips prices that cannot be real, checks that each matched pair has the same name, and backs up the old prices first. The data is US-market, so treat it as a rough guide.
+- The **suggested price** in the listing dialog (`src/lib/priceSuggestion.ts`) starts from the market reference and follows the lowest price another seller is asking on the site, but stays within 20% of the reference so one very low or very high listing cannot drag it around. Whoever is listing can always type their own price.
 
 **Public API.** A read-only API for cards and sets is under `/api/v1`, with its documentation page at `/api-docs`. The page is not linked from the public site; only the admin API keys panel links to it.
 
