@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../../lib/supabaseServer';
 import { logOrderEvent } from '../../lib/orderLogs';
 import { persistOrderItemsSnapshot } from '../../lib/orderItems';
 import type { Order } from '../../types';
+import { getRequestUser, jsonResponse } from '../../lib/requestAuth';
 
 export const prerender = false;
 
@@ -204,15 +205,30 @@ async function restockOrderItems(items: any[]) {
   }
 }
 
-// GET: Return all store orders (sorted newest first)
+/**
+ * Orders hold buyers' names, addresses and contact details, and this route reads them with the
+ * service role, so every handler below checks who is asking first. Someone can see an order if
+ * they are its buyer or its seller; admins can see and change all of them.
+ */
+function isParticipant(order: Order, userId: string, email: string | null | undefined): boolean {
+  const o = order as any;
+  if (o.user_id === userId || o.seller_id === userId) return true;
+  const buyerEmail = o.customer_info?.email;
+  return Boolean(email && typeof buyerEmail === 'string' && buyerEmail.toLowerCase() === email.toLowerCase());
+}
+
+// GET: the orders the caller is a buyer or seller of (all of them for an admin), newest first
 export const GET: APIRoute = async ({ request }) => {
   try {
-    const client = getSupabaseClient(request);
-    const orders = await getStoredOrders(client);
+    const caller = await getRequestUser(request);
+    if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
+
+    const all = await getStoredOrders(supabaseAdmin);
+    const orders = caller.isAdmin ? all : all.filter((o) => isParticipant(o, caller.user.id, caller.user.email));
     orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return new Response(JSON.stringify({ success: true, orders }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
@@ -222,9 +238,14 @@ export const GET: APIRoute = async ({ request }) => {
   }
 };
 
-// POST: Add a new order to the cloud store
+// POST: Add a new order to the cloud store. Sales are recorded by the hold-request flow on the
+// server; nothing else creates orders any more, so this is for admins only.
 export const POST: APIRoute = async ({ request }) => {
   try {
+    const caller = await getRequestUser(request);
+    if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
+    if (!caller.isAdmin) return jsonResponse({ success: false, error: 'Forbidden: admin access required.' }, 403);
+
     const client = getSupabaseClient(request);
     const body = await request.json();
     const newOrder = body.order as Order;
@@ -277,6 +298,9 @@ export const POST: APIRoute = async ({ request }) => {
 // PATCH: Update order status (e.g. mark as 'Shipped', tracking number, notes, payment status)
 export const PATCH: APIRoute = async ({ request }) => {
   try {
+    const caller = await getRequestUser(request);
+    if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
+
     const client = getSupabaseClient(request);
     const body = await request.json();
     const {
@@ -306,7 +330,17 @@ export const PATCH: APIRoute = async ({ request }) => {
     const currentOrders = await getStoredOrders(client);
     let targetIdx = currentOrders.findIndex(o => o.order_number === orderNumber);
 
-    // ── Upsert: if order not in store_orders, add it so the update can proceed ──
+    if (!caller.isAdmin) {
+      // Only the buyer or seller of an existing order can change it, and only its status and notes:
+      // payment details are set by the server side of a sale.
+      if (targetIdx === -1 || !isParticipant(currentOrders[targetIdx], caller.user.id, caller.user.email)) {
+        return jsonResponse({ success: false, error: 'Order not found.' }, 404);
+      }
+      const touchesPayment = [payment_status, paymentStatus, payment_method, paymentMethod, payment_id, paymentId].some((v) => v !== undefined);
+      if (touchesPayment) return jsonResponse({ success: false, error: 'Forbidden: admin access required.' }, 403);
+    }
+
+    // ── Upsert: if order not in store_orders, add it so the update can proceed (admins only) ──
     if (targetIdx === -1) {
       const stub: Order = (orderData && orderData.order_number === orderNumber)
         ? { ...orderData }
@@ -401,6 +435,10 @@ export const PATCH: APIRoute = async ({ request }) => {
 // DELETE: Remove an order or purge all test orders
 export const DELETE: APIRoute = async ({ request }) => {
   try {
+    const caller = await getRequestUser(request);
+    if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
+    if (!caller.isAdmin) return jsonResponse({ success: false, error: 'Forbidden: admin access required.' }, 403);
+
     const client = getSupabaseClient(request);
     const url = new URL(request.url);
     const orderNumber = url.searchParams.get('orderNumber');
