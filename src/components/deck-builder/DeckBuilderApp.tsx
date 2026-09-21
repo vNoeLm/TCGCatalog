@@ -563,7 +563,7 @@ export function DeckBuilderApp() {
               border: '1px solid var(--border)',
               boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
             }}
-            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <CardDetail cardId={previewCard.id} onClose={() => setPreviewCard(null)} />
           </div>

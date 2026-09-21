@@ -31,6 +31,8 @@ export const labels = {
   sort_name_desc: "Name (Z to A)",
   sort_cost_low: "Energy Cost (Low to High)",
   sort_cost_high: "Energy Cost (High to Low)",
+  sort_value_high: "Est. Value (High to Low)",
+  sort_value_low: "Est. Value (Low to High)",
   all: "All",
   owned: "Owned",
   have: "Owned",

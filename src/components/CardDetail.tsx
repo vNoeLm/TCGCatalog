@@ -450,7 +450,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const messengerUrl = `https://m.me/your-page?ref=${messengerMsg}`;
 
   return (
-    <div className={`w-full mx-auto relative ${onClose ? 'p-4 sm:p-6 lg:p-8' : 'px-4 sm:px-6 py-6 sm:py-10 max-w-6xl'}`}>
+    <div className={`w-full mx-auto relative ${onClose ? 'p-4 sm:p-6 lg:p-8' : 'px-4 sm:px-6 py-6 sm:py-10 max-w-6xl 2xl:max-w-[1400px]'}`}>
       <style>{`
         @keyframes foilShine {
           0% { background-position: 200% 0; }
@@ -459,7 +459,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
       `}</style>
       <BackLink onClose={onClose} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[clamp(280px,38%,440px)_1fr] gap-6 sm:gap-8 lg:gap-12 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[clamp(280px,38%,440px)_1fr] 2xl:grid-cols-[clamp(300px,26%,380px)_1fr] gap-6 sm:gap-8 lg:gap-12 items-start">
 
         {/* ── Left: image column ── */}
         <div className="w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[360px] lg:max-w-none mx-auto">
@@ -516,10 +516,18 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               ))}
             </div>
           )}
+
+          {/* Art credit, like the line under a picture in a gallery */}
+          {card.artist && (
+            <p className="mt-3 text-xs text-center lg:text-left" style={{ color: 'var(--text-tertiary)' }}>
+              Illustrated by <span style={{ color: 'var(--text-secondary)' }}>{card.artist}</span>
+            </p>
+          )}
         </div>
 
-        {/* ── Right: info column ── */}
-        <div className="w-full min-w-0">
+        {/* ── Right: info column (two columns side by side on a wide screen) ── */}
+        <div className="w-full min-w-0 2xl:grid 2xl:grid-cols-2 2xl:gap-x-6 2xl:items-start">
+          <div className="2xl:col-span-2">
           {(() => {
             const { main, sub } = splitCardTitle(card.name);
             const cardNumberStr = formatCleanCardNumber(card.card_number);
@@ -551,7 +559,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               </div>
             );
           })()}
+          </div>
 
+          <div className="min-w-0">
           {/* ── Meta rows ── */}
           <div 
             className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4"
@@ -956,16 +966,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           )}
 
+          </div>
+
+          <div className="min-w-0">
           {/* What it's worth: market reference, what's for sale here, and the estimate from both */}
           <CardValuePanel card={card} />
-
-          {card.artist && (
-            <div className="mb-4">
-              <p className="text-sm text-zinc-400 italic">
-                Artist: {card.artist}
-              </p>
-            </div>
-          )}
 
           {/* Collection Tracking Section (Catalog / Personal Collection only, hidden in Store) */}
           {!isInventory && (
@@ -1401,6 +1406,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               <PriceChartingButton card={card}  />
             </div>
           )}
+          </div>
         </div>
       </div>
 
