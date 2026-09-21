@@ -5,7 +5,7 @@ import { extractSellerId } from './sellerNotes';
 let eurToHufRequest: Promise<number> | null = null;
 
 /**
- * The euro-to-forint rate saved by scripts/import_prices.mjs, read once per page.
+ * The euro-to-forint rate saved by the price upload page (/admin/prices), read once per page.
  * Falls back to a recent typical rate if it has never been saved or can't be read.
  */
 export function getEurToHuf(): Promise<number> {

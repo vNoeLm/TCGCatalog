@@ -818,6 +818,23 @@ export function ProfileApp() {
             </svg>
             <span>Seller Dashboard</span>
           </a>
+          {isOwner && (
+            <a
+              href="/admin/prices"
+              className="px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm border"
+              style={{
+                background: 'var(--bg-surface-2)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-primary)'
+              }}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+              <span>Market prices</span>
+            </a>
+          )}
           <button
             onClick={handleSignOut}
             className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
