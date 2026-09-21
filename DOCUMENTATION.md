@@ -34,7 +34,7 @@ Things worth knowing:
 
 ## How some things work
 
-**Collection sync.** Counts are saved in the browser first. When signed in, the browser's copy and the saved copy are merged (the higher count for each card wins) and changes are saved back about 1.5 seconds after the last edit.
+**Collection sync.** Counts are saved in the browser first, stamped with the time of the last change (`lib/collectionClient.ts`). When signed in, whichever copy changed last, the browser's or the saved one, wins (`lib/collectionSync.ts`), so a reset or a lowered count sticks instead of being undone by an older copy. A browser with no stamp yet (a fresh one, or one from before stamps existed) combines the two, keeping the higher count of each card, so nothing already saved is lost. Changes are saved about 1.5 seconds after the last edit, and a reset is saved straight away. Nothing is saved before the sign-in comparison has run, and a failed read of the saved copy is never treated as an empty one.
 
 **Hold requests.** A buyer sends a request (`pending`). The seller accepts it (`held`, and the listing goes On Hold) and later confirms the handover (`completed`, and the listing is Sold). A request can also be rejected or cancelled, which puts the card back in stock.
 
