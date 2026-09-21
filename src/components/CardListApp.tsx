@@ -7,7 +7,6 @@ import { CardDetail } from "./CardDetail";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
-import { consolidateRunes, getConsolidatedOwnedQty } from "../lib/runeConsolidation";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
@@ -16,6 +15,9 @@ import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectio
 import { saveLocalCollection, getLocalCollectionStamp } from "../lib/collectionClient";
 import { resolveCollectionSync } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
+import { useCardValueData, valueOfCard } from "../lib/cardValues";
+import { useStickySidebar } from "../lib/useStickySidebar";
+import { hasFoilVariant } from "../lib/cardVariants";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -59,6 +61,8 @@ const SORT_OPTIONS = [
   { mode: "Name (Z to A)", labelKey: 'sort_name_desc' },
   { mode: "Energy Cost (Low to High)", labelKey: 'sort_cost_low' },
   { mode: "Energy Cost (High to Low)", labelKey: 'sort_cost_high' },
+  { mode: "Est. Value (High to Low)", labelKey: 'sort_value_high' },
+  { mode: "Est. Value (Low to High)", labelKey: 'sort_value_low' },
 ] as const;
 
 function getSortLabel(mode: string): string {
@@ -105,7 +109,8 @@ export function CardListApp() {
     "Rarity (High to Low)" | "Rarity (Low to High)" |
     "Quantity (High to Low)" | "Quantity (Low to High)" |
     "Name (A to Z)" | "Name (Z to A)" |
-    "Energy Cost (Low to High)" | "Energy Cost (High to Low)"
+    "Energy Cost (Low to High)" | "Energy Cost (High to Low)" |
+    "Est. Value (High to Low)" | "Est. Value (Low to High)"
   >("Card Number (Asc)");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -138,22 +143,6 @@ export function CardListApp() {
 
   const [allCards, setAllCards] = useState<CatalogCard[]>([]);
   const [page, setPage] = useState(1);
-  // Maps a consolidated Rune's canonical id -> every underlying per-set reprint id,
-  // so its "owned" quantity can sum across every set the user tracked copies under.
-  const [runeGroupIds, setRuneGroupIds] = useState<Map<string, string[]>>(new Map());
-
-  // Same shape as `collection`, except a consolidated Rune's canonical id carries
-  // the summed quantity tracked under any of its underlying per-set reprints —
-  // so counts already tracked before consolidation don't appear to vanish.
-  const displayCollection = useMemo(() => {
-    if (runeGroupIds.size === 0) return collection;
-    const merged = { ...collection };
-    runeGroupIds.forEach((_memberIds, canonicalId) => {
-      merged[canonicalId] = getConsolidatedOwnedQty(canonicalId, collection, runeGroupIds);
-    });
-    return merged;
-  }, [collection, runeGroupIds]);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -515,9 +504,7 @@ export function CardListApp() {
 
       const { data } = await fetchCardsCatalog(filters, searchQuery);
       if (isMounted) {
-        const consolidated = consolidateRunes(data || []);
-        setCards(consolidated.cards);
-        setRuneGroupIds(consolidated.groupIdsByCanonicalId);
+        setCards(data || []);
 
         // Sync allCards for playset/collection calculations
         if (!searchQuery.trim() && (!filters.rarities || filters.rarities.length === 0) && !filters.type && (!filters.domains || filters.domains.length === 0) && !filters.set) {
@@ -638,6 +625,9 @@ export function CardListApp() {
   const spFilter = filters.spFilter || 'all';
   const baseSetFilter = filters.baseSetFilter || 'all';
 
+  const cardValues = useCardValueData();
+  const { ref: sidebarRef, top: sidebarTop } = useStickySidebar<HTMLElement>();
+
   const relevantCards = useMemo(() => {
     let filtered = cards;
     if (showFoilOnly) filtered = filtered.filter(hasFoilVariant);
@@ -667,16 +657,34 @@ export function CardListApp() {
       }
     }
     
+    // A card's value for sorting is its dearer finish; cards with no value yet go last either way.
+    const sortValue = (card: CatalogCard): number | null => {
+      const normal = valueOfCard(card, false, cardValues).valueHuf;
+      const foil = hasFoilVariant(card) ? valueOfCard(card, true, cardValues).valueHuf : null;
+      if (normal === null) return foil;
+      return foil === null ? normal : Math.max(normal, foil);
+    };
+
     filtered = [...filtered].sort((a, b) => {
+      if (sortMode === 'Est. Value (High to Low)' || sortMode === 'Est. Value (Low to High)') {
+        const vA = sortValue(a);
+        const vB = sortValue(b);
+        if (vA !== vB) {
+          if (vA === null) return 1;
+          if (vB === null) return -1;
+          return sortMode === 'Est. Value (High to Low)' ? vB - vA : vA - vB;
+        }
+        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      }
       if (sortMode === 'Quantity (High to Low)') {
-        const qA = (displayCollection[a.id] || 0) + (displayCollection[`${a.id}_foil`] || 0);
-        const qB = (displayCollection[b.id] || 0) + (displayCollection[`${b.id}_foil`] || 0);
+        const qA = (collection[a.id] || 0) + (collection[`${a.id}_foil`] || 0);
+        const qB = (collection[b.id] || 0) + (collection[`${b.id}_foil`] || 0);
         if (qA !== qB) return qB - qA;
         return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
       }
       if (sortMode === 'Quantity (Low to High)') {
-        const qA = (displayCollection[a.id] || 0) + (displayCollection[`${a.id}_foil`] || 0);
-        const qB = (displayCollection[b.id] || 0) + (displayCollection[`${b.id}_foil`] || 0);
+        const qA = (collection[a.id] || 0) + (collection[`${a.id}_foil`] || 0);
+        const qB = (collection[b.id] || 0) + (collection[`${b.id}_foil`] || 0);
         if (qA !== qB) return qA - qB;
         return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
       }
@@ -710,7 +718,7 @@ export function CardListApp() {
     });
     
     return filtered;
-  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode, displayCollection]);
+  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode, collection, cardValues]);
   
   const relevantTotal = relevantCards.length;
   const uniqueOwnedKeys = Object.keys(collection).filter(k => (collection[k] || 0) > 0);
@@ -718,21 +726,21 @@ export function CardListApp() {
 
   const ownedCount = useMemo(() => {
     return relevantCards.filter(c => {
-      const regularQty = displayCollection[c.id] || 0;
-      const foilQty = displayCollection[`${c.id}_foil`] || 0;
+      const regularQty = collection[c.id] || 0;
+      const foilQty = collection[`${c.id}_foil`] || 0;
       if (showFoilOnly) return foilQty > 0;
       return regularQty > 0 || foilQty > 0;
     }).length;
-  }, [relevantCards, displayCollection, showFoilOnly]);
+  }, [relevantCards, collection, showFoilOnly]);
 
   const playsetCount = useMemo(() => {
     return relevantCards.filter(c => {
-      const regularQty = displayCollection[c.id] || 0;
-      const foilQty = displayCollection[`${c.id}_foil`] || 0;
+      const regularQty = collection[c.id] || 0;
+      const foilQty = collection[`${c.id}_foil`] || 0;
       const totalQty = showFoilOnly ? foilQty : (regularQty + foilQty);
       return totalQty >= 3;
     }).length;
-  }, [relevantCards, displayCollection, showFoilOnly]);
+  }, [relevantCards, collection, showFoilOnly]);
 
   const missingCount = relevantTotal - ownedCount;
 
@@ -757,8 +765,8 @@ export function CardListApp() {
 
   const displayedCards = useMemo(() => {
     return relevantCards.filter(card => {
-      const regularQty = displayCollection[card.id] || 0;
-      const foilQty = displayCollection[`${card.id}_foil`] || 0;
+      const regularQty = collection[card.id] || 0;
+      const foilQty = collection[`${card.id}_foil`] || 0;
       const totalQty = showFoilOnly ? foilQty : (regularQty + foilQty);
       const isOwned = totalQty > 0;
       const isPlayset = totalQty >= 3;
@@ -768,7 +776,7 @@ export function CardListApp() {
       if (collectionFilter === "Missing") return !isOwned;
       return true;
     });
-  }, [relevantCards, collectionFilter, displayCollection, showFoilOnly]);
+  }, [relevantCards, collectionFilter, collection, showFoilOnly]);
 
   const paginatedCards = displayedCards.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedCards.length < displayedCards.length;
@@ -1004,8 +1012,8 @@ export function CardListApp() {
   // ── Missing Cards Export Helpers (Respects currently selected filters) ──
   const getMissingCards = () => {
     return relevantCards.filter(card => {
-      const regularQty = displayCollection[card.id] || 0;
-      const foilQty = displayCollection[`${card.id}_foil`] || 0;
+      const regularQty = collection[card.id] || 0;
+      const foilQty = collection[`${card.id}_foil`] || 0;
       return showFoilOnly ? foilQty === 0 : (regularQty === 0 && foilQty === 0);
     });
   };
@@ -1387,11 +1395,9 @@ export function CardListApp() {
       <div style={{ display: "grid", gridTemplateColumns: isWide ? "264px 1fr" : "1fr", gap: isWide ? 24 : 16 }}>
         
         {/* Desktop Sidebar / Filters (Shown only on wider screens).
-            Sticky, and capped to the space between the header and the fixed legal bar: without the cap a
-            sidebar with several sections open is taller than the screen, and a sticky element only moves
-            with the page until it sticks, so its lower half could never be reached. */}
+            Sticky (see useStickySidebar): a tall sidebar scrolls with the page until its bottom is in view. */}
         {isWide && (
-          <aside className="sticky top-[88px] self-start max-h-[calc(100dvh-88px-5rem)] overflow-y-auto overscroll-contain custom-scrollbar">
+          <aside ref={sidebarRef} style={{ top: sidebarTop }} className="sticky self-start">
             <FilterSidebar 
               filters={filters} 
               setFilters={setFilters} 
@@ -1728,10 +1734,10 @@ export function CardListApp() {
                   <CardListItem
                     key={card.id}
                     card={card}
-                    count={displayCollection[card.id] || 0}
-                    foilCount={displayCollection[`${card.id}_foil`] || 0}
-                    isOwned={(displayCollection[card.id] || 0) > 0}
-                    isFoilOwned={(displayCollection[`${card.id}_foil`] || 0) > 0}
+                    count={collection[card.id] || 0}
+                    foilCount={collection[`${card.id}_foil`] || 0}
+                    isOwned={(collection[card.id] || 0) > 0}
+                    isFoilOwned={(collection[`${card.id}_foil`] || 0) > 0}
                     onUpdateCount={updateCardCount}
                     onToggle={toggleOwnership}
                     onClick={() => setSelectedCardId(card.id)}
@@ -2292,7 +2298,7 @@ export function CardListApp() {
               border: '1px solid var(--border)',
               boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
             }}
-            className="w-full max-w-5xl my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <CardDetail cardId={selectedCardId} onClose={() => setSelectedCardId(null)} />
           </div>

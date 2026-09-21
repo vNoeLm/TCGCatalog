@@ -1,7 +1,14 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getSellerTier } from '../../../lib/badges';
-import { extractSellerId, listingSignature } from '../../../lib/sellerNotes';
+import {
+  extractSellerId,
+  listingSignature,
+  cleanListingDescription,
+  getCopiesFromCollection,
+  withListingNotes,
+  copiesToReturn,
+} from '../../../lib/sellerNotes';
 import { adjustSellerCollection } from '../../../lib/collectionServer';
 
 export const prerender = false;
@@ -336,6 +343,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const body = await request.json();
     const { card_id, quantity, price_huf, condition, is_foil, images, handover_methods } = body;
+    const description = cleanListingDescription(body.description);
 
     if (!card_id) {
       return new Response(JSON.stringify({ success: false, error: 'card_id is required.' }), {
@@ -392,6 +400,7 @@ export const POST: APIRoute = async ({ request }) => {
       views: 0,
       clicks: 0,
       listed_at: new Date().toISOString(),
+      ...(description ? { user_notes: description } : {}),
     });
 
     // Merge into this seller's existing listing for the same card/condition/finish
@@ -441,7 +450,19 @@ export const POST: APIRoute = async ({ request }) => {
     // Copies committed to a listing leave the seller's tracked collection immediately —
     // not when the sale later completes — so "owned" always reflects what's actually
     // still in their binder.
-    await adjustSellerCollection(user.id, card_id, Boolean(is_foil), -safeQty);
+    const taken = -(await adjustSellerCollection(user.id, card_id, Boolean(is_foil), -safeQty));
+
+    // Remember how many of this listing's copies really came out of the collection, so that taking
+    // it down later gives back only those and not copies that were never tracked. A new description
+    // on a listing that was merged into an existing one replaces the old one.
+    const baseNotes: string = duplicate ? (duplicate as any).notes : notesPayload;
+    const listedNotes = withListingNotes(baseNotes, {
+      from_collection: getCopiesFromCollection(baseNotes) + taken,
+      ...(duplicate && description ? { user_notes: description } : {}),
+    });
+    if (listedNotes !== baseNotes) {
+      await supabaseAdmin.from('inventory').update({ notes: listedNotes }).eq('id', invRow.id);
+    }
 
     // If photos were uploaded, save them into public.inventory_images
     if (photoList.length > 0) {
@@ -528,9 +549,13 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       await supabaseAdmin.from('inventory').delete().eq('id', listingId);
 
       // Whatever was still unsold on this listing goes back into the seller's collection.
-      await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), Number(invRow.quantity) || 0);
+      // Only copies that came out of the collection when listed go back into it.
+      const { giveBack } = copiesToReturn(getCopiesFromCollection(invRow.notes), Number(invRow.quantity) || 0, 0);
+      const returned = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack);
 
-      return new Response(JSON.stringify({ success: true, unlisted_id: listingId }), {
+      // `collection_delta` is what the seller's collection really changed by, so the browser can
+      // mirror it exactly.
+      return new Response(JSON.stringify({ success: true, unlisted_id: listingId, collection_delta: returned }), {
         status: 200,
         headers: JSON_HEADERS,
       });
@@ -613,6 +638,20 @@ export const PATCH: APIRoute = async ({ request }) => {
       }
       if (condition) updates.condition = condition;
 
+      // Copies only go back to the collection if they came out of it, and a smaller listing
+      // settles that up front; a bigger one is settled after the collection has been asked.
+      const quantityBefore = Number(invRow.quantity) || 0;
+      const lentBefore = getCopiesFromCollection(invRow.notes);
+      let notesPatch: Record<string, unknown> = {};
+      let giveBack = 0;
+      if (explicitQuantity !== null && explicitQuantity < quantityBefore) {
+        const settled = copiesToReturn(lentBefore, quantityBefore, explicitQuantity);
+        giveBack = settled.giveBack;
+        notesPatch.from_collection = settled.remaining;
+      }
+      if (typeof body.description === 'string') notesPatch.user_notes = cleanListingDescription(body.description);
+      if (Object.keys(notesPatch).length > 0) updates.notes = withListingNotes(invRow.notes, notesPatch);
+
       const { data: updated, error: updateErr } = await supabaseAdmin
         .from('inventory')
         .update(updates)
@@ -627,12 +666,21 @@ export const PATCH: APIRoute = async ({ request }) => {
         });
       }
 
-      if (explicitQuantity !== null) {
-        const delta = explicitQuantity - (Number(invRow.quantity) || 0);
-        await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -delta);
+      let collectionDelta = 0;
+      if (giveBack > 0) {
+        collectionDelta = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack);
+      } else if (explicitQuantity !== null && explicitQuantity > quantityBefore) {
+        const taken = -(await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -(explicitQuantity - quantityBefore)));
+        collectionDelta = -taken;
+        if (taken > 0) {
+          await supabaseAdmin
+            .from('inventory')
+            .update({ notes: withListingNotes(updated.notes, { from_collection: Math.min(lentBefore, quantityBefore) + taken }) })
+            .eq('id', id);
+        }
       }
 
-      return new Response(JSON.stringify({ success: true, listing: updated }), {
+      return new Response(JSON.stringify({ success: true, listing: updated, collection_delta: collectionDelta }), {
         status: 200,
         headers: JSON_HEADERS,
       });

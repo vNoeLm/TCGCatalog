@@ -11,6 +11,7 @@ import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { getAllReviews } from '../../lib/reviews';
 import { adjustLocalCollection } from '../../lib/collectionClient';
+import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
 import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
 
 export function SellerDashboardApp() {
@@ -28,6 +29,7 @@ export function SellerDashboardApp() {
   const [editingListing, setEditingListing] = useState<any | null>(null);
   const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
   const [editQuantity, setEditQuantity] = useState<number>(1);
+  const [editDescription, setEditDescription] = useState('');
   const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
@@ -293,11 +295,12 @@ export function SellerDashboardApp() {
         },
       });
       if (res.ok) {
+        const json = await res.json().catch(() => null);
         setListings(prev => prev.filter(item => item.inventory_id !== listingId));
         showToast('Listing removed successfully');
-        // Whatever was still unsold on this listing goes back into the collection.
-        if (listing) {
-          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(listing.quantity) || 0);
+        // Copies that came out of the collection when listed go back into it; the server says how many.
+        if (listing && Number(json?.collection_delta) > 0) {
+          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(json.collection_delta));
         }
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       } else {
@@ -330,6 +333,7 @@ export function SellerDashboardApp() {
           id: item.inventory_id,
           price_huf: Math.max(1, editPriceHuf),
           quantity: newQuantity,
+          description: editDescription,
         }),
       });
       const json = await res.json();
@@ -337,10 +341,11 @@ export function SellerDashboardApp() {
         showToast('Listing updated successfully');
         setEditingListing(null);
         loadSellerListings();
-        // Raising the listed quantity takes more copies out of the collection;
-        // lowering it gives some back.
-        const delta = newQuantity - (Number(item.quantity) || 0);
-        adjustLocalCollection(item.card_id, Boolean(item.is_foil), -delta);
+        // Raising the listed quantity takes more copies out of the collection; lowering it gives back
+        // only those that came out of it. The server says what the collection really changed by.
+        if (Number(json.collection_delta)) {
+          adjustLocalCollection(item.card_id, Boolean(item.is_foil), Number(json.collection_delta));
+        }
         window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
       } else {
         showToast(json.error || 'Failed to update listing');
@@ -385,13 +390,17 @@ export function SellerDashboardApp() {
         fetch(`/api/marketplace/listings?id=${id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${session.access_token}` },
-        }).then(async res => ({ id, ok: res.ok, error: res.ok ? null : (await res.json().catch(() => null))?.error }))
+        }).then(async res => {
+          const json = await res.json().catch(() => null);
+          return { id, ok: res.ok, error: res.ok ? null : json?.error, returned: Number(json?.collection_delta) || 0 };
+        })
       ));
       const removedIds = new Set(results.filter(r => r.ok).map(r => r.id));
       setListings(prev => prev.filter(item => !removedIds.has(item.inventory_id)));
       targets.forEach(listing => {
-        if (removedIds.has(listing.inventory_id)) {
-          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(listing.quantity) || 0);
+        const returned = results.find(r => r.id === listing.inventory_id)?.returned || 0;
+        if (removedIds.has(listing.inventory_id) && returned > 0) {
+          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), returned);
         }
       });
       setSelectedListingIds(new Set());
@@ -1431,6 +1440,7 @@ export function SellerDashboardApp() {
                           setEditingListing(item);
                           setEditPriceHuf(item.price_huf || 500);
                           setEditQuantity(item.quantity || 1);
+                          setEditDescription(getListingDescription(item.notes) || '');
                         }}
                         className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
                       >
@@ -2089,6 +2099,26 @@ export function SellerDashboardApp() {
                   value={editQuantity}
                   onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
+                  style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-listing-description" className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                  Description
+                </label>
+                <input
+                  id="edit-listing-description"
+                  type="text"
+                  value={editDescription}
+                  maxLength={MAX_LISTING_DESCRIPTION}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Shown to buyers next to the listing"
+                  className="w-full px-3 py-2 rounded-xl text-xs outline-none border"
                   style={{
                     background: 'var(--bg-input)',
                     borderColor: 'var(--border)',

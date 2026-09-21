@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
 import { supabase, getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
@@ -47,6 +48,7 @@ export function ListCardModal({
   const [eurHuf, setEurHuf] = useState<number>(DEFAULT_EUR_TO_HUF);
   const [sitePrices, setSitePrices] = useState<number[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
   const [allowedHandovers, setAllowedHandovers] = useState<string[]>([
     'personal',
     'foxpost',
@@ -68,6 +70,7 @@ export function ListCardModal({
       setErrorMsg(null);
       setSuccessMsg(null);
       setPhotos([]);
+      setDescription('');
 
       if (initialCard) {
         setSelectedCard(initialCard);
@@ -260,6 +263,7 @@ export function ListCardModal({
           is_foil: isFoil,
           images: photos,
           handover_methods: allowedHandovers,
+          description: description.trim(),
         }),
       });
 
@@ -663,6 +667,26 @@ export function ListCardModal({
                   {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
                 </div>
               )}
+            </div>
+
+            {/* Short note buyers see next to the listing, such as a scuff or that it is from a sealed pack */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="listing-description" className="block text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                  Description <span className="normal-case font-medium text-zinc-500">(optional)</span>
+                </label>
+                <span className="text-[10px] text-zinc-500">{description.length}/{MAX_LISTING_DESCRIPTION}</span>
+              </div>
+              <input
+                id="listing-description"
+                type="text"
+                value={description}
+                maxLength={MAX_LISTING_DESCRIPTION}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. Pulled from a pack, tiny edge whitening"
+                className="w-full px-3 py-1.5 rounded-xl text-xs border focus:outline-none focus:border-emerald-500 transition"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
             </div>
 
             {/* 4. Physical Condition Photos Uploader (>5000 HUF Requirement) */}

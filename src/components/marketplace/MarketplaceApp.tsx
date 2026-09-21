@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
+import { useStickySidebar } from '../../lib/useStickySidebar';
 import { CardItem } from '../CardItem';
 import { CardGroupTile } from './CardGroupTile';
 import { CardListingsModal } from './CardListingsModal';
@@ -38,6 +39,7 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function MarketplaceApp() {
   const { theme } = useSiteTheme();
+  const { ref: sidebarRef, top: sidebarTop } = useStickySidebar<HTMLElement>();
 
   // Filters State driven by global game
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -375,7 +377,7 @@ export function MarketplaceApp() {
       {/* Main Content Layout with Responsive Filter Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
         {/* Sidebar */}
-        <aside className="w-full lg:sticky lg:top-[88px] lg:self-start lg:max-h-[calc(100dvh-88px-5rem)] lg:overflow-y-auto lg:overscroll-contain custom-scrollbar">
+        <aside ref={sidebarRef} style={{ top: sidebarTop }} className="w-full lg:sticky lg:self-start">
           {sidebar}
         </aside>
 
@@ -658,7 +660,7 @@ export function MarketplaceApp() {
           <div 
             onClick={(e) => e.stopPropagation()}
             style={{ touchAction: 'auto' }}
-            className="w-full max-w-5xl my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative bg-zinc-950/95 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <CardDetail
               inventoryId={selectedInventoryId}

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
-import { extractSellerId, listingSignature, collectionKey } from '../../../lib/sellerNotes';
+import { extractSellerId, listingSignature, collectionKey, getCopiesFromCollection, withListingNotes } from '../../../lib/sellerNotes';
 
 export const prerender = false;
 
@@ -65,7 +65,7 @@ export const POST: APIRoute = async ({ request }) => {
     let collectionChanged = false;
 
     const toInsert: any[] = [];
-    const toUpdate: { id: string; quantity: number }[] = [];
+    const toUpdate: { id: string; quantity: number; notes: string }[] = [];
     let skipped = 0;
 
     for (const l of listings) {
@@ -88,6 +88,10 @@ export const POST: APIRoute = async ({ request }) => {
         continue;
       }
 
+      // Only copies that really came out of the collection are recorded as coming from it, so
+      // unlisting never adds copies to a collection that never held them.
+      const fromCollection = typeof owned === 'number' ? quantity : 0;
+
       if (typeof owned === 'number') {
         const key = collectionKey(l.cardId, isFoil);
         const next = Math.max(0, (collectionAfter[key] || 0) - quantity);
@@ -97,7 +101,13 @@ export const POST: APIRoute = async ({ request }) => {
       }
 
       if (existing) {
-        toUpdate.push({ id: existing.id, quantity: alreadyListed + quantity });
+        toUpdate.push({
+          id: existing.id,
+          quantity: alreadyListed + quantity,
+          notes: withListingNotes(existing.notes, {
+            from_collection: Math.min(getCopiesFromCollection(existing.notes), alreadyListed) + fromCollection,
+          }),
+        });
       } else {
         toInsert.push({
           card_id: l.cardId,
@@ -112,7 +122,8 @@ export const POST: APIRoute = async ({ request }) => {
             handover_methods: l.handoverMethods || ['personal'],
             views: 0,
             clicks: 0,
-            listed_at: new Date().toISOString()
+            listed_at: new Date().toISOString(),
+            from_collection: fromCollection,
           })
         });
       }
@@ -129,7 +140,7 @@ export const POST: APIRoute = async ({ request }) => {
     for (const upd of toUpdate) {
       const { error: updateError } = await supabaseAdmin
         .from('inventory')
-        .update({ quantity: upd.quantity })
+        .update({ quantity: upd.quantity, notes: upd.notes })
         .eq('id', upd.id);
       if (updateError) {
         console.error('Bulk merge error:', updateError);
