@@ -44,3 +44,31 @@ export async function fetchSiteListingPrices(cardId: string, isFoil: boolean, ex
     .map((row: any) => Number(row.price_huf))
     .filter((price: number) => Number.isFinite(price) && price > 0);
 }
+
+/**
+ * Every asking price currently on the site, grouped by card and finish, for showing a value on
+ * many cards at once. One query, however many cards are on screen.
+ */
+export async function fetchAllSitePrices(): Promise<Map<string, number[]>> {
+  const { data, error } = await supabase
+    .from('inventory')
+    .select('card_id, is_foil, price_huf')
+    .eq('status', 'In Stock')
+    .gt('quantity', 0)
+    .limit(5000);
+
+  const byCard = new Map<string, number[]>();
+  if (error || !data) return byCard;
+
+  for (const row of data as any[]) {
+    const price = Number(row.price_huf);
+    if (!row.card_id || !Number.isFinite(price) || price <= 0) continue;
+    const key = siteKey(row.card_id, Boolean(row.is_foil));
+    const list = byCard.get(key);
+    if (list) list.push(price);
+    else byCard.set(key, [price]);
+  }
+  return byCard;
+}
+
+export const siteKey = (cardId: string, isFoil: boolean) => `${cardId}|${isFoil ? 'foil' : 'normal'}`;
