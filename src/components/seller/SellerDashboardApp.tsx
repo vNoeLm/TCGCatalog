@@ -161,7 +161,8 @@ export function SellerDashboardApp() {
     setLoadingOrders(true);
     try {
       // Fetch all orders from settings store_orders or api/orders
-      const res = await fetch('/api/orders');
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch('/api/orders', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (res.ok) {
         const json = await res.json();
         const allOrders: Order[] = json.orders || [];

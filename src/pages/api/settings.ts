@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../lib/supabaseServer';
+import { getRequestUser } from '../../lib/requestAuth';
 
 export const prerender = false;
 
@@ -59,35 +60,13 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Optional auth check from Authorization header
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '').trim();
-      const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
-      if (authErr || !user) {
-        return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
-          status: 401,
-          headers: NO_CACHE_HEADERS,
-        });
-      }
-
-      // Check admin status in profiles or email
-      const isOwner = user.email === 'vnoel05@gmail.com';
-      if (!isOwner) {
-        const { data: profile } = await supabaseAdmin
-          .from('profiles')
-          .select('is_admin, role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        const hasAdminAccess = profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner';
-        if (!hasAdminAccess) {
-          return new Response(JSON.stringify({ success: false, error: 'Forbidden: admin access required.' }), {
-            status: 403,
-            headers: NO_CACHE_HEADERS,
-          });
-        }
-      }
+    // Changing a site setting is an admin action, and an anonymous request is never one.
+    const caller = await getRequestUser(request);
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), { status: 401, headers: NO_CACHE_HEADERS });
+    }
+    if (!caller.isAdmin) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden: admin access required.' }), { status: 403, headers: NO_CACHE_HEADERS });
     }
 
     const strValue = value === true || value === 'true' ? 'true' : 'false';

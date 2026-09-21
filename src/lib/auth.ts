@@ -97,14 +97,15 @@ export async function getStoreOwnerProfile(): Promise<UserProfile> {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, display_name, avatar_url, role, is_admin')
+      .select('id, display_name, avatar_url, role, is_admin')
       .eq('role', 'owner')
       .maybeSingle();
 
     if (data) {
       cachedOwnerProfile = {
         id: data.id,
-        email: data.email,
+        // Email addresses are not readable from the browser; nothing here needs the owner's.
+        email: null,
         display_name: data.display_name || 'Noel :3',
         avatar_url: data.avatar_url,
         role: 'owner',
