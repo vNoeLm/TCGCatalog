@@ -49,6 +49,21 @@ export function generateOrderNumber(): string {
 }
 
 /**
+ * The orders the server says the signed-in user can see (their own, or all for an admin). The
+ * server checks who is asking; orders are not readable straight from the database.
+ */
+async function fetchVisibleOrders(): Promise<Order[]> {
+  if (typeof window === 'undefined') return [];
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) return [];
+  const res = await fetch('/api/orders', { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) return [];
+  const json = await res.json().catch(() => null);
+  return json?.success && Array.isArray(json.orders) ? json.orders : [];
+}
+
+/**
  * Get all orders for the current user or guest session.
  * Strictly isolates orders by user ID and email to prevent cross-account contamination.
  */
@@ -112,14 +127,8 @@ export async function fetchUserOrders(): Promise<Order[]> {
 
   // Sync latest statuses from store_orders in Supabase settings
   try {
-    const { data: storeOrdersRow } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'store_orders')
-      .maybeSingle();
-
-    if (storeOrdersRow?.value) {
-      const allStoreOrders: Order[] = JSON.parse(storeOrdersRow.value);
+    {
+      const allStoreOrders: Order[] = await fetchVisibleOrders();
       if (Array.isArray(allStoreOrders)) {
         allStoreOrders.forEach(stOrd => {
           const key = stOrd.order_number || stOrd.id;
@@ -440,17 +449,10 @@ export async function fetchStoreOrders(): Promise<Order[]> {
 
   try {
     if (typeof window !== 'undefined') {
-      const res = await fetch('/api/orders');
-      if (res.ok) {
-        const rawText = await res.text();
-        const json = rawText ? JSON.parse(rawText) : {};
-        if (json.success && Array.isArray(json.orders)) {
-          json.orders.forEach((o: Order) => {
-            const key = o.order_number || o.id;
-            if (key) storeMap.set(key, o);
-          });
-        }
-      }
+      (await fetchVisibleOrders()).forEach((o: Order) => {
+        const key = o.order_number || o.id;
+        if (key) storeMap.set(key, o);
+      });
     }
 
     // Direct check to public.orders table if it exists
