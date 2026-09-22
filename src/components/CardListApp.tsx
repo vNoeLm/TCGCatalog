@@ -11,7 +11,14 @@ import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUN
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
 import { supabase } from "../lib/supabase";
-import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionRecordFromCloud } from "../lib/auth";
+import {
+  getCurrentUser,
+  getCurrentProfile,
+  saveCollectionToCloud,
+  loadCollectionRecordFromCloud,
+  saveCollectionBackupToCloud,
+  loadCollectionBackupFromCloud,
+} from "../lib/auth";
 import {
   saveLocalCollection,
   getLocalCollectionStamp,
@@ -1018,6 +1025,10 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  // Writes a separate, deliberate backup (user_collections.backup_cards), distinct from the
+  // collection that syncs automatically. Nothing else - not the automatic sync, not another
+  // device, not Reset - ever touches this backup, so it survives exactly what a normal export
+  // should survive: whatever the user does to their live collection afterward.
   const handleSaveToCloud = async () => {
     if (!currentUser) {
       showToast('Please sign in to save your collection to cloud.');
@@ -1025,8 +1036,8 @@ export function CardListApp() {
     }
     setSavingToCloud(true);
     try {
-      collectionRef.current = collection;
-      if (!(await pushCollectionToCloud())) throw new Error('the cloud did not accept it');
+      const result = await saveCollectionBackupToCloud(collection);
+      if (!result.success) throw new Error(result.error?.message || 'the cloud did not accept it');
 
       showToast(`${"Collection successfully saved to your cloud account!"} (${totalOwnedCopies} cards)`);
     } catch (e: any) {
@@ -1219,20 +1230,24 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  // Reads the separate, deliberate backup (see handleSaveToCloud), not the collection that syncs
+  // automatically - so it still has whatever was last explicitly saved, however many resets or
+  // other changes have happened to the live collection since.
   const handleRestoreFromCloud = async () => {
     if (!currentUser) return;
     setRestoringFromCloud(true);
     try {
-      const record = await loadCollectionRecordFromCloud();
+      const record = await loadCollectionBackupFromCloud();
       if (!record || Object.keys(record.cards).length === 0) {
-        showToast('No saved collection found in your cloud account.');
+        showToast('No saved backup found in your cloud account.');
         return;
       }
-      const cloudData = record.cards;
-      setCollection(cloudData);
-      saveLocalCollection(cloudData, record.updatedAt ?? new Date().toISOString());
-      syncedStampRef.current = record.updatedAt;
-      showToast(`☁️ ${"Collection restored from cloud!"}`);
+      const backupData = record.cards;
+      setCollection(backupData);
+      // Stamped as a fresh local change, not with the backup's own time, so the usual auto-sync
+      // picks it up and pushes it to the live, cross-device collection too.
+      saveLocalCollection(backupData);
+      showToast(`☁️ ${"Collection restored from your cloud backup!"}`);
       setShowImportModal(false);
       setShowExportModal(false);
     } catch (e: any) {
@@ -1387,7 +1402,7 @@ export function CardListApp() {
   const handleResetCollection = async () => {
     if (uniqueOwnedKeys.length === 0) return;
     const where = currentUser
-      ? 'This clears them from this browser and from your cloud account, so they will be gone on your other devices too.'
+      ? 'This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with "Save to Cloud Database" is not affected.'
       : 'This will remove them from your browser.';
     if (!window.confirm(`Are you sure you want to clear your collection? All ${totalOwnedCopies} saved cards will be removed. ${where}`)) return;
 
@@ -1956,10 +1971,10 @@ export function CardListApp() {
                         <div>
                           <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
                             <span>Save to Cloud Database</span>
-                            <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Cloud Sync</span>
+                            <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Backup</span>
                           </div>
                           <div className="text-xs text-indigo-200/70 mt-0.5">
-                            {`Save current tracked collection (${totalOwnedCopies} cards) to your account database`}
+                            {`Back up your current ${totalOwnedCopies} tracked cards. Kept separately, so a later reset can't remove it — restore it any time below.`}
                           </div>
                         </div>
                       </div>
@@ -2257,9 +2272,9 @@ export function CardListApp() {
                       </svg>
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-indigo-100">Restore from Cloud Account</div>
+                      <div className="text-xs font-bold text-indigo-100">Restore from Cloud Backup</div>
                       <div className="text-[11px] text-indigo-200/70">
-                        Restore and sync your previously saved cloud collection
+                        Bring back whatever you last saved with "Save to Cloud Database"
                       </div>
                     </div>
                   </div>

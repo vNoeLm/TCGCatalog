@@ -202,7 +202,13 @@ export async function deleteSavedDeck(id: string) {
 
 // ─── Cloud Collection Sync ──────────────────────────────────────────
 
-import { saveUserCollection, loadUserCollection, loadUserCollectionRecord } from './userCollections';
+import {
+  saveUserCollection,
+  loadUserCollection,
+  loadUserCollectionRecord,
+  saveCollectionBackup,
+  loadCollectionBackupRecord,
+} from './userCollections';
 
 export async function saveCollectionToCloud(collection: Record<string, number>) {
   const res = await saveUserCollection(collection);
@@ -216,6 +222,18 @@ export async function loadCollectionFromCloud(): Promise<Record<string, number> 
 /** The saved collection with the time it was saved; null if it could not be read. */
 export async function loadCollectionRecordFromCloud() {
   return loadUserCollectionRecord();
+}
+
+/**
+ * A separate, deliberate backup: unaffected by the automatic sync, by another device, and by
+ * Reset. See lib/userCollections.ts.
+ */
+export async function saveCollectionBackupToCloud(collection: Record<string, number>) {
+  return saveCollectionBackup(collection);
+}
+
+export async function loadCollectionBackupFromCloud() {
+  return loadCollectionBackupRecord();
 }
 
 // ─── User Orders ──────────────────────────────────────────────────

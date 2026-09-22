@@ -72,3 +72,45 @@ export async function saveUserCollection(
 
   return { success: !error, error, updatedAt: error ? null : updatedAt };
 }
+
+/**
+ * A separate, deliberate backup, next to the collection that syncs automatically. Nothing else
+ * ever writes or clears it - not the automatic sync, not signing in on another device, and not
+ * Reset - so a backup made on purpose here is never silently lost to a later reset of the live
+ * collection. One backup per user; saving again replaces it.
+ */
+export async function saveCollectionBackup(
+  collection: Record<string, number>
+): Promise<{ success: boolean; error: any; updatedAt: string | null }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: new Error('User not authenticated'), updatedAt: null };
+  }
+
+  const updatedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from('user_collections')
+    .upsert({ user_id: user.id, backup_cards: collection, backup_updated_at: updatedAt }, { onConflict: 'user_id' });
+
+  return { success: !error, error, updatedAt: error ? null : updatedAt };
+}
+
+/** The saved backup, and when it was made; null if there is none yet or it could not be read. */
+export async function loadCollectionBackupRecord(): Promise<CloudCollection | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('user_collections')
+      .select('backup_cards, backup_updated_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error) return null;
+
+    const cards = data?.backup_cards && typeof data.backup_cards === 'object' ? (data.backup_cards as Record<string, number>) : {};
+    return { cards, updatedAt: data?.backup_updated_at ?? null };
+  } catch {
+    return null;
+  }
+}
