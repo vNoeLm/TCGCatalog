@@ -11,8 +11,10 @@
  *    print as e.g. OGN-126, so they are matched through their image filename.
  *  - Only Common and Uncommon come in normal and foil. Rare, Epic and Showcase are one entry in the
  *    catalog, so their single price is used for both columns.
- *  - Values that cannot be real are dropped and reported: a foil under a cent, a foil cheaper than the
- *    normal, or a foil more than 40 times the normal.
+ *  - Values that cannot be real are dropped and reported: a foil under a cent, or a foil cheaper
+ *    than the normal. Above a $0.50 normal price a foil more than 40x the normal is also dropped;
+ *    below it (the basic runes: a cent or two normal, $10-15 foil) that ratio is meaningless, so
+ *    instead a foil over $50 is dropped.
  *  - Where a card has an "(Oversized)" twin under the same ID, the regular one is used.
  *  - A row is only used when its name agrees with ours, since a disagreement means the IDs paired
  *    the wrong cards and one card would get another's price.
@@ -23,6 +25,13 @@ export const EXPECTED_HEADER = ['Card ID', 'Detailed Name', 'Set', 'Rarity', 'No
 const MAX_FOIL_TO_NORMAL = 40;
 const MAX_PRICE_USD = 10000;
 const MIN_PRICE_USD = 0.01;
+// A basic rune's normal print is worth almost nothing (a cent or two) while its foil genuinely
+// trades for $10-15, a few hundred times as much - a ratio cap alone would drop every one of
+// those as "unreliable". Below this normal price the ratio is meaningless, so the foil is instead
+// checked against a flat ceiling: still enough to catch a real typo (one file had a rune foil at
+// $8,888), but not so low that it drops the legitimate $10-15 foils.
+const CHEAP_NORMAL_USD = 0.5;
+const MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD = 50;
 
 export interface PriceCard {
   id: string;
@@ -161,7 +170,12 @@ function pricesFor(card: PriceCard, row: CsvRow) {
       notes.push(`foil $${foil} dropped (cheaper than the normal, $${normal})`);
       foil = null;
     }
-    if (foil !== null && normal !== null && foil / normal > MAX_FOIL_TO_NORMAL) {
+    if (foil !== null && normal !== null && normal < CHEAP_NORMAL_USD) {
+      if (foil > MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD) {
+        notes.push(`foil $${foil} dropped (over $${MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD} for a card whose normal is only $${normal})`);
+        foil = null;
+      }
+    } else if (foil !== null && normal !== null && foil / normal > MAX_FOIL_TO_NORMAL) {
       notes.push(`foil $${foil} dropped (${Math.round(foil / normal)}x the normal, $${normal})`);
       foil = null;
     }

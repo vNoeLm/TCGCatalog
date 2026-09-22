@@ -28,6 +28,42 @@ const fmtHuf = (n: number) => `${Math.round(n).toLocaleString('hu-HU')} Ft`;
 const fmtDay = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const fmtDayYear = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/** The UTC calendar day a time falls on, as a sortable grouping key. */
+const dayKey = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/**
+ * More than one price recorded on the same day (e.g. two uploads in one day) used to plot as
+ * separate points directly above each other - just a vertical line, not a trend. They are
+ * collapsed to their day's average instead, plotted at noon UTC that day.
+ */
+function averageByDay(points: { t: number; huf: number }[]): { t: number; huf: number; count: number }[] {
+  const byDay = new Map<string, { sum: number; count: number }>();
+  for (const p of points) {
+    const entry = byDay.get(dayKey(p.t)) ?? { sum: 0, count: 0 };
+    entry.sum += p.huf;
+    entry.count += 1;
+    byDay.set(dayKey(p.t), entry);
+  }
+  return [...byDay.entries()]
+    .map(([key, { sum, count }]) => ({ t: Date.parse(`${key}T12:00:00Z`), huf: sum / count, count }))
+    .sort((a, b) => a.t - b.t);
+}
+
+/** Same idea for sales: same-day sales average their price and add up their copies. */
+function averageSoldByDay(points: { t: number; huf: number; quantity: number }[]): { t: number; huf: number; quantity: number; count: number }[] {
+  const byDay = new Map<string, { sum: number; quantity: number; count: number }>();
+  for (const p of points) {
+    const entry = byDay.get(dayKey(p.t)) ?? { sum: 0, quantity: 0, count: 0 };
+    entry.sum += p.huf;
+    entry.quantity += p.quantity;
+    entry.count += 1;
+    byDay.set(dayKey(p.t), entry);
+  }
+  return [...byDay.entries()]
+    .map(([key, { sum, quantity, count }]) => ({ t: Date.parse(`${key}T12:00:00Z`), huf: sum / count, quantity, count }))
+    .sort((a, b) => a.t - b.t);
+}
+
 /** A round step for the price axis, so its labels are 500, 1 000, 2 000 rather than odd numbers. */
 function niceStep(range: number, ticks: number): number {
   const raw = range / ticks;
@@ -90,7 +126,7 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
       .map((s) => ({ t: Date.parse(s.at), huf: s.price_huf, quantity: s.quantity }))
       .filter((s) => Number.isFinite(s.t));
 
-    return { market, sold };
+    return { market: averageByDay(market), sold: averageSoldByDay(sold) };
   }, [data, values.eurHuf, twoFinishes, foil]);
 
   const chart = useMemo(() => {
@@ -203,7 +239,10 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
                   <circle cx={chart.x(m.t)} cy={chart.y(m.huf)} r="3.5" fill={MARKET_COLOR} />
                   <circle
                     cx={chart.x(m.t)} cy={chart.y(m.huf)} r="11" fill="transparent"
-                    onMouseEnter={() => setHover({ x: chart.x(m.t), y: chart.y(m.huf), lines: ['Market reference', fmtHuf(m.huf), fmtDayYear(m.t)] })}
+                    onMouseEnter={() => setHover({
+                      x: chart.x(m.t), y: chart.y(m.huf),
+                      lines: [m.count > 1 ? `Market reference (avg of ${m.count} that day)` : 'Market reference', fmtHuf(m.huf), fmtDayYear(m.t)],
+                    })}
                   />
                 </g>
               ))}
@@ -212,7 +251,14 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
                   <circle cx={chart.x(s.t)} cy={chart.y(s.huf)} r="5" fill={SOLD_COLOR} stroke="var(--bg-surface)" strokeWidth="1.5" />
                   <circle
                     cx={chart.x(s.t)} cy={chart.y(s.huf)} r="12" fill="transparent"
-                    onMouseEnter={() => setHover({ x: chart.x(s.t), y: chart.y(s.huf), lines: [`Sold${s.quantity > 1 ? ` (${s.quantity} copies)` : ''}`, fmtHuf(s.huf), fmtDayYear(s.t)] })}
+                    onMouseEnter={() => setHover({
+                      x: chart.x(s.t), y: chart.y(s.huf),
+                      lines: [
+                        s.count > 1 ? `Sold (avg of ${s.count} sales, ${s.quantity} copies)` : `Sold${s.quantity > 1 ? ` (${s.quantity} copies)` : ''}`,
+                        fmtHuf(s.huf),
+                        fmtDayYear(s.t),
+                      ],
+                    })}
                   />
                 </g>
               ))}
@@ -244,7 +290,10 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
                 ? `Market reference: ${fmtHuf(summary.last.huf)} since ${fmtDay(summary.last.t)}. `
                 : `Market reference: ${fmtHuf(summary.last.huf)}, ${summary.change >= 0 ? 'up' : 'down'} ${Math.abs(summary.change).toFixed(0)}% on ${fmtDay(summary.last.t)}. `
               : ''}
-            {series!.sold.length === 0 ? 'Nothing has sold on the site yet.' : `${series!.sold.length} sale${series!.sold.length === 1 ? '' : 's'} on the site.`}
+            {(() => {
+              const saleCount = series!.sold.reduce((sum, s) => sum + s.count, 0);
+              return saleCount === 0 ? 'Nothing has sold on the site yet.' : `${saleCount} sale${saleCount === 1 ? '' : 's'} on the site.`;
+            })()}
           </p>
         </>
       )}
