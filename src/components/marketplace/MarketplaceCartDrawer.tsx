@@ -169,7 +169,7 @@ export function MarketplaceCartDrawer() {
           type="button"
           onClick={() => setOpen(true)}
           className="fixed bottom-24 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl cursor-pointer transition active:scale-95 border"
-          style={{ background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+          style={{ background: 'var(--accent-strong)', borderColor: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
             <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
@@ -210,7 +210,7 @@ export function MarketplaceCartDrawer() {
             {results.length > 0 && (
               <div className="space-y-2 mb-4">
                 {results.map((r) => r.ok ? (
-                  <div key={r.sellerId} className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold space-y-1">
+                  <div key={r.sellerId} className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-[var(--positive)] text-xs font-semibold space-y-1">
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -242,7 +242,7 @@ export function MarketplaceCartDrawer() {
                         <a href={`/user?id=${group.sellerId}`} className="text-xs font-black uppercase tracking-wider hover:underline" style={{ color: 'var(--text-accent)' }}>
                           {group.sellerName}
                         </a>
-                        <span className="text-xs font-black text-emerald-400">{fmt(subtotal)}</span>
+                        <span className="text-xs font-black text-[var(--positive)]">{fmt(subtotal)}</span>
                       </div>
 
                       <div className="space-y-2 mb-3">
@@ -325,7 +325,7 @@ export function MarketplaceCartDrawer() {
 
                 <div className="flex items-center justify-between mb-4 pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Total</span>
-                  <span className="text-base font-black text-emerald-400">{fmt(total)}</span>
+                  <span className="text-base font-black text-[var(--positive)]">{fmt(total)}</span>
                 </div>
 
                 {errorMsg && (

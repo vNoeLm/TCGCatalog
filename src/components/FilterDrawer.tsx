@@ -56,7 +56,7 @@ export function FilterDrawer({ open, onClose, title, activeCount, applyLabel, ch
               </svg>
               <span className="font-extrabold text-base truncate" style={{ color: 'var(--text-primary)' }}>{title}</span>
               {activeCount > 0 && (
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-black" style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}>
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-black" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}>
                   {activeCount} active
                 </span>
               )}
@@ -87,7 +87,7 @@ export function FilterDrawer({ open, onClose, title, activeCount, applyLabel, ch
             type="button"
             onClick={onClose}
             className="w-full py-3 px-4 rounded-xl font-bold text-sm shadow-lg transition cursor-pointer text-center"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}
           >
             {applyLabel}
           </button>

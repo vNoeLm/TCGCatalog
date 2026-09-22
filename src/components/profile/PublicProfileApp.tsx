@@ -76,7 +76,7 @@ export function PublicProfileApp() {
           <a
             href="/marketplace"
             className="inline-block px-5 py-2.5 rounded-xl font-black text-xs cursor-pointer"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
           >
             Browse Marketplace
           </a>
@@ -147,7 +147,7 @@ export function PublicProfileApp() {
                 )}
               </span>
               <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-emerald-300"
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-[var(--positive)]"
                 style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
               >
                 {summary.sales_count || 0} sales made

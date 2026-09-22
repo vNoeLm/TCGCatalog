@@ -69,7 +69,7 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroup
           <div className="flex items-end justify-between gap-2">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">From</div>
-              <div className={`${isSmall ? 'text-sm' : 'text-lg'} font-black text-emerald-400 leading-none`}>
+              <div className={`${isSmall ? 'text-sm' : 'text-lg'} font-black text-[var(--positive)] leading-none`}>
                 {group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A'}
               </div>
             </div>

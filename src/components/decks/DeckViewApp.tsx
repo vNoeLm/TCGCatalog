@@ -64,7 +64,7 @@ export function DeckViewApp() {
         <div className="max-w-md mx-auto my-12 p-8 text-center rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <h2 className="text-xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>Deck not found</h2>
           <p className="text-sm mb-5" style={{ color: 'var(--text-tertiary)' }}>This deck doesn't exist, or is no longer public.</p>
-          <a href="/decks" className="inline-block px-5 py-2.5 rounded-xl font-black text-xs cursor-pointer" style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}>
+          <a href="/decks" className="inline-block px-5 py-2.5 rounded-xl font-black text-xs cursor-pointer" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}>
             Browse Decks
           </a>
         </div>
@@ -89,7 +89,7 @@ export function DeckViewApp() {
             alert(`"${deckRow.name}" was copied to your Saved Decks in the Deck Builder.`);
           }}
           className="px-4 py-2 rounded-xl font-black text-xs cursor-pointer"
-          style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+          style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
         >
           Copy to My Decks
         </button>

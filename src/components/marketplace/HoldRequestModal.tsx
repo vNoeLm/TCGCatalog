@@ -233,7 +233,7 @@ export function HoldRequestModal({
               <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
                 Seller: <span className="text-zinc-200">{sellerName}</span>
               </span>
-              <span className="text-base font-black text-emerald-400">
+              <span className="text-base font-black text-[var(--positive)]">
                 {priceHuf ? fmt(priceHuf * quantity) : 'N/A'}
               </span>
             </div>
@@ -283,7 +283,7 @@ export function HoldRequestModal({
               </button>
               {priceHuf > 0 && quantity > 1 && (
                 <span className="text-xs font-semibold ml-2" style={{ color: 'var(--text-tertiary)' }}>
-                  {fmt(priceHuf)} × {quantity} = <span className="text-emerald-400">{fmt(priceHuf * quantity)}</span>
+                  {fmt(priceHuf)} × {quantity} = <span className="text-[var(--positive)]">{fmt(priceHuf * quantity)}</span>
                 </span>
               )}
             </div>
@@ -302,9 +302,9 @@ export function HoldRequestModal({
         )}
 
         {successMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between gap-2 flex-wrap">
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-[var(--positive)] text-xs font-semibold flex items-center justify-between gap-2 flex-wrap">
             <span className="flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>{successMsg}</span>

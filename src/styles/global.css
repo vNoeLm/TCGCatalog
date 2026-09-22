@@ -34,6 +34,14 @@ html[data-theme="riftbound"] {
   /* Accent: Hextech Amber & Gold */
   --accent:           #f59e0b;
   --accent-light:     #fbbf24;
+  /* Solid-fill CTAs (buttons, active pills): identical to --accent on the dark themes, where a
+     solid accent fill already pops; only Ivory Parchment gives this a separate, brighter value
+     (see below) because its --accent is deliberately muted for small-text contrast on white. */
+  --accent-strong:    #f59e0b;
+  /* A shared "good/positive" green - prices, success states, code highlights - used across many
+     components as a plain text-emerald-400. Kept exactly that value on the dark themes (unchanged
+     look); only Ivory Parchment needs a darker shade to stay readable on a light page. */
+  --positive:         #34d399;
   --accent-muted:     rgba(245, 158, 11, 0.15);
   --accent-border:    rgba(245, 158, 11, 0.4);
   --accent-glow:      rgba(245, 158, 11, 0.25);
@@ -80,6 +88,8 @@ html[data-theme="cyberpunk"] {
   /* Accent: Neon Yellow */
   --accent:           #fcee0a;
   --accent-light:     #fef08a;
+  --accent-strong:    #fcee0a;
+  --positive:         #34d399;
   --accent-muted:     rgba(252, 238, 10, 0.15);
   --accent-border:    rgba(252, 238, 10, 0.4);
   --accent-glow:      rgba(252, 238, 10, 0.2);
@@ -126,6 +136,8 @@ html[data-theme="dark"] {
   /* Accent: Clean Electric Blue */
   --accent:           #3b82f6;
   --accent-light:     #60a5fa;
+  --accent-strong:    #3b82f6;
+  --positive:         #34d399;
   --accent-muted:     rgba(59, 130, 246, 0.15);
   --accent-border:    rgba(59, 130, 246, 0.4);
   --accent-glow:      rgba(59, 130, 246, 0.25);
@@ -172,6 +184,12 @@ html[data-theme="light"] {
   /* Accent: antique / gold-leaf amber, deeper than the dark themes' for contrast on white */
   --accent:           #b45309;
   --accent-light:     #d97706;
+  /* Brighter than --accent on purpose: --accent/--text-accent has to stay dark enough to read as
+     small text on white, which makes it look muddy as a big solid button fill. A filled button's
+     text is the dark --text-on-accent instead, so the fill itself is free to be this much brighter
+     - the same amber the dark themes already use for their own solid buttons. */
+  --accent-strong:    #f59e0b;
+  --positive:         #047857;
   --accent-muted:     rgba(180, 83, 9, 0.10);
   --accent-border:    rgba(180, 83, 9, 0.35);
   --accent-glow:      rgba(180, 83, 9, 0.16);

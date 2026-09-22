@@ -209,7 +209,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
             Configure rules to automatically list duplicate cards.
           </p>
         </div>
-        <button onClick={handleAddRule} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+        <button onClick={handleAddRule} className="px-3 py-1.5 bg-emerald-500/10 text-[var(--positive)] hover:bg-emerald-500/20 border border-emerald-500/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
           Add Rule
         </button>
       </div>
@@ -346,7 +346,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                         type="number" step="1" min="-90" max="500"
                         value={rule.priceAdjustPct ?? 0}
                         onChange={(e) => updateRule(rule.id, { priceAdjustPct: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
                       />
                     </div>
                   ) : (
@@ -359,7 +359,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                           const val = e.target.value;
                           updateRule(rule.id, { basePriceHuf: val === '' ? '' : parseInt(val) });
                         }}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
                       />
                     </div>
                   )}
@@ -408,7 +408,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                         value={rule.minPriceHuf ?? ''}
                         placeholder="10"
                         onChange={(e) => updateRule(rule.id, { minPriceHuf: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
                       />
                     </div>
                     <div>
@@ -417,7 +417,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                         type="number" min="1"
                         value={rule.basePriceHuf}
                         onChange={(e) => updateRule(rule.id, { basePriceHuf: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-emerald-400 w-full text-xs"
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
                       />
                     </div>
                   </div>
@@ -475,7 +475,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-[var(--accent)] hover:opacity-90 text-[var(--bg-surface)] rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+            className="px-6 py-2 bg-[var(--accent-strong)] hover:opacity-90 text-[var(--bg-surface)] rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
           >
             {saving ? ('Saving...') : ('Save Rules')}
           </button>

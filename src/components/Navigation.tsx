@@ -74,7 +74,7 @@ export function Navigation({ currentPath }: NavigationProps) {
         className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
           active
             ? 'font-bold shadow-sm'
-            : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/10'
+            : 'text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--bg-raised)]'
         }`}
         style={
           active
@@ -110,7 +110,7 @@ export function Navigation({ currentPath }: NavigationProps) {
             className={`relative text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               isActive('/messages')
                 ? 'font-bold shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-white hover:bg-white/10'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--bg-raised)]'
             }`}
             style={
               isActive('/messages')
@@ -130,12 +130,12 @@ export function Navigation({ currentPath }: NavigationProps) {
         {/* Auth Section */}
         <div className="relative" ref={dropdownRef}>
           {loading ? (
-            <div className="w-20 h-7 rounded-lg bg-zinc-900 animate-pulse" />
+            <div className="w-20 h-7 rounded-lg animate-pulse" style={{ background: 'var(--bg-raised)' }} />
           ) : userProfile ? (
             <div>
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full text-xs font-bold transition cursor-pointer shadow-sm border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
+                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full text-xs font-bold transition cursor-pointer shadow-sm border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
               >
                 {userProfile.avatar_url ? (
                   <img
@@ -240,7 +240,7 @@ export function Navigation({ currentPath }: NavigationProps) {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow-sm whitespace-nowrap border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shadow-sm whitespace-nowrap border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
             >
               <svg className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -260,7 +260,7 @@ export function Navigation({ currentPath }: NavigationProps) {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(prev => !prev)}
-          className="h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
+          className="h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
           aria-label="Toggle navigation menu"
         >
           {mobileMenuOpen ? (
@@ -336,7 +336,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                 onClick={() => { setMobileMenuOpen(false); setShowAuthModal(true); }}
                 className="w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                 style={{
-                  background: 'var(--accent)',
+                  background: 'var(--accent-strong)',
                   color: 'var(--text-on-accent, #000)',
                   boxShadow: '0 0 16px var(--accent-glow)'
                 }}

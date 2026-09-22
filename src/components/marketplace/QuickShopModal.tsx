@@ -200,7 +200,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                   onClick={handleFind}
                   disabled={loading || !text.trim()}
                   className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black cursor-pointer transition active:scale-95 disabled:opacity-50"
-                  style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                 >
                   {loading ? 'Searching…' : 'Find these cards'}
                 </button>
@@ -211,7 +211,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
           {phase === 'results' && plans && plan && (
             <div className="space-y-5">
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Found <span className="text-emerald-400">{plan.copiesFound}</span> of {plan.copiesWanted} copies
+                Found <span className="text-[var(--positive)]">{plan.copiesFound}</span> of {plan.copiesWanted} copies
                 {missingLines.length > 0 && <span style={{ color: 'var(--text-tertiary)' }}> · {missingLines.length} card{missingLines.length === 1 ? '' : 's'} not fully available</span>}
               </p>
 
@@ -237,11 +237,11 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                           <div className="text-sm font-black" style={{ color: active ? 'var(--text-accent)' : 'var(--text-primary)' }}>{s.title}</div>
                           <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.blurb}</div>
                           <div className="mt-2 flex items-baseline gap-2">
-                            <span className="text-lg font-black text-emerald-400">{fmt(p.totalCost)}</span>
+                            <span className="text-lg font-black text-[var(--positive)]">{fmt(p.totalCost)}</span>
                             <span className="text-xs font-bold text-zinc-400">{p.baskets.length} seller{p.baskets.length === 1 ? '' : 's'}</span>
                           </div>
                           {s.id === 'fewest_sellers' && !identical && diff !== 0 && (
-                            <div className={`text-[11px] font-bold mt-0.5 ${diff > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                            <div className={`text-[11px] font-bold mt-0.5 ${diff > 0 ? 'text-amber-300' : 'text-[var(--positive)]'}`}>
                               {diff > 0 ? `+${fmt(diff)}` : `-${fmt(-diff)}`} vs cheapest
                             </div>
                           )}
@@ -262,7 +262,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                       {basket.sellerName}
                     </a>
                     <span className="text-xs font-bold text-zinc-400">
-                      {basket.copies} card{basket.copies === 1 ? '' : 's'} · <span className="text-emerald-400 font-black">{fmt(basket.subtotal)}</span>
+                      {basket.copies} card{basket.copies === 1 ? '' : 's'} · <span className="text-[var(--positive)] font-black">{fmt(basket.subtotal)}</span>
                     </span>
                   </div>
                   <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -315,7 +315,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                   onClick={handleAddToCart}
                   disabled={plan.copiesFound === 0}
                   className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black cursor-pointer transition active:scale-95 disabled:opacity-40"
-                  style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                 >
                   Add {plan.copiesFound} card{plan.copiesFound === 1 ? '' : 's'} to cart · {fmt(plan.totalCost)}
                 </button>
@@ -325,7 +325,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
 
           {phase === 'added' && addedSummary && (
             <div className="text-center py-8 space-y-4">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-[var(--positive)]">
                 <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
               </div>
               <div>
@@ -346,7 +346,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                   type="button"
                   onClick={() => { onClose(); window.dispatchEvent(new CustomEvent(CART_OPEN_EVENT)); }}
                   className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black cursor-pointer"
-                  style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                 >
                   Open cart
                 </button>

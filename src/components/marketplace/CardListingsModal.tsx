@@ -97,7 +97,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                 ].map(stat => (
                   <div key={stat.label} className="rounded-xl px-3 py-2 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
                     <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{stat.label}</div>
-                    <div className={`text-base sm:text-lg font-black ${stat.accent ? 'text-emerald-400' : 'text-zinc-100'}`}>{stat.value}</div>
+                    <div className={`text-base sm:text-lg font-black ${stat.accent ? 'text-[var(--positive)]' : 'text-zinc-100'}`}>{stat.value}</div>
                   </div>
                 ))}
               </div>
@@ -205,12 +205,12 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       <div className="hidden md:block md:order-4 text-xs font-semibold text-zinc-400 text-right">{l.quantity}&times;</div>
-                      <div className="order-2 md:order-5 text-base font-black text-emerald-400 text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
+                      <div className="order-2 md:order-5 text-base font-black text-[var(--positive)] text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
                       <button
                         type="button"
                         onClick={() => onSelectListing(l.inventory_id)}
                         className="order-3 md:order-6 px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition"
-                        style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+                        style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                       >
                         View
                       </button>

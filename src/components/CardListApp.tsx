@@ -1426,18 +1426,18 @@ export function CardListApp() {
   const catalogTheme = {
     containerClass: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
     inputClass: "bg-[var(--bg-input)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-    sortBtnClass: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-white",
+    sortBtnClass: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
     sortMenuClass: "bg-[var(--bg-surface)] border border-[var(--border)] shadow-2xl",
     sortSelectedIcon: "text-[var(--accent)]",
-    mobileFilterBtn: "bg-[var(--accent-muted)] hover:bg-[var(--accent)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]",
+    mobileFilterBtn: "bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]",
     mobileFilterIcon: "text-[var(--text-accent)]",
-    mobileFilterBadge: "bg-[var(--accent)] text-[var(--text-on-accent)]",
-    deckBuilderBtn: "bg-[var(--accent)] hover:brightness-110 text-[var(--text-on-accent)] font-black shadow-lg shadow-[var(--accent-glow)]",
+    mobileFilterBadge: "bg-[var(--accent-strong)] text-[var(--text-on-accent)]",
+    deckBuilderBtn: "bg-[var(--accent-strong)] hover:brightness-110 text-[var(--text-on-accent)] font-black shadow-lg shadow-[var(--accent-glow)]",
     cloudSyncCard: "bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--accent)] shadow-lg shadow-black/40",
     cloudSyncIconBg: "bg-[var(--accent-muted)] border border-[var(--accent-border)] text-[var(--text-accent)]",
     cloudSyncBadge: "bg-[var(--accent-muted)] text-[var(--text-accent)] border border-[var(--accent-border)]",
     cloudSyncText: "text-[var(--text-accent)]",
-    activePlaysetClass: "text-[var(--text-on-accent)] font-black bg-[var(--accent)] border-[var(--accent)] shadow-[0_0_12px_var(--accent-glow)]",
+    activePlaysetClass: "text-[var(--text-on-accent)] font-black bg-[var(--accent-strong)] border-[var(--accent)] shadow-[0_0_12px_var(--accent-glow)]",
   };
 
   const availableSets = useMemo(() => {
@@ -1483,7 +1483,7 @@ export function CardListApp() {
 
                 <div className="flex-1 relative min-w-0">
                   <svg
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -1511,7 +1511,8 @@ export function CardListApp() {
                       {getSortLabel(sortMode)}
                     </span>
                     <svg
-                      className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                      className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                      style={{ color: 'var(--text-muted)' }}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1529,8 +1530,8 @@ export function CardListApp() {
                             onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
                             className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
                               isSelected
-                                ? 'bg-zinc-800 text-white font-bold'
-                                : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                                ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] font-bold'
+                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
                             }`}
                           >
                             <span>{t(labelKey as any)}</span>
@@ -1552,7 +1553,7 @@ export function CardListApp() {
                 {/* Row 1: Full-Width Search Bar */}
                 <div className="w-full relative">
                   <svg
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -1597,7 +1598,8 @@ export function CardListApp() {
                         {getSortLabel(sortMode)}
                       </span>
                       <svg
-                        className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                        className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${sortOpen ? 'rotate-180' : ''}`}
+                        style={{ color: 'var(--text-muted)' }}
                         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1615,8 +1617,8 @@ export function CardListApp() {
                               onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
                               className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
                                 isSelected
-                                  ? 'bg-zinc-800 text-white font-bold'
-                                  : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                                  ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] font-bold'
+                                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
                               }`}
                             >
                               <span>{t(labelKey as any)}</span>
@@ -1636,8 +1638,8 @@ export function CardListApp() {
             )}
 
             {searchQuery.trim() !== '' && (
-              <p className="text-[11px] text-zinc-500 -mt-1.5 px-0.5">
-                Press <span className="font-bold text-zinc-400">Enter</span> to add 1 copy instantly · hold <span className="font-bold text-zinc-400">Shift</span> for foil
+              <p className="text-[11px] -mt-1.5 px-0.5" style={{ color: 'var(--text-muted)' }}>
+                Press <span className="font-bold" style={{ color: 'var(--text-tertiary)' }}>Enter</span> to add 1 copy instantly · hold <span className="font-bold" style={{ color: 'var(--text-tertiary)' }}>Shift</span> for foil
               </p>
             )}
 
@@ -1647,27 +1649,32 @@ export function CardListApp() {
                 {(["All", "Owned", "Playset", "Missing"] as const).map(f => {
                   const active = collectionFilter === f;
                   let label = `${"All"} (${relevantTotal})`;
-                  let activeClass = 'text-white font-bold bg-[var(--bg-raised)] border-[var(--border-hover)] shadow-md';
+                  // Text stays the theme's own high-contrast primary color regardless of which tab is
+                  // active - a literal white reads fine on the dark themes but disappears on light
+                  // (Ivory Parchment); the color wash is carried by the border/background/glow instead.
+                  let activeClass = 'font-bold bg-[var(--bg-raised)] border-[var(--border-hover)] shadow-md';
+                  const activeStyle = { color: 'var(--text-primary)' };
 
                   if (f === "Owned") {
                     label = `${"Owned"} (${ownedCount} / ${relevantTotal})`;
-                    activeClass = 'text-white font-bold bg-emerald-500/20 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.25)]';
+                    activeClass = 'font-bold bg-emerald-500/20 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.25)]';
                   } else if (f === "Playset") {
                     label = `${"Playset"} (${playsetCount} / ${relevantTotal})`;
                     activeClass = catalogTheme.activePlaysetClass;
                   } else if (f === "Missing") {
                     label = `${"Missing"} (${missingCount} / ${relevantTotal})`;
-                    activeClass = 'text-white font-bold bg-rose-500/20 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.25)]';
+                    activeClass = 'font-bold bg-rose-500/20 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.25)]';
                   }
-                  
+
                   return (
                     <button
                       key={f}
                       onClick={() => { setCollectionFilter(f); setPage(1); }}
+                      style={active ? activeStyle : undefined}
                       className={`py-2 px-2.5 text-xs rounded-lg transition border cursor-pointer font-semibold text-center justify-center flex items-center min-w-0 ${
                         active
                           ? activeClass
-                          : 'bg-transparent border-transparent text-zinc-400 hover:text-white hover:bg-white/5'
+                          : 'bg-transparent border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
                       }`}
                     >
                       <span className="truncate">{label}</span>
@@ -1692,8 +1699,8 @@ export function CardListApp() {
                       title={`Card display size: ${size}`}
                       className={`flex items-center justify-center px-3 py-1.5 sm:py-1 text-xs rounded-lg transition cursor-pointer capitalize font-semibold ${
                         active
-                          ? 'text-zinc-50 bg-[var(--bg-raised)] border border-[var(--border-hover)] shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5 border border-transparent'
+                          ? 'text-[var(--text-primary)] bg-[var(--bg-raised)] border border-[var(--border-hover)] shadow-sm'
+                          : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)] border border-transparent'
                       }`}
                     >
                       {t(size as any)}
@@ -1750,7 +1757,7 @@ export function CardListApp() {
                     setShowExportModal(true);
                   }}
                   title={'Export collection or missing cards'}
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
                   Export
                 </button>
@@ -1758,7 +1765,7 @@ export function CardListApp() {
                 <button
                   onClick={() => setShowImportModal(true)}
                   title="Import collection from text list or JSON file"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-zinc-200 hover:text-white bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
                 >
                   Import
                 </button>
@@ -1852,16 +1859,16 @@ export function CardListApp() {
           <div 
             onClick={(e) => e.stopPropagation()}
             style={{ touchAction: 'auto' }}
-            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
+            className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-black text-zinc-100">
+              <h3 className="text-xl font-black text-[var(--text-primary)]">
                 {exportTab === 'owned' ? "Export Collection" : "Export Missing Cards"}
               </h3>
               <button
                 onClick={() => setShowExportModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:brightness-110 transition cursor-pointer"
                 title={'Close'}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -1872,18 +1879,18 @@ export function CardListApp() {
             </div>
 
             {/* Modal Tabs: Owned vs Missing */}
-            <div className="flex rounded-xl p-1 bg-zinc-950 border border-zinc-800 mb-4">
+            <div className="flex rounded-xl p-1 bg-[var(--bg-input)] border border-[var(--border)] mb-4">
               <button
                 type="button"
                 onClick={() => setExportTab('owned')}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                   exportTab === 'owned'
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm'
+                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <span>Owned Cards</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-700/60 text-zinc-300">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-raised)] text-[var(--text-secondary)]">
                   {totalOwnedCopies}
                 </span>
               </button>
@@ -1892,12 +1899,12 @@ export function CardListApp() {
                 onClick={() => setExportTab('missing')}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                   exportTab === 'missing'
-                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-amber-500/20 border border-amber-500/40 text-[var(--text-primary)] shadow-sm'
+                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <span>Missing Cards (Want-List)</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-black">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 font-black" style={{ color: 'var(--text-primary)' }}>
                   {getMissingCards().length}
                 </span>
               </button>
@@ -1906,62 +1913,62 @@ export function CardListApp() {
             {/* TAB 1: OWNED COLLECTION EXPORT */}
             {exportTab === 'owned' && (
               <>
-                <p className="text-xs text-zinc-400 mb-4">
+                <p className="text-xs text-[var(--text-tertiary)] mb-4">
                   {`Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
                 </p>
 
                 {/* Cloud Database Save Section */}
-                <div className="mb-4 pb-4 border-b border-zinc-800">
+                <div className="mb-4 pb-4 border-b border-[var(--border)]">
                   {currentUser ? (
                     <button
                       type="button"
                       onClick={handleSaveToCloud}
                       disabled={savingToCloud}
-                      className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group shadow-lg shadow-indigo-950/30"
+                      className="w-full flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group shadow-lg" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
-                          <svg className="w-5 h-5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <div className="w-9 h-9 rounded-lg border flex items-center justify-center shrink-0" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+                          <svg className="w-5 h-5" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                           </svg>
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                          <div className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                             <span>Save to Cloud Database</span>
-                            <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-400/30">Backup</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>Backup</span>
                           </div>
-                          <div className="text-xs text-indigo-200/70 mt-0.5">
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                             {`Back up your current ${totalOwnedCopies} tracked cards. Kept separately, so a later reset can't remove it — restore it any time below.`}
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2 flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <span className="text-xs font-bold shrink-0 pl-2 flex items-center gap-1.5" style={{ color: 'var(--text-accent)' }}>
+                        <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                         <span>{savingToCloud ? "Saving…" : "Save"}</span>
                       </span>
                     </button>
                   ) : (
-                    <div className="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 flex items-center justify-between gap-3">
+                    <div className="p-3.5 rounded-xl bg-[var(--bg-input)]/80 border border-[var(--border)]/80 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400">
-                          <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] border border-[var(--border-hover)] flex items-center justify-center shrink-0 text-[var(--text-tertiary)]">
+                          <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                           </svg>
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-bold text-zinc-300 truncate">
+                          <div className="text-xs font-bold text-[var(--text-secondary)] truncate">
                             Sign in to save to database
                           </div>
-                          <div className="text-[11px] text-zinc-500 truncate">
+                          <div className="text-[11px] text-[var(--text-muted)] truncate">
                             Sync and backup your collection to your cloud account
                           </div>
                         </div>
                       </div>
                       <a
                         href="/login"
-                        className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition border border-zinc-700 shrink-0"
+                        className="px-3 py-1.5 rounded-lg bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-primary)] text-xs font-bold transition border border-[var(--border-hover)] shrink-0"
                       >
                         Sign In
                       </a>
@@ -1973,65 +1980,65 @@ export function CardListApp() {
                   {/* Option 1: Copy Detailed Text List */}
                   <button
                     onClick={handleCopyCollectionText}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                   >
                     <div>
-                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         Copy Formatted Card List
                       </div>
-                      <div className="text-xs text-zinc-400 mt-0.5">
+                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                         Grouped by set with quantities, card numbers, names, and foil tags
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
                   </button>
 
                   {/* Option 2: Copy Simple List */}
                   <button
                     onClick={handleCopySimpleText}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                   >
                     <div>
-                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         Copy Simple Card Names
                       </div>
-                      <div className="text-xs text-zinc-400 mt-0.5">
+                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                         Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
                   </button>
 
                   {/* Option 3: Download JSON Backup */}
                   <button
                     onClick={handleDownloadJson}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                   >
                     <div>
-                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         Download Collection File (JSON)
                       </div>
-                      <div className="text-xs text-zinc-400 mt-0.5">
+                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                         Full JSON backup file to save on your device or import on another browser
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
                   </button>
 
                   {/* Option 4: Copy Raw JSON */}
                   <button
                     onClick={handleCopyJson}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                   >
                     <div>
-                      <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         Copy Raw JSON to Clipboard
                       </div>
-                      <div className="text-xs text-zinc-400 mt-0.5">
+                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                         Compact id → quantity map for quick pasting into the Import modal
                       </div>
                     </div>
-                    <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Copy →</span>
+                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
                   </button>
                 </div>
               </>
@@ -2040,23 +2047,23 @@ export function CardListApp() {
             {/* TAB 2: MISSING CARDS EXPORT */}
             {exportTab === 'missing' && (
               <>
-                <p className="text-xs text-zinc-400 mb-3">
+                <p className="text-xs text-[var(--text-tertiary)] mb-3">
                   Export the missing cards that match your currently active filters for trading or shopping want-lists.
                 </p>
 
                 {/* Filter Context Box */}
-                <div className="p-3.5 rounded-xl bg-amber-950/25 border border-amber-500/35 mb-4 space-y-1.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl border mb-4 space-y-1.5" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+                  <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--text-accent)' }}>
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                     </svg>
                     <span>Currently Applied Filters</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 font-semibold">
+                    <span className="px-2 py-0.5 rounded-md border font-semibold" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
                       {getActiveFilterDescription()}
                     </span>
-                    <span className="text-zinc-300 font-medium">
+                    <span className="text-[var(--text-secondary)] font-medium">
                       {`${getMissingCards().length} missing cards (out of ${relevantTotal})`}
                     </span>
                   </div>
@@ -2064,15 +2071,15 @@ export function CardListApp() {
 
                 {getMissingCards().length === 0 ? (
                   <div className="py-8 px-4 text-center rounded-xl bg-emerald-950/20 border border-emerald-500/30 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-2 text-emerald-400">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-2 text-[var(--positive)]">
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
-                    <div className="text-sm font-bold text-emerald-300">
+                    <div className="text-sm font-bold text-[var(--positive)]">
                       No missing cards!
                     </div>
-                    <div className="text-xs text-zinc-400 mt-1">
+                    <div className="text-xs text-[var(--text-tertiary)] mt-1">
                       You already own every card that matches your current filter selection.
                     </div>
                   </div>
@@ -2081,81 +2088,81 @@ export function CardListApp() {
                     {/* Quick Shop: hand the want-list to the marketplace */}
                     <button
                       onClick={handleQuickShopMissing}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group"
+                      className="flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
                     >
                       <div>
-                        <div className="text-sm font-bold text-indigo-100 flex items-center gap-2">
+                        <div className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                           Quick Shop This List
                         </div>
-                        <div className="text-xs text-indigo-200/70 mt-0.5">
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                           Find these cards on the marketplace (cheapest or fewest sellers) and add them to your cart
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-indigo-300 group-hover:text-white">Shop →</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Shop →</span>
                     </button>
 
                     {/* Missing Option 1: Copy Detailed Want-List */}
                     <button
                       onClick={handleCopyMissingText}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                     >
                       <div>
-                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                           Copy Detailed Want-List
                         </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                           Grouped by set with card numbers, names, and rarities
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Copy →</span>
                     </button>
 
                     {/* Missing Option 2: Copy Simple Want-List */}
                     <button
                       onClick={handleCopyMissingSimpleText}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                     >
                       <div>
-                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                           Copy Simple Want-List
                         </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                           Compact list (e.g. 1x Jinx [VEN-042]), ideal for Discord or trade posts
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-amber-400 group-hover:text-amber-300">Copy →</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Copy →</span>
                     </button>
 
                     {/* Missing Option 3: Download TXT File */}
                     <button
                       onClick={handleDownloadMissingTxt}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                     >
                       <div>
-                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                           Download Text File (.txt)
                         </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                           Formatted want-list file to save on your device
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                      <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
                     </button>
 
                     {/* Missing Option 4: Download JSON File */}
                     <button
                       onClick={handleDownloadMissingJson}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
                     >
                       <div>
-                        <div className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                           Download JSON File (.json)
                         </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                           Structured JSON data with card IDs, numbers, sets, and rarities
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200">Download ↓</span>
+                      <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
                     </button>
                   </div>
                 )}
@@ -2165,7 +2172,7 @@ export function CardListApp() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                className="px-4 py-2 bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 Close
               </button>
@@ -2201,13 +2208,13 @@ export function CardListApp() {
           <div 
             onClick={(e) => e.stopPropagation()}
             style={{ touchAction: 'auto' }}
-            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
+            className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-zinc-100">Import Collection</h3>
+              <h3 className="text-xl font-black text-[var(--text-primary)]">Import Collection</h3>
               <button
                 onClick={() => setShowImportModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:brightness-110 transition cursor-pointer"
               >
                 ✕
               </button>
@@ -2215,27 +2222,27 @@ export function CardListApp() {
 
             {/* Cloud Restore Option (If Authenticated) */}
             {currentUser && (
-              <div className="mb-4 pb-4 border-b border-zinc-800">
+              <div className="mb-4 pb-4 border-b border-[var(--border)]">
                 <button
                   type="button"
                   onClick={handleRestoreFromCloud}
                   disabled={restoringFromCloud}
-                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/50 hover:border-indigo-400 transition cursor-pointer text-left group"
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0">
-                      <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <div className="w-8 h-8 rounded-lg border flex items-center justify-center shrink-0" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+                      <svg className="w-4 h-4" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                       </svg>
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-indigo-100">Restore from Cloud Backup</div>
-                      <div className="text-[11px] text-indigo-200/70">
+                      <div className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Restore from Cloud Backup</div>
+                      <div className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                         Bring back whatever you last saved with "Save to Cloud Database"
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-indigo-300 group-hover:text-white shrink-0 pl-2">
+                  <span className="text-xs font-bold shrink-0 pl-2" style={{ color: 'var(--text-accent)' }}>
                     {restoringFromCloud ? 'Restoring…' : 'Restore ☁️'}
                   </span>
                 </button>
@@ -2252,23 +2259,23 @@ export function CardListApp() {
             <button
               type="button"
               onClick={() => importFileInputRef.current?.click()}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 transition cursor-pointer text-left group mb-4"
+              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group mb-4"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-zinc-400">
+                <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] border border-[var(--border-hover)] flex items-center justify-center shrink-0 text-[var(--text-tertiary)]">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
                   </svg>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-zinc-100">Import from File</div>
-                  <div className="text-[11px] text-zinc-500">Upload a .json backup or .txt card list</div>
+                  <div className="text-xs font-bold text-[var(--text-primary)]">Import from File</div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Upload a .json backup or .txt card list</div>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-zinc-400 group-hover:text-zinc-200 shrink-0 pl-2">Choose File →</span>
+              <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)] shrink-0 pl-2">Choose File →</span>
             </button>
 
-            <p className="text-xs text-zinc-400 mb-4">
+            <p className="text-xs text-[var(--text-tertiary)] mb-4">
               Or paste a collection list (text with card names/numbers or JSON array) to add to your collection:
             </p>
             <textarea
@@ -2276,18 +2283,18 @@ export function CardListApp() {
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               placeholder={`Paste text list or JSON here...\n\nExample text:\n1x Akali, Deadly Weapon (VEN-021a/166)\n1x Renekton, Rage Fueled [Foil]\n\nOr JSON:\n["card-id-1", "card-id-2_foil"]`}
-              className="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 text-xs font-mono outline-none focus:border-zinc-500 transition resize-y mb-4"
+              className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] text-xs font-mono outline-none focus:border-[var(--accent)] transition resize-y mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700/80 rounded-lg text-xs font-bold transition cursor-pointer"
+                className="px-4 py-2 bg-transparent hover:bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] border border-[var(--border)]/80 rounded-lg text-xs font-bold transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleImportCollection()}
-                className="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-lg text-xs font-black transition cursor-pointer shadow-md"
+                className="px-4 py-2 bg-[var(--accent-strong)] hover:brightness-110 rounded-lg text-xs font-black transition cursor-pointer shadow-md" style={{ color: 'var(--text-on-accent)' }}
               >
                 Import Cards
               </button>
@@ -2305,11 +2312,11 @@ export function CardListApp() {
               ? 'bg-emerald-950/95 border-emerald-600/50 text-emerald-200'
               : toastType === 'error'
               ? 'bg-rose-950/95 border-rose-600/50 text-rose-200'
-              : 'bg-zinc-800 border-zinc-700 text-zinc-100'
+              : 'bg-[var(--bg-raised)] border-[var(--border-hover)] text-[var(--text-primary)]'
           }`}
         >
           {toastType === 'success' && (
-            <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           )}
@@ -2332,7 +2339,7 @@ export function CardListApp() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-zinc-900 border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
+            className="w-full max-w-sm bg-[var(--bg-surface)] border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
           >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-rose-950/60 border border-rose-800/50 flex items-center justify-center shrink-0">
@@ -2342,15 +2349,15 @@ export function CardListApp() {
                   <line x1="14" y1="11" x2="14" y2="17" />
                 </svg>
               </div>
-              <h3 className="text-lg font-black text-zinc-100">Clear your collection?</h3>
+              <h3 className="text-lg font-black text-[var(--text-primary)]">Clear your collection?</h3>
             </div>
 
-            <p className="text-sm text-zinc-300 leading-relaxed">
-              All <span className="font-bold text-zinc-100">{totalOwnedCopies}</span> saved cards will be removed.
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              All <span className="font-bold text-[var(--text-primary)]">{totalOwnedCopies}</span> saved cards will be removed.
             </p>
-            <p className="text-sm text-zinc-400 leading-relaxed mt-2">
+            <p className="text-sm text-[var(--text-tertiary)] leading-relaxed mt-2">
               {currentUser
-                ? <>This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with <span className="font-semibold text-zinc-300">"Save to Cloud Database"</span> is not affected.</>
+                ? <>This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with <span className="font-semibold text-[var(--text-secondary)]">"Save to Cloud Database"</span> is not affected.</>
                 : 'This will remove them from your browser.'}
             </p>
 
@@ -2359,7 +2366,7 @@ export function CardListApp() {
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
                 disabled={resettingCollection}
-                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition border bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 disabled:opacity-50 disabled:cursor-default"
+                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition border bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border-hover)] disabled:opacity-50 disabled:cursor-default"
               >
                 Cancel
               </button>

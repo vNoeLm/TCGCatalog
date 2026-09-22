@@ -139,7 +139,7 @@ export function DeckList({
           {isActive && (
             <span style={{
               fontSize: 10,
-              background: 'var(--accent)',
+              background: 'var(--accent-strong)',
               color: 'var(--text-on-accent)',
               padding: '2px 7px',
               borderRadius: 6,

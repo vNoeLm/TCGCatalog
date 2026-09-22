@@ -261,7 +261,7 @@ export function CardListItem(props: CardListItemProps) {
             title="Estimated value: the market reference combined with what sellers here are asking"
           >
             <span className="text-zinc-400 font-medium">Est. value{valueIsFoil ? ' (foil)' : ''}</span>
-            <span className="font-black font-mono text-emerald-400">~{shownValue.toLocaleString('en-US')} Ft</span>
+            <span className="font-black font-mono text-[var(--positive)]">~{shownValue.toLocaleString('en-US')} Ft</span>
           </div>
         )}
 
@@ -283,12 +283,12 @@ export function CardListItem(props: CardListItemProps) {
           ) : (
             <div 
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              className={`flex-1 flex items-center justify-between bg-emerald-950/30 border border-emerald-500/50 rounded-lg p-0.5 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+              className={`flex-1 flex items-center justify-between bg-emerald-950/30 border border-emerald-500/50 rounded-lg p-0.5 text-[var(--positive)] shadow-[0_0_12px_rgba(16,185,129,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
             >
               <button
                 onClick={(e) => handleUpdateNormal(e, -1)}
                 title={"Decrease quantity (-1)"}
-                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-[var(--positive)] hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 −
               </button>
@@ -298,7 +298,7 @@ export function CardListItem(props: CardListItemProps) {
               <button
                 onClick={(e) => handleUpdateNormal(e, 1)}
                 title={"Increase quantity (+1)"}
-                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-[var(--positive)] hover:text-white rounded transition cursor-pointer active:scale-90"
               >
                 +
               </button>

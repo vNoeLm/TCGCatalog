@@ -159,7 +159,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         {/* Bottom Left Badges: Sealed Condition / ALT ART / ON */}
         <div className="absolute bottom-1.5 left-1.5 flex flex-col items-start gap-1" style={{ zIndex: 3 }}>
           {isSealed && (
-            <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-500/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5 rounded shadow-sm">
+            <span className="bg-emerald-950/80 text-[var(--positive)] border border-emerald-500/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5 rounded shadow-sm">
               {card.condition}
             </span>
           )}
@@ -297,7 +297,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               </span>
             ) : card.seller_badge ? (
               <span 
-                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
+                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-[var(--positive)] border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
                 title={card.seller_badge}
               >
                 <span>★</span>
@@ -327,7 +327,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         {/* Price + Buy */}
         <div className={`mt-auto flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
-            <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-emerald-400`}>
+            <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-[var(--positive)]`}>
               {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}
             </span>
             <span style={{

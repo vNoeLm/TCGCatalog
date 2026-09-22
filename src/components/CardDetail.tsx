@@ -607,7 +607,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         : { background: 'var(--bg-surface)', color: 'var(--text-tertiary)', borderColor: 'var(--border-subtle)' }
                     }
                   >
-                    <span className="font-mono text-emerald-400 font-black">€$</span>
+                    <span className="font-mono text-[var(--positive)] font-black">€$</span>
                     {isSellable ? ('Sellable') : ('Non-Sellable')}
                   </span>
                 );
@@ -1230,7 +1230,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             >
               <div className="mb-4">
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
-                <div className="text-3xl sm:text-4xl font-black text-emerald-400">
+                <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </div>
               </div>
@@ -1238,7 +1238,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               <div className="flex items-center gap-2.5 flex-wrap">
                 {/* Status Badges */}
                 {data.status === 'In Stock' && (
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-emerald-950/40 text-emerald-300 border-emerald-500/40 inline-flex items-center gap-1.5">
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-emerald-950/40 text-[var(--positive)] border-emerald-500/40 inline-flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                     <span>Available</span>
                   </span>
@@ -1329,7 +1329,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('Sold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
                           title={'Confirm sale'}
                         >
                           Confirm Sale
@@ -1351,7 +1351,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('Sold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
                           title={'Confirm sale'}
                         >
                           Confirm Sale
@@ -1394,7 +1394,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     setShowAuthModal(true);
                   }
                 }}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border-emerald-500/40"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-[var(--positive)] border-emerald-500/40"
                 title={'List your copy of this card for sale'}
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

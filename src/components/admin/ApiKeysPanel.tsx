@@ -158,14 +158,14 @@ export function ApiKeysPanel() {
               </div>
               <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${
                 requireKey
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-[var(--positive)]'
                   : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
               }`}>
                 {requireKey ? 'Protected (Key Required)' : 'Public Mode (No Key Required)'}
               </span>
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              When <strong>Protected Mode</strong> is active, all card catalog requests must provide a valid API key via <code className="text-emerald-400">x-api-key</code>, Bearer token, or <code className="text-emerald-400">?api_key=</code>. Switch to Public Mode if you want to allow open, unauthenticated requests.
+              When <strong>Protected Mode</strong> is active, all card catalog requests must provide a valid API key via <code className="text-[var(--positive)]">x-api-key</code>, Bearer token, or <code className="text-[var(--positive)]">?api_key=</code>. Switch to Public Mode if you want to allow open, unauthenticated requests.
             </p>
           </div>
 
@@ -179,7 +179,7 @@ export function ApiKeysPanel() {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
                 requireKey
                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
-                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-[var(--positive)] hover:bg-emerald-500/20'
               }`}
             >
               {requireKey ? 'Switch to Public Mode' : 'Enable Key Protection'}
@@ -223,7 +223,7 @@ export function ApiKeysPanel() {
       {/* Generate Key Form */}
       <div className="p-5 rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <h3 className="text-sm font-black uppercase tracking-wider text-zinc-100 mb-3 flex items-center gap-2">
-          <svg className="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="w-4 h-4 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -242,7 +242,7 @@ export function ApiKeysPanel() {
             type="submit"
             disabled={creating || !newKeyName.trim()}
             className="w-full sm:w-auto px-5 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #050505)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #050505)' }}
           >
             {creating ? 'Generating…' : 'Generate Key'}
           </button>
@@ -298,7 +298,7 @@ export function ApiKeysPanel() {
                       <span className="text-xs font-black text-zinc-100">{k.name}</span>
                       <span className={`px-2 py-0.2 rounded text-[10px] font-bold border ${
                         k.is_active
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-[var(--positive)]'
                           : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                       }`}>
                         {k.is_active ? 'Active' : 'Disabled'}
@@ -342,7 +342,7 @@ export function ApiKeysPanel() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
                         k.is_active
                           ? 'bg-zinc-800/60 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-[var(--positive)] hover:bg-emerald-500/20'
                       }`}
                     >
                       {k.is_active ? 'Disable' : 'Enable'}

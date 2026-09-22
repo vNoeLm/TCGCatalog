@@ -193,7 +193,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-zinc-900/50">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="w-5 h-5 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
               Quick List Preview
@@ -260,7 +260,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
                         min="1"
                         value={c.priceHuf}
                         onChange={(e) => updatePrice(c.tempId, parseInt(e.target.value) || 1)}
-                        className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-emerald-400 font-mono font-bold"
+                        className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-[var(--positive)] font-mono font-bold"
                         disabled={!c.selected}
                       />
                       {c.priceSource && c.priceSource !== 'fixed' && (
@@ -280,7 +280,7 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         <div className="p-5 border-t border-white/10 bg-zinc-900/80 flex items-center justify-between">
           <div>
             <div className="text-sm font-bold text-white">
-              Selected: <span className="text-emerald-400">{selectedCount} db</span>
+              Selected: <span className="text-[var(--positive)]">{selectedCount} db</span>
             </div>
             <div className="text-xs text-zinc-400 mt-0.5">
               Estimated total: <span className="text-white font-mono">{totalValue.toLocaleString()} Ft</span>

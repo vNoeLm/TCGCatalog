@@ -712,7 +712,7 @@ export function SellerDashboardApp() {
             onClick={() => setShowAuthModal(true)}
             className="px-6 py-3 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
             style={{
-              background: 'var(--accent)',
+              background: 'var(--accent-strong)',
               color: 'var(--text-on-accent, #000)',
               boxShadow: '0 0 16px var(--accent-glow)',
             }}
@@ -729,8 +729,8 @@ export function SellerDashboardApp() {
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/50 text-emerald-300 font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/50 text-[var(--positive)] font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
           <span>{toastMessage}</span>
@@ -804,7 +804,7 @@ export function SellerDashboardApp() {
                   </span>
                 )}
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
-                <span className="text-emerald-400 font-semibold">
+                <span className="text-[var(--positive)] font-semibold">
                   {completedSalesCount} sales made
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
@@ -989,7 +989,7 @@ export function SellerDashboardApp() {
               Net Sales & Volume
             </span>
           </div>
-          <div className="text-lg sm:text-xl font-black text-emerald-400 truncate">
+          <div className="text-lg sm:text-xl font-black text-[var(--positive)] truncate">
             {totalRevenueHuf.toLocaleString()} Ft <span className="text-xs font-normal text-zinc-400">({completedSalesCount} orders)</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -1038,7 +1038,7 @@ export function SellerDashboardApp() {
               Platform Price Health
             </span>
           </div>
-          <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+          <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-[var(--positive)]'}`}>
             {priceHealthPct}% <span className="text-xs font-normal text-zinc-400">Lowest Price</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -1346,7 +1346,7 @@ export function SellerDashboardApp() {
                             SOLD
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-[var(--positive)] border border-emerald-500/40 shrink-0">
                             IN STOCK
                           </span>
                         )}
@@ -1359,7 +1359,7 @@ export function SellerDashboardApp() {
                         <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-black text-emerald-400">
+                        <span className="text-sm font-black text-[var(--positive)]">
                           {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                         </span>
                         <span className="text-xs text-zinc-400">
@@ -1398,7 +1398,7 @@ export function SellerDashboardApp() {
                             type="button"
                             onClick={() => handleListingStatusChange(item.inventory_id, 'Sold')}
                             disabled={updatingListingId === item.inventory_id}
-                            className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40 disabled:opacity-50"
+                            className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border-emerald-500/40 disabled:opacity-50"
                             title={'Mark as Sold'}
                           >
                             Sold
@@ -1526,7 +1526,7 @@ export function SellerDashboardApp() {
                     case 'foxpost': return { label: 'Foxpost csomagautomata', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
                     case 'packeta': return { label: 'Packeta pickup point', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
                     case 'pickup':
-                    case 'personal': return { label: 'Personal pickup', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' };
+                    case 'personal': return { label: 'Personal pickup', color: 'text-[var(--positive)] bg-emerald-500/10 border-emerald-500/30' };
                     case 'posta':
                     case 'post': return { label: 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
                     default: return { label: 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
@@ -1583,7 +1583,7 @@ export function SellerDashboardApp() {
                               </span>
                             )}
                             {isConfirmed && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-[var(--positive)] border border-emerald-500/40 flex items-center gap-1">
                                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                                   <polyline points="20 6 9 17 4 12" />
                                 </svg>
@@ -1602,7 +1602,7 @@ export function SellerDashboardApp() {
                             {cardRarity && <span>• <span className="text-indigo-300 font-semibold">{cardRarity}</span></span>}
                             {req.inventory?.condition && <span>• <span className="text-zinc-300">{req.inventory.condition}</span></span>}
                             {priceHuf && (
-                              <span className="text-emerald-400 font-black font-mono ml-1">
+                              <span className="text-[var(--positive)] font-black font-mono ml-1">
                                 {priceHuf.toLocaleString()} Ft
                               </span>
                             )}
@@ -1686,7 +1686,7 @@ export function SellerDashboardApp() {
                         )}
 
                         {isConfirmed && (
-                          <div className="text-xs font-black text-emerald-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                          <div className="text-xs font-black text-[var(--positive)] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
@@ -1720,7 +1720,7 @@ export function SellerDashboardApp() {
                             <span>{req.buyer_email}</span>
                           </a>
                           {req.buyer_phone && (
-                            <a href={`tel:${req.buyer_phone}`} className="text-emerald-300 hover:underline flex items-center gap-1">
+                            <a href={`tel:${req.buyer_phone}`} className="text-[var(--positive)] hover:underline flex items-center gap-1">
                               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                               </svg>
@@ -1848,7 +1848,7 @@ export function SellerDashboardApp() {
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 px-3 font-mono font-bold text-emerald-400">
+                            <td className="py-3 px-3 font-mono font-bold text-[var(--positive)]">
                               {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                             </td>
                             <td className="py-3 px-3 font-mono">
@@ -1858,7 +1858,7 @@ export function SellerDashboardApp() {
                                 <span className="font-bold text-amber-300">{lowest.toLocaleString()} Ft</span>
                               ) : (
                                 <span className="font-bold text-zinc-300">
-                                  {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-emerald-400">(Lowest)</span>
+                                  {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-[var(--positive)]">(Lowest)</span>
                                 </span>
                               )}
                             </td>
@@ -1870,7 +1870,7 @@ export function SellerDashboardApp() {
                             </td>
                             <td className="py-3 px-3 text-center font-mono">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                Number(ctr) >= 10 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-300'
+                                Number(ctr) >= 10 ? 'bg-emerald-500/20 text-[var(--positive)]' : 'bg-zinc-800 text-zinc-300'
                               }`}>
                                 {ctr}%
                               </span>
@@ -1881,7 +1881,7 @@ export function SellerDashboardApp() {
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                     displayStatus === 'On Hold'
                                       ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
-                                      : 'text-emerald-400 bg-emerald-950/40 border-emerald-500/40'
+                                      : 'text-[var(--positive)] bg-emerald-950/40 border-emerald-500/40'
                                   }`}
                                 >
                                   {displayStatus}
@@ -1944,7 +1944,7 @@ export function SellerDashboardApp() {
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         ord.status === 'Delivered'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          ? 'bg-emerald-500/20 text-[var(--positive)] border-emerald-500/40'
                           : ord.status === 'Cancelled'
                           ? 'bg-red-500/20 text-red-300 border-red-500/40'
                           : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
@@ -1970,7 +1970,7 @@ export function SellerDashboardApp() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-base font-black text-emerald-400 font-mono">
+                    <div className="text-base font-black text-[var(--positive)] font-mono">
                       {(ord.total_price_huf ?? ord.total_huf ?? 0).toLocaleString()} Ft
                     </div>
                     <div className="text-[10px] text-zinc-500 mt-0.5">

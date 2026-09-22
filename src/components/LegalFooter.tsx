@@ -38,7 +38,7 @@ export function LegalFooter() {
             }}
             title={'Expand Legal & Disclaimer Footer'}
           >
-            <span className="text-xs font-bold text-zinc-400 group-hover:text-zinc-200 hidden sm:inline">Legal</span>
+            <span className="text-xs font-bold hidden sm:inline" style={{ color: 'var(--text-tertiary)' }}>Legal</span>
             <svg
               className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
               style={{ color: 'var(--accent)' }}
@@ -53,10 +53,11 @@ export function LegalFooter() {
       {/* Expanded State: Fixed Bottom Bar */}
       {!collapsed && (
         <footer
-          className="fixed bottom-0 left-0 right-0 z-40 border-t text-zinc-400 shadow-2xl backdrop-blur-md animate-fade-in transition-colors duration-200"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t shadow-2xl backdrop-blur-md animate-fade-in transition-colors duration-200"
           style={{
             background: 'var(--bg-header)',
             borderColor: 'var(--border)',
+            color: 'var(--text-tertiary)',
           }}
         >
           <div className="max-w-[1400px] mx-auto px-4 py-2.5 sm:px-6 sm:py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 sm:gap-4 text-left">
@@ -67,12 +68,12 @@ export function LegalFooter() {
                 <span className="text-xs font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                   TCG Vault
                 </span>
-                <span className="text-[11px] text-zinc-400 font-medium">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
                   © {new Date().getFullYear()}
                 </span>
               </div>
 
-              <div className="text-[11px] text-zinc-400 leading-relaxed max-w-4xl">
+              <div className="text-[11px] leading-relaxed max-w-4xl" style={{ color: 'var(--text-tertiary)' }}>
                 {(
                   <span>
                     TCG Vault is an unofficial, community-driven collection tracker, deck builder, and peer-to-peer marketplace. All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. Not affiliated with, endorsed, or sponsored by official game publishers.
@@ -86,21 +87,21 @@ export function LegalFooter() {
               <button
                 type="button"
                 onClick={() => setShowFullLegalModal(true)}
-                className="text-[11px] font-bold text-zinc-400 hover:text-zinc-200 transition underline underline-offset-2 cursor-pointer whitespace-nowrap"
+                className="text-[11px] font-bold hover:text-[var(--text-primary)] transition underline underline-offset-2 cursor-pointer whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}
               >
                 {'Legal Disclaimer & Privacy Notice'}
               </button>
 
-              <div className="h-3.5 w-px bg-zinc-800" />
+              <div className="h-3.5 w-px" style={{ background: 'var(--border)' }} />
 
               <button
                 type="button"
                 onClick={() => handleToggle(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 text-[11px] font-bold transition cursor-pointer active:scale-95 whitespace-nowrap"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer active:scale-95 whitespace-nowrap" style={{ background: 'var(--bg-surface)', color: 'var(--text-tertiary)', borderColor: 'var(--border)' }}
                 title={'Collapse footer to corner'}
               >
                 <span>Collapse</span>
-                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
@@ -129,81 +130,81 @@ export function LegalFooter() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-7 shadow-2xl text-left max-h-[88vh] overflow-y-auto custom-scrollbar my-auto"
+            className="w-full max-w-2xl border rounded-2xl p-6 sm:p-7 shadow-2xl text-left max-h-[88vh] overflow-y-auto custom-scrollbar my-auto" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
-            <div className="flex items-center justify-between mb-5 pb-3.5 border-b border-zinc-800">
-              <h3 className="text-base sm:text-lg font-black text-zinc-100 tracking-tight">
+            <div className="flex items-center justify-between mb-5 pb-3.5 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h3 className="text-base sm:text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 {'Legal Disclaimer & Privacy Notice'}
               </h3>
               <button
                 onClick={() => setShowFullLegalModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition cursor-pointer text-sm font-bold"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:text-[var(--text-primary)] hover:brightness-110 transition cursor-pointer text-sm font-bold" style={{ background: 'var(--bg-raised)', color: 'var(--text-tertiary)' }}
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-zinc-300 leading-relaxed">
+            <div className="space-y-4 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   {'1. Copyright & Intellectual Property'}
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. TCG Vault is an unofficial, fan-made tool for tracking collections, building decks, and arranging trades between collectors. It is not affiliated with, endorsed, or sponsored by any game publisher. If you are a rights holder and would like something changed or removed, please contact us using the address below.
                 </p>
               </section>
 
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   {'2. Your Data & Privacy'}
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   Your collection counts, filter preferences, and draft decks are kept in your browser (localStorage). If you create an account, we store your email address, display name and avatar, and sync your collection to our database (Supabase); decks you publish are stored there too, and are visible to others only if you make them public. Your public profile, marketplace listings, and the reviews you write or receive are visible to other users. Hold requests, including the handover details you enter, and messages are visible only to the people involved in that trade. We also count views and clicks on listings, and record search terms without your account attached, to show sellers what is in demand. We do not sell your data, and the site uses no advertising or third-party analytics trackers. Our hosting and database providers keep standard server logs.
                 </p>
               </section>
 
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   {'3. Marketplace & Transactions'}
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   The Marketplace is a peer-to-peer classifieds system: listings, holds, and sales are arranged directly between buyers and sellers. TCG Vault does not process payments, hold funds in escrow, verify card condition, or guarantee any transaction — all payment and handover arrangements (cash, bank transfer, in-person, or courier) are made solely between the parties involved. TCG Vault is not a party to, and is not liable for, any dispute, loss, or fraud arising from a marketplace transaction.
                 </p>
               </section>
 
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   {'4. Third-Party Services & Prices'}
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   We use Vercel for hosting, Supabase for authentication and the database, and Google Fonts for typography, which means your browser contacts Google's servers to load the font. Prices shown for cards are rough estimates, not live market data. Links to other sites, such as Cardmarket, are provided for reference only; we are not responsible for their content or for any price changes or transactions made elsewhere.
                 </p>
               </section>
 
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   {'5. Disclaimer of Warranty & Data Rights'}
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   TCG Vault is provided on an "as-is" basis without warranties of any kind. We are not liable for accidental data loss, cleared browser storage, or service interruptions. To have your account and its synced data deleted, contact us using the address below.
                 </p>
               </section>
 
               <section>
-                <h4 className="font-bold text-zinc-100 uppercase tracking-wider text-[11px] mb-1">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] mb-1" style={{ color: 'var(--text-primary)' }}>
                   6. Contact
                 </h4>
-                <p className="text-zinc-400">
+                <p style={{ color: 'var(--text-tertiary)' }}>
                   For legal inquiries, copyright notices, or account assistance, please contact us at contact@tcgvault.app.
                 </p>
               </section>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-end">
+            <div className="mt-6 pt-4 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
               <button
                 type="button"
                 onClick={() => setShowFullLegalModal(false)}
-                className="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs rounded-xl transition cursor-pointer active:scale-95"
+                className="px-5 py-2 hover:brightness-110 font-bold text-xs rounded-xl transition cursor-pointer active:scale-95" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
               >
                 Close
               </button>
