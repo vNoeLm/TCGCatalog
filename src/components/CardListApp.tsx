@@ -142,12 +142,16 @@ export function CardListApp() {
   const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resettingCollection, setResettingCollection] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   // The scanner needs a camera, so it's only offered where one is plausible.
   const [canScan, setCanScan] = useState(false);
   const [importText, setImportText] = useState("");
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -156,9 +160,13 @@ export function CardListApp() {
 
   const [allCards, setAllCards] = useState<CatalogCard[]>([]);
   const [page, setPage] = useState(1);
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setToastType(type);
+    // A plain info toast is brief; success and error get more time to actually be read.
+    const duration = type === 'info' ? 3000 : 4500;
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), duration);
   };
 
   // Check auth on mount
@@ -180,7 +188,7 @@ export function CardListApp() {
 
   // Lock background scroll when any modal or mobile drawer is open
   useEffect(() => {
-    const isModalOpen = showExportModal || showQuickSalePreview || showImportModal || showMobileFilters || Boolean(selectedCardId);
+    const isModalOpen = showExportModal || showQuickSalePreview || showImportModal || showResetConfirm || showMobileFilters || Boolean(selectedCardId);
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -189,7 +197,7 @@ export function CardListApp() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showExportModal, showQuickSalePreview, showImportModal, showMobileFilters, selectedCardId]);
+  }, [showExportModal, showQuickSalePreview, showImportModal, showResetConfirm, showMobileFilters, selectedCardId]);
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
@@ -486,13 +494,13 @@ export function CardListApp() {
     const sourceCards = allCards.length ? allCards : cards;
     const matched = resolveCard(query, sourceCards);
     if (!matched) {
-      showToast(`No card found for "${query}"`);
+      showToast(`No card found for "${query}"`, 'error');
       return;
     }
 
     const isFoil = e.shiftKey;
     updateCardCount(matched.id, isFoil, 1);
-    showToast(`+1 ${isFoil ? 'foil ' : ''}${matched.name}${matched.card_number ? ` (${matched.card_number})` : ''}`);
+    showToast(`+1 ${isFoil ? 'foil ' : ''}${matched.name}${matched.card_number ? ` (${matched.card_number})` : ''}`, 'success');
     setSearchQuery('');
     requestAnimationFrame(() => searchInputRef.current?.focus());
   };
@@ -939,34 +947,34 @@ export function CardListApp() {
 
   const handleCopyCollectionText = () => {
     if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.');
+      showToast('Collection is empty.', 'error');
       return;
     }
     const text = exportCollectionToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${totalOwnedCopies} owned cards to clipboard!`);
+    showToast(`✓ Copied ${totalOwnedCopies} owned cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
   const handleCopySimpleText = () => {
     if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.');
+      showToast('Collection is empty.', 'error');
       return;
     }
     const text = exportCollectionToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied cards list to clipboard!`);
+    showToast(`✓ Copied cards list to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
   const handleCopyJson = () => {
     if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.');
+      showToast('Collection is empty.', 'error');
       return;
     }
     const data = JSON.stringify(collection, null, 2);
     navigator.clipboard.writeText(data);
-    showToast(`✓ Copied collection JSON to clipboard!`);
+    showToast(`✓ Copied collection JSON to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1010,7 +1018,7 @@ export function CardListApp() {
 
   const handleDownloadJson = () => {
     if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.');
+      showToast('Collection is empty.', 'error');
       return;
     }
     const data = JSON.stringify(buildCollectionBackupObject(), null, 2);
@@ -1021,7 +1029,7 @@ export function CardListApp() {
     a.download = `my-collection-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('✓ Collection JSON backup downloaded!');
+    showToast('✓ Collection JSON backup downloaded!', 'success');
     setShowExportModal(false);
   };
 
@@ -1031,7 +1039,7 @@ export function CardListApp() {
   // should survive: whatever the user does to their live collection afterward.
   const handleSaveToCloud = async () => {
     if (!currentUser) {
-      showToast('Please sign in to save your collection to cloud.');
+      showToast('Please sign in to save your collection to cloud.', 'error');
       return;
     }
     setSavingToCloud(true);
@@ -1039,9 +1047,9 @@ export function CardListApp() {
       const result = await saveCollectionBackupToCloud(collection);
       if (!result.success) throw new Error(result.error?.message || 'the cloud did not accept it');
 
-      showToast(`${"Collection successfully saved to your cloud account!"} (${totalOwnedCopies} cards)`);
+      showToast(`${"Collection successfully saved to your cloud account!"} (${totalOwnedCopies} cards)`, 'success');
     } catch (e: any) {
-      showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`);
+      showToast(`Failed to save to cloud: ${e.message || 'Unknown error'}`, 'error');
     } finally {
       setSavingToCloud(false);
     }
@@ -1142,18 +1150,18 @@ export function CardListApp() {
   const handleCopyMissingText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast('No missing cards with current filters.');
+      showToast('No missing cards with current filters.', 'error');
       return;
     }
     const text = exportMissingCardsToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`);
+    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
   const handleQuickShopMissing = () => {
     if (getMissingCards().length === 0) {
-      showToast('No missing cards with current filters.');
+      showToast('No missing cards with current filters.', 'error');
       return;
     }
     try {
@@ -1165,19 +1173,19 @@ export function CardListApp() {
   const handleCopyMissingSimpleText = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast('No missing cards with current filters.');
+      showToast('No missing cards with current filters.', 'error');
       return;
     }
     const text = exportMissingCardsToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`);
+    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
   const handleDownloadMissingTxt = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast('No missing cards with current filters.');
+      showToast('No missing cards with current filters.', 'error');
       return;
     }
     const text = exportMissingCardsToText();
@@ -1191,14 +1199,14 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.txt)`);
+    showToast(`✓ Downloaded ${missing.length} missing cards (.txt)`, 'success');
     setShowExportModal(false);
   };
 
   const handleDownloadMissingJson = () => {
     const missing = getMissingCards();
     if (missing.length === 0) {
-      showToast('No missing cards with current filters.');
+      showToast('No missing cards with current filters.', 'error');
       return;
     }
     const dataObj = {
@@ -1226,7 +1234,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.json)`);
+    showToast(`✓ Downloaded ${missing.length} missing cards (.json)`, 'success');
     setShowExportModal(false);
   };
 
@@ -1239,7 +1247,7 @@ export function CardListApp() {
     try {
       const record = await loadCollectionBackupFromCloud();
       if (!record || Object.keys(record.cards).length === 0) {
-        showToast('No saved backup found in your cloud account.');
+        showToast('No saved backup found in your cloud account.', 'error');
         return;
       }
       const backupData = record.cards;
@@ -1247,11 +1255,11 @@ export function CardListApp() {
       // Stamped as a fresh local change, not with the backup's own time, so the usual auto-sync
       // picks it up and pushes it to the live, cross-device collection too.
       saveLocalCollection(backupData);
-      showToast(`☁️ ${"Collection restored from your cloud backup!"}`);
+      showToast(`☁️ ${"Collection restored from your cloud backup!"}`, 'success');
       setShowImportModal(false);
       setShowExportModal(false);
     } catch (e: any) {
-      showToast(`Failed to restore from cloud: ${e.message || 'Unknown error'}`);
+      showToast(`Failed to restore from cloud: ${e.message || 'Unknown error'}`, 'error');
     } finally {
       setRestoringFromCloud(false);
     }
@@ -1264,7 +1272,7 @@ export function CardListApp() {
     // Matching a card by id, number or name needs the catalog loaded; importing against an empty
     // one would silently match nothing while still claiming success.
     if (allCards.length === 0 && cards.length === 0) {
-      showToast('The card catalog is still loading — wait a moment and try again.');
+      showToast('The card catalog is still loading — wait a moment and try again.', 'error');
       return;
     }
 
@@ -1294,14 +1302,14 @@ export function CardListApp() {
           countAdded += qty;
         });
         if (countAdded === 0) {
-          showToast(parsed.cards.length > 0 ? 'None of the cards in that backup could be matched to this catalog.' : 'That backup file has no cards in it.');
+          showToast(parsed.cards.length > 0 ? 'None of the cards in that backup could be matched to this catalog.' : 'That backup file has no cards in it.', 'error');
           return;
         }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from backup file!`);
+        showToast(`✓ Successfully imported ${countAdded} cards from backup file!`, 'success');
         return;
       } else if (Array.isArray(parsed)) {
         const next = { ...collection };
@@ -1312,14 +1320,14 @@ export function CardListApp() {
           }
         });
         if (parsed.length === 0) {
-          showToast('That JSON list is empty.');
+          showToast('That JSON list is empty.', 'error');
           return;
         }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`);
+        showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`, 'success');
         return;
       } else if (parsed && typeof parsed === 'object') {
         const next = { ...collection };
@@ -1332,14 +1340,14 @@ export function CardListApp() {
           }
         });
         if (countAdded === 0) {
-          showToast('That JSON has no cards with a quantity greater than zero.');
+          showToast('That JSON has no cards with a quantity greater than zero.', 'error');
           return;
         }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from JSON!`);
+        showToast(`✓ Successfully imported ${countAdded} cards from JSON!`, 'success');
         return;
       }
     } catch (e) {
@@ -1381,7 +1389,7 @@ export function CardListApp() {
       saveLocalCollection(next);
       setShowImportModal(false);
       setImportText("");
-      showToast(`✓ Successfully imported ${totalAdded} cards from text list!`);
+      showToast(`✓ Successfully imported ${totalAdded} cards from text list!`, 'success');
     } else {
       alert("Could not recognize any valid cards in the provided input. Please check the format.");
     }
@@ -1399,25 +1407,33 @@ export function CardListApp() {
     reader.readAsText(file);
   };
 
-  const handleResetCollection = async () => {
+  // Opens the themed confirmation below rather than the browser's own confirm() - a native dialog
+  // can't be styled or colored, and reads as a plain, uncolored wall of text for something this
+  // consequential.
+  const handleResetCollection = () => {
     if (uniqueOwnedKeys.length === 0) return;
-    const where = currentUser
-      ? 'This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with "Save to Cloud Database" is not affected.'
-      : 'This will remove them from your browser.';
-    if (!window.confirm(`Are you sure you want to clear your collection? All ${totalOwnedCopies} saved cards will be removed. ${where}`)) return;
+    setShowResetConfirm(true);
+  };
 
-    setCollection({});
-    collectionRef.current = {};
-    saveLocalCollection({});
+  const performResetCollection = async () => {
+    setResettingCollection(true);
+    try {
+      setCollection({});
+      collectionRef.current = {};
+      saveLocalCollection({});
 
-    if (!currentUser) {
-      showToast('Collection reset.');
-      return;
+      if (!currentUser) {
+        showToast('Collection reset.', 'success');
+        return;
+      }
+      // Saved straight away rather than after the usual delay: moving to another page within that
+      // delay would cancel it, and the next visit would find the old cloud copy still there.
+      const cleared = await pushCollectionToCloud();
+      showToast(cleared ? 'Collection reset everywhere.' : 'Collection reset here, but the cloud copy could not be cleared. Try Save to cloud.', cleared ? 'success' : 'error');
+    } finally {
+      setResettingCollection(false);
+      setShowResetConfirm(false);
     }
-    // Saved straight away rather than after the usual delay: moving to another page within that
-    // delay would cancel it, and the next visit would find the old cloud copy still there.
-    const cleared = await pushCollectionToCloud();
-    showToast(cleared ? 'Collection reset everywhere.' : 'Collection reset here, but the cloud copy could not be cleared. Try Save to cloud.');
   };
 
   const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
@@ -1678,8 +1694,10 @@ export function CardListApp() {
               </div>
             </div>
 
-            {/* Row 4: Grid Size Switcher (100% on mobile) + Collection Actions (100% on mobile) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-[var(--border-subtle)]">
+            {/* Row 4: Grid Size Switcher (100% on mobile) + Collection Actions (100% on mobile).
+                pt matches the container's own p-3.5/p-4, so the gap above the divider line
+                (down to these buttons) matches the gap below them (down to the box's edge). */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3.5 sm:pt-4 border-t border-[var(--border-subtle)]">
               {/* Grid Size Switcher - 100% full-width on mobile */}
               <div className="grid grid-cols-3 sm:flex items-center bg-[var(--bg-input)] border border-[var(--border)] rounded-xl p-1 h-10 sm:h-9 shrink-0 gap-1 w-full sm:w-auto">
                 {(["small", "normal", "large"] as const).map(size => {
@@ -2341,8 +2359,81 @@ export function CardListApp() {
 
       {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-xl shadow-2xl animate-fade-in">
+        <div
+          role="status"
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 border text-xs font-bold rounded-xl shadow-2xl animate-fade-in ${
+            toastType === 'success'
+              ? 'bg-emerald-950/95 border-emerald-600/50 text-emerald-200'
+              : toastType === 'error'
+              ? 'bg-rose-950/95 border-rose-600/50 text-rose-200'
+              : 'bg-zinc-800 border-zinc-700 text-zinc-100'
+          }`}
+        >
+          {toastType === 'success' && (
+            <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          {toastType === 'error' && (
+            <svg className="w-4 h-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12.5" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          )}
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Reset Confirmation */}
+      {showResetConfirm && (
+        <div
+          onClick={() => !resettingCollection && setShowResetConfirm(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-zinc-900 border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-rose-950/60 border border-rose-800/50 flex items-center justify-center shrink-0">
+                <svg className="w-4.5 h-4.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-black text-zinc-100">Clear your collection?</h3>
+            </div>
+
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              All <span className="font-bold text-zinc-100">{totalOwnedCopies}</span> saved cards will be removed.
+            </p>
+            <p className="text-sm text-zinc-400 leading-relaxed mt-2">
+              {currentUser
+                ? <>This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with <span className="font-semibold text-zinc-300">"Save to Cloud Database"</span> is not affected.</>
+                : 'This will remove them from your browser.'}
+            </p>
+
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resettingCollection}
+                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition border bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 disabled:opacity-50 disabled:cursor-default"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={performResetCollection}
+                disabled={resettingCollection}
+                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition bg-rose-600 hover:bg-rose-500 text-white shadow-md disabled:opacity-60 disabled:cursor-default"
+              >
+                {resettingCollection ? 'Clearing…' : 'Clear collection'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
