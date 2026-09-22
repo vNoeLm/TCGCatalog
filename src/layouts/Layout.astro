@@ -34,7 +34,7 @@ const pathname = Astro.url.pathname;
         try {
           var override = localStorage.getItem('tcg_theme_override');
           var game = localStorage.getItem('tcg_active_game') || 'riftbound';
-          var theme = (override === 'cyberpunk' || override === 'riftbound' || override === 'dark') ? override : (game === 'cyberpunk' ? 'cyberpunk' : 'riftbound');
+          var theme = (override === 'cyberpunk' || override === 'riftbound' || override === 'dark' || override === 'light') ? override : (game === 'cyberpunk' ? 'cyberpunk' : 'riftbound');
           document.documentElement.setAttribute('data-theme', theme);
         } catch (e) {}
       })();
@@ -45,7 +45,7 @@ const pathname = Astro.url.pathname;
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
           <a href="/" class="flex items-center group transition" style="text-decoration: none;">
-            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-zinc-100 group-hover:text-white transition-colors">
+            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition-colors">
               TCG Vault
             </span>
           </a>
