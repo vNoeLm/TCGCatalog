@@ -3,12 +3,42 @@ import { collectionKey } from './sellerNotes';
 /** When this browser's copy of the collection was last changed, or last matched the cloud. */
 export const COLLECTION_STAMP_KEY = 'tcg_collection_updated_at';
 
+/**
+ * Which signed-in account this browser's saved collection currently belongs to. Signing out never
+ * clears the collection (so a guest can keep tracking one, and a returning user finds theirs
+ * again), which means it can still be sitting here from a *different* account the next time
+ * someone signs in on this browser - a shared computer, or switching between a main and a test
+ * account. Without this tag, that leftover data looks like an ordinary, newly-changed local
+ * collection to the cloud sync, and once it wins the "which side is newer" comparison it overwrites
+ * the new account's real cloud collection with the previous account's.
+ */
+export const COLLECTION_OWNER_KEY = 'tcg_collection_owner';
+
 export function getLocalCollectionStamp(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     return localStorage.getItem(COLLECTION_STAMP_KEY);
   } catch {
     return null;
+  }
+}
+
+export function getLocalCollectionOwner(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(COLLECTION_OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Records which account this browser's local collection now belongs to. */
+export function setLocalCollectionOwner(userId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(COLLECTION_OWNER_KEY, userId);
+  } catch {
+    // best-effort
   }
 }
 

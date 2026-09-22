@@ -12,7 +12,13 @@ import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
 import { supabase } from "../lib/supabase";
 import { getCurrentUser, getCurrentProfile, saveCollectionToCloud, loadCollectionRecordFromCloud } from "../lib/auth";
-import { saveLocalCollection, getLocalCollectionStamp } from "../lib/collectionClient";
+import {
+  saveLocalCollection,
+  getLocalCollectionStamp,
+  getLocalCollectionOwner,
+  setLocalCollectionOwner,
+  COLLECTION_STAMP_KEY,
+} from "../lib/collectionClient";
 import { resolveCollectionSync } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
@@ -363,6 +369,26 @@ export function CardListApp() {
     let isMounted = true;
     (async () => {
       try {
+        // This browser's saved collection might still belong to whoever was last signed in here -
+        // signing out never clears it, on purpose, so a returning user finds theirs again. But
+        // weighed against a DIFFERENT account's cloud copy, that leftover data looks like an
+        // ordinary, just-edited collection, and once it "wins" the newer-side comparison it
+        // overwrites that account's real cloud collection with the previous one's. So on any
+        // account switch it is dropped first here, exactly like a browser that has never held a
+        // collection for this account at all.
+        const localOwner = getLocalCollectionOwner();
+        if (localOwner && localOwner !== currentUser.id) {
+          collectionRef.current = {};
+          setCollection({});
+          try {
+            localStorage.removeItem(COLLECTION_STAMP_KEY);
+            localStorage.removeItem('tcg_user_collection');
+            localStorage.removeItem('tcg_collection');
+          } catch {
+            // best-effort
+          }
+        }
+
         const record = await loadCollectionRecordFromCloud();
         if (!isMounted) return;
         // Not being able to read the cloud copy is not the same as it being empty: change nothing.
@@ -389,6 +415,7 @@ export function CardListApp() {
           saveLocalCollection(collectionRef.current, record.updatedAt, false);
           syncedStampRef.current = record.updatedAt;
         }
+        setLocalCollectionOwner(currentUser.id);
         setCloudSyncReady(true);
       } catch (e) {
         console.warn('Auto cloud sync on auth:', e);
@@ -1219,6 +1246,13 @@ export function CardListApp() {
     const content = rawContent ?? importText;
     if (!content.trim()) return;
 
+    // Matching a card by id, number or name needs the catalog loaded; importing against an empty
+    // one would silently match nothing while still claiming success.
+    if (allCards.length === 0 && cards.length === 0) {
+      showToast('The card catalog is still loading — wait a moment and try again.');
+      return;
+    }
+
     // 1. Try parsing as JSON (array, quantity object, or a full backup file)
     try {
       const parsed = JSON.parse(content.trim());
@@ -1244,6 +1278,10 @@ export function CardListApp() {
           next[key] = (next[key] || 0) + qty;
           countAdded += qty;
         });
+        if (countAdded === 0) {
+          showToast(parsed.cards.length > 0 ? 'None of the cards in that backup could be matched to this catalog.' : 'That backup file has no cards in it.');
+          return;
+        }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
@@ -1258,6 +1296,10 @@ export function CardListApp() {
             next[key] = (next[key] || 0) + 1;
           }
         });
+        if (parsed.length === 0) {
+          showToast('That JSON list is empty.');
+          return;
+        }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
@@ -1274,6 +1316,10 @@ export function CardListApp() {
             countAdded += qty;
           }
         });
+        if (countAdded === 0) {
+          showToast('That JSON has no cards with a quantity greater than zero.');
+          return;
+        }
         setCollection(next);
         saveLocalCollection(next);
         setShowImportModal(false);
