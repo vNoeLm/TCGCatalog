@@ -210,7 +210,7 @@ export function MarketplaceCartDrawer() {
             {results.length > 0 && (
               <div className="space-y-2 mb-4">
                 {results.map((r) => r.ok ? (
-                  <div key={r.sellerId} className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-[var(--positive)] text-xs font-semibold space-y-1">
+                  <div key={r.sellerId} className="p-3 rounded-xl border text-[var(--positive)] text-xs font-semibold space-y-1" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -224,7 +224,7 @@ export function MarketplaceCartDrawer() {
                     )}
                   </div>
                 ) : (
-                  <div key={r.sellerId} className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold">
+                  <div key={r.sellerId} className="p-3 rounded-xl border text-xs font-semibold" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
                     Couldn't send the request to {r.sellerName}: {r.error}. Those cards are still in your cart.
                   </div>
                 ))}
@@ -248,11 +248,11 @@ export function MarketplaceCartDrawer() {
                       <div className="space-y-2 mb-3">
                         {group.items.map((item) => (
                           <div key={item.inventoryId} className="flex items-center gap-3 p-2.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                            <div className="w-11 h-15 rounded-lg overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <div className="w-11 h-15 rounded-lg overflow-hidden shrink-0 flex items-center justify-center border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}>
                               {item.imagePath ? (
                                 <img {...cardThumbProps(item.imagePath, 'avatar')} alt={item.cardName} className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-[8px] font-mono text-zinc-500">TCG</span>
+                                <span className="text-[8px] font-mono" style={{ color: 'var(--text-muted)' }}>TCG</span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -264,8 +264,8 @@ export function MarketplaceCartDrawer() {
                                 <button
                                   type="button"
                                   onClick={() => updateCartItemQuantity(item.inventoryId, item.quantity - 1)}
-                                  className="w-6 h-6 rounded-md border flex items-center justify-center text-xs font-bold cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
-                                  style={{ borderColor: 'var(--border)' }}
+                                  className="w-6 h-6 rounded-md border flex items-center justify-center text-xs font-bold cursor-pointer hover:brightness-110"
+                                  style={{ borderColor: 'var(--border)', background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
                                 >
                                   −
                                 </button>
@@ -274,8 +274,8 @@ export function MarketplaceCartDrawer() {
                                   type="button"
                                   onClick={() => updateCartItemQuantity(item.inventoryId, item.quantity + 1)}
                                   disabled={item.quantity >= item.maxQuantity}
-                                  className="w-6 h-6 rounded-md border flex items-center justify-center text-xs font-bold cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-40"
-                                  style={{ borderColor: 'var(--border)' }}
+                                  className="w-6 h-6 rounded-md border flex items-center justify-center text-xs font-bold cursor-pointer hover:brightness-110 disabled:opacity-40"
+                                  style={{ borderColor: 'var(--border)', background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
                                 >
                                   +
                                 </button>
@@ -286,7 +286,7 @@ export function MarketplaceCartDrawer() {
                               <button
                                 type="button"
                                 onClick={() => removeFromCart(item.inventoryId)}
-                                className="text-[10px] font-bold text-rose-400 hover:underline cursor-pointer"
+                                className="text-[10px] font-bold hover:underline cursor-pointer" style={{ color: 'var(--negative)' }}
                               >
                                 Remove
                               </button>
@@ -305,8 +305,9 @@ export function MarketplaceCartDrawer() {
                             key={m.id}
                             onClick={() => setHandoverFor(group.sellerId, { method: m.id })}
                             className={`p-2 rounded-lg border text-[11px] font-bold transition cursor-pointer ${
-                              h.method === m.id ? 'bg-amber-500/15 border-amber-500/60 text-amber-300' : 'border-zinc-800 bg-zinc-950/50 text-zinc-300 hover:bg-zinc-900/60'
+                              h.method === m.id ? 'bg-[var(--accent-muted)] border-[var(--accent-border)] text-[var(--text-accent)]' : 'border-[var(--border)] text-[var(--text-secondary)]'
                             }`}
+                            style={h.method === m.id ? undefined : { background: 'var(--bg-input)' }}
                           >
                             {m.label}
                           </button>
@@ -317,7 +318,7 @@ export function MarketplaceCartDrawer() {
                         value={h.details}
                         onChange={(e) => setHandoverFor(group.sellerId, { details: e.target.value })}
                         placeholder="Handover details (locker name, address, etc.)"
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                        className="w-full rounded-xl px-3.5 py-2.5 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                       />
                     </div>
                   );
@@ -329,7 +330,7 @@ export function MarketplaceCartDrawer() {
                 </div>
 
                 {errorMsg && (
-                  <div className="mb-3 p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold">
+                  <div className="mb-3 p-2.5 rounded-lg border text-xs font-semibold" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
                     {errorMsg}
                   </div>
                 )}
@@ -342,7 +343,7 @@ export function MarketplaceCartDrawer() {
                       value={buyerName}
                       onChange={(e) => setBuyerName(e.target.value)}
                       placeholder="Your Name *"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                      className="w-full rounded-xl px-3 py-2.5 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="email"
@@ -350,7 +351,7 @@ export function MarketplaceCartDrawer() {
                       value={buyerEmail}
                       onChange={(e) => setBuyerEmail(e.target.value)}
                       placeholder="Your Email *"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                      className="w-full rounded-xl px-3 py-2.5 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     />
                   </div>
 
@@ -359,7 +360,7 @@ export function MarketplaceCartDrawer() {
                     value={buyerPhone}
                     onChange={(e) => setBuyerPhone(e.target.value)}
                     placeholder="Phone (optional)"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                    className="w-full rounded-xl px-3 py-2.5 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                   />
 
                   <textarea
@@ -367,14 +368,14 @@ export function MarketplaceCartDrawer() {
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder={groups.length > 1 ? 'Message to every seller (optional)' : 'Message to seller (optional)'}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 outline-none focus:border-amber-400 transition resize-none"
+                    className="w-full rounded-xl p-3 text-xs outline-none transition resize-none border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                   />
 
                   <button
                     type="submit"
                     disabled={submitting}
                     className="w-full py-3 rounded-xl font-black text-xs transition cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
-                    style={{ background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))', color: 'var(--accent-contrast, #000000)' }}
+                    style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}
                   >
                     {submitting
                       ? 'Sending…'

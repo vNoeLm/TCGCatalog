@@ -25,17 +25,17 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroup
       className="rounded-2xl overflow-hidden flex flex-col h-full text-left cursor-pointer transition hover:-translate-y-1"
       style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
     >
-      <div className="relative w-full aspect-[63/88] bg-zinc-950 overflow-hidden border-b border-white/5">
+      <div className="relative w-full aspect-[63/88] overflow-hidden border-b" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
         {imagePath ? (
           <img {...cardThumbProps(imagePath, 'grid')} alt={card.name} className="w-full h-full object-cover" loading="lazy" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl font-black text-zinc-100">
+          <div className="w-full h-full flex items-center justify-center text-4xl font-black" style={{ color: 'var(--text-primary)' }}>
             {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
           </div>
         )}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
           <span
-            className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider bg-indigo-600 text-white border border-indigo-300/60 shadow-md"
+            className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider shadow-md" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}
             title={`${group.listing_count} listing${group.listing_count === 1 ? '' : 's'}`}
           >
             {group.listing_count} {group.listing_count === 1 ? 'listing' : 'listings'}
@@ -51,36 +51,36 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroup
       <div className={`${isSmall ? 'p-2.5' : 'p-3.5'} flex flex-col flex-grow`}>
         {sub ? (
           <div className="text-center my-0.5">
-            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black text-zinc-100 leading-tight uppercase tracking-tight truncate`}>{main}</h3>
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">{sub}</p>
+            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>{main}</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
           </div>
         ) : (
-          <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>{card.name}</h3>
+          <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold leading-tight line-clamp-2`} style={{ color: 'var(--text-primary)' }}>{card.name}</h3>
         )}
-        <p className={`text-zinc-300 ${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`}>
+        <p className={`${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`} style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
-        <div className={`flex justify-between text-zinc-400 font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`}>
+        <div className={`flex justify-between font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`} style={{ color: 'var(--text-tertiary)' }}>
           <span>{formatCleanCardNumber(card.card_number)}</span>
           <span>{card.rarity}</span>
         </div>
 
-        <div className={`mt-auto ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className={`mt-auto ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <div className="flex items-end justify-between gap-2">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">From</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>From</div>
               <div className={`${isSmall ? 'text-sm' : 'text-lg'} font-black text-[var(--positive)] leading-none`}>
                 {group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A'}
               </div>
             </div>
             {group.avg_price > 0 && group.listing_count > 1 && (
               <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Avg</div>
-                <div className={`${isSmall ? 'text-[11px]' : 'text-sm'} font-bold text-zinc-300 leading-none`}>{fmtHuf(group.avg_price)}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Avg</div>
+                <div className={`${isSmall ? 'text-[11px]' : 'text-sm'} font-bold leading-none`} style={{ color: 'var(--text-secondary)' }}>{fmtHuf(group.avg_price)}</div>
               </div>
             )}
           </div>
-          <div className="mt-1.5 text-[11px] font-semibold text-zinc-400">
+          <div className="mt-1.5 text-[11px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
             {group.total_quantity} {group.total_quantity === 1 ? 'copy' : 'copies'} from {group.seller_count} {group.seller_count === 1 ? 'seller' : 'sellers'}
           </div>
         </div>

@@ -46,6 +46,8 @@ html[data-theme="riftbound"] {
   --positive-border:  rgba(52, 211, 153, 0.4);
   /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
   --negative:         #f87171;
+  --negative-muted:   rgba(248, 113, 113, 0.12);
+  --negative-border:  rgba(248, 113, 113, 0.4);
   --accent-muted:     rgba(245, 158, 11, 0.15);
   --accent-border:    rgba(245, 158, 11, 0.4);
   --accent-glow:      rgba(245, 158, 11, 0.25);
@@ -98,6 +100,8 @@ html[data-theme="cyberpunk"] {
   --positive-border:  rgba(52, 211, 153, 0.4);
   /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
   --negative:         #f87171;
+  --negative-muted:   rgba(248, 113, 113, 0.12);
+  --negative-border:  rgba(248, 113, 113, 0.4);
   --accent-muted:     rgba(252, 238, 10, 0.15);
   --accent-border:    rgba(252, 238, 10, 0.4);
   --accent-glow:      rgba(252, 238, 10, 0.2);
@@ -150,6 +154,8 @@ html[data-theme="dark"] {
   --positive-border:  rgba(52, 211, 153, 0.4);
   /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
   --negative:         #f87171;
+  --negative-muted:   rgba(248, 113, 113, 0.12);
+  --negative-border:  rgba(248, 113, 113, 0.4);
   --accent-muted:     rgba(59, 130, 246, 0.15);
   --accent-border:    rgba(59, 130, 246, 0.4);
   --accent-glow:      rgba(59, 130, 246, 0.25);
@@ -206,6 +212,8 @@ html[data-theme="light"] {
   --positive-border:  rgba(4, 120, 87, 0.35);
   /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
   --negative:         #b91c1c;
+  --negative-muted:   rgba(185, 28, 28, 0.10);
+  --negative-border:  rgba(185, 28, 28, 0.35);
   --accent-muted:     rgba(180, 83, 9, 0.10);
   --accent-border:    rgba(180, 83, 9, 0.35);
   --accent-glow:      rgba(180, 83, 9, 0.16);

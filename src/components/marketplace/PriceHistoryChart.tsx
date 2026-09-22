@@ -3,7 +3,7 @@ import { useCardValueData } from '../../lib/cardValues';
 import { eurToHuf } from '../../lib/priceSuggestion';
 import { hasFoilVariant } from '../../lib/cardVariants';
 
-/** Blue for the market reference, amber for what really sold here. Both read on the dark theme. */
+/** Blue for the market reference, amber for what really sold here. Fixed series colors, deliberately not theme-tied, so the two lines stay distinguishable from each other on every theme. */
 const MARKET_COLOR = '#60a5fa';
 const SOLD_COLOR = '#f59e0b';
 
@@ -182,11 +182,11 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
     <section className="px-4 sm:px-6 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
       <div className="flex items-center gap-x-4 gap-y-2 flex-wrap mb-3">
         <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>Price history</h3>
-        <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400">
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
           <svg width="18" height="8" viewBox="0 0 18 8" aria-hidden="true"><line x1="0" y1="4" x2="18" y2="4" stroke={MARKET_COLOR} strokeWidth="2.5" strokeLinecap="round" /></svg>
           Market reference
         </span>
-        <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400">
+        <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill={SOLD_COLOR} /></svg>
           Sold on the site
         </span>
@@ -198,7 +198,8 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
                 type="button"
                 onClick={() => setFoil(f)}
                 aria-pressed={foil === f}
-                className={`px-3 h-7 text-xs font-bold cursor-pointer transition ${foil === f ? 'bg-zinc-700 text-white' : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'}`}
+                className={`px-3 h-7 text-xs font-bold cursor-pointer transition ${foil === f ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                style={{ background: foil === f ? 'var(--bg-raised)' : 'var(--bg-input)' }}
               >
                 {f ? 'Foil' : 'Normal'}
               </button>
@@ -208,11 +209,11 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
       </div>
 
       {failed ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">The price history could not be loaded.</p>
+        <p className="text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>The price history could not be loaded.</p>
       ) : !data ? (
         <div className="h-[230px] rounded-xl animate-pulse" style={{ background: 'var(--bg-surface-2)' }} aria-label="Loading price history" />
       ) : !chart ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">
+        <p className="text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>
           {data.history_available ? 'There is no price data for this card yet.' : 'The price history is not set up yet.'}
         </p>
       ) : (
@@ -221,14 +222,14 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label="Price history chart" onMouseLeave={() => setHover(null)}>
               {chart.yTicks.map((v) => (
                 <g key={v}>
-                  <line x1={PAD.left} x2={W - PAD.right} y1={chart.y(v)} y2={chart.y(v)} stroke="currentColor" strokeOpacity="0.09" className="text-zinc-300" />
-                  <text x={PAD.left - 8} y={chart.y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor" className="text-zinc-500">
+                  <line x1={PAD.left} x2={W - PAD.right} y1={chart.y(v)} y2={chart.y(v)} stroke="currentColor" strokeOpacity="0.09" style={{ color: 'var(--border)' }} />
+                  <text x={PAD.left - 8} y={chart.y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor" style={{ color: 'var(--text-muted)' }}>
                     {v >= 10000 ? `${Math.round(v / 1000)}k` : v.toLocaleString('hu-HU')}
                   </text>
                 </g>
               ))}
               {chart.xTicks.map((t, i) => (
-                <text key={i} x={chart.x(t)} y={H - 7} textAnchor={i === 0 ? 'start' : i === chart.xTicks.length - 1 ? 'end' : 'middle'} fontSize="11" fill="currentColor" className="text-zinc-500">
+                <text key={i} x={chart.x(t)} y={H - 7} textAnchor={i === 0 ? 'start' : i === chart.xTicks.length - 1 ? 'end' : 'middle'} fontSize="11" fill="currentColor" style={{ color: 'var(--text-muted)' }}>
                   {fmtDay(t)}
                 </text>
               ))}
@@ -279,12 +280,12 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
               >
                 <div className="font-bold">{hover.lines[0]}</div>
                 <div className="font-black">{hover.lines[1]}</div>
-                <div className="text-zinc-400">{hover.lines[2]}</div>
+                <div style={{ color: 'var(--text-tertiary)' }}>{hover.lines[2]}</div>
               </div>
             )}
           </div>
 
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
             {summary
               ? summary.change === null
                 ? `Market reference: ${fmtHuf(summary.last.huf)} since ${fmtDay(summary.last.t)}. `

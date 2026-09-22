@@ -851,11 +851,7 @@ export function ListCardModal({
             type="submit"
             form="marketplace-list-form"
             disabled={submitting || !selectedCard}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg flex items-center justify-center gap-2 ${
-              submitting || !selectedCard
-                ? 'opacity-50 cursor-not-allowed bg-[var(--bg-raised)] text-[var(--text-muted)] border border-[var(--border)]'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
-            }`}
+            className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500 cursor-pointer"
           >
             {submitting ? (
               <>

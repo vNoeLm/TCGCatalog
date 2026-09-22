@@ -147,7 +147,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:brightness-110 transition cursor-pointer" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
@@ -161,7 +161,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder={'Paste your list here, e.g.\n\n2x Akali, Silent (VEN-038/166)\n1x Loose Cannon [OGN-251]\n3x Gust [Foil]\n\nThe "missing cards" export from the catalog works as-is.'}
-                className="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 text-xs font-mono outline-none focus:border-zinc-500 transition resize-y"
+                className="w-full p-3 rounded-xl text-xs font-mono outline-none transition resize-y border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
               />
 
               <div className="flex items-center gap-3 flex-wrap">
@@ -169,29 +169,29 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="px-3.5 py-2 rounded-lg text-xs font-bold border cursor-pointer bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                  className="px-3.5 py-2 rounded-lg text-xs font-bold border cursor-pointer hover:brightness-110 transition" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                 >
                   Load from file
                 </button>
-                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   Worst condition
                   <select
                     value={minCondition}
                     onChange={(e) => setMinCondition(e.target.value)}
-                    className="h-8 px-2 rounded-lg text-xs font-semibold bg-zinc-900 border border-zinc-700 text-zinc-200 cursor-pointer"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                   >
                     <option value="Any">Any</option>
                     {CONDITION_ORDER.slice(0, 4).map((c) => <option key={c} value={c}>{c} or better</option>)}
                   </select>
                 </label>
-                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer">
-                  <input type="checkbox" checked={allowFoil} onChange={(e) => setAllowFoil(e.target.checked)} className="w-4 h-4 accent-amber-400 cursor-pointer" />
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                  <input type="checkbox" checked={allowFoil} onChange={(e) => setAllowFoil(e.target.checked)} className="w-4 h-4 accent-[var(--accent)] cursor-pointer" />
                   Allow foil for non-foil cards
                 </label>
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold">{error}</div>
+                <div className="p-3 rounded-lg border text-xs font-semibold" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>{error}</div>
               )}
 
               <div className="flex justify-end">
@@ -238,10 +238,10 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                           <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.blurb}</div>
                           <div className="mt-2 flex items-baseline gap-2">
                             <span className="text-lg font-black text-[var(--positive)]">{fmt(p.totalCost)}</span>
-                            <span className="text-xs font-bold text-zinc-400">{p.baskets.length} seller{p.baskets.length === 1 ? '' : 's'}</span>
+                            <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>{p.baskets.length} seller{p.baskets.length === 1 ? '' : 's'}</span>
                           </div>
                           {s.id === 'fewest_sellers' && !identical && diff !== 0 && (
-                            <div className={`text-[11px] font-bold mt-0.5 ${diff > 0 ? 'text-amber-300' : 'text-[var(--positive)]'}`}>
+                            <div className={`text-[11px] font-bold mt-0.5 ${diff > 0 ? 'text-[var(--negative)]' : 'text-[var(--positive)]'}`}>
                               {diff > 0 ? `+${fmt(diff)}` : `-${fmt(-diff)}`} vs cheapest
                             </div>
                           )}
@@ -261,7 +261,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                     <a href={`/user?id=${basket.sellerId}`} className="text-xs font-black uppercase tracking-wider hover:underline" style={{ color: 'var(--text-accent)' }}>
                       {basket.sellerName}
                     </a>
-                    <span className="text-xs font-bold text-zinc-400">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
                       {basket.copies} card{basket.copies === 1 ? '' : 's'} · <span className="text-[var(--positive)] font-black">{fmt(basket.subtotal)}</span>
                     </span>
                   </div>
@@ -269,18 +269,18 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                     {basket.items.map(({ listing, qty }) => {
                       const img = listing.card_image_path || listing.image_path;
                       return (
-                        <div key={listing.inventory_id} className="flex items-center gap-3 px-4 py-2" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                          <div className="w-9 h-[50px] rounded-md overflow-hidden bg-zinc-950 border border-white/10 shrink-0">
+                        <div key={listing.inventory_id} className="flex items-center gap-3 px-4 py-2" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <div className="w-9 h-[50px] rounded-md overflow-hidden border shrink-0" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
                             {img && <img {...cardThumbProps(img, 'avatar')} alt="" className="w-full h-full object-cover" loading="lazy" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{listing.name}</div>
-                            <div className="text-[10px] font-mono text-zinc-500 truncate">
+                            <div className="text-[10px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
                               {listing.card_number} · {listing.condition || 'Near Mint'}{listing.is_foil ? ' · Foil' : ''}
                             </div>
                           </div>
-                          <div className="text-xs font-semibold text-zinc-400 shrink-0">{qty} × {fmt(listing.price_huf || 0)}</div>
-                          <div className="text-xs font-black text-zinc-100 w-20 text-right shrink-0">{fmt((listing.price_huf || 0) * qty)}</div>
+                          <div className="text-xs font-semibold shrink-0" style={{ color: 'var(--text-tertiary)' }}>{qty} × {fmt(listing.price_huf || 0)}</div>
+                          <div className="text-xs font-black w-20 text-right shrink-0" style={{ color: 'var(--text-primary)' }}>{fmt((listing.price_huf || 0) * qty)}</div>
                         </div>
                       );
                     })}
@@ -289,13 +289,13 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
               ))}
 
               {missingLines.length > 0 && (
-                <div className="rounded-xl border p-3.5" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.3)' }}>
-                  <div className="text-xs font-black uppercase tracking-wider text-amber-300 mb-1.5">Not available</div>
+                <div className="rounded-xl border p-3.5" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+                  <div className="text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-accent)' }}>Not available</div>
                   <ul className="space-y-0.5 max-h-40 overflow-y-auto custom-scrollbar">
                     {missingLines.map((l) => (
-                      <li key={l.want.key} className="text-xs text-zinc-300 flex justify-between gap-3">
+                      <li key={l.want.key} className="text-xs flex justify-between gap-3" style={{ color: 'var(--text-secondary)' }}>
                         <span className="truncate">{l.want.qty}× {wantLabel(l)}</span>
-                        <span className="shrink-0 text-zinc-500">{l.foundQty > 0 ? `only ${l.foundQty} found` : l.availableQty > 0 ? 'stock taken by other lines' : 'no listings'}</span>
+                        <span className="shrink-0" style={{ color: 'var(--text-muted)' }}>{l.foundQty > 0 ? `only ${l.foundQty} found` : l.availableQty > 0 ? 'stock taken by other lines' : 'no listings'}</span>
                       </li>
                     ))}
                   </ul>
@@ -306,7 +306,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                 <button
                   type="button"
                   onClick={() => setPhase('input')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer hover:brightness-110 transition" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                 >
                   Back
                 </button>
@@ -325,7 +325,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
 
           {phase === 'added' && addedSummary && (
             <div className="text-center py-8 space-y-4">
-              <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-[var(--positive)]">
+              <div className="w-14 h-14 rounded-full border flex items-center justify-center mx-auto text-[var(--positive)]" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
                 <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
               </div>
               <div>
@@ -338,7 +338,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer hover:brightness-110 transition" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                 >
                   Keep browsing
                 </button>

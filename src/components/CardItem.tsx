@@ -280,9 +280,9 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         </div>
 
         {/* Seller Info Pill */}
-        <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t border-white/5 text-[10px]">
+        <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t text-[10px]" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-black text-[9px] shrink-0 border border-amber-400/30">
+            <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center font-black text-[9px] shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
               {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
             </span>
             <span className="font-semibold truncate max-w-[90px]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
