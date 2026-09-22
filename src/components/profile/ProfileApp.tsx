@@ -5,7 +5,16 @@ import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
-import { useSiteTheme } from '../../lib/theme';
+import { useSiteTheme, type ThemeMode } from '../../lib/theme';
+
+/** The color, hex codes and name each theme option shows itself by — nothing else. */
+const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
+  { mode: 'auto', name: 'Auto', hex: ['#fcee0a', '#f59e0b'] },
+  { mode: 'cyberpunk', name: 'Dark Tech', hex: ['#fcee0a'] },
+  { mode: 'riftbound', name: 'Hextech Navy', hex: ['#f59e0b'] },
+  { mode: 'dark', name: 'Midnight Slate', hex: ['#3b82f6'] },
+  { mode: 'light', name: 'Ivory Parchment', hex: ['#b45309'] },
+];
 import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
@@ -340,173 +349,55 @@ export function ProfileApp() {
                 color: 'var(--accent)',
               }}
             >
-              {effectiveTheme === 'cyberpunk' ? 'Cyberpunk Mode' : effectiveTheme === 'dark' ? 'Dark Mode' : 'Riftbound Mode'}
+              {effectiveTheme === 'cyberpunk' ? 'Cyberpunk Mode' : effectiveTheme === 'dark' ? 'Dark Mode' : effectiveTheme === 'light' ? 'Light Mode' : 'Riftbound Mode'}
             </span>
           </h2>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Choose whether the color scheme follows the active game selector or select a custom Cyberpunk, Riftbound, or Generic Dark theme.
-          </p>
         </div>
       </div>
 
-      {/* 4 Selectable Theme Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Option 1: Follow Active Game (Auto) */}
-        <button
-          type="button"
-          onClick={() => {
-            setThemeMode('auto');
-            showToast('Theme: Following active game');
-          }}
-          className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
-          style={{
-            background: themeMode === 'auto' ? 'var(--accent-muted)' : 'var(--bg-input)',
-            borderColor: themeMode === 'auto' ? 'var(--accent)' : 'var(--border)',
-            boxShadow: themeMode === 'auto' ? '0 0 16px var(--accent-glow)' : 'none',
-          }}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-black" style={{ color: themeMode === 'auto' ? 'var(--text-accent)' : 'var(--text-primary)' }}>
-                Follow Active Game
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
-                Default
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {'Automatically switches between Cyberpunk dark tech & Riftbound Hextech deep navy when you switch games.'}
-            </p>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#fcee0a] shadow-[0_0_6px_rgba(252,238,10,0.6)]" />
-            <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>⇄</span>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
-            {themeMode === 'auto' && (
-              <span className="ml-auto text-xs font-bold flex items-center gap-1" style={{ color: 'var(--accent)' }}>
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                Active
-              </span>
-            )}
-          </div>
-        </button>
-
-        {/* Option 2: Force Cyberpunk */}
-        <button
-          type="button"
-          onClick={() => {
-            setThemeMode('cyberpunk');
-            showToast('Theme: Cyberpunk scheme forced');
-          }}
-          className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
-          style={{
-            background: themeMode === 'cyberpunk' ? 'rgba(252, 238, 10, 0.12)' : 'var(--bg-input)',
-            borderColor: themeMode === 'cyberpunk' ? '#fcee0a' : 'var(--border)',
-            boxShadow: themeMode === 'cyberpunk' ? '0 0 16px rgba(252, 238, 10, 0.2)' : 'none',
-          }}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-black" style={{ color: themeMode === 'cyberpunk' ? '#fcee0a' : 'var(--text-primary)' }}>
-                Cyberpunk TCG
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#fcee0a]/15 text-[#fcee0a] border border-[#fcee0a]/30">
-                Dark Tech
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {'Always use dark tech carbon black with neon yellow & cyan accents, even while browsing Riftbound.'}
-            </p>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#fcee0a] shadow-[0_0_8px_rgba(252,238,10,0.8)]" />
-            <span className="text-xs font-bold text-[#fcee0a]">#07080a • #fcee0a</span>
-            {themeMode === 'cyberpunk' && (
-              <span className="ml-auto text-xs font-bold text-[#fcee0a] flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                Active
-              </span>
-            )}
-          </div>
-        </button>
-
-        {/* Option 3: Force Riftbound */}
-        <button
-          type="button"
-          onClick={() => {
-            setThemeMode('riftbound');
-            showToast('Theme: Riftbound scheme forced');
-          }}
-          className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
-          style={{
-            background: themeMode === 'riftbound' ? 'rgba(245, 158, 11, 0.14)' : 'var(--bg-input)',
-            borderColor: themeMode === 'riftbound' ? '#f59e0b' : 'var(--border)',
-            boxShadow: themeMode === 'riftbound' ? '0 0 16px rgba(245, 158, 11, 0.25)' : 'none',
-          }}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-black" style={{ color: themeMode === 'riftbound' ? '#fbbf24' : 'var(--text-primary)' }}>
-                Riftbound
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                Hextech Navy
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              Always use deep League Hextech navy background with amber gold borders and atmospheric ambient glow.
-            </p>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-            <span className="text-xs font-bold text-[#fbbf24]">#040914 • #f59e0b</span>
-            {themeMode === 'riftbound' && (
-              <span className="ml-auto text-xs font-bold text-[#fbbf24] flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                Active
-              </span>
-            )}
-          </div>
-        </button>
-
-        {/* Option 4: Generic Dark */}
-        <button
-          type="button"
-          onClick={() => {
-            setThemeMode('dark');
-            showToast('Theme: Generic Dark theme activated');
-          }}
-          className="p-4 rounded-xl text-left transition cursor-pointer border relative flex flex-col justify-between"
-          style={{
-            background: themeMode === 'dark' ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-input)',
-            borderColor: themeMode === 'dark' ? '#3b82f6' : 'var(--border)',
-            boxShadow: themeMode === 'dark' ? '0 0 16px rgba(59, 130, 246, 0.25)' : 'none',
-          }}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-black" style={{ color: themeMode === 'dark' ? '#60a5fa' : 'var(--text-primary)' }}>
-                Generic Dark
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                Midnight Slate
-              </span>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              Clean, neutral deep slate dark mode
-            </p>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-            <span className="text-xs font-bold text-[#60a5fa]">#090a0f • #3b82f6</span>
-            {themeMode === 'dark' && (
-              <span className="ml-auto text-xs font-bold text-[#60a5fa] flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
-                Active
-              </span>
-            )}
-          </div>
-        </button>
+      {/* Theme swatches: color, hex codes and its name - that's the whole card */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {THEME_SWATCHES.map((opt) => {
+          const active = themeMode === opt.mode;
+          return (
+            <button
+              key={opt.mode}
+              type="button"
+              onClick={() => {
+                setThemeMode(opt.mode);
+                showToast(`Theme: ${opt.name}`);
+              }}
+              title={opt.hex.join(' / ')}
+              className="px-3 py-2.5 rounded-xl text-left transition cursor-pointer border flex items-center gap-2.5"
+              style={{
+                background: active ? 'var(--accent-muted)' : 'var(--bg-input)',
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                boxShadow: active ? '0 0 12px var(--accent-glow)' : 'none',
+              }}
+            >
+              {opt.hex.length > 1 ? (
+                <span className="flex -space-x-1 shrink-0">
+                  {opt.hex.map((h) => (
+                    <span key={h} className="w-2.5 h-2.5 rounded-full ring-2" style={{ background: h, ['--tw-ring-color' as any]: 'var(--bg-input)' }} />
+                  ))}
+                </span>
+              ) : (
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: opt.hex[0], boxShadow: `0 0 6px ${opt.hex[0]}99` }} />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold truncate" style={{ color: active ? 'var(--text-accent)' : 'var(--text-primary)' }}>
+                  {opt.name}
+                </div>
+                <div className="text-[10px] font-mono truncate" style={{ color: 'var(--text-muted)' }}>
+                  {opt.hex.join(' / ')}
+                </div>
+              </div>
+              {active && (
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

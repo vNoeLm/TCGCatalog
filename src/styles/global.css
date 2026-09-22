@@ -48,6 +48,8 @@ html[data-theme="riftbound"] {
   /* Shadows */
   --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.65), 0 0 16px rgba(245, 158, 11, 0.08);
   --shadow-header:    0 1px 0 rgba(245, 158, 11, 0.18);
+
+  color-scheme: dark;
 }
 
 /* CYBERPUNK: Dark Tech Carbon/Black & Cyberpunk Neon Yellow */
@@ -92,6 +94,8 @@ html[data-theme="cyberpunk"] {
   /* Shadows */
   --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(252, 238, 10, 0.06);
   --shadow-header:    0 1px 0 rgba(252, 238, 10, 0.15);
+
+  color-scheme: dark;
 }
 
 /* GENERIC DARK: Clean Neutral Deep Slate / Obsidian & Electric Blue */
@@ -136,6 +140,54 @@ html[data-theme="dark"] {
   /* Shadows */
   --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(59, 130, 246, 0.06);
   --shadow-header:    0 1px 0 rgba(255, 255, 255, 0.08);
+
+  color-scheme: dark;
+}
+
+/* IVORY PARCHMENT: Warm off-white & antique gold — the one light theme */
+html[data-theme="light"] {
+  /* Backgrounds: warm ivory, not stark white */
+  --bg-page:          #faf7f0;
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(217, 119, 6, 0.06) 0%, rgba(250, 247, 240, 0) 55%), #faf7f0;
+  --bg-surface:       #ffffff;
+  --bg-surface-2:     #f4efe4;
+  --bg-raised:        #ece4d3;
+  --bg-input:         #ffffff;
+  --bg-header:        rgba(255, 253, 248, 0.92);
+
+  /* Borders: neutral ink, not tinted — light mode reads cleanest that way */
+  --border:           rgba(24, 24, 27, 0.12);
+  --border-subtle:    rgba(24, 24, 27, 0.07);
+  --border-hover:     rgba(24, 24, 27, 0.24);
+
+  /* Text: near-black ink scale */
+  --text-primary:     #18181b;
+  --text-secondary:   #3f3f46;
+  --text-tertiary:    #71717a;
+  --text-muted:       #a1a1aa;
+  --text-placeholder: #d4d4d8;
+  --text-accent:      #b45309;
+  --text-on-accent:   #1c1207;
+
+  /* Accent: antique / gold-leaf amber, deeper than the dark themes' for contrast on white */
+  --accent:           #b45309;
+  --accent-light:     #d97706;
+  --accent-muted:     rgba(180, 83, 9, 0.10);
+  --accent-border:    rgba(180, 83, 9, 0.35);
+  --accent-glow:      rgba(180, 83, 9, 0.16);
+
+  /* Brand Logo Gradient */
+  --brand-gradient:   linear-gradient(90deg, #92400e, #d97706, #f59e0b);
+
+  /* Scrollbar */
+  --scrollbar-thumb:  rgba(24, 24, 27, 0.18);
+  --scrollbar-track:  #f4efe4;
+
+  /* Shadows: an actual shadow (not a glow) is what reads as depth on a light surface */
+  --shadow-card:      0 8px 24px rgba(24, 24, 27, 0.10), 0 1px 2px rgba(24, 24, 27, 0.06);
+  --shadow-header:    0 1px 0 rgba(24, 24, 27, 0.08);
+
+  color-scheme: light;
 }
 
 /* ─────────────────────────────────────────────
@@ -166,9 +218,12 @@ body {
 /* ─────────────────────────────────────────────
    SCROLLBAR
 ───────────────────────────────────────────── */
+/* Sourced from each theme's --scrollbar-thumb/--scrollbar-track (see the theme blocks above) - a
+   thumb colored for a dark page reads as an near-invisible white smudge on the light theme, and
+   vice versa, so this can't be a single hardcoded color the way it was before Ivory Parchment. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -179,34 +234,34 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--scrollbar-thumb);
   border-radius: 6px;
   transition: background 0.2s;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--border-hover);
 }
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(0, 0, 0, 0.12);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--scrollbar-track);
   border-radius: 6px;
   margin: 4px 0;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--border-hover);
 }
 
 /* ─────────────────────────────────────────────
