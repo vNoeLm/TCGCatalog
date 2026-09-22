@@ -43,7 +43,7 @@ export function CollectionValueChip({ collection, cards }: CollectionValueChipPr
 
   return (
     <div
-      className="flex items-center justify-center sm:justify-start gap-2 px-3 h-10 sm:h-9 rounded-xl border bg-[var(--bg-input)] border-[var(--border)] shrink-0 w-full sm:w-auto"
+      className="flex items-center justify-center gap-2 px-3 h-10 sm:h-9 rounded-xl border bg-[var(--bg-input)] border-[var(--border)] shrink-0 w-full sm:w-auto"
       title={`Estimated value of the ${copies} cards you own in this game: each one at its estimated value, combining the market price with what sellers here are asking.${note}`}
     >
       <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -52,7 +52,7 @@ export function CollectionValueChip({ collection, cards }: CollectionValueChipPr
         <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
       </svg>
       <div className="leading-tight">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Collection value</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Collection value</div>
         <div className="text-sm font-black font-mono text-[var(--positive)]">~{Math.round(total).toLocaleString('en-US')} Ft</div>
       </div>
     </div>

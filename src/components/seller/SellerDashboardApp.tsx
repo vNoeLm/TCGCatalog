@@ -657,17 +657,19 @@ export function SellerDashboardApp() {
     return total / sellerReviews.length;
   }, [sellerReviews]);
 
+  const isLightTheme = effectiveTheme === 'light';
+
   // Seller Tier Calculation — based on distinct completed sales, not total cards sold.
   const sellerTier: SellerTier = useMemo(() => {
-    return getSellerTier(completedSalesCount, averageRating, isOwner);
-  }, [completedSalesCount, averageRating, isOwner]);
+    return getSellerTier(completedSalesCount, averageRating, isOwner, isLightTheme);
+  }, [completedSalesCount, averageRating, isOwner, isLightTheme]);
 
   // Collector Tier Calculation (Game-Specific)
   const collectorTier: CollectorTier = useMemo(() => {
     const owned = activeBadgeGame === 'cyberpunk' ? userGameOwned.cyberpunk : userGameOwned.riftbound;
     const total = activeBadgeGame === 'cyberpunk' ? gameCardCounts.cyberpunk : gameCardCounts.riftbound;
-    return getCollectorTier(owned, total, activeBadgeGame);
-  }, [activeBadgeGame, userGameOwned, gameCardCounts]);
+    return getCollectorTier(owned, total, activeBadgeGame, isLightTheme);
+  }, [activeBadgeGame, userGameOwned, gameCardCounts, isLightTheme]);
 
   const filteredListings = useMemo(() => {
     if (!searchQuery.trim()) return activeListings;
@@ -729,7 +731,7 @@ export function SellerDashboardApp() {
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/50 text-[var(--positive)] font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-[var(--bg-surface)] border border-emerald-500/50 text-[var(--positive)] font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
@@ -799,7 +801,7 @@ export function SellerDashboardApp() {
                     </span>
                   </>
                 ) : (
-                  <span className="text-zinc-400 font-medium">
+                  <span className="text-[var(--text-tertiary)] font-medium">
                     No ratings yet
                   </span>
                 )}
@@ -990,7 +992,7 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-[var(--positive)] truncate">
-            {totalRevenueHuf.toLocaleString()} Ft <span className="text-xs font-normal text-zinc-400">({completedSalesCount} orders)</span>
+            {totalRevenueHuf.toLocaleString()} Ft <span className="text-xs font-normal text-[var(--text-tertiary)]">({completedSalesCount} orders)</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {itemsSold} cards sold · Avg order: {avgOrderValueHuf.toLocaleString()} Ft
@@ -1015,7 +1017,7 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
-            {activeListings.length} <span className="text-xs font-normal text-zinc-400">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
+            {activeListings.length} <span className="text-xs font-normal text-[var(--text-tertiary)]">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Listed Value: {totalListedValueHuf.toLocaleString()} Ft
@@ -1039,7 +1041,7 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-[var(--positive)]'}`}>
-            {priceHealthPct}% <span className="text-xs font-normal text-zinc-400">Lowest Price</span>
+            {priceHealthPct}% <span className="text-xs font-normal text-[var(--text-tertiary)]">Lowest Price</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {activeListings.length === 0
@@ -1070,7 +1072,7 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className={`text-lg sm:text-xl font-black truncate ${pendingOnlyCount > 0 ? 'text-pink-400' : 'text-indigo-300'}`}>
-            {pendingOnlyCount} <span className="text-xs font-normal text-zinc-400">Pending</span>
+            {pendingOnlyCount} <span className="text-xs font-normal text-[var(--text-tertiary)]">Pending</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {pendingOnlyCount} request{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
@@ -1186,7 +1188,7 @@ export function SellerDashboardApp() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                  className="absolute right-3 top-2 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
                   aria-label="Clear search"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -1233,7 +1235,7 @@ export function SellerDashboardApp() {
                   setShowBulkPriceModal(true);
                 }}
                 disabled={bulkActionBusy}
-                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)] disabled:opacity-50"
               >
                 Set Price…
               </button>
@@ -1241,7 +1243,7 @@ export function SellerDashboardApp() {
                 type="button"
                 onClick={handleBulkUnlist}
                 disabled={bulkActionBusy}
-                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-[var(--negative)] border-red-500/30 disabled:opacity-50"
               >
                 {bulkActionBusy ? '…' : 'Unlist Selected'}
               </button>
@@ -1249,7 +1251,7 @@ export function SellerDashboardApp() {
                 type="button"
                 onClick={() => setSelectedListingIds(new Set())}
                 disabled={bulkActionBusy}
-                className="px-3 py-1.5 text-[11px] font-semibold rounded-lg cursor-pointer text-zinc-400 hover:text-white transition disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-semibold rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition disabled:opacity-50"
               >
                 Clear
               </button>
@@ -1258,11 +1260,11 @@ export function SellerDashboardApp() {
 
           {loadingListings ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">Loading listings…</div>
+              <div className="text-sm font-bold text-[var(--text-tertiary)]">Loading listings…</div>
             </div>
           ) : filteredListings.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-[var(--text-muted)]">
                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
                 </svg>
@@ -1312,11 +1314,11 @@ export function SellerDashboardApp() {
                         label={`Select ${item.name}`}
                       />
                     </label>
-                    <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
+                    <div className="w-14 h-20 rounded-xl bg-[var(--bg-raised)] shrink-0 overflow-hidden border border-[var(--border)] relative">
                       {item.image_path ? (
                         <img {...cardThumbProps(item.image_path, 'avatar')} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-[var(--text-muted)]">TCG</div>
                       )}
                       {item.is_foil && (
                         <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
@@ -1338,11 +1340,11 @@ export function SellerDashboardApp() {
                           {item.name}
                         </div>
                         {item.status === 'On Hold' ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/40 shrink-0">
                             ON HOLD
                           </span>
                         ) : item.status === 'Sold' ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-[var(--negative)] border border-rose-500/40 shrink-0">
                             SOLD
                           </span>
                         ) : (
@@ -1351,18 +1353,18 @@ export function SellerDashboardApp() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5 flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">{item.card_number}</span>
                         <span>•</span>
                         <span className="text-indigo-300 font-semibold">{item.rarity}</span>
                         <span>•</span>
-                        <span className="text-zinc-300 font-medium">{item.condition || 'NM'}</span>
+                        <span className="text-[var(--text-secondary)] font-medium">{item.condition || 'NM'}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-black text-[var(--positive)]">
                           {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                         </span>
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-[var(--text-tertiary)]">
                           ({item.quantity} in stock)
                         </span>
                       </div>
@@ -1385,7 +1387,7 @@ export function SellerDashboardApp() {
                         </svg>
                         <span>{item.clicks || 0}</span>
                       </span>
-                      <span className="text-[10px] text-zinc-500 font-mono">
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
                         {item.views > 0 ? `${(((item.clicks || 0) / item.views) * 100).toFixed(0)}% CTR` : '0% CTR'}
                       </span>
                     </div>
@@ -1407,7 +1409,7 @@ export function SellerDashboardApp() {
                             type="button"
                             onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
                             disabled={updatingListingId === item.inventory_id}
-                            className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
+                            className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)] disabled:opacity-50"
                             title={'Release hold'}
                           >
                             Release
@@ -1418,7 +1420,7 @@ export function SellerDashboardApp() {
                           type="button"
                           onClick={() => handleListingStatusChange(item.inventory_id, 'In Stock')}
                           disabled={updatingListingId === item.inventory_id}
-                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 disabled:opacity-50"
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)] disabled:opacity-50"
                           title={'Relist as in stock'}
                         >
                           Relist
@@ -1428,7 +1430,7 @@ export function SellerDashboardApp() {
                           type="button"
                           onClick={() => handleListingStatusChange(item.inventory_id, 'On Hold')}
                           disabled={updatingListingId === item.inventory_id}
-                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 disabled:opacity-50"
+                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border-amber-500/30 disabled:opacity-50"
                           title={'Put on hold'}
                         >
                           Hold
@@ -1443,7 +1445,7 @@ export function SellerDashboardApp() {
                           setEditQuantity(item.quantity || 1);
                           setEditDescription(getListingDescription(item.notes) || '');
                         }}
-                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)]"
                       >
                         Edit
                       </button>
@@ -1451,7 +1453,7 @@ export function SellerDashboardApp() {
                         type="button"
                         onClick={() => handleUnlistCard(item.inventory_id)}
                         disabled={updatingListingId === item.inventory_id}
-                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 disabled:opacity-50"
+                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-[var(--negative)] border-red-500/30 disabled:opacity-50"
                       >
                         {updatingListingId === item.inventory_id ? '…' : ('Unlist')}
                       </button>
@@ -1485,11 +1487,11 @@ export function SellerDashboardApp() {
 
           {loadingHolds ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">Loading hold requests…</div>
+              <div className="text-sm font-bold text-[var(--text-tertiary)]">Loading hold requests…</div>
             </div>
           ) : activeHoldRequests.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-[var(--text-muted)]">
                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="2" x2="12" y2="22" />
                   <line x1="2" y1="12" x2="22" y2="12" />
@@ -1524,12 +1526,12 @@ export function SellerDashboardApp() {
                 const handoverBadge = (() => {
                   switch (req.preferred_handover || req.handover_method) {
                     case 'foxpost': return { label: 'Foxpost csomagautomata', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
-                    case 'packeta': return { label: 'Packeta pickup point', color: 'text-red-400 bg-red-500/10 border-red-500/30' };
+                    case 'packeta': return { label: 'Packeta pickup point', color: 'text-[var(--negative)] bg-red-500/10 border-red-500/30' };
                     case 'pickup':
                     case 'personal': return { label: 'Personal pickup', color: 'text-[var(--positive)] bg-emerald-500/10 border-emerald-500/30' };
                     case 'posta':
                     case 'post': return { label: 'Post', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' };
-                    default: return { label: 'Other arrangement', color: 'text-zinc-400 bg-zinc-800 border-zinc-700' };
+                    default: return { label: 'Other arrangement', color: 'text-[var(--text-tertiary)] bg-[var(--bg-raised)] border-[var(--border)]' };
                   }
                 })();
 
@@ -1543,17 +1545,17 @@ export function SellerDashboardApp() {
                         ? 'border-indigo-500/30 bg-indigo-950/10'
                         : isConfirmed
                         ? 'border-emerald-500/30 bg-emerald-950/10'
-                        : 'border-zinc-800 bg-zinc-900/30 opacity-70'
+                        : 'border-[var(--border)] bg-[var(--bg-surface)]/30 opacity-70'
                     }`}
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       {/* Left: Card thumbnail + basic info */}
                       <div className="flex items-start gap-3.5">
-                        <div className="w-14 h-20 rounded-xl bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700 relative">
+                        <div className="w-14 h-20 rounded-xl bg-[var(--bg-raised)] shrink-0 overflow-hidden border border-[var(--border)] relative">
                           {cardImage ? (
                             <img {...cardThumbProps(cardImage, 'avatar')} alt={cardName} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">TCG</div>
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-[var(--text-muted)]">TCG</div>
                           )}
                           {req.inventory?.is_foil && (
                             <span className="absolute bottom-0 right-0 bg-amber-500 text-black text-[9px] font-black px-1 rounded-tl shadow">F</span>
@@ -1567,7 +1569,7 @@ export function SellerDashboardApp() {
                             </span>
                             {/* Status badge */}
                             {isPending && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/40 flex items-center gap-1">
                                 <svg className="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
                                   <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
                                 </svg>
@@ -1591,16 +1593,16 @@ export function SellerDashboardApp() {
                               </span>
                             )}
                             {isCancelled && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-raised)] text-[var(--text-tertiary)] border border-[var(--border)]">
                                 Cancelled / Closed
                               </span>
                             )}
                           </div>
 
-                          <div className="text-xs text-zinc-400 mt-1 flex items-center gap-2 flex-wrap">
+                          <div className="text-xs text-[var(--text-tertiary)] mt-1 flex items-center gap-2 flex-wrap">
                             {cardNumber && <span className="font-mono">{cardNumber}</span>}
                             {cardRarity && <span>• <span className="text-indigo-300 font-semibold">{cardRarity}</span></span>}
-                            {req.inventory?.condition && <span>• <span className="text-zinc-300">{req.inventory.condition}</span></span>}
+                            {req.inventory?.condition && <span>• <span className="text-[var(--text-secondary)]">{req.inventory.condition}</span></span>}
                             {priceHuf && (
                               <span className="text-[var(--positive)] font-black font-mono ml-1">
                                 {priceHuf.toLocaleString()} Ft
@@ -1611,15 +1613,15 @@ export function SellerDashboardApp() {
                           {isCart && (
                             <div className="mt-1.5 space-y-0.5">
                               {cartItems!.map((it: any) => (
-                                <div key={it.inventory_id} className="text-[11px] text-zinc-400">
+                                <div key={it.inventory_id} className="text-[11px] text-[var(--text-tertiary)]">
                                   {it.quantity}× {it.card_name}{it.is_foil ? ' (Foil)' : ''}{' '}
-                                  <span className="text-zinc-500 font-mono">— {(it.price_huf * it.quantity).toLocaleString()} Ft</span>
+                                  <span className="text-[var(--text-muted)] font-mono">— {(it.price_huf * it.quantity).toLocaleString()} Ft</span>
                                 </div>
                               ))}
                             </div>
                           )}
 
-                          <div className="text-[11px] text-zinc-500 mt-1">
+                          <div className="text-[11px] text-[var(--text-muted)] mt-1">
                             Requested at:{' '}
                             {new Date(req.created_at).toLocaleString('en-US')}
                           </div>
@@ -1630,7 +1632,7 @@ export function SellerDashboardApp() {
                       <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
                         <a
                           href={`/messages?hold_request_id=${req.id}`}
-                          className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 flex items-center gap-1.5"
+                          className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border border-[var(--border)] flex items-center gap-1.5"
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -1654,7 +1656,7 @@ export function SellerDashboardApp() {
                               type="button"
                               onClick={() => handleHoldAction(req.id, 'reject')}
                               disabled={processingHoldId === req.id}
-                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 disabled:opacity-50"
+                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border border-[var(--border)] disabled:opacity-50"
                             >
                               <span>Reject</span>
                             </button>
@@ -1678,7 +1680,7 @@ export function SellerDashboardApp() {
                               type="button"
                               onClick={() => handleHoldAction(req.id, 'release')}
                               disabled={processingHoldId === req.id}
-                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 disabled:opacity-50"
+                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/30 disabled:opacity-50"
                             >
                               <span>Release Hold</span>
                             </button>
@@ -1700,10 +1702,10 @@ export function SellerDashboardApp() {
                     <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
                       {/* Buyer Contact Details */}
                       <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-tertiary)]">
                           Buyer Contact
                         </div>
-                        <div className="text-xs font-bold text-zinc-200">
+                        <div className="text-xs font-bold text-[var(--text-secondary)]">
                           {req.buyer_id ? (
                             <a href={`/user?id=${req.buyer_id}`} className="hover:underline">
                               {req.buyer_name}
@@ -1712,7 +1714,7 @@ export function SellerDashboardApp() {
                             req.buyer_name
                           )}
                         </div>
-                        <div className="text-xs text-zinc-400 flex items-center gap-2 flex-wrap">
+                        <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-2 flex-wrap">
                           <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
@@ -1732,7 +1734,7 @@ export function SellerDashboardApp() {
 
                       {/* Handover Method & Note */}
                       <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1.5">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-[var(--text-tertiary)]">
                           Requested Handover
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1740,13 +1742,13 @@ export function SellerDashboardApp() {
                             {handoverBadge.label}
                           </span>
                           {(req.handover_details || req.handover_location) && (
-                            <span className="text-xs text-zinc-300 font-medium">
+                            <span className="text-xs text-[var(--text-secondary)] font-medium">
                               {req.handover_details || req.handover_location}
                             </span>
                           )}
                         </div>
                         {(req.message || req.buyer_note) && (
-                          <div className="text-xs text-zinc-400 italic pt-1">
+                          <div className="text-xs text-[var(--text-tertiary)] italic pt-1">
                             "{req.message || req.buyer_note}"
                           </div>
                         )}
@@ -1825,11 +1827,11 @@ export function SellerDashboardApp() {
                           <tr key={item.inventory_id} className="hover:bg-white/[0.02]">
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-11 rounded bg-zinc-800 shrink-0 overflow-hidden border border-zinc-700">
+                                <div className="w-8 h-11 rounded bg-[var(--bg-raised)] shrink-0 overflow-hidden border border-[var(--border)]">
                                   {item.image_path ? (
                                     <img {...cardThumbProps(item.image_path, 'avatar')} alt={item.name} className="w-full h-full object-cover" />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[8px] text-zinc-500">TCG</div>
+                                    <div className="w-full h-full flex items-center justify-center text-[8px] text-[var(--text-muted)]">TCG</div>
                                   )}
                                 </div>
                                 <div>
@@ -1837,14 +1839,14 @@ export function SellerDashboardApp() {
                                     <span className="font-bold truncate max-w-xs" style={{ color: 'var(--text-primary)' }}>{item.name}</span>
                                     {isHighDemand && (
                                       <span
-                                        className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border text-orange-300 bg-orange-950/40 border-orange-500/40"
+                                        className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border text-[var(--text-accent)] bg-orange-950/40 border-orange-500/40"
                                         title={`Searched ${demandCount} times platform-wide in the last 7 days`}
                                       >
                                         High Demand
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[10px] text-zinc-400 font-mono">{item.card_number} • {item.rarity}</div>
+                                  <div className="text-[10px] text-[var(--text-tertiary)] font-mono">{item.card_number} • {item.rarity}</div>
                                 </div>
                               </div>
                             </td>
@@ -1853,11 +1855,11 @@ export function SellerDashboardApp() {
                             </td>
                             <td className="py-3 px-3 font-mono">
                               {lowest === null ? (
-                                <span className="text-zinc-500">—</span>
+                                <span className="text-[var(--text-muted)]">—</span>
                               ) : isUndercut ? (
-                                <span className="font-bold text-amber-300">{lowest.toLocaleString()} Ft</span>
+                                <span className="font-bold text-[var(--text-accent)]">{lowest.toLocaleString()} Ft</span>
                               ) : (
-                                <span className="font-bold text-zinc-300">
+                                <span className="font-bold text-[var(--text-secondary)]">
                                   {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-[var(--positive)]">(Lowest)</span>
                                 </span>
                               )}
@@ -1870,7 +1872,7 @@ export function SellerDashboardApp() {
                             </td>
                             <td className="py-3 px-3 text-center font-mono">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                Number(ctr) >= 10 ? 'bg-emerald-500/20 text-[var(--positive)]' : 'bg-zinc-800 text-zinc-300'
+                                Number(ctr) >= 10 ? 'bg-emerald-500/20 text-[var(--positive)]' : 'bg-[var(--bg-raised)] text-[var(--text-secondary)]'
                               }`}>
                                 {ctr}%
                               </span>
@@ -1880,18 +1882,18 @@ export function SellerDashboardApp() {
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                     displayStatus === 'On Hold'
-                                      ? 'text-amber-300 bg-amber-950/40 border-amber-500/40'
+                                      ? 'text-[var(--text-accent)] bg-amber-950/40 border-amber-500/40'
                                       : 'text-[var(--positive)] bg-emerald-950/40 border-emerald-500/40'
                                   }`}
                                 >
                                   {displayStatus}
                                 </span>
                                 {isUndercut ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-rose-300 bg-rose-950/40 border-rose-500/40">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-[var(--negative)] bg-rose-950/40 border-rose-500/40">
                                     Undercut by {(item.price_huf - (lowest as number)).toLocaleString()} Ft
                                   </span>
                                 ) : isStale ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-zinc-400 bg-zinc-800/60 border-zinc-700">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-[var(--text-tertiary)] bg-[var(--bg-raised)]/60 border-[var(--border)]">
                                     Stale ({Math.floor(daysListed)}d)
                                   </span>
                                 ) : null}
@@ -1913,11 +1915,11 @@ export function SellerDashboardApp() {
         <div className="space-y-4">
           {loadingOrders ? (
             <div className="p-12 text-center rounded-2xl border animate-pulse" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="text-sm font-bold text-zinc-400">Loading sales…</div>
+              <div className="text-sm font-bold text-[var(--text-tertiary)]">Loading sales…</div>
             </div>
           ) : sellerOrders.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-zinc-500">
+              <div className="w-12 h-12 mx-auto mb-2 flex items-center justify-center text-[var(--text-muted)]">
                 <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
@@ -1946,24 +1948,24 @@ export function SellerDashboardApp() {
                         ord.status === 'Delivered'
                           ? 'bg-emerald-500/20 text-[var(--positive)] border-emerald-500/40'
                           : ord.status === 'Cancelled'
-                          ? 'bg-red-500/20 text-red-300 border-red-500/40'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          ? 'bg-red-500/20 text-[var(--negative)] border-red-500/40'
+                          : 'bg-amber-500/20 text-[var(--text-accent)] border-amber-500/40'
                       }`}>
                         {ord.status}
                       </span>
-                      <span className="text-[11px] text-zinc-500">
+                      <span className="text-[11px] text-[var(--text-muted)]">
                         {new Date(ord.created_at).toLocaleDateString('en-US')}
                       </span>
                     </div>
 
-                    <div className="text-xs text-zinc-300">
+                    <div className="text-xs text-[var(--text-secondary)]">
                       {ord.items && ord.items.length > 0
                         ? ord.items.map(it => `${it.quantity}x ${it.card_name}`).join(', ')
                         : ('Card item')}
                     </div>
 
                     {ord.customer_info && (
-                      <div className="text-[11px] text-zinc-500 mt-1">
+                      <div className="text-[11px] text-[var(--text-muted)] mt-1">
                         Buyer: {ord.customer_info.name || ord.customer_info.email || 'Customer'}
                       </div>
                     )}
@@ -1973,7 +1975,7 @@ export function SellerDashboardApp() {
                     <div className="text-base font-black text-[var(--positive)] font-mono">
                       {(ord.total_price_huf ?? ord.total_huf ?? 0).toLocaleString()} Ft
                     </div>
-                    <div className="text-[10px] text-zinc-500 mt-0.5">
+                    <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
                       {ord.shipping_method || 'Standard Shipping'}
                     </div>
                   </div>
@@ -1989,7 +1991,7 @@ export function SellerDashboardApp() {
         <div className="space-y-4">
           {sellerReviews.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border shadow-sm" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-              <div className="w-10 h-10 mx-auto mb-2 text-zinc-500">
+              <div className="w-10 h-10 mx-auto mb-2 text-[var(--text-muted)]">
                 <svg className="w-full h-full fill-current" viewBox="0 0 24 24">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
@@ -2032,7 +2034,7 @@ export function SellerDashboardApp() {
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-500">
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
                       {new Date(rev.created_at).toLocaleDateString('en-US')}
                     </span>
                   </div>
@@ -2062,7 +2064,7 @@ export function SellerDashboardApp() {
               <button
                 type="button"
                 onClick={() => setEditingListing(null)}
-                className="text-xs text-zinc-400 hover:text-white cursor-pointer"
+                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
                 aria-label="Close"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -2073,7 +2075,7 @@ export function SellerDashboardApp() {
 
             <div className="space-y-3 mb-5">
               <div>
-                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
                   Price (HUF)
                 </label>
                 <input
@@ -2091,7 +2093,7 @@ export function SellerDashboardApp() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
                   Quantity
                 </label>
                 <input
@@ -2109,7 +2111,7 @@ export function SellerDashboardApp() {
               </div>
 
               <div>
-                <label htmlFor="edit-listing-description" className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                <label htmlFor="edit-listing-description" className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
                   Description
                 </label>
                 <input
@@ -2165,7 +2167,7 @@ export function SellerDashboardApp() {
               <button
                 type="button"
                 onClick={() => setShowBulkPriceModal(false)}
-                className="text-xs text-zinc-400 hover:text-white cursor-pointer"
+                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
                 aria-label="Close"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -2175,7 +2177,7 @@ export function SellerDashboardApp() {
             </div>
 
             <div className="mb-5">
-              <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
                 New Price (HUF), applied to all selected
               </label>
               <input

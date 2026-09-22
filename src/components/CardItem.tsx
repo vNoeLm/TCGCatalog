@@ -84,7 +84,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
     >
       {/* Image Area — clickable link to modal */}
       <button onClick={handleCardClick} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left [container-type:inline-size]">
-        <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5">
+        <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden border-b" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
           {card.image_path ? (
             <img
               {...cardThumbProps(card.image_path, 'grid')}
@@ -93,10 +93,10 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             />
           ) : (
             <div className="relative z-[1] text-center px-4">
-              <span className="text-5xl font-black select-none text-zinc-100">
+              <span className="text-5xl font-black select-none" style={{ color: 'var(--text-primary)' }}>
                 {isSealed ? 'SEALED' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
-              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
+              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}>
                 {card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
               </span>
             </div>
@@ -216,11 +216,11 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         {/* HardverApro Status Overlay Banners */}
         {card.status === 'On Hold' && (
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 py-1 px-2 bg-black/85 backdrop-blur-md border-y border-amber-500/70 shadow-[0_0_20px_rgba(245,158,11,0.5)] flex items-center justify-center gap-1.5 z-20">
-            <svg className="w-3 h-3 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-3 h-3 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span className="text-[11px] font-black tracking-widest text-amber-300 uppercase">
+            <span className="text-[11px] font-black tracking-widest uppercase" style={{ color: 'var(--text-accent)' }}>
               ON HOLD
             </span>
           </div>
@@ -245,36 +245,36 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           if (sub) {
             return (
               <div className="text-center my-0.5">
-                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black text-zinc-100 leading-tight uppercase tracking-tight truncate`}>
+                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>
                   {main}
                 </h3>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
+                <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>
                   {sub}
                 </p>
               </div>
             );
           }
           return (
-            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>
+            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold leading-tight line-clamp-2`} style={{ color: 'var(--text-primary)' }}>
               {card.name}
             </h3>
           );
         })()}
 
         {/* Set name */}
-        <p className={`text-zinc-300 ${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`}>
+        <p className={`${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`} style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
 
         {/* Bottom Spec Bar (Number · Type · Rarity) evenly distributed across row */}
-        <div className={`grid grid-cols-3 items-center w-full text-zinc-300 font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`}>
+        <div className={`grid grid-cols-3 items-center w-full font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`} style={{ color: 'var(--text-secondary)' }}>
           <span className="truncate text-left">
             {isSealed ? card.condition : formatCleanCardNumber(card.card_number)}
           </span>
           <span className="capitalize truncate text-center font-medium">
             {card.card_type}
           </span>
-          <span className="capitalize truncate text-right text-zinc-400 font-medium">
+          <span className="capitalize truncate text-right font-medium" style={{ color: 'var(--text-tertiary)' }}>
             {card.rarity || ''}
           </span>
         </div>
@@ -285,11 +285,11 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center font-black text-[9px] shrink-0 border border-amber-400/30">
               {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
             </span>
-            <span className="font-semibold text-zinc-300 truncate max-w-[90px]" title={card.seller_name || 'Noel :3'}>
+            <span className="font-semibold truncate max-w-[90px]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
               {card.seller_name || 'Noel :3'}
             </span>
             {card.seller_role === 'owner' ? (
-              <span className="text-[8px] font-black px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 uppercase tracking-wider inline-flex items-center gap-1">
+              <span className="text-[8px] font-black px-1.5 py-0.2 rounded border shrink-0 uppercase tracking-wider inline-flex items-center gap-1" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                 </svg>
@@ -307,7 +307,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {typeof card.views === 'number' && card.views > 0 && (
-              <span className="text-[9px] text-zinc-400 flex items-center gap-0.5" title={`${card.views} ${'views'}`}>
+              <span className="text-[9px] flex items-center gap-0.5" style={{ color: 'var(--text-tertiary)' }} title={`${card.views} ${'views'}`}>
                 <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
@@ -316,7 +316,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
               </span>
             )}
             {card.seller_rating_avg !== null && card.seller_rating_avg !== undefined && (card.seller_rating_count || 0) > 0 && (
-              <div className="flex items-center gap-0.5 text-amber-400 font-bold text-[10px]">
+              <div className="flex items-center gap-0.5 font-bold text-[10px]" style={{ color: 'var(--text-accent)' }}>
                 <span>★</span>
                 <span>{card.seller_rating_avg.toFixed(1)}</span>
               </div>
@@ -332,7 +332,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
             </span>
             <span style={{
               display: 'block', fontSize: isSmall ? 9 : 10, fontWeight: 700, marginTop: 1,
-              color: card.status === 'In Stock' ? '#86efac' : (card.status === 'On Hold' || card.status === 'Reserved') ? '#fbbf24' : '#f87171',
+              color: card.status === 'In Stock' ? 'var(--positive)' : (card.status === 'On Hold' || card.status === 'Reserved') ? 'var(--text-accent)' : 'var(--negative)',
             }}>
               {card.status === 'In Stock' 
                 ? `${card.quantity || 1} ${"In Stock"}` 
@@ -345,14 +345,15 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
           </div>
           <button
             onClick={() => onClick(card.inventory_id)}
-            className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-4 py-1.5'} font-medium rounded-md transition-all active:scale-95 text-zinc-200`}
+            className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-4 py-1.5'} font-medium rounded-md transition-all active:scale-95`}
             style={{
-              background: "#27272a",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--bg-raised)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
               cursor: "pointer",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#3f3f46")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#27272a")}
+            onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.15)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
           >
             View
           </button>

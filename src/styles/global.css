@@ -42,6 +42,10 @@ html[data-theme="riftbound"] {
      components as a plain text-emerald-400. Kept exactly that value on the dark themes (unchanged
      look); only Ivory Parchment needs a darker shade to stay readable on a light page. */
   --positive:         #34d399;
+  --positive-muted:   rgba(52, 211, 153, 0.12);
+  --positive-border:  rgba(52, 211, 153, 0.4);
+  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
+  --negative:         #f87171;
   --accent-muted:     rgba(245, 158, 11, 0.15);
   --accent-border:    rgba(245, 158, 11, 0.4);
   --accent-glow:      rgba(245, 158, 11, 0.25);
@@ -90,6 +94,10 @@ html[data-theme="cyberpunk"] {
   --accent-light:     #fef08a;
   --accent-strong:    #fcee0a;
   --positive:         #34d399;
+  --positive-muted:   rgba(52, 211, 153, 0.12);
+  --positive-border:  rgba(52, 211, 153, 0.4);
+  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
+  --negative:         #f87171;
   --accent-muted:     rgba(252, 238, 10, 0.15);
   --accent-border:    rgba(252, 238, 10, 0.4);
   --accent-glow:      rgba(252, 238, 10, 0.2);
@@ -138,6 +146,10 @@ html[data-theme="dark"] {
   --accent-light:     #60a5fa;
   --accent-strong:    #3b82f6;
   --positive:         #34d399;
+  --positive-muted:   rgba(52, 211, 153, 0.12);
+  --positive-border:  rgba(52, 211, 153, 0.4);
+  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
+  --negative:         #f87171;
   --accent-muted:     rgba(59, 130, 246, 0.15);
   --accent-border:    rgba(59, 130, 246, 0.4);
   --accent-glow:      rgba(59, 130, 246, 0.25);
@@ -190,6 +202,10 @@ html[data-theme="light"] {
      - the same amber the dark themes already use for their own solid buttons. */
   --accent-strong:    #f59e0b;
   --positive:         #047857;
+  --positive-muted:   rgba(4, 120, 87, 0.10);
+  --positive-border:  rgba(4, 120, 87, 0.35);
+  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
+  --negative:         #b91c1c;
   --accent-muted:     rgba(180, 83, 9, 0.10);
   --accent-border:    rgba(180, 83, 9, 0.35);
   --accent-glow:      rgba(180, 83, 9, 0.16);

@@ -36,7 +36,7 @@ export function SelectBox({ checked, indeterminate = false, onChange, label }: S
             ? 'bg-emerald-500 border-emerald-500'
             : mixed
               ? 'bg-emerald-500/15 border-emerald-500'
-              : 'bg-zinc-900 border-zinc-500 hover:border-zinc-400'
+              : 'bg-[var(--bg-input)] border-[var(--border-hover)] hover:border-[var(--accent)]'
         }`}
       >
         {checked && (

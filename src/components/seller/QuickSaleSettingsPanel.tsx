@@ -53,8 +53,8 @@ const SkipChip = ({ active, disabled, label, title, onClick }: { active: boolean
     title={title}
     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
       active
-        ? 'bg-red-500/15 border-red-500/40 text-red-300'
-        : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-zinc-200 hover:border-white/25'
+        ? 'bg-red-500/15 border-red-500/40 text-[var(--negative)]'
+        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
     }`}
   >
     <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
@@ -108,10 +108,10 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName }: 
           onChange(''); // Clear ID until they select
           setIsOpen(true);
         }}
-        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+        className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
       />
       {isOpen && results.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-zinc-800 border border-white/10 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg shadow-xl max-h-48 overflow-y-auto border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           {results.map(r => (
             <div 
               key={r.id} 
@@ -121,10 +121,10 @@ const CardAutocomplete = ({ game, value, onChange, onNameChange, initialName }: 
                 onNameChange(r.name);
                 setIsOpen(false);
               }}
-              className="px-3 py-2 text-xs text-white hover:bg-emerald-500/20 cursor-pointer border-b border-white/5 last:border-0 flex justify-between"
+              className="px-3 py-2 text-xs hover:bg-emerald-500/20 cursor-pointer border-b last:border-0 flex justify-between" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-subtle)' }}
             >
               <span className="font-bold">{r.name}</span>
-              <span className="text-zinc-400">{r.sets?.code || '???'} • {r.card_number} • {r.rarity}</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>{r.sets?.code || '???'} • {r.card_number} • {r.rarity}</span>
             </div>
           ))}
         </div>
@@ -202,10 +202,10 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-white mb-1">
+          <h2 className="text-sm font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
             Quick List Rules
           </h2>
-          <p className="text-xs text-zinc-400 max-w-2xl">
+          <p className="text-xs max-w-2xl" style={{ color: 'var(--text-tertiary)' }}>
             Configure rules to automatically list duplicate cards.
           </p>
         </div>
@@ -215,7 +215,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
       </div>
 
       {localRules.length === 0 ? (
-        <div className="text-center py-10 rounded-2xl border border-dashed border-white/10 text-zinc-500 text-xs">
+        <div className="text-center py-10 rounded-2xl border border-dashed text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
           No rules configured yet.
         </div>
       ) : (
@@ -230,13 +230,13 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
             const isAdaptive = priceMode !== 'fixed';
             
             return (
-            <div key={rule.id} className="p-4 rounded-xl border border-white/5 bg-black/20 flex flex-col gap-4">
+            <div key={rule.id} className="p-4 rounded-xl border flex flex-col gap-4" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" checked={rule.enabled} onChange={(e) => updateRule(rule.id, { enabled: e.target.checked })} />
-                  <div className="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                  <div className="w-9 h-5 rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" style={{ background: 'var(--border-hover)' }}></div>
                 </label>
-                <button onClick={() => removeRule(rule.id)} className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition">
+                <button onClick={() => removeRule(rule.id)} className="p-1.5 hover:text-[var(--negative)] hover:bg-red-400/10 rounded-lg transition" style={{ color: 'var(--text-muted)' }}>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
               </div>
@@ -246,24 +246,24 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 {/* Game & Type */}
                 <div className="md:col-span-1 space-y-2">
                   <div>
-                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Game</label>
+                    <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Game</label>
                     <select
                       value={rule.game || 'riftbound'}
                       onChange={(e) => updateRule(rule.id, { game: e.target.value, targetValue: getRaritiesForGame(e.target.value)[0], type: 'rarity', excludeTypes: undefined, excludePromos: false, excludeShowcase: false })}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
                       {GAMES.filter(g => g.active).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Target Type</label>
+                    <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Target Type</label>
                     <select
                       value={rule.type}
                       onChange={(e) => {
                         const type = e.target.value as QuickSaleRule['type'];
                         updateRule(rule.id, { type, targetValue: defaultTargetValue(type, rule.game), targetCardName: undefined });
                       }}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
                       {(Object.keys(RULE_TARGET_LABELS) as QuickSaleRule['type'][]).map(t => (
                         <option key={t} value={t}>{RULE_TARGET_LABELS[t]}</option>
@@ -274,17 +274,17 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
 
                 {/* Target Value */}
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Target Value</label>
+                  <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Target Value</label>
                   {rule.type === 'rarity' || rule.type === 'set' || rule.type === 'card_type' ? (
                     <select
                       value={rule.targetValue}
                       onChange={(e) => updateRule(rule.id, { targetValue: e.target.value })}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
                       {(rule.type === 'rarity' ? rarities : rule.type === 'set' ? sets : types).map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
                   ) : rule.type === 'all' ? (
-                    <div className="px-2 py-1.5 rounded-lg border border-dashed border-white/10 text-zinc-500 text-xs">Everything</div>
+                    <div className="px-2 py-1.5 rounded-lg border border-dashed text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>Everything</div>
                   ) : (
                     <CardAutocomplete 
                       game={rule.game} 
@@ -300,20 +300,20 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 {/* Condition & Keep Copies */}
                 <div className="md:col-span-1 space-y-2">
                   <div>
-                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Keep Copies</label>
+                    <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Keep Copies</label>
                     <input
                       type="number" min="0"
                       value={rule.minCopiesToKeep}
                       onChange={(e) => updateRule(rule.id, { minCopiesToKeep: parseInt(e.target.value) || 0 })}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-mono font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Condition</label>
+                    <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Condition</label>
                     <select
                       value={rule.condition}
                       onChange={(e) => updateRule(rule.id, { condition: e.target.value })}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
                       <option value="Mint">Mint</option>
                       <option value="Near Mint">Near Mint</option>
@@ -328,11 +328,11 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                 {/* Price */}
                 <div className="md:col-span-1 space-y-2">
                   <div>
-                    <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Pricing</label>
+                    <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Pricing</label>
                     <select
                       value={priceMode}
                       onChange={(e) => updateRule(rule.id, { priceMode: e.target.value as QuickSalePriceMode })}
-                      className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-medium text-white w-full text-xs"
+                      className="rounded-lg px-2 py-1.5 outline-none font-medium w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                     >
                       {(Object.keys(PRICE_MODE_LABELS) as QuickSalePriceMode[]).map(mode => (
                         <option key={mode} value={mode}>{PRICE_MODE_LABELS[mode]}</option>
@@ -341,17 +341,17 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                   </div>
                   {isAdaptive ? (
                     <div>
-                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Adjust (%)</label>
+                      <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Adjust (%)</label>
                       <input
                         type="number" step="1" min="-90" max="500"
                         value={rule.priceAdjustPct ?? 0}
                         onChange={(e) => updateRule(rule.id, { priceAdjustPct: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
+                        className="rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                       />
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Price (HUF)</label>
+                      <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Price (HUF)</label>
                       <input
                         type="number" min="1"
                         value={rule.basePriceHuf}
@@ -359,7 +359,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                           const val = e.target.value;
                           updateRule(rule.id, { basePriceHuf: val === '' ? '' : parseInt(val) });
                         }}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
+                        className="rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                       />
                     </div>
                   )}
@@ -367,8 +367,8 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
 
                 {/* Handover Methods */}
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Handover</label>
-                  <div className="space-y-1.5 bg-zinc-900/50 p-2 rounded-lg border border-white/5">
+                  <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Handover</label>
+                  <div className="space-y-1.5 p-2 rounded-lg border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
                     {[
                       { id: 'personal', label: 'In person' },
                       { id: 'foxpost', label: 'Foxpost' },
@@ -382,7 +382,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                           onChange={() => toggleHandover(rule, method.id)}
                           className="w-3.5 h-3.5 accent-emerald-500 cursor-pointer"
                         />
-                        <span className="text-xs text-zinc-300">{method.label}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{method.label}</span>
                       </label>
                     ))}
                   </div>
@@ -391,8 +391,8 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
 
               {/* Adaptive pricing: what the rule does instead of one price for every card */}
               {isAdaptive && (
-                <div className="pt-3 border-t border-white/5 space-y-2.5">
-                  <p className="text-xs text-zinc-400 leading-relaxed">
+                <div className="pt-3 border-t space-y-2.5" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                     {priceMode === 'market'
                       ? 'Each card is listed at its own market price.'
                       : 'Each card is listed at its estimated value: the market price combined with what sellers here are asking.'}
@@ -402,22 +402,22 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                   </p>
                   <div className="grid grid-cols-2 gap-3 max-w-md">
                     <div>
-                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">Never below (HUF)</label>
+                      <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>Never below (HUF)</label>
                       <input
                         type="number" min="0"
                         value={rule.minPriceHuf ?? ''}
                         placeholder="10"
                         onChange={(e) => updateRule(rule.id, { minPriceHuf: e.target.value === '' ? undefined : parseInt(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
+                        className="rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase text-zinc-500 font-bold mb-1">If a card has no price (HUF)</label>
+                      <label className="block text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--text-muted)' }}>If a card has no price (HUF)</label>
                       <input
                         type="number" min="1"
                         value={rule.basePriceHuf}
                         onChange={(e) => updateRule(rule.id, { basePriceHuf: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                        className="bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs"
+                        className="rounded-lg px-2 py-1.5 outline-none font-mono font-bold text-[var(--positive)] w-full text-xs border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
                       />
                     </div>
                   </div>
@@ -425,10 +425,10 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
               )}
 
               {/* Skips: kinds of card this rule never lists */}
-              <div className="pt-3 border-t border-white/5">
+              <div className="pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                 <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
-                  <label className="block text-[10px] uppercase text-zinc-500 font-bold">Never list</label>
-                  <span className="text-[11px] text-zinc-500">
+                  <label className="block text-[10px] uppercase font-bold" style={{ color: 'var(--text-muted)' }}>Never list</label>
+                  <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     {TARGET_HINTS[rule.type]}
                   </span>
                 </div>
@@ -471,11 +471,11 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
       )}
 
       {localRules.length > 0 && (
-        <div className="flex justify-end pt-4 border-t border-white/5">
+        <div className="flex justify-end pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-[var(--accent-strong)] hover:opacity-90 text-[var(--bg-surface)] rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+            className="px-6 py-2 bg-[var(--accent-strong)] hover:brightness-110 text-[var(--text-on-accent)] rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
           >
             {saving ? ('Saving...') : ('Save Rules')}
           </button>

@@ -5,6 +5,7 @@ import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../lib/badges';
+import { useSiteTheme } from '../lib/theme';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> = {
@@ -33,6 +34,7 @@ const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
 
 export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: string, cardId?: string, onClose?: () => void }) {
+  const isLightTheme = useSiteTheme().theme === 'light';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -627,7 +629,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 );
                 if (!isSigned) return null;
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-950/40 text-purple-300 border border-purple-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
                     Signed Edition
                   </span>
                 );
@@ -641,7 +643,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
 
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-950/40 text-pink-300 border border-pink-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-500/15 border border-pink-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
                     Alt Art
                   </span>
                 );
@@ -657,7 +659,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
 
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-950/40 text-indigo-300 border border-indigo-500/50 uppercase tracking-wider shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
                     Overnumbered Edition
                   </span>
                 );
@@ -861,7 +863,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <div className="flex items-center gap-2 my-auto flex-wrap justify-center">
                       {powerReq.isMixed ? (
                         // Mixed / Flexible: Player can pay EITHER domain rune
-                        <div className="flex items-center gap-1.5 font-black text-white text-base">
+                        <div className="flex items-center gap-1.5 font-black text-base" style={{ color: 'var(--text-primary)' }}>
                           {powerReq.domains.map((domKey, idx) => {
                             const runeIcon = RUNE_ICONS[domKey];
                             return (
@@ -903,20 +905,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 {/* 3. Might */}
                 {hasMight && (
-                  <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center">
-                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">Might</div>
-                    <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might}</div>
+                  <div className="rounded-xl p-3 flex flex-col items-center justify-center text-center border" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>Might</div>
+                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>{card.might}</div>
                   </div>
                 )}
 
                 {/* 4. Might Bonus (gear grants this to the unit it's attached to) */}
                 {hasMightBonus && (
                   <div
-                    className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex flex-col items-center justify-center text-center"
+                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border"
+                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
                     title="Might added to the unit this is attached to"
                   >
-                    <div className="text-xs font-black text-amber-400 uppercase tracking-wider mb-0.5">Might Bonus</div>
-                    <div className="text-3xl sm:text-4xl font-black text-amber-400">{card.might_bonus >= 0 ? `+${card.might_bonus}` : card.might_bonus}</div>
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>Might Bonus</div>
+                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>{card.might_bonus >= 0 ? `+${card.might_bonus}` : card.might_bonus}</div>
                   </div>
                 )}
               </div>
@@ -1183,7 +1186,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     )}
                     {(() => {
                       const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
-                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner);
+                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner, isLightTheme);
                       return (
                         <>
                           {isOwner && <SiteOwnerTag />}
@@ -1202,7 +1205,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
                       <>
-                        <div className="flex items-center gap-1 text-amber-400 font-bold">
+                        <div className="flex items-center gap-1 font-bold" style={{ color: 'var(--text-accent)' }}>
                           <span>★</span>
                           <span>{sellerSummary.rating_avg.toFixed(1)}</span>
                         </div>
@@ -1238,7 +1241,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               <div className="flex items-center gap-2.5 flex-wrap">
                 {/* Status Badges */}
                 {data.status === 'In Stock' && (
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-emerald-950/40 text-[var(--positive)] border-emerald-500/40 inline-flex items-center gap-1.5">
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border text-[var(--positive)] inline-flex items-center gap-1.5" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                     <span>Available</span>
                   </span>
@@ -1320,7 +1323,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('On Hold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 transition cursor-pointer" style={{ color: 'var(--text-accent)' }}
                           title={'Manually put on hold'}
                         >
                           Put on Hold
@@ -1342,7 +1345,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('In Stock')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 transition cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 transition cursor-pointer" style={{ color: 'var(--text-primary)' }}
                           title={'Release hold back to available'}
                         >
                           Release Hold
@@ -1363,7 +1366,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         type="button"
                         disabled={isUpdatingStatus}
                         onClick={() => handleSellerChangeStatus('In Stock')}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 border transition cursor-pointer" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                         title={'Relist as in stock'}
                       >
                         Relist
@@ -1376,7 +1379,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               </div>
 
               {data.status === 'On Hold' && (
-                <p className="text-xs text-amber-300/80 mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+                <p className="text-xs mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl" style={{ color: 'var(--text-accent)' }}>
                   This item is currently on hold for another buyer while handover/payment is arranged.
                 </p>
               )}
@@ -1394,7 +1397,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     setShowAuthModal(true);
                   }
                 }}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border bg-emerald-950/30 hover:bg-emerald-900/40 text-[var(--positive)] border-emerald-500/40"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border text-[var(--positive)] hover:brightness-110" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}
                 title={'List your copy of this card for sale'}
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

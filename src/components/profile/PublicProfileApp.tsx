@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cardThumbProps } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import type { SellerProfileSummary, SellerReview } from '../../types';
 
@@ -17,6 +18,7 @@ export function PublicProfileApp() {
   const [reviews, setReviews] = useState<SellerReview[]>([]);
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLightTheme = useSiteTheme().theme === 'light';
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -86,7 +88,7 @@ export function PublicProfileApp() {
   }
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
-  const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner);
+  const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
     ? new Date(summary.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
