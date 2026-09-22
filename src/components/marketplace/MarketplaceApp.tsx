@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
-import { useStickySidebar } from '../../lib/useStickySidebar';
+import { FilterDrawer } from '../FilterDrawer';
+import { countActiveFilters } from '../../lib/activeFilterCount';
 import { CardItem } from '../CardItem';
 import { CardGroupTile } from './CardGroupTile';
 import { CardListingsModal } from './CardListingsModal';
@@ -39,7 +40,7 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function MarketplaceApp() {
   const { theme } = useSiteTheme();
-  const { ref: sidebarRef, top: sidebarTop } = useStickySidebar<HTMLElement>();
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filters State driven by global game
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -296,6 +297,8 @@ export function MarketplaceApp() {
     />
   );
 
+  const activeFilterBadgeCount = useMemo(() => countActiveFilters(filters), [filters]);
+
   // ─── LIVE MARKETPLACE ───────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
@@ -374,17 +377,30 @@ export function MarketplaceApp() {
         </div>
       )}
 
-      {/* Main Content Layout with Responsive Filter Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[264px_1fr] gap-4 lg:gap-6 items-start">
-        {/* Sidebar */}
-        <aside ref={sidebarRef} style={{ top: sidebarTop }} className="w-full lg:sticky lg:self-start">
-          {sidebar}
-        </aside>
-
+      {/* Filters live in their own off-canvas panel (see FilterDrawer's own comment for why),
+          triggered by the Filters button below, not pinned in the page layout. */}
+      <div className="grid grid-cols-1">
         <main className="min-w-0">
           {/* Search, Sort & Grid Controls */}
           <div className="mb-5">
             <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
+              {/* Filters trigger - opens the off-canvas panel */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(true)}
+                className="h-11 px-3.5 flex items-center justify-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 text-zinc-200 hover:text-white text-xs font-bold transition cursor-pointer shrink-0"
+              >
+                <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span>Filters</span>
+                {activeFilterBadgeCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-500 text-zinc-950 text-[11px] font-black flex items-center justify-center shrink-0">
+                    {activeFilterBadgeCount}
+                  </span>
+                )}
+              </button>
+
               {/* Search Bar */}
               <div className="flex-1 relative">
                 <svg
@@ -629,6 +645,16 @@ export function MarketplaceApp() {
           )}
         </main>
       </div>
+
+      <FilterDrawer
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filter Marketplace"
+        activeCount={activeFilterBadgeCount}
+        applyLabel={`Apply & View ${totalCount} Listing${totalCount === 1 ? '' : 's'}`}
+      >
+        {sidebar}
+      </FilterDrawer>
 
       {/* Per-card listings (Cardmarket-style detail) */}
       {selectedGroup && (

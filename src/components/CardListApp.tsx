@@ -29,8 +29,9 @@ import {
 import { resolveCollectionSync } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
-import { useStickySidebar } from "../lib/useStickySidebar";
 import { hasFoilVariant } from "../lib/cardVariants";
+import { FilterDrawer } from "./FilterDrawer";
+import { countActiveFilters } from "../lib/activeFilterCount";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -660,7 +661,6 @@ export function CardListApp() {
   const baseSetFilter = filters.baseSetFilter || 'all';
 
   const cardValues = useCardValueData();
-  const { ref: sidebarRef, top: sidebarTop } = useStickySidebar<HTMLElement>();
 
   const relevantCards = useMemo(() => {
     let filtered = cards;
@@ -778,24 +778,7 @@ export function CardListApp() {
 
   const missingCount = relevantTotal - ownedCount;
 
-  const activeFilterBadgeCount = useMemo(() => {
-    let count = 0;
-    if (filters.set) count++;
-    if (filters.rarities && filters.rarities.length > 0) count += filters.rarities.length;
-    if (filters.type) count++;
-    if (filters.domains && filters.domains.length > 0) count += filters.domains.length;
-    if (filters.foilFilter) count++;
-    if (filters.signedFilter && filters.signedFilter !== 'all') count++;
-    if (filters.altArtFilter && filters.altArtFilter !== 'all') count++;
-    if (filters.overnumberedFilter && filters.overnumberedFilter !== 'all') count++;
-    if (filters.spFilter && filters.spFilter !== 'all') count++;
-    if (filters.baseSetFilter && filters.baseSetFilter !== 'all') count++;
-    if (filters.costMin && filters.costMin > 1) count++;
-    if (filters.costMax && filters.costMax < 10) count++;
-    if (filters.tags && filters.tags.length > 0) count += filters.tags.length;
-    if (filters.keywords && filters.keywords.length > 0) count += filters.keywords.length;
-    return count;
-  }, [filters]);
+  const activeFilterBadgeCount = useMemo(() => countActiveFilters(filters), [filters]);
 
   const displayedCards = useMemo(() => {
     return relevantCards.filter(card => {
@@ -1453,25 +1436,9 @@ export function CardListApp() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
       
-      <div style={{ display: "grid", gridTemplateColumns: isWide ? "264px 1fr" : "1fr", gap: isWide ? 24 : 16 }}>
-        
-        {/* Desktop Sidebar / Filters (Shown only on wider screens).
-            Sticky (see useStickySidebar): a tall sidebar scrolls with the page until its bottom is in view. */}
-        {isWide && (
-          <aside ref={sidebarRef} style={{ top: sidebarTop }} className="sticky self-start">
-            <FilterSidebar 
-              filters={filters} 
-              setFilters={setFilters} 
-              options={{
-                sets: availableSets,
-                rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
-                types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
-                domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
-                tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
-              }}
-            />
-          </aside>
-        )}
+      {/* Filters live in their own off-canvas panel (see FilterDrawer below), not pinned in this
+          layout - a sidebar taller than the screen has no good way to coexist with page scroll. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr" }}>
 
         {/* Content Area */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
@@ -1480,8 +1447,24 @@ export function CardListApp() {
           <div className={`flex flex-col gap-3 ${catalogTheme.containerClass} rounded-2xl p-3.5 sm:p-4 backdrop-blur-md relative z-30`}>
             
             {isWide ? (
-              /* Desktop Layout: Search Bar (Left) + Sort Dropdown (Right) in a single row */
+              /* Desktop Layout: Filters + Search Bar + Sort Dropdown in a single row */
               <div className="flex items-center gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileFilters(true)}
+                  className={`h-10 px-3.5 flex items-center gap-2 rounded-xl ${catalogTheme.mobileFilterBtn} text-xs font-bold transition cursor-pointer shadow-sm active:scale-95 shrink-0`}
+                >
+                  <svg className={`w-4 h-4 ${catalogTheme.mobileFilterIcon} shrink-0`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span>Filters</span>
+                  {activeFilterBadgeCount > 0 && (
+                    <span className={`w-5 h-5 rounded-full ${catalogTheme.mobileFilterBadge} text-[11px] font-black flex items-center justify-center shrink-0`}>
+                      {activeFilterBadgeCount}
+                    </span>
+                  )}
+                </button>
+
                 <div className="flex-1 relative min-w-0">
                   <svg
                     className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-zinc-400"
@@ -1822,70 +1805,26 @@ export function CardListApp() {
       </div>
 
       {/* Mobile Filter Fullscreen / Full-Width Menu */}
-      {!isWide && showMobileFilters && (
-        <div 
-          onClick={() => setShowMobileFilters(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(8px)' }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="w-full h-full bg-zinc-950 flex flex-col shadow-2xl animate-in fade-in duration-150"
-          >
-            {/* Drawer Header */}
-            <div className="border-b border-zinc-800 bg-zinc-900/95 shrink-0 px-4 py-3.5 sm:px-6">
-              <div className="max-w-2xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  <span className="font-extrabold text-white text-base">Filter Catalog</span>
-                  {activeFilterBadgeCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-500 text-zinc-950 text-xs font-black">
-                      {`${activeFilterBadgeCount} active`}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowMobileFilters(false)}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
-                  title={"Close Filters"}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* Drawer Body */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 custom-scrollbar">
-              <div className="max-w-2xl mx-auto w-full">
-                <FilterSidebar
-                  filters={filters}
-                  setFilters={setFilters}
-                  options={{
-                    sets: availableSets,
-                    rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
-                    types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
-                    domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
-                    tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Drawer Footer */}
-            <div className="border-t border-zinc-800 bg-zinc-900/95 shrink-0 px-4 py-3.5 sm:px-6">
-              <div className="max-w-2xl mx-auto">
-                <button
-                  onClick={() => setShowMobileFilters(false)}
-                  className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition cursor-pointer text-center"
-                >
-                  {`Apply & View ${relevantTotal} Cards`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Filters panel - see the comment on FilterDrawer for why this replaced the pinned sidebar. */}
+      <FilterDrawer
+        open={showMobileFilters}
+        onClose={() => setShowMobileFilters(false)}
+        title="Filter Catalog"
+        activeCount={activeFilterBadgeCount}
+        applyLabel={`Apply & View ${relevantTotal} Cards`}
+      >
+        <FilterSidebar
+          filters={filters}
+          setFilters={setFilters}
+          options={{
+            sets: availableSets,
+            rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
+            types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
+            domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
+            tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
+          }}
+        />
+      </FilterDrawer>
 
       {/* Export Collection Modal */}
       {showExportModal && (
