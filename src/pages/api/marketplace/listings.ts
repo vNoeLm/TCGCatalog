@@ -355,20 +355,11 @@ export const POST: APIRoute = async ({ request }) => {
     const safeQty = Math.max(1, parseInt(String(quantity), 10) || 1);
     const safePriceHuf = Math.max(1, parseInt(String(price_huf), 10) || 500);
 
-    // ─── VALIDATION RULE: Cards above 5,000 HUF require >= 1 condition photo ───
+    // Condition photos are always optional - a seller can choose to add them for any listing,
+    // but nothing requires it regardless of price.
     const photoList: string[] = Array.isArray(images)
       ? images.filter((u: any) => typeof u === 'string' && u.trim().length > 0)
       : [];
-
-    if (safePriceHuf > 5000 && photoList.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'At least one condition photo is required for listings above 5,000 HUF.',
-      }), {
-        status: 400,
-        headers: JSON_HEADERS,
-      });
-    }
 
     // Ensure seller profile exists in profiles table
     const { data: existingProfile } = await supabaseAdmin

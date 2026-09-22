@@ -78,18 +78,19 @@ export function GameSelector() {
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-white/15 hover:border-[var(--border-hover)] hover:text-white"
+        className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition shadow-sm cursor-pointer select-none group whitespace-nowrap bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
       >
         <span
           className="w-2 h-2 rounded-full shrink-0"
           style={{
-            background: 'var(--accent)',
+            background: 'var(--accent-strong)',
             boxShadow: '0 0 8px var(--accent-glow)',
           }}
         />
         <span className="tracking-wide truncate max-w-[85px] sm:max-w-none">{currentGame.name}</span>
         <svg
-          className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-muted)' }}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -105,7 +106,7 @@ export function GameSelector() {
             borderColor: 'var(--border)',
           }}
         >
-          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5">
+          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-b" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>
             Select Game
           </div>
           {GAMES.map(g => {
@@ -116,14 +117,14 @@ export function GameSelector() {
               return (
                 <div
                   key={g.id}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-500 opacity-40 cursor-not-allowed select-none"
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium opacity-40 cursor-not-allowed select-none" style={{ color: 'var(--text-muted)' }}
                   title={`${g.name} is coming soon`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--text-placeholder)' }} />
                     <span>{g.name}</span>
                   </div>
-                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border" style={{ background: 'var(--bg-raised)', color: 'var(--text-muted)', borderColor: 'var(--border)' }}>
                     Soon
                   </span>
                 </div>
@@ -140,7 +141,7 @@ export function GameSelector() {
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition cursor-pointer text-left ${
                   isSelected
                     ? 'font-bold'
-                    : 'text-zinc-300 hover:text-white hover:bg-white/5'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
                 }`}
                 style={{
                   background: isSelected ? 'var(--accent-muted)' : undefined,

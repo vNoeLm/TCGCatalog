@@ -35,12 +35,13 @@ function SectionHeader({ label, badge, collapsible = true, open, onToggle, theme
   return (
     <div
       onClick={collapsible ? onToggle : undefined}
-      className={`flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-zinc-100 ${theme?.sectionHover || "hover:text-white"} cursor-pointer select-none transition group`}
+      className={`flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider ${theme?.sectionHover || "hover:text-[var(--text-accent)]"} cursor-pointer select-none transition group`}
+      style={{ color: 'var(--text-primary)' }}
     >
       <span className="flex items-center gap-1.5">
         {label}
         {badge != null && badge > 0 && (
-          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${theme?.sectionBadge || "bg-zinc-800 text-zinc-100 border border-zinc-700"}`}>
+          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${theme?.sectionBadge || "bg-[var(--bg-raised)] text-[var(--text-primary)] border border-[var(--border)]"}`}>
             {badge}
           </span>
         )}
@@ -49,7 +50,7 @@ function SectionHeader({ label, badge, collapsible = true, open, onToggle, theme
         <svg
           width="12" height="12" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"
-          className={`${theme?.sectionArrow || "text-zinc-300 group-hover:text-white"} transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+          className={`${theme?.sectionArrow || "text-[var(--text-tertiary)] group-hover:text-[var(--text-accent)]"} transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
         >
           <path d="M19 9l-7 7-7-7" />
         </svg>
@@ -227,9 +228,9 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     headerIcon: "text-[var(--accent)]",
     sectionHover: "hover:text-[var(--text-accent)]",
     sectionBadge: "bg-[var(--accent-muted)] text-[var(--text-accent)] border border-[var(--accent-border)]",
-    sectionArrow: "text-zinc-400 group-hover:text-[var(--text-accent)]",
+    sectionArrow: "text-[var(--text-tertiary)] group-hover:text-[var(--text-accent)]",
     input: "bg-[var(--bg-input)] border border-[var(--border)] hover:border-[var(--border-hover)] focus:border-[var(--accent)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-    btnDefault: "bg-[var(--bg-input)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--accent-border)] hover:bg-[var(--bg-raised)]",
+    btnDefault: "bg-[var(--bg-input)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-raised)]",
     btnActive: "bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]",
   };
 
@@ -590,7 +591,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
               {/* Search Bar for Tags */}
               <div className="relative mb-1.5">
                 <svg
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-zinc-400"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--text-muted)' }}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -605,7 +606,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 {tagSearch && (
                   <button
                     onClick={() => setTagSearch("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 hover:text-[var(--text-primary)] text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}
                   >
                     ×
                   </button>
@@ -631,7 +632,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   );
                 })}
                 {filteredTags.length === 0 && (
-                  <div className="text-[11px] text-zinc-400 py-1">
+                  <div className="text-[11px] py-1" style={{ color: 'var(--text-tertiary)' }}>
                     {`No tags matching "${tagSearch}"`}
                   </div>
                 )}
@@ -672,7 +673,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                 })}
               </div>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Match</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Match</span>
                 {(['and', 'or'] as const).map(m => {
                   const active = (filters.keywordMode || 'and') === m;
                   return (
@@ -708,20 +709,20 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
             <div className="mt-1.5">
               <div className="flex items-center gap-2">
                 <div className={`flex-1 flex items-center ${sidebarTheme.input} rounded-md px-2 py-1 text-xs`}>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Min</span>
+                  <span className="text-[10px] uppercase font-bold mr-1.5" style={{ color: 'var(--text-muted)' }}>Min</span>
                   <input
                     type="number" min={1} max={10} value={filters.costMin}
                     onChange={(e) => handleCostMin(e.target.value)}
-                    className="w-full bg-transparent text-zinc-100 font-bold text-center outline-none"
+                    className="w-full bg-transparent font-bold text-center outline-none" style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
-                <span className="text-zinc-600 font-bold">–</span>
+                <span className="font-bold" style={{ color: 'var(--text-placeholder)' }}>–</span>
                 <div className={`flex-1 flex items-center ${sidebarTheme.input} rounded-md px-2 py-1 text-xs`}>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 mr-1.5">Max</span>
+                  <span className="text-[10px] uppercase font-bold mr-1.5" style={{ color: 'var(--text-muted)' }}>Max</span>
                   <input
                     type="number" min={1} max={10} value={filters.costMax}
                     onChange={(e) => handleCostMax(e.target.value)}
-                    className="w-full bg-transparent text-zinc-100 font-bold text-center outline-none"
+                    className="w-full bg-transparent font-bold text-center outline-none" style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>

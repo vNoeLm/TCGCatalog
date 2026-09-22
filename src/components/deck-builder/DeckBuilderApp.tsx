@@ -858,7 +858,7 @@ export function DeckBuilderApp() {
                     onClick={() => handlePublishSavedDeck(sd)}
                     disabled={publishingSavedDeckId === sd.id}
                     title="Publish a snapshot of this deck to your public profile"
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-[var(--positive)] border border-emerald-500/30 transition cursor-pointer disabled:opacity-50"
                   >
                     {publishingSavedDeckId === sd.id ? 'Publishing…' : 'Publish'}
                   </button>

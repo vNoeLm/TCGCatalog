@@ -57,12 +57,13 @@ export function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${maxWidth} my-auto rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden transition-all duration-150 animate-in zoom-in-95 ${className}`}
+        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+        className={`w-full ${maxWidth} my-auto rounded-2xl border shadow-2xl overflow-hidden transition-all duration-150 animate-in zoom-in-95 ${className}`}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80">
+          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             {title ? (
-              <h3 className="text-base sm:text-lg font-black text-zinc-100 truncate pr-2">
+              <h3 className="text-base sm:text-lg font-black truncate pr-2" style={{ color: 'var(--text-primary)' }}>
                 {title}
               </h3>
             ) : <div />}
@@ -71,7 +72,8 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer shrink-0"
+                style={{ color: 'var(--text-tertiary)' }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)] transition cursor-pointer shrink-0"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />

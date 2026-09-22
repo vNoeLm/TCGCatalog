@@ -669,7 +669,7 @@ export function DeckStatisticsModal({
                           </span>
                         </div>
                         <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent-strong)', borderRadius: 3 }} />
                         </div>
                       </div>
                     );
@@ -765,7 +765,7 @@ export function DeckStatisticsModal({
               <button
                 onClick={drawNewHand}
                 disabled={mainCardCount === 0}
-                style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--accent)', color: 'var(--text-on-accent, #000)', border: 'none', fontSize: 12, fontWeight: 800, cursor: mainCardCount === 0 ? 'not-allowed' : 'pointer', opacity: mainCardCount === 0 ? 0.5 : 1 }}
+                style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', border: 'none', fontSize: 12, fontWeight: 800, cursor: mainCardCount === 0 ? 'not-allowed' : 'pointer', opacity: mainCardCount === 0 ? 0.5 : 1 }}
               >
                 {hand.length > 0 ? 'Mulligan (New Hand)' : 'Draw Opening Hand'}
               </button>
@@ -901,7 +901,7 @@ export function DeckStatisticsModal({
                           return (
                             <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
                               <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-accent)' }}>{p.toFixed(0)}%</span>
-                              <div style={{ width: '100%', maxWidth: 34, height: `${Math.max(4, p)}%`, background: 'var(--accent)', borderRadius: '6px 6px 2px 2px', boxShadow: '0 0 10px var(--accent-glow)' }} />
+                              <div style={{ width: '100%', maxWidth: 34, height: `${Math.max(4, p)}%`, background: 'var(--accent-strong)', borderRadius: '6px 6px 2px 2px', boxShadow: '0 0 10px var(--accent-glow)' }} />
                               <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
                             </div>
                           );

@@ -151,7 +151,7 @@ export function MessagesApp() {
           <button
             onClick={() => setShowAuthModal(true)}
             className="px-6 py-3 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
           >
             Sign In
           </button>
@@ -313,7 +313,7 @@ export function MessagesApp() {
                         className="max-w-[75%] px-3 py-2 rounded-2xl text-xs leading-relaxed"
                         style={
                           mine
-                            ? { background: 'var(--accent)', color: 'var(--text-on-accent, #000)', borderBottomRightRadius: 4 }
+                            ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderBottomRightRadius: 4 }
                             : { background: 'var(--bg-surface-2)', color: 'var(--text-primary)', borderBottomLeftRadius: 4 }
                         }
                       >
@@ -345,7 +345,7 @@ export function MessagesApp() {
                 type="submit"
                 disabled={!draft.trim() || sending}
                 className="px-4 py-2.5 rounded-xl font-black text-xs transition cursor-pointer disabled:opacity-50 shrink-0"
-                style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+                style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
               >
                 {sending ? '…' : 'Send'}
               </button>

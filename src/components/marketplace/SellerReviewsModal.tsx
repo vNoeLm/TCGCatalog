@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getAllReviews } from '../../lib/reviews';
 import type { SellerReview, SellerProfileSummary } from '../../types';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { useSiteTheme } from '../../lib/theme';
 
 interface SellerReviewsModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SellerReviewsModalProps {
 }
 
 export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }: SellerReviewsModalProps) {
+  const isLightTheme = useSiteTheme().theme === 'light';
   const [reviews, setReviews] = useState<SellerReview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -103,7 +105,7 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
               )}
               {sellerSummary && (() => {
                 const isOwner = Boolean(sellerSummary.is_owner || sellerSummary.role === 'owner');
-                const tier = getSellerTier(sellerSummary.sales_count, sellerSummary.rating_avg, isOwner);
+                const tier = getSellerTier(sellerSummary.sales_count, sellerSummary.rating_avg, isOwner, isLightTheme);
                 return (
                   <>
                     {isOwner && <SiteOwnerTag />}

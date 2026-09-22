@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cardThumbProps } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import type { SellerProfileSummary, SellerReview } from '../../types';
 
@@ -17,6 +18,7 @@ export function PublicProfileApp() {
   const [reviews, setReviews] = useState<SellerReview[]>([]);
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLightTheme = useSiteTheme().theme === 'light';
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -76,7 +78,7 @@ export function PublicProfileApp() {
           <a
             href="/marketplace"
             className="inline-block px-5 py-2.5 rounded-xl font-black text-xs cursor-pointer"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
           >
             Browse Marketplace
           </a>
@@ -86,7 +88,7 @@ export function PublicProfileApp() {
   }
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
-  const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner);
+  const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
     ? new Date(summary.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
@@ -147,7 +149,7 @@ export function PublicProfileApp() {
                 )}
               </span>
               <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-emerald-300"
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-[var(--positive)]"
                 style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
               >
                 {summary.sales_count || 0} sales made

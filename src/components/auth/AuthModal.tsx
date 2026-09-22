@@ -109,7 +109,7 @@ export function AuthModal({
         </div>
       )}
       {successMsg && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold mb-4">
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-[var(--positive)] text-xs font-semibold mb-4">
           {successMsg}
         </div>
       )}

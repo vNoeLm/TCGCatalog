@@ -50,7 +50,9 @@ export function formatGameTitle(game: string): string {
 export function getCollectorTier(
   ownedInGameCount: number,
   totalInGameCount: number,
-  game: string = 'riftbound'
+  game: string = 'riftbound',
+  /** Ivory Parchment needs a darker shade of each tier's own color to stay readable on white. */
+  isLight: boolean = false
 ): CollectorTier {
   const gameTitle = formatGameTitle(game);
   const total = Math.max(1, totalInGameCount);
@@ -76,7 +78,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(236, 72, 153, 0.25) 100%)',
         borderColor: 'rgba(232, 121, 249, 0.6)',
-        color: '#f0abfc',
+        color: isLight ? '#86198f' : '#f0abfc',
         boxShadow: '0 0 16px rgba(217, 70, 239, 0.35)',
       },
     };
@@ -101,7 +103,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(234, 179, 8, 0.2) 100%)',
         borderColor: 'rgba(245, 158, 11, 0.5)',
-        color: '#fde047',
+        color: isLight ? '#a16207' : '#fde047',
         boxShadow: '0 0 14px rgba(245, 158, 11, 0.25)',
       },
     };
@@ -126,7 +128,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'rgba(56, 189, 248, 0.18)',
         borderColor: 'rgba(56, 189, 248, 0.45)',
-        color: '#7dd3fc',
+        color: isLight ? '#0369a1' : '#7dd3fc',
         boxShadow: '0 0 12px rgba(56, 189, 248, 0.25)',
       },
     };
@@ -151,7 +153,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'rgba(250, 204, 21, 0.15)',
         borderColor: 'rgba(250, 204, 21, 0.4)',
-        color: '#fde047',
+        color: isLight ? '#a16207' : '#fde047',
       },
     };
   }
@@ -175,7 +177,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'rgba(226, 232, 240, 0.12)',
         borderColor: 'rgba(226, 232, 240, 0.35)',
-        color: '#f1f5f9',
+        color: isLight ? '#334155' : '#f1f5f9',
       },
     };
   }
@@ -199,7 +201,7 @@ export function getCollectorTier(
       badgeStyle: {
         background: 'rgba(251, 146, 60, 0.12)',
         borderColor: 'rgba(251, 146, 60, 0.35)',
-        color: '#fed7aa',
+        color: isLight ? '#c2410c' : '#fed7aa',
       },
     };
   }
@@ -222,7 +224,7 @@ export function getCollectorTier(
     badgeStyle: {
       background: 'rgba(255, 255, 255, 0.06)',
       borderColor: 'rgba(255, 255, 255, 0.15)',
-      color: '#d4d4d8',
+      color: isLight ? '#52525b' : '#d4d4d8',
     },
   };
 }
@@ -239,7 +241,9 @@ export function getCollectorTier(
 export function getSellerTier(
   salesCount: number = 0,
   ratingAvg: number | null = null,
-  isOwner: boolean = false
+  isOwner: boolean = false,
+  /** Ivory Parchment needs a darker shade of each tier's own color to stay readable on white. */
+  isLight: boolean = false
 ): SellerTier {
   const sold = Math.max(0, salesCount);
 
@@ -260,7 +264,7 @@ export function getSellerTier(
       badgeStyle: {
         background: 'rgba(56, 189, 248, 0.2)',
         borderColor: 'rgba(56, 189, 248, 0.5)',
-        color: '#7dd3fc',
+        color: isLight ? '#0369a1' : '#7dd3fc',
         boxShadow: '0 0 14px rgba(56, 189, 248, 0.3)',
       },
     };
@@ -283,7 +287,7 @@ export function getSellerTier(
       badgeStyle: {
         background: 'rgba(250, 204, 21, 0.18)',
         borderColor: 'rgba(250, 204, 21, 0.45)',
-        color: '#fef08a',
+        color: isLight ? '#a16207' : '#fef08a',
       },
     };
   }
@@ -305,7 +309,7 @@ export function getSellerTier(
       badgeStyle: {
         background: 'rgba(226, 232, 240, 0.15)',
         borderColor: 'rgba(226, 232, 240, 0.4)',
-        color: '#f8fafc',
+        color: isLight ? '#334155' : '#f8fafc',
       },
     };
   }
@@ -327,7 +331,7 @@ export function getSellerTier(
       badgeStyle: {
         background: 'rgba(251, 146, 60, 0.15)',
         borderColor: 'rgba(251, 146, 60, 0.4)',
-        color: '#fed7aa',
+        color: isLight ? '#c2410c' : '#fed7aa',
       },
     };
   }
@@ -349,7 +353,7 @@ export function getSellerTier(
       badgeStyle: {
         background: 'rgba(16, 185, 129, 0.15)',
         borderColor: 'rgba(16, 185, 129, 0.45)',
-        color: '#6ee7b7',
+        color: isLight ? '#047857' : '#6ee7b7',
         boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
       },
     };
@@ -371,7 +375,7 @@ export function getSellerTier(
     badgeStyle: {
       background: 'rgba(255, 255, 255, 0.06)',
       borderColor: 'rgba(255, 255, 255, 0.15)',
-      color: '#d4d4d8',
+      color: isLight ? '#52525b' : '#d4d4d8',
     },
   };
 }
@@ -391,7 +395,7 @@ export function SiteOwnerTag({ className = '' }: { className?: string }) {
       style={{
         background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(234, 179, 8, 0.22) 100%)',
         borderColor: 'rgba(245, 158, 11, 0.55)',
-        color: '#fde68a',
+        color: 'var(--text-accent)',
       }}
       title="Site Owner"
     >

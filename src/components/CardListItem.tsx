@@ -104,7 +104,7 @@ export function CardListItem(props: CardListItemProps) {
     >
       <button onClick={() => onClick(card.id)} className="block relative cursor-pointer border-none bg-transparent p-0 w-full text-left group [container-type:inline-size]">
         <div
-          className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden bg-zinc-950 border-b border-white/5"
+          className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden border-b" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}
         >
           {card.image_path ? (
             <img
@@ -118,10 +118,10 @@ export function CardListItem(props: CardListItemProps) {
             />
           ) : (
             <div className="relative z-[1] text-center px-4">
-              <span className="text-5xl font-black select-none text-zinc-100">
+              <span className="text-5xl font-black select-none" style={{ color: 'var(--text-primary)' }}>
                 {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
-              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest bg-white/10 text-zinc-300">
+              <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}>
                 {card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
               </span>
             </div>
@@ -221,15 +221,15 @@ export function CardListItem(props: CardListItemProps) {
             <div className={`text-center flex flex-col justify-center gap-0.5 ${isSmall ? 'min-h-[30px]' : 'min-h-[36px]'}`}>
               {sub ? (
                 <>
-                  <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black text-zinc-100 leading-tight uppercase tracking-tight truncate`}>
+                  <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>
                     {main}
                   </h3>
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
+                  <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>
                     {sub}
                   </p>
                 </>
               ) : (
-                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold text-zinc-100 leading-tight line-clamp-2`}>
+                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold leading-tight line-clamp-2`} style={{ color: 'var(--text-primary)' }}>
                   {card.name}
                 </h3>
               )}
@@ -238,19 +238,19 @@ export function CardListItem(props: CardListItemProps) {
         })()}
 
         {/* Set / Promo Line */}
-        <p className="text-zinc-300 text-[11px] font-medium truncate mt-1 mb-1.5">
+        <p className="text-[11px] font-medium truncate mt-1 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
 
         {/* Bottom Spec Bar (Number · Type · Rarity) evenly distributed across row */}
-        <div className={`grid grid-cols-3 items-center w-full text-zinc-300 font-mono ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2.5'}`}>
+        <div className={`grid grid-cols-3 items-center w-full font-mono ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2.5'}`} style={{ color: 'var(--text-secondary)' }}>
           <span className="truncate text-left">
             {formatCleanCardNumber(card.card_number)}
           </span>
           <span className="capitalize truncate text-center font-medium">
             {card.card_type}
           </span>
-          <span className="capitalize truncate text-right text-zinc-400 font-medium">
+          <span className="capitalize truncate text-right font-medium" style={{ color: 'var(--text-tertiary)' }}>
             {card.rarity || ''}
           </span>
         </div>
@@ -260,8 +260,8 @@ export function CardListItem(props: CardListItemProps) {
             className={`flex items-center justify-between ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2'}`}
             title="Estimated value: the market reference combined with what sellers here are asking"
           >
-            <span className="text-zinc-400 font-medium">Est. value{valueIsFoil ? ' (foil)' : ''}</span>
-            <span className="font-black font-mono text-emerald-400">~{shownValue.toLocaleString('en-US')} Ft</span>
+            <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Est. value{valueIsFoil ? ' (foil)' : ''}</span>
+            <span className="font-black font-mono text-[var(--positive)]">~{shownValue.toLocaleString('en-US')} Ft</span>
           </div>
         )}
 
@@ -274,7 +274,8 @@ export function CardListItem(props: CardListItemProps) {
           {normalQty === 0 ? (
             <button
               onClick={(e) => handleUpdateNormal(e, 1)}
-              className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
+              className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border`}
+              style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
               title={"Add normal copy to collection"}
             >
               <span className="text-sm font-black opacity-70">+</span>
@@ -283,22 +284,23 @@ export function CardListItem(props: CardListItemProps) {
           ) : (
             <div 
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              className={`flex-1 flex items-center justify-between bg-emerald-950/30 border border-emerald-500/50 rounded-lg p-0.5 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+              className={`flex-1 flex items-center justify-between border rounded-lg p-0.5 text-[var(--positive)] shadow-[0_0_12px_rgba(16,185,129,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+              style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}
             >
               <button
                 onClick={(e) => handleUpdateNormal(e, -1)}
                 title={"Decrease quantity (-1)"}
-                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:brightness-110 text-[var(--positive)] rounded transition cursor-pointer active:scale-90"
               >
                 −
               </button>
-              <span className="text-xs font-black px-1 text-white font-mono select-none">
+              <span className="text-xs font-black px-1 font-mono select-none" style={{ color: 'var(--text-primary)' }}>
                 {normalQty}
               </span>
               <button
                 onClick={(e) => handleUpdateNormal(e, 1)}
                 title={"Increase quantity (+1)"}
-                className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                className="w-7 h-full flex items-center justify-center text-sm font-black hover:brightness-110 text-[var(--positive)] rounded transition cursor-pointer active:scale-90"
               >
                 +
               </button>
@@ -310,7 +312,8 @@ export function CardListItem(props: CardListItemProps) {
             foilQty === 0 ? (
               <button
                 onClick={(e) => handleUpdateFoil(e, 1)}
-                className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-white/20 cursor-pointer shadow-sm`}
+                className={`flex-1 ${isSmall ? 'py-1.5 px-2' : 'py-1.5 px-2.5'} text-xs font-medium rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border`}
+              style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                 title={"Add foil copy to collection"}
               >
                 <span className="text-sm font-black opacity-70">+</span>
@@ -319,22 +322,23 @@ export function CardListItem(props: CardListItemProps) {
             ) : (
               <div 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                className={`flex-1 flex items-center justify-between bg-amber-950/30 border border-amber-500/50 rounded-lg p-0.5 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+                className={`flex-1 flex items-center justify-between border rounded-lg p-0.5 shadow-[0_0_12px_rgba(245,158,11,0.12)] ${isSmall ? 'h-7' : 'h-8'}`}
+                style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
               >
                 <button
                   onClick={(e) => handleUpdateFoil(e, -1)}
                   title={"Decrease foil quantity (-1)"}
-                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:brightness-110 rounded transition cursor-pointer active:scale-90" style={{ color: 'var(--text-accent)' }}
                 >
                   −
                 </button>
-                <span className="text-xs font-black px-1 text-amber-200 font-mono select-none">
+                <span className="text-xs font-black px-1 font-mono select-none" style={{ color: 'var(--text-primary)' }}>
                   {foilQty}
                 </span>
                 <button
                   onClick={(e) => handleUpdateFoil(e, 1)}
                   title={"Increase foil quantity (+1)"}
-                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:bg-amber-500/20 text-amber-400 hover:text-white rounded transition cursor-pointer active:scale-90"
+                  className="w-7 h-full flex items-center justify-center text-sm font-black hover:brightness-110 rounded transition cursor-pointer active:scale-90" style={{ color: 'var(--text-accent)' }}
                 >
                   +
                 </button>

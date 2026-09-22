@@ -187,22 +187,22 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative w-full max-w-4xl bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         
         {/* Header */}
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-zinc-900/50">
+        <div className="p-5 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <svg className="w-5 h-5 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
               Quick List Preview
             </h2>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
               Review and adjust cards that will be listed automatically based on your rules.
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-full">
+          <button onClick={onClose} className="p-2 rounded-full hover:brightness-110 transition" style={{ color: 'var(--text-tertiary)', background: 'var(--bg-raised)' }}>
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -216,17 +216,18 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
               <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : rules.length === 0 ? (
-            <div className="py-20 text-center text-zinc-500">
+            <div className="py-20 text-center" style={{ color: 'var(--text-muted)' }}>
               No Quick List rules configured. Visit Seller Hub to set them up.
             </div>
           ) : listingCandidates.length === 0 ? (
-            <div className="py-20 text-center text-zinc-500">
+            <div className="py-20 text-center" style={{ color: 'var(--text-muted)' }}>
               No cards in your collection match your Quick List rules.
             </div>
           ) : (
             <div className="space-y-2">
               {listingCandidates.map(c => (
-                <div key={c.tempId} className={`flex items-center gap-4 p-3 rounded-xl border ${c.selected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/5 bg-zinc-900/50 opacity-50'}`}>
+                <div key={c.tempId} className={`flex items-center gap-4 p-3 rounded-xl border ${c.selected ? 'border-[var(--positive-border)] bg-[var(--positive-muted)]' : 'opacity-50'}`}
+                  style={c.selected ? undefined : { borderColor: 'var(--border)', background: 'var(--bg-surface-2)' }}>
                   
                   <input
                     type="checkbox"
@@ -236,35 +237,35 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
                   />
 
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white truncate text-sm">{c.cardName}</div>
-                    <div className="text-xs text-zinc-400 mt-0.5">{c.cardNumber} • {c.cardType ? `${c.cardType} • ` : ''}{c.rarity}</div>
+                    <div className="font-bold truncate text-sm" style={{ color: 'var(--text-primary)' }}>{c.cardName}</div>
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{c.cardNumber} • {c.cardType ? `${c.cardType} • ` : ''}{c.rarity}</div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <div className="w-24">
-                      <label className="text-[9px] uppercase text-zinc-500 font-bold px-1">Qty</label>
+                      <label className="text-[9px] uppercase font-bold px-1" style={{ color: 'var(--text-muted)' }}>Qty</label>
                       <input 
                         type="number"
                         min="1"
                         value={c.quantity}
                         onChange={(e) => updateQuantity(c.tempId, parseInt(e.target.value) || 1)}
-                        className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-white font-mono"
+                        className="w-full rounded px-2 py-1 text-xs outline-none font-mono border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                         disabled={!c.selected}
                       />
                     </div>
                     
                     <div className="w-28">
-                      <label className="text-[9px] uppercase text-zinc-500 font-bold px-1">Price (HUF)</label>
+                      <label className="text-[9px] uppercase font-bold px-1" style={{ color: 'var(--text-muted)' }}>Price (HUF)</label>
                       <input
                         type="number"
                         min="1"
                         value={c.priceHuf}
                         onChange={(e) => updatePrice(c.tempId, parseInt(e.target.value) || 1)}
-                        className="w-full bg-black/30 border border-white/10 rounded px-2 py-1 text-xs outline-none text-emerald-400 font-mono font-bold"
+                        className="w-full rounded px-2 py-1 text-xs outline-none text-[var(--positive)] font-mono font-bold border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}
                         disabled={!c.selected}
                       />
                       {c.priceSource && c.priceSource !== 'fixed' && (
-                        <div className="text-[9px] px-1 mt-0.5 text-zinc-500 truncate" title={PRICE_SOURCE_LABELS[c.priceSource as QuickSalePriceSource]}>
+                        <div className="text-[9px] px-1 mt-0.5 truncate" style={{ color: 'var(--text-muted)' }} title={PRICE_SOURCE_LABELS[c.priceSource as QuickSalePriceSource]}>
                           {PRICE_SOURCE_LABELS[c.priceSource as QuickSalePriceSource]}
                         </div>
                       )}
@@ -277,13 +278,13 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-white/10 bg-zinc-900/80 flex items-center justify-between">
+        <div className="p-5 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
           <div>
-            <div className="text-sm font-bold text-white">
-              Selected: <span className="text-emerald-400">{selectedCount} db</span>
+            <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+              Selected: <span className="text-[var(--positive)]">{selectedCount} db</span>
             </div>
-            <div className="text-xs text-zinc-400 mt-0.5">
-              Estimated total: <span className="text-white font-mono">{totalValue.toLocaleString()} Ft</span>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Estimated total: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{totalValue.toLocaleString()} Ft</span>
             </div>
           </div>
           

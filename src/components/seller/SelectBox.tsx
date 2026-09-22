@@ -36,7 +36,7 @@ export function SelectBox({ checked, indeterminate = false, onChange, label }: S
             ? 'bg-emerald-500 border-emerald-500'
             : mixed
               ? 'bg-emerald-500/15 border-emerald-500'
-              : 'bg-zinc-900 border-zinc-500 hover:border-zinc-400'
+              : 'bg-[var(--bg-input)] border-[var(--border-hover)] hover:border-[var(--accent)]'
         }`}
       >
         {checked && (
@@ -45,7 +45,7 @@ export function SelectBox({ checked, indeterminate = false, onChange, label }: S
           </svg>
         )}
         {mixed && (
-          <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+          <svg className="w-3.5 h-3.5 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
             <line x1="6" y1="12" x2="18" y2="12" />
           </svg>
         )}

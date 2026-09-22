@@ -570,7 +570,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
                     <div className="text-sm font-bold truncate">{c.name}</div>
                     <div className="text-[11px] font-mono text-white/60">{c.card_number} · {c.set_name || c.sets?.name}</div>
                   </div>
-                  <span className="px-3 py-1.5 rounded-lg text-xs font-black shrink-0" style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}>Add</span>
+                  <span className="px-3 py-1.5 rounded-lg text-xs font-black shrink-0" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}>Add</span>
                 </button>
               ))}
             </div>
@@ -581,7 +581,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
               {lastAdded.card.image_path && <img {...cardThumbProps(lastAdded.card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Added{lastAdded.isFoil ? ' (foil)' : ''}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-[var(--positive)]">Added{lastAdded.isFoil ? ' (foil)' : ''}</div>
               <div className="text-sm font-bold truncate">{lastAdded.card.name}</div>
               <div className="text-[11px] font-mono text-white/60">{lastAdded.card.card_number}</div>
             </div>

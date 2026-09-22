@@ -154,7 +154,7 @@ export function PriceUploadApp() {
             disabled={!file || busy !== null}
             onClick={() => send(false)}
             className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition disabled:opacity-40 disabled:cursor-default"
-            style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
           >
             {busy === 'check' ? 'Checking...' : 'Check file'}
           </button>
@@ -176,7 +176,7 @@ export function PriceUploadApp() {
       )}
 
       {loaded && report && (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-start gap-2.5">
+        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-[var(--positive)] flex items-start gap-2.5">
           <svg className="w-4 h-4 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
           <span>
             Loaded {loaded.updated} prices. {loaded.recorded} of them moved and were added to the price history.
@@ -196,7 +196,7 @@ export function PriceUploadApp() {
             ].map((s) => (
               <div key={s.label} className="rounded-xl px-3 py-2.5 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{s.label}</div>
-                <div className={`text-xl font-black ${s.accent ? 'text-emerald-400' : 'text-zinc-100'}`}>{s.value}</div>
+                <div className={`text-xl font-black ${s.accent ? 'text-[var(--positive)]' : 'text-zinc-100'}`}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -228,7 +228,7 @@ export function PriceUploadApp() {
                         </td>
                         <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-400">{fmtEur(c.oldEur)}</td>
                         <td className="py-1.5 pr-3 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{fmtEur(c.newEur)}</td>
-                        <td className={`py-1.5 text-right tabular-nums font-bold ${c.percent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <td className={`py-1.5 text-right tabular-nums font-bold ${c.percent >= 0 ? 'text-[var(--positive)]' : 'text-red-400'}`}>
                           {c.percent >= 0 ? '+' : ''}{c.percent}%
                         </td>
                       </tr>

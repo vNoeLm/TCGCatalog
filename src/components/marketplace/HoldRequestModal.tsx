@@ -164,7 +164,7 @@ export function HoldRequestModal({
           type="button"
           onClick={onClose}
           aria-label="Close modal"
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center transition border cursor-pointer hover:bg-white/10 active:scale-95"
+          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full flex items-center justify-center transition border cursor-pointer hover:brightness-110 active:scale-95"
           style={{
             background: 'var(--bg-surface-2)',
             borderColor: 'var(--border)',
@@ -180,7 +180,7 @@ export function HoldRequestModal({
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-400"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -204,7 +204,7 @@ export function HoldRequestModal({
             borderColor: 'var(--border-subtle)',
           }}
         >
-          <div className="w-14 h-20 shrink-0 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 flex items-center justify-center">
+          <div className="w-14 h-20 shrink-0 rounded-lg overflow-hidden border flex items-center justify-center" style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}>
             {card.image_path ? (
               <img
                 {...cardThumbProps(card.image_path, 'avatar')}
@@ -212,7 +212,7 @@ export function HoldRequestModal({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-[10px] text-zinc-500 font-mono">TCG</span>
+              <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>TCG</span>
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -221,7 +221,7 @@ export function HoldRequestModal({
                 {card.name}
               </span>
               {isFoil && (
-                <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                <span className="text-[10px] font-black px-1.5 py-0.2 rounded border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
                   FOIL
                 </span>
               )}
@@ -229,11 +229,11 @@ export function HoldRequestModal({
             <div className="text-xs font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
               {card.card_number} • {condition}
             </div>
-            <div className="flex items-center justify-between mt-2 pt-1 border-t border-zinc-800">
+            <div className="flex items-center justify-between mt-2 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
               <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
-                Seller: <span className="text-zinc-200">{sellerName}</span>
+                Seller: <span style={{ color: 'var(--text-secondary)' }}>{sellerName}</span>
               </span>
-              <span className="text-base font-black text-emerald-400">
+              <span className="text-base font-black text-[var(--positive)]">
                 {priceHuf ? fmt(priceHuf * quantity) : 'N/A'}
               </span>
             </div>
@@ -252,8 +252,8 @@ export function HoldRequestModal({
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
-                style={{ borderColor: 'var(--border)' }}
+                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold hover:brightness-110 cursor-pointer"
+                style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
               >
                 -
               </button>
@@ -276,14 +276,14 @@ export function HoldRequestModal({
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
-                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
-                style={{ borderColor: 'var(--border)' }}
+                className="w-9 h-9 rounded-lg border flex items-center justify-center text-sm font-bold hover:brightness-110 cursor-pointer"
+                style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
               >
                 +
               </button>
               {priceHuf > 0 && quantity > 1 && (
                 <span className="text-xs font-semibold ml-2" style={{ color: 'var(--text-tertiary)' }}>
-                  {fmt(priceHuf)} × {quantity} = <span className="text-emerald-400">{fmt(priceHuf * quantity)}</span>
+                  {fmt(priceHuf)} × {quantity} = <span className="text-[var(--positive)]">{fmt(priceHuf * quantity)}</span>
                 </span>
               )}
             </div>
@@ -291,8 +291,8 @@ export function HoldRequestModal({
         )}
 
         {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <div className="mb-4 p-3 rounded-xl border text-xs font-semibold flex items-center gap-2" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
+            <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--negative)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -302,9 +302,9 @@ export function HoldRequestModal({
         )}
 
         {successMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between gap-2 flex-wrap">
+          <div className="mb-4 p-3 rounded-xl border text-[var(--positive)] text-xs font-semibold flex items-center justify-between gap-2 flex-wrap" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
             <span className="flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>{successMsg}</span>
@@ -335,14 +335,15 @@ export function HoldRequestModal({
                   onClick={() => setHandoverMethod(m.id)}
                   className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
                     handoverMethod === m.id
-                      ? 'bg-amber-500/15 border-amber-500/60 shadow-sm'
-                      : 'border-zinc-800 bg-zinc-950/50 hover:bg-zinc-900/60'
+                      ? 'bg-[var(--accent-muted)] border-[var(--accent-border)] shadow-sm'
+                      : 'border-[var(--border)]'
                   }`}
+                  style={handoverMethod === m.id ? undefined : { background: 'var(--bg-input)' }}
                 >
-                  <span className={`text-xs font-bold ${handoverMethod === m.id ? 'text-amber-300' : 'text-zinc-200'}`}>
+                  <span className={`text-xs font-bold ${handoverMethod === m.id ? 'text-[var(--text-accent)]' : 'text-[var(--text-secondary)]'}`}>
                     {m.label}
                   </span>
-                  <span className="text-[10px] text-zinc-500 mt-0.5">
+                  <span className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {m.desc}
                   </span>
                 </button>
@@ -368,7 +369,7 @@ export function HoldRequestModal({
                   ? ('e.g. Budapest, Downtown')
                   : ('e.g. Foxpost locker name or address')
               }
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+              className="w-full rounded-xl px-3.5 py-2.5 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
 
@@ -384,7 +385,7 @@ export function HoldRequestModal({
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                className="w-full rounded-xl px-3 py-2 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
               />
             </div>
             <div>
@@ -397,7 +398,7 @@ export function HoldRequestModal({
                 value={buyerEmail}
                 onChange={(e) => setBuyerEmail(e.target.value)}
                 placeholder="email@example.com"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                className="w-full rounded-xl px-3 py-2 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>
@@ -411,7 +412,7 @@ export function HoldRequestModal({
               value={buyerPhone}
               onChange={(e) => setBuyerPhone(e.target.value)}
               placeholder="+36 20 123 4567"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+              className="w-full rounded-xl px-3 py-2 text-xs outline-none transition border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
 
@@ -425,16 +426,16 @@ export function HoldRequestModal({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={'e.g. When can you dispatch? / Can pick up on Monday.'}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 outline-none focus:border-amber-400 transition resize-none"
+              className="w-full rounded-xl p-3 text-xs outline-none transition resize-none border focus:border-[var(--accent)]" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl font-bold text-xs border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl font-bold text-xs border hover:brightness-110 transition cursor-pointer" style={{ borderColor: 'var(--border)', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)' }}
             >
               Cancel
             </button>
@@ -443,9 +444,9 @@ export function HoldRequestModal({
               disabled={isSubmitting || Boolean(successMsg)}
               className="px-6 py-2.5 rounded-xl font-black text-xs transition cursor-pointer shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
               style={{
-                background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
-                color: 'var(--accent-contrast, #000000)',
-                boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
+                background: 'var(--accent-strong)',
+                color: 'var(--text-on-accent)',
+                boxShadow: '0 4px 14px var(--accent-glow)',
               }}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">

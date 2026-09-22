@@ -264,13 +264,14 @@ export function ProfileApp() {
   }, []);
 
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const isLightTheme = effectiveTheme === 'light';
   const sellerTier = useMemo(() => {
-    return getSellerTier(sellerSalesCount, null, isOwner);
-  }, [sellerSalesCount, isOwner]);
+    return getSellerTier(sellerSalesCount, null, isOwner, isLightTheme);
+  }, [sellerSalesCount, isOwner, isLightTheme]);
 
   const collectorTier = useMemo(() => {
-    return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game);
-  }, [collectionStats]);
+    return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game, isLightTheme);
+  }, [collectionStats, isLightTheme]);
 
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -368,12 +369,11 @@ export function ProfileApp() {
                 showToast(`Theme: ${opt.name}`);
               }}
               title={opt.hex.join(' / ')}
-              className="px-3 py-2.5 rounded-xl text-left transition cursor-pointer border flex items-center gap-2.5"
-              style={{
-                background: active ? 'var(--accent-muted)' : 'var(--bg-input)',
-                borderColor: active ? 'var(--accent)' : 'var(--border)',
-                boxShadow: active ? '0 0 12px var(--accent-glow)' : 'none',
-              }}
+              className={`px-3 py-2.5 rounded-xl text-left transition cursor-pointer border flex items-center gap-2.5 ${
+                active
+                  ? 'bg-[var(--accent-muted)] border-[var(--accent)] shadow-[0_0_12px_var(--accent-glow)]'
+                  : 'bg-[var(--bg-input)] border-[var(--border)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)]'
+              }`}
             >
               {opt.hex.length > 1 ? (
                 <span className="flex -space-x-1 shrink-0">
@@ -416,7 +416,7 @@ export function ProfileApp() {
         </div>
         <a
           href="/deck-builder"
-          className="px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0"
+          className="px-3.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition hover:brightness-110 hover:shadow-[0_0_10px_var(--accent-glow)]"
           style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border)', color: 'var(--accent)' }}
         >
           Open Deck Builder
@@ -508,7 +508,7 @@ export function ProfileApp() {
             onClick={() => setShowAuthModal(true)}
             className="px-6 py-3 font-black rounded-xl text-sm transition shadow-md cursor-pointer"
             style={{
-              background: 'var(--accent)',
+              background: 'var(--accent-strong)',
               color: 'var(--text-on-accent, #000)',
               boxShadow: '0 0 16px var(--accent-glow)'
             }}
@@ -582,7 +582,7 @@ export function ProfileApp() {
                     disabled={saving || !displayName.trim()}
                     className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50"
                     style={{
-                      background: 'var(--accent)',
+                      background: 'var(--accent-strong)',
                       color: 'var(--text-on-accent, #000)',
                       boxShadow: '0 0 12px var(--accent-glow)'
                     }}
@@ -772,22 +772,11 @@ export function ProfileApp() {
                   <button
                     key={st.key}
                     onClick={() => setOrderStatusFilter(st.key)}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap"
-                    style={
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
                       orderStatusFilter === st.key
-                        ? {
-                            background: 'var(--accent-muted)',
-                            borderColor: 'var(--accent)',
-                            color: 'var(--text-accent)',
-                            boxShadow: '0 0 10px var(--accent-glow)',
-                            fontWeight: 700
-                          }
-                        : {
-                            background: 'var(--bg-input)',
-                            borderColor: 'var(--border)',
-                            color: 'var(--text-secondary)'
-                          }
-                    }
+                        ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]'
+                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
+                    }`}
                   >
                     {st.label}
                   </button>
@@ -805,22 +794,11 @@ export function ProfileApp() {
                   <button
                     key={dt.key}
                     onClick={() => setOrderDateFilter(dt.key)}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap"
-                    style={
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
                       orderDateFilter === dt.key
-                        ? {
-                            background: 'var(--accent-muted)',
-                            borderColor: 'var(--accent)',
-                            color: 'var(--text-accent)',
-                            boxShadow: '0 0 10px var(--accent-glow)',
-                            fontWeight: 700
-                          }
-                        : {
-                            background: 'var(--bg-input)',
-                            borderColor: 'var(--border)',
-                            color: 'var(--text-secondary)'
-                          }
-                    }
+                        ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]'
+                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
+                    }`}
                   >
                     {dt.label}
                   </button>
@@ -866,7 +844,7 @@ export function ProfileApp() {
                 href="/marketplace"
                 className="inline-block px-5 py-2.5 font-black rounded-xl text-xs transition shadow-md"
                 style={{
-                  background: 'var(--accent)',
+                  background: 'var(--accent-strong)',
                   color: 'var(--text-on-accent, #000)',
                   boxShadow: '0 0 16px var(--accent-glow)'
                 }}
@@ -915,7 +893,7 @@ export function ProfileApp() {
                           <span
                             className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
                               isDelivered
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-[var(--positive)]'
                                 : isShipped
                                 ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
                                 : isProcessing
@@ -938,7 +916,7 @@ export function ProfileApp() {
                                 order.payment_method === 'stripe'
                                   ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
                                   : order.payment_method === 'barion'
-                                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                  ? 'bg-emerald-500/10 text-[var(--positive)] border-emerald-500/30'
                                   : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                               }`}
                             >
@@ -956,7 +934,7 @@ export function ProfileApp() {
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
                                   order.payment_status === 'paid'
-                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    ? 'bg-emerald-500/15 text-[var(--positive)] border-emerald-500/30'
                                     : order.payment_status === 'refunded'
                                     ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
                                     : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -1157,7 +1135,7 @@ export function ProfileApp() {
                         ) : (
                           <>
                             <div>
-                              <span className="font-bold text-emerald-400 inline-flex items-center gap-1">
+                              <span className="font-bold text-[var(--positive)] inline-flex items-center gap-1">
                                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
                                 Order delivered!
                               </span>
@@ -1339,7 +1317,7 @@ export function ProfileApp() {
             color: 'var(--text-primary)'
           }}
         >
-          <span className="w-2 h-2 rounded-full shadow-[0_0_8px_var(--accent)]" style={{ background: 'var(--accent)' }} />
+          <span className="w-2 h-2 rounded-full shadow-[0_0_8px_var(--accent)]" style={{ background: 'var(--accent-strong)' }} />
           <span>{toastMessage}</span>
         </div>
       )}
