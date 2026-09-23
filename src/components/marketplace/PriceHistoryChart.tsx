@@ -73,9 +73,9 @@ function niceStep(range: number, ticks: number): number {
 }
 
 /**
- * How a card's price has moved: the market reference as a stepped line (it changes whenever a new
- * prices file is loaded) and the prices copies actually sold for on the site as dots. What is
- * listed for sale right now is not part of it.
+ * How a card's price has moved: the market reference as a solid line and the prices copies
+ * actually sold for on the site as dots joined by a dashed line. What is listed for sale right
+ * now is not part of it.
  */
 export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
   const values = useCardValueData();
@@ -153,21 +153,23 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
     const x = (t: number) => PAD.left + ((t - tMin) / (tMax - tMin)) * (W - PAD.left - PAD.right);
     const y = (v: number) => PAD.top + (1 - (v - yMin) / (yMax - yMin)) * (H - PAD.top - PAD.bottom);
 
-    // Stepped line: the price holds until the next change, then jumps; the last price runs to today.
+    // Straight line from point to point; the last price then holds flat through to today.
     const path = series.market
-      .map((m, i) => {
-        const prev = series.market[i - 1];
-        return i === 0 ? `M${x(m.t)},${y(m.huf)}` : `L${x(m.t)},${y(prev.huf)} L${x(m.t)},${y(m.huf)}`;
-      })
+      .map((m, i) => `${i === 0 ? 'M' : 'L'}${x(m.t)},${y(m.huf)}`)
       .join(' ');
     const last = series.market[series.market.length - 1];
     const tail = last ? `${path} L${x(tMax)},${y(last.huf)}` : '';
+
+    // Sold copies as a line too, so a run of sales reads as a trend instead of scattered dots.
+    const soldPath = series.sold.length > 1
+      ? series.sold.map((s, i) => `${i === 0 ? 'M' : 'L'}${x(s.t)},${y(s.huf)}`).join(' ')
+      : '';
 
     const yTicks: number[] = [];
     for (let v = yMin; v <= yMax + step / 2; v += step) yTicks.push(v);
     const xTicks = [0, 1, 2, 3].map((i) => tMin + ((tMax - tMin) * i) / 3);
 
-    return { x, y, tail, yTicks, xTicks, tMin, tMax };
+    return { x, y, tail, soldPath, yTicks, xTicks, tMin, tMax };
   }, [series]);
 
   const summary = useMemo(() => {
@@ -247,6 +249,7 @@ export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
                   />
                 </g>
               ))}
+              {chart.soldPath && <path d={chart.soldPath} fill="none" stroke={SOLD_COLOR} strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />}
               {series!.sold.map((s, i) => (
                 <g key={`s${i}`}>
                   <circle cx={chart.x(s.t)} cy={chart.y(s.huf)} r="5" fill={SOLD_COLOR} stroke="var(--bg-surface)" strokeWidth="1.5" />
