@@ -41,6 +41,39 @@ const RARITY_COLORS: Record<string, string> = {
   Showcase: '#facc15',
 };
 
+/** Number input that lets you clear it while typing; an empty box only falls back to `min`
+ * when you leave it, instead of snapping to a value the moment you delete the digits. */
+function StatNumberInput({ value, min, max, onCommit, style }: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (n: number) => void;
+  style: React.CSSProperties;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  React.useEffect(() => { if (!focused) setDraft(String(value)); }, [value, focused]);
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      onFocus={e => { setFocused(true); e.currentTarget.select(); }}
+      onChange={e => {
+        const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+        setDraft(digits);
+        if (digits !== '') onCommit(Math.max(min, Math.min(max, parseInt(digits, 10))));
+      }}
+      onBlur={() => {
+        setFocused(false);
+        if (draft === '') { onCommit(min); setDraft(String(min)); }
+      }}
+      style={style}
+    />
+  );
+}
+
 export function DeckStatisticsModal({
   deck,
   cards,
@@ -180,12 +213,16 @@ export function DeckStatisticsModal({
   const displayRarities = [...defaultRarities, ...extraRarities];
 
   // 6. Opening Hand Simulator -- samples from the Main Deck only (the Rune Deck is a
-  // separate resource pool you reveal from, not a card you draw into hand).
+  // separate resource pool you reveal from, not a card you draw into hand). Riftbound
+  // opens with a 4-card hand, allows mulliganing up to 2 of those cards once, and draws
+  // exactly 1 card per turn after that.
   const [activeTab, setActiveTab] = useState<'overview' | 'simulator' | 'probability'>('overview');
-  const [handSize, setHandSize] = useState(6);
+  const [handSize, setHandSize] = useState(4);
   const [hand, setHand] = useState<CatalogCard[]>([]);
   const [remainingPool, setRemainingPool] = useState<CatalogCard[]>([]);
   const [simPreviewCard, setSimPreviewCard] = useState<CatalogCard | null>(null);
+  const [mulliganUsed, setMulliganUsed] = useState(false);
+  const [mulliganPicks, setMulliganPicks] = useState<Set<number>>(new Set());
 
   const buildDrawPool = (): CatalogCard[] => {
     const pool: CatalogCard[] = [];
@@ -193,16 +230,22 @@ export function DeckStatisticsModal({
     return pool;
   };
 
-  const drawNewHand = () => {
-    const pool = buildDrawPool();
-    // Fisher-Yates shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
+  const shuffle = <T,>(arr: T[]): T[] => {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
     }
+    return copy;
+  };
+
+  const drawNewHand = () => {
+    const pool = shuffle(buildDrawPool());
     const size = Math.min(handSize, pool.length);
     setHand(pool.slice(0, size));
     setRemainingPool(pool.slice(size));
+    setMulliganUsed(false);
+    setMulliganPicks(new Set());
   };
 
   const drawOneMore = () => {
@@ -211,6 +254,29 @@ export function DeckStatisticsModal({
     const card = remainingPool[idx];
     setHand(prev => [...prev, card]);
     setRemainingPool(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Mulligan: put back up to 2 chosen cards, shuffle them into the remaining deck, and draw
+  // that many replacements - a one-time swap at the start, not a full hand redraw.
+  const toggleMulliganPick = (idx: number) => {
+    setMulliganPicks(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else if (next.size < 2) next.add(idx);
+      return next;
+    });
+  };
+
+  const performMulligan = () => {
+    if (mulliganUsed || mulliganPicks.size === 0) return;
+    const keptHand = hand.filter((_, i) => !mulliganPicks.has(i));
+    const returned = hand.filter((_, i) => mulliganPicks.has(i));
+    const pool = shuffle([...remainingPool, ...returned]);
+    const drawn = pool.slice(0, returned.length);
+    setHand([...keptHand, ...drawn]);
+    setRemainingPool(pool.slice(returned.length));
+    setMulliganUsed(true);
+    setMulliganPicks(new Set());
   };
 
   const handAvgCost = hand.length > 0
@@ -594,9 +660,14 @@ export function DeckStatisticsModal({
 
             {/* Domain Demand Bars */}
             {Object.keys(domainDemand).length > 0 && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(245, 158, 11, 0.15)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase' }}>
-                  Domain Rune Requirements
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(245, 158, 11, 0.15)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase' }}>
+                    Domain Rune Requirements
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted, #94a3b8)', marginTop: 2, lineHeight: 1.4 }}>
+                    How many cards need runes of each domain to cast. <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>Pure</span> = only that domain works, and the number in parentheses is how many of those need 2 or more runes of it. <span style={{ color: '#38bdf8' }}>Dual</span> = either domain works, counted separately.
+                  </div>
                 </div>
                 {Object.entries(domainDemand)
                   .sort((a, b) => b[1].total - a[1].total)
@@ -612,21 +683,19 @@ export function DeckStatisticsModal({
                             <span style={{ fontWeight: 700, color: style.text, textTransform: 'capitalize' }}>
                               {dom}
                             </span>
+                            <span style={{ color: 'var(--text-muted, #94a3b8)', fontWeight: 600 }}>
+                              {dStats.total} card{dStats.total === 1 ? '' : 's'}
+                            </span>
                           </div>
                           <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
                             {dStats.strict > 0 && (
                               <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>
-                                {dStats.strict} pure
+                                {dStats.strict} pure{dStats.multiPower > 0 ? ` (${dStats.multiPower} need 2+)` : ''}
                               </span>
                             )}
                             {dStats.mixed > 0 && (
                               <span style={{ color: '#38bdf8', fontSize: 11 }}>
                                 {dStats.mixed} dual
-                              </span>
-                            )}
-                            {dStats.multiPower > 0 && (
-                              <span style={{ color: '#facc15', fontSize: 11, fontWeight: 700 }}>
-                                {dStats.multiPower} multi-rune
                               </span>
                             )}
                           </div>
@@ -745,17 +814,16 @@ export function DeckStatisticsModal({
                   Opening Hand Simulator
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
-                  Draws randomly from your {mainCardCount}-card Main Deck. Rune Deck resources aren't drawn into hand, so they're not simulated here.
+                  Draws randomly from your {mainCardCount}-card Main Deck. Rune Deck resources aren't drawn into hand, so they're not simulated here. Opens with {handSize} cards; click the ↺ on up to 2 of them to mulligan once, then draw 1 card per turn.
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Hand Size</label>
-                <input
-                  type="number"
+                <StatNumberInput
+                  value={handSize}
                   min={1}
                   max={20}
-                  value={handSize}
-                  onChange={e => setHandSize(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+                  onCommit={setHandSize}
                   style={{ width: 52, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input, var(--bg-surface))', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
                 />
               </div>
@@ -767,7 +835,14 @@ export function DeckStatisticsModal({
                 disabled={mainCardCount === 0}
                 style={{ padding: '9px 16px', borderRadius: 10, background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', border: 'none', fontSize: 12, fontWeight: 800, cursor: mainCardCount === 0 ? 'not-allowed' : 'pointer', opacity: mainCardCount === 0 ? 0.5 : 1 }}
               >
-                {hand.length > 0 ? 'Mulligan (New Hand)' : 'Draw Opening Hand'}
+                Draw Opening Hand
+              </button>
+              <button
+                onClick={performMulligan}
+                disabled={mulliganUsed || mulliganPicks.size === 0}
+                style={{ padding: '9px 16px', borderRadius: 10, background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', fontSize: 12, fontWeight: 800, cursor: (mulliganUsed || mulliganPicks.size === 0) ? 'not-allowed' : 'pointer', opacity: (mulliganUsed || mulliganPicks.size === 0) ? 0.5 : 1 }}
+              >
+                Mulligan Selected ({mulliganPicks.size}/2)
               </button>
               <button
                 onClick={drawOneMore}
@@ -789,23 +864,40 @@ export function DeckStatisticsModal({
             ) : (
               <>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {hand.map((card, i) => (
-                    <div
-                      key={`${card.id}-${i}`}
-                      onClick={() => setSimPreviewCard(card)}
-                      title={card.name}
-                      style={{ width: 78, cursor: 'pointer' }}
-                    >
-                      <div style={{ width: 78, height: 109, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: '#09090b' }}>
-                        {card.image_path && (
-                          <img src={getCardImageUrl(card.image_path)} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {hand.map((card, i) => {
+                    const picked = mulliganPicks.has(i);
+                    return (
+                      <div key={`${card.id}-${i}`} style={{ width: 78, position: 'relative' }}>
+                        <div
+                          onClick={() => setSimPreviewCard(card)}
+                          title={card.name}
+                          style={{ width: 78, height: 109, borderRadius: 8, overflow: 'hidden', border: `2px solid ${picked ? '#ef4444' : 'var(--border)'}`, background: '#09090b', cursor: 'pointer' }}
+                        >
+                          {card.image_path && (
+                            <img src={getCardImageUrl(card.image_path)} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          )}
+                        </div>
+                        {!mulliganUsed && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleMulliganPick(i); }}
+                            title={picked ? 'Keep this card instead' : 'Mark this card to mulligan'}
+                            style={{
+                              position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%',
+                              border: '1px solid rgba(255,255,255,0.6)',
+                              background: picked ? '#ef4444' : 'rgba(0,0,0,0.6)',
+                              color: '#fff', fontSize: 11, fontWeight: 900, cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                            }}
+                          >
+                            ↺
+                          </button>
                         )}
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {card.name}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {card.name}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
@@ -861,12 +953,11 @@ export function DeckStatisticsModal({
                   </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Cards Seen</label>
-                    <input
-                      type="number"
+                    <StatNumberInput
+                      value={probDrawn}
                       min={1}
                       max={mainCardCount}
-                      value={probDrawn}
-                      onChange={e => setProbDrawn(Math.max(1, Math.min(mainCardCount, parseInt(e.target.value, 10) || 1)))}
+                      onCommit={setProbDrawn}
                       style={{ width: 56, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input, var(--bg-surface))', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
                     />
                   </div>
