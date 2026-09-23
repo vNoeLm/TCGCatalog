@@ -283,9 +283,13 @@ export function DeckStatisticsModal({
     ? (hand.reduce((sum, c) => sum + Math.max(0, typeof c.cost === 'number' ? c.cost : Number(c.energy) || 0), 0) / hand.length).toFixed(2)
     : '0.00';
 
+  // Rune needs only apply to a card's Power cost, not its Energy cost - Energy can be paid
+  // with runes of any domain, so a card with 0 Power makes no domain demand at all even
+  // though it's still printed with a domain.
   const handDomainNeeds: Record<string, number> = {};
   hand.forEach(c => {
     const req = getCardPowerRequirement(c);
+    if (req.power <= 0) return;
     req.domains.forEach(d => { handDomainNeeds[d] = (handDomainNeeds[d] || 0) + 1; });
   });
 
