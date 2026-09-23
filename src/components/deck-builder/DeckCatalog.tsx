@@ -16,6 +16,7 @@ interface DeckCatalogProps {
   cyberpunkRamLimits?: CyberpunkRamLimits;
   allowedDomains: string[] | null;
   legendCard: CatalogCard | null;
+  championCard: CatalogCard | null;
   activeZone: keyof DeckState | 'legends';
   deck: DeckState;
   onAddCard: (card: CatalogCard) => void;
@@ -110,6 +111,7 @@ export function DeckCatalog({
   cyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 },
   allowedDomains,
   legendCard,
+  championCard,
   activeZone,
   deck,
   onAddCard,
@@ -368,6 +370,19 @@ export function DeckCatalog({
         if (!isColorless && !matches) return false;
       }
 
+      // 2b. Signature Spells and Signature Gear only belong to their own Champion - sharing the
+      // Legend's domain isn't enough (e.g. picking a Fury Legend doesn't unlock every Fury
+      // champion's signature card, only the one whose Champion is actually in the deck).
+      if (!isCyberpunk && (activeZone === 'mainDeck' || activeZone === 'sideboard')) {
+        const isSignatureItem = (card.card_type === 'Spell' || card.card_type === 'Gear') && (card.subtype || '').toLowerCase().includes('signature');
+        if (isSignatureItem) {
+          if (!championCard) return false;
+          const champBaseName = championCard.name.split(/,| - /)[0].trim().toLowerCase();
+          const itemTags = Array.isArray(card.tags) ? card.tags.map((t: any) => String(t).toLowerCase()) : [];
+          if (!itemTags.includes(champBaseName)) return false;
+        }
+      }
+
       // 3. Owned-only filter
       if (onlyOwned) {
         const isOwned = collection.has(card.id) || collection.has(`${card.id}_foil`);
@@ -453,7 +468,7 @@ export function DeckCatalog({
 
       return true;
     });
-  }, [cards, search, typeFilter, rarityFilter, domainFilter, ramFilter, cyberpunkRamLimits, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, isCyberpunk, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, activeZone]);
+  }, [cards, search, typeFilter, rarityFilter, domainFilter, ramFilter, cyberpunkRamLimits, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, isCyberpunk, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, championCard, activeZone]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];

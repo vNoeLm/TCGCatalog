@@ -138,8 +138,26 @@ export function DeckBuilderApp() {
   const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder(activeGame);
   const { savedDecks, saveDeck, updateDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
   // The saved deck currently being edited, so Save can offer to update it instead of always
-  // creating a copy. Cleared when the deck is emptied or the game changes.
+  // creating a copy. Cleared when the deck is emptied or the game changes. Persisted per game
+  // (like the working deck itself) so a page refresh doesn't lose the association and silently
+  // turn every future Save into a duplicate instead of an overwrite.
+  const loadedDeckIdStorageKey = activeGame === 'cyberpunk' ? 'cyberpunk_loaded_deck_id' : 'riftbound_loaded_deck_id';
   const [loadedSavedDeckId, setLoadedSavedDeckId] = useState<string | null>(null);
+  const [loadedSavedDeckIdReady, setLoadedSavedDeckIdReady] = useState(false);
+
+  useEffect(() => {
+    setLoadedSavedDeckIdReady(false);
+    const saved = localStorage.getItem(loadedDeckIdStorageKey);
+    setLoadedSavedDeckId(saved || null);
+    setLoadedSavedDeckIdReady(true);
+  }, [loadedDeckIdStorageKey]);
+
+  useEffect(() => {
+    if (!loadedSavedDeckIdReady) return;
+    if (loadedSavedDeckId) localStorage.setItem(loadedDeckIdStorageKey, loadedSavedDeckId);
+    else localStorage.removeItem(loadedDeckIdStorageKey);
+  }, [loadedSavedDeckId, loadedSavedDeckIdReady, loadedDeckIdStorageKey]);
+
   const [saveMode, setSaveMode] = useState<'update' | 'new'>('update');
   const loadedSavedDeck = savedDecks.find(d => d.id === loadedSavedDeckId) || null;
   const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>(activeGame === 'cyberpunk' ? 'legends' : 'legend');
@@ -426,6 +444,7 @@ export function DeckBuilderApp() {
             cyberpunkRamLimits={cyberpunkRamLimits}
             allowedDomains={allowedDomains}
             legendCard={legendCard}
+            championCard={championCard}
             activeZone={activeZone}
             deck={deck}
             onAddCard={(c) => addCard(c, activeZone, cards)}
