@@ -79,6 +79,8 @@ export function DeckBrowserApp() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {decks.map(d => {
             const domains = d.legend_card?.domain ? d.legend_card.domain.split(',').map(x => x.trim().toLowerCase()) : [];
+            const championDomain = d.champion_card?.domain ? d.champion_card.domain.split(',')[0].trim().toLowerCase() : null;
+            const championColor = championDomain ? (DOMAIN_COLORS[championDomain] || '#94a3b8') : null;
             return (
               <a
                 key={d.id}
@@ -86,16 +88,16 @@ export function DeckBrowserApp() {
                 className="rounded-xl border overflow-hidden transition hover:-translate-y-0.5 cursor-pointer flex flex-col"
                 style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
               >
-                <div className="flex w-full" style={{ aspectRatio: '3 / 4', background: '#09090b' }}>
-                  <div className="flex-1 h-full min-w-0">
-                    {d.legend_card?.image_path && (
-                      <img {...cardThumbProps(d.legend_card.image_path, 'tile')} alt={d.legend_card.name} className="w-full h-full object-cover" />
-                    )}
-                  </div>
-                  {d.champion_card?.image_path && (
-                    <div className="flex-1 h-full min-w-0 border-l" style={{ borderColor: 'var(--border)' }}>
-                      <img {...cardThumbProps(d.champion_card.image_path, 'tile')} alt={d.champion_card.name} className="w-full h-full object-cover" />
-                    </div>
+                <div className="relative w-full" style={{ aspectRatio: '3 / 4', background: '#09090b' }}>
+                  {d.legend_card?.image_path && (
+                    <img {...cardThumbProps(d.legend_card.image_path, 'tile')} alt={d.legend_card.name} className="w-full h-full object-cover" />
+                  )}
+                  {championColor && d.champion_card && (
+                    <span
+                      className="absolute top-2 right-2 w-4 h-4 rounded-full"
+                      style={{ background: championColor, border: '2px solid rgba(9,9,11,0.85)', boxShadow: '0 1px 4px rgba(0,0,0,0.6)' }}
+                      title={`Champion: ${d.champion_card.name}`}
+                    />
                   )}
                 </div>
                 <div className="p-2.5">

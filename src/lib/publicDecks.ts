@@ -13,7 +13,7 @@ export interface PublicDeckSummary {
   owner_name: string;
   owner_avatar: string | null;
   legend_card: { id: string; name: string; image_path: string | null; domain?: string | null } | null;
-  champion_card: { id: string; name: string; image_path: string | null } | null;
+  champion_card: { id: string; name: string; image_path: string | null; domain?: string | null } | null;
   deck?: DeckState;
 }
 
