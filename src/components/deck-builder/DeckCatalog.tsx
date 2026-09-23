@@ -370,16 +370,16 @@ export function DeckCatalog({
         if (!isColorless && !matches) return false;
       }
 
-      // 2b. Signature Spells only belong to their own Champion - sharing the Legend's domain
-      // isn't enough (e.g. picking a Fury Legend doesn't unlock every Fury champion's spell,
-      // only the one whose Champion is actually in the deck).
+      // 2b. Signature Spells and Signature Gear only belong to their own Champion - sharing the
+      // Legend's domain isn't enough (e.g. picking a Fury Legend doesn't unlock every Fury
+      // champion's signature card, only the one whose Champion is actually in the deck).
       if (!isCyberpunk && (activeZone === 'mainDeck' || activeZone === 'sideboard')) {
-        const isSignatureSpell = card.card_type === 'Spell' && (card.subtype || '').toLowerCase().includes('signature');
-        if (isSignatureSpell) {
+        const isSignatureItem = (card.card_type === 'Spell' || card.card_type === 'Gear') && (card.subtype || '').toLowerCase().includes('signature');
+        if (isSignatureItem) {
           if (!championCard) return false;
           const champBaseName = championCard.name.split(/,| - /)[0].trim().toLowerCase();
-          const spellTags = Array.isArray(card.tags) ? card.tags.map((t: any) => String(t).toLowerCase()) : [];
-          if (!spellTags.includes(champBaseName)) return false;
+          const itemTags = Array.isArray(card.tags) ? card.tags.map((t: any) => String(t).toLowerCase()) : [];
+          if (!itemTags.includes(champBaseName)) return false;
         }
       }
 
