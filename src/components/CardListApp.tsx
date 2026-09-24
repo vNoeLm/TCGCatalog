@@ -1687,7 +1687,7 @@ export function CardListApp() {
             {/* Row 4: Grid Size Switcher (100% on mobile) + Collection Actions (100% on mobile).
                 pt matches the container's own p-3.5/p-4, so the gap above the divider line
                 (down to these buttons) matches the gap below them (down to the box's edge). */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3.5 sm:pt-4 border-t border-[var(--border-subtle)]">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 pt-3.5 sm:pt-4 border-t border-[var(--border-subtle)]">
               {/* Grid Size Switcher - 100% full-width on mobile */}
               <div className="grid grid-cols-3 sm:flex items-center bg-[var(--bg-input)] border border-[var(--border)] rounded-xl p-1 h-10 sm:h-9 shrink-0 gap-1 w-full sm:w-auto">
                 {(["small", "normal", "large"] as const).map(size => {
@@ -1709,11 +1709,12 @@ export function CardListApp() {
                 })}
               </div>
 
-              {/* What the collection is worth, between the size switcher and the actions */}
-              <CollectionValueChip collection={collection} cards={allCards.length ? allCards : cards} />
+              {/* What the collection is worth, between the size switcher and the actions - scoped to
+                  whatever's currently filtered/on screen, so it updates live as filters change. */}
+              <CollectionValueChip collection={collection} cards={relevantCards} />
 
               {/* Collection Actions Buttons - 100% full-width on mobile */}
-              <div className="grid grid-cols-3 sm:flex items-center gap-1.5 w-full sm:w-auto">
+              <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full sm:w-auto">
                 {/* Deck Builder Button */}
                 <a
                   href="/deck-builder"
