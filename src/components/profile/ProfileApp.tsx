@@ -357,7 +357,7 @@ export function ProfileApp() {
       </div>
 
       {/* Theme swatches: color, hex codes and its name - that's the whole card */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {THEME_SWATCHES.map((opt) => {
           const active = themeMode === opt.mode;
           return (
@@ -537,12 +537,12 @@ export function ProfileApp() {
             <img
               src={profile.avatar_url}
               alt={profile.display_name || 'User'}
-              className="w-16 h-16 rounded-full object-cover"
+              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full object-cover shrink-0"
               style={{ border: '1px solid var(--border)' }}
             />
           ) : (
-            <div 
-              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black border"
+            <div
+              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-2xl font-black border shrink-0"
               style={{
                 background: 'var(--bg-surface-2)',
                 borderColor: 'var(--border)',
@@ -761,7 +761,7 @@ export function ProfileApp() {
             {/* Filters: Status + Date */}
             <div className="flex flex-wrap gap-2 items-center">
               {/* Status pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar min-w-0">
                 {[
                   { key: 'All', label: "All" },
                   { key: 'Pending', label: "Pending" },
@@ -784,7 +784,7 @@ export function ProfileApp() {
               </div>
 
               {/* Date range pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar min-w-0">
                 {([
                   { key: 'all' as const, label: 'All Time' },
                   { key: 'today' as const, label: 'Today' },
