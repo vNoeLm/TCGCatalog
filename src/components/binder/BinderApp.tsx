@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CatalogCard, FilterState } from '../../types';
 import { fetchCardsCatalog } from '../../lib/api';
 import { cardThumbProps } from '../../lib/supabase';
@@ -6,9 +6,11 @@ import { CardDetail } from '../CardDetail';
 import {
   buildBinderPockets,
   paginate,
+  pocketVariants,
+  pocketMatchesSearch,
+  pocketOwned,
   BINDER_GRID_OPTIONS,
   type BinderGridSize,
-  type BinderLayoutMode,
   type BinderPocket,
 } from '../../lib/binderLayout';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
@@ -25,16 +27,89 @@ const DEFAULT_FILTERS: FilterState = {
   costMax: 10,
 };
 
-function BinderPocketTile({ pocket, onOpen }: { pocket: BinderPocket; onOpen: (cardId: string) => void }) {
-  const [shown, setShown] = useState(0);
-  const variants = [pocket.primary, ...pocket.stacked];
+/** Reads the tracked collection the same way the rest of the app does, and stays in
+ * sync with it (other tabs, other pages, the "Add to Vault" buttons here). */
+function useOwnedQtyMap(): Record<string, number> {
+  const [qty, setQty] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const toQtyMap = (raw: Record<string, number> | string[]): Record<string, number> => {
+      if (Array.isArray(raw)) return Object.fromEntries(raw.map(id => [id, 1]));
+      const out: Record<string, number> = {};
+      Object.entries(raw).forEach(([id, count]) => { if (typeof count === 'number' && count > 0) out[id] = count; });
+      return out;
+    };
+    const load = () => {
+      try {
+        const saved = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
+        if (!saved) { setQty({}); return; }
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) || (parsed && typeof parsed === 'object')) setQty(toQtyMap(parsed));
+        else setQty({});
+      } catch {
+        setQty({});
+      }
+    };
+    load();
+    window.addEventListener('tcg-collection-change', load);
+    window.addEventListener('storage', load);
+    window.addEventListener('focus', load);
+    return () => {
+      window.removeEventListener('tcg-collection-change', load);
+      window.removeEventListener('storage', load);
+      window.removeEventListener('focus', load);
+    };
+  }, []);
+
+  return qty;
+}
+
+function BinderPocketTile({
+  pocket,
+  matchesSearch,
+  searchActive,
+  slotNumber,
+  dimmed,
+  onOpen,
+}: {
+  pocket: BinderPocket;
+  matchesSearch: boolean;
+  searchActive: boolean;
+  slotNumber: number;
+  dimmed: boolean;
+  onOpen: (cardId: string) => void;
+}) {
+  const variants = pocketVariants(pocket);
+  // Default to the highest tier print/finish folded into this pocket (foil, or alt art,
+  // or foil alt art) - the whole point of turning variants on is to see the fancy one.
+  const [shown, setShown] = useState(variants.length - 1);
   const active = variants[Math.min(shown, variants.length - 1)];
   const isAltPrint = active.card.id !== pocket.primary.card.id;
 
+  // While a search is active, a non-matching pocket collapses to a plain numbered slot
+  // so the matching card(s) stand out instead of getting lost in a full page of art.
+  if (searchActive && !matchesSearch) {
+    return (
+      <div
+        className="rounded-lg border border-dashed flex items-center justify-center"
+        style={{ borderColor: 'var(--border-subtle)', aspectRatio: '2.5 / 3.5', color: 'var(--text-muted)' }}
+      >
+        <span className="text-xs font-bold">{slotNumber}</span>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="relative rounded-lg border flex flex-col overflow-hidden"
-      style={{ borderColor: 'var(--border)', background: 'var(--bg-input)', aspectRatio: '2.5 / 3.5' }}
+      className="relative rounded-lg border flex flex-col overflow-hidden transition"
+      style={{
+        borderColor: matchesSearch && searchActive ? 'var(--accent)' : 'var(--border)',
+        boxShadow: matchesSearch && searchActive ? '0 0 0 2px var(--accent-glow)' : 'none',
+        background: 'var(--bg-input)',
+        aspectRatio: '2.5 / 3.5',
+        opacity: dimmed ? 0.35 : 1,
+        filter: dimmed ? 'grayscale(0.6)' : 'none',
+      }}
     >
       <button
         type="button"
@@ -102,9 +177,11 @@ export function BinderApp() {
   const [search, setSearch] = useState('');
   const [gridSize, setGridSize] = useState<BinderGridSize>('3x3');
   const [includeVariants, setIncludeVariants] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<BinderLayoutMode>('stacked');
+  const [highlightOwned, setHighlightOwned] = useState(false);
   const [page, setPage] = useState(0);
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+
+  const ownedQty = useOwnedQtyMap();
 
   useEffect(() => {
     const handleGameChange = (e: Event) => {
@@ -133,24 +210,24 @@ export function BinderApp() {
 
   useEffect(() => {
     setPage(0);
-  }, [selectedSet, search, gridSize, includeVariants, layoutMode]);
+  }, [selectedSet, gridSize, includeVariants]);
 
+  // The card list is fetched purely from the set (never the search box) - binder position
+  // has to stay the same no matter what you've typed, or "page 4 slot 2" would be a lie.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const timer = setTimeout(() => {
-      fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame, set: selectedSet }, search).then(({ data }) => {
-        if (cancelled) return;
-        setCards(data);
-        setLoading(false);
-      });
-    }, 150);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [activeGame, selectedSet, search]);
+    fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame, set: selectedSet }, '').then(({ data }) => {
+      if (cancelled) return;
+      setCards(data);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [activeGame, selectedSet]);
 
   const pockets = useMemo(
-    () => buildBinderPockets(cards, { includeVariants, layout: layoutMode }),
-    [cards, includeVariants, layoutMode]
+    () => buildBinderPockets(cards, { includeVariants }),
+    [cards, includeVariants]
   );
 
   const { cols, rows } = BINDER_GRID_OPTIONS[gridSize];
@@ -158,6 +235,30 @@ export function BinderApp() {
   const pages = useMemo(() => paginate(pockets, pageSize), [pockets, pageSize]);
   const currentPage = pages[Math.min(page, pages.length - 1)] || [];
   const emptySlots = Math.max(0, pageSize - currentPage.length);
+
+  const searchActive = search.trim() !== '';
+  const searchMatches = useMemo(() => {
+    if (!searchActive) return [];
+    return pockets
+      .map((pocket, idx) => ({ pocket, idx }))
+      .filter(({ pocket }) => pocketMatchesSearch(pocket, search));
+  }, [pockets, search, searchActive]);
+
+  // Jump to the first match's page once typing settles, so results don't jerk the page
+  // around on every keystroke.
+  const jumpedForRef = useRef<string>('');
+  useEffect(() => {
+    if (!searchActive || searchMatches.length === 0) return;
+    const handle = setTimeout(() => {
+      const firstPageIdx = Math.floor(searchMatches[0].idx / pageSize);
+      if (jumpedForRef.current !== search) {
+        jumpedForRef.current = search;
+        setPage(firstPageIdx);
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, searchMatches, pageSize]);
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(16px,3vw,24px)' }}>
@@ -183,7 +284,7 @@ export function BinderApp() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search name or number…"
+            placeholder="Find a card's page/slot by name or number…"
             className="h-9 px-3 rounded-lg text-xs outline-none border flex-1 min-w-[160px]"
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
@@ -206,7 +307,7 @@ export function BinderApp() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 items-center pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="flex flex-wrap gap-4 items-center pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer select-none" style={{ color: 'var(--text-secondary)' }}>
             <input
               type="checkbox"
@@ -217,29 +318,43 @@ export function BinderApp() {
             Show Alt Art / Foil versions
           </label>
 
-          {includeVariants && (
-            <div className="flex items-center h-8 border rounded-lg p-0.5 gap-0.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}>
-              {([
-                { id: 'stacked' as const, label: 'Stacked' },
-                { id: 'side-by-side' as const, label: 'Side by side' },
-              ]).map(opt => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setLayoutMode(opt.id)}
-                  title={opt.id === 'stacked' ? 'Alt art / foil share the base card\'s pocket - flip between them' : 'Alt art / foil each get their own pocket, right after the base card'}
-                  className="px-2.5 h-full rounded-md text-[10px] font-bold cursor-pointer transition"
-                  style={{
-                    background: layoutMode === opt.id ? 'var(--accent-muted)' : 'transparent',
-                    color: layoutMode === opt.id ? 'var(--text-accent)' : 'var(--text-tertiary)',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
+          <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer select-none" style={{ color: 'var(--text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={highlightOwned}
+              onChange={e => setHighlightOwned(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer"
+            />
+            Highlight Owned Only
+          </label>
         </div>
+
+        {searchActive && (
+          <div className="pt-2 border-t text-xs" style={{ borderColor: 'var(--border-subtle)' }}>
+            {searchMatches.length === 0 ? (
+              <span style={{ color: 'var(--text-muted)' }}>No card in this set matches "{search}".</span>
+            ) : (
+              <div className="flex flex-wrap gap-2 items-center">
+                <span style={{ color: 'var(--text-tertiary)' }}>Found:</span>
+                {searchMatches.map(({ pocket, idx }) => {
+                  const pageNum = Math.floor(idx / pageSize) + 1;
+                  const slotNum = (idx % pageSize) + 1;
+                  return (
+                    <button
+                      key={pocket.key}
+                      type="button"
+                      onClick={() => setPage(pageNum - 1)}
+                      className="px-2.5 py-1 rounded-lg font-bold cursor-pointer border"
+                      style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                    >
+                      {pocket.primary.card.name} — Page {pageNum}, Slot {slotNum}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Binder Page */}
@@ -251,7 +366,7 @@ export function BinderApp() {
         </div>
       ) : pockets.length === 0 ? (
         <div className="rounded-2xl border p-12 text-center" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No cards match this set/search.</p>
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No cards in this set.</p>
         </div>
       ) : (
         <>
@@ -259,15 +374,25 @@ export function BinderApp() {
             className="rounded-2xl border p-3 sm:p-4 grid gap-2.5"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
-            {currentPage.map(pocket => (
-              <BinderPocketTile key={pocket.key} pocket={pocket} onOpen={setPreviewCardId} />
+            {currentPage.map((pocket, i) => (
+              <BinderPocketTile
+                key={pocket.key}
+                pocket={pocket}
+                matchesSearch={!searchActive || pocketMatchesSearch(pocket, search)}
+                searchActive={searchActive}
+                slotNumber={i + 1}
+                dimmed={highlightOwned && !pocketOwned(pocket, ownedQty)}
+                onOpen={setPreviewCardId}
+              />
             ))}
             {Array.from({ length: emptySlots }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="rounded-lg border border-dashed"
-                style={{ borderColor: 'var(--border-subtle)', aspectRatio: '2.5 / 3.5' }}
-              />
+                className="rounded-lg border border-dashed flex items-center justify-center"
+                style={{ borderColor: 'var(--border-subtle)', aspectRatio: '2.5 / 3.5', color: 'var(--text-muted)' }}
+              >
+                <span className="text-xs font-bold">{currentPage.length + i + 1}</span>
+              </div>
             ))}
           </div>
 
