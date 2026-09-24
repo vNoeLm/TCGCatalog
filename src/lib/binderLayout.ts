@@ -4,10 +4,12 @@ import { isAltArt, hasFoilVariant } from './cardVariants';
 export type BinderLayoutMode = 'stacked' | 'side-by-side';
 export type BinderGridSize = '2x2' | '3x3' | '3x4';
 
+// Named rows x cols, matching how binder pages are actually described (a "3x4" page is
+// 3 rows tall, 4 pockets across - 12 pockets, the common wide binder format).
 export const BINDER_GRID_OPTIONS: Record<BinderGridSize, { cols: number; rows: number }> = {
   '2x2': { cols: 2, rows: 2 },
   '3x3': { cols: 3, rows: 3 },
-  '3x4': { cols: 3, rows: 4 },
+  '3x4': { cols: 4, rows: 3 },
 };
 
 /** One print, optionally displayed as its foil finish. */
