@@ -249,6 +249,26 @@ html[data-theme="light"] {
 }
 
 /* ─────────────────────────────────────────────
+   HOVER FEEDBACK
+   Same idea as the press-feedback rule below, for hover: a large share of clickable elements in
+   this codebase have no hover treatment at all, and several that do are subtle enough to be easy
+   to miss. `filter: brightness()` is additive rather than a color override - it composes with
+   whatever a button already does on hover (or does nothing else) instead of fighting it, so this
+   is safe to apply globally. Gated behind (hover: hover) so a tap on touch doesn't leave a button
+   looking "stuck" lit until the next unrelated tap.
+───────────────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  /* a[href] too: a real link is always clickable by definition (native pointer cursor, no class
+     needed), so it's covered even on the ~40 links in this codebase that never bothered adding
+     `cursor-pointer` themselves. */
+  .cursor-pointer:hover, a[href]:hover {
+    filter: brightness(1.08);
+  }
+}
+/* Not gated behind prefers-reduced-motion: a brightness/lighting change isn't movement, and that
+   preference is about dropping motion, not the color/opacity feedback that aids comprehension. */
+
+/* ─────────────────────────────────────────────
    PRESS FEEDBACK
    Nearly every clickable element in this codebase already marks itself with `cursor-pointer`
    (285 occurrences vs. 283 <button> tags) - piggybacking on that gives instant, consistent
