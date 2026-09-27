@@ -10,8 +10,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "sync:prices": "node scripts/sync_prices.mjs --apply",
-    "sync:prices:dry": "node scripts/sync_prices.mjs"
+    "sync:prices": "node --experimental-strip-types scripts/sync_prices.mjs --apply",
+    "sync:prices:dry": "node --experimental-strip-types scripts/sync_prices.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",
