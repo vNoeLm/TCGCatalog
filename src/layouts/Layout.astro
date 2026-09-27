@@ -24,10 +24,11 @@ const pathname = Astro.url.pathname;
     <link rel="manifest" href="/site.webmanifest">
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
-    <!-- Modern Font: Inter -->
+    <!-- Body/UI: Inter. Headings: Space Grotesk - gives titles and card names some personality
+         without touching the numbers, labels and buttons that need to stay purely legible. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Immediate theme resolution to prevent FOUC -->
     <script is:inline>
       (function() {
@@ -45,7 +46,7 @@ const pathname = Astro.url.pathname;
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
           <a href="/" class="flex items-center group transition" style="text-decoration: none;">
-            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition-colors">
+            <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition-colors" style="font-family: var(--font-display);">
               TCG Vault
             </span>
           </a>
@@ -78,8 +79,14 @@ const pathname = Astro.url.pathname;
 <style is:global>
   :root {
     --font-inter: 'Inter', sans-serif;
+    --font-display: 'Space Grotesk', var(--font-inter);
   }
   body {
     font-family: var(--font-inter);
+  }
+  /* Titles get the display font; numbers, labels, badges and buttons stay in Inter for pure
+     legibility - drawing the line at real heading tags keeps this from spreading everywhere. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
   }
 </style>

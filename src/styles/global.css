@@ -249,6 +249,23 @@ html[data-theme="light"] {
 }
 
 /* ─────────────────────────────────────────────
+   PRESS FEEDBACK
+   Nearly every clickable element in this codebase already marks itself with `cursor-pointer`
+   (285 occurrences vs. 283 <button> tags) - piggybacking on that gives instant, consistent
+   press feedback everywhere at once, instead of one more class to remember on every new button.
+   `:active` only fires on a real press (touch or mouse), so it needs no hover-media gating.
+   Browsers already exclude disabled form controls from :active, so disabled buttons are unaffected.
+───────────────────────────────────────────── */
+.cursor-pointer:active {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor-pointer:active {
+    transform: none;
+  }
+}
+
+/* ─────────────────────────────────────────────
    MOTION — shared enter/exit transitions
    Driven by data-state="open"|"closed" (see src/lib/useExitTransition.ts), which keeps a
    closing element mounted long enough for its own exit transition to play, instead of the
