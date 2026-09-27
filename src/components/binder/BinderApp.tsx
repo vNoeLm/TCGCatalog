@@ -9,6 +9,7 @@ import {
   pocketVariants,
   pocketMatchesSearch,
   pocketOwned,
+  variantOwned,
   BINDER_GRID_OPTIONS,
   type BinderGridSize,
   type BinderPocket,
@@ -69,22 +70,35 @@ function BinderPocketTile({
   matchesSearch,
   searchActive,
   slotNumber,
-  dimmed,
+  highlightOwned,
+  ownedQty,
   onOpen,
 }: {
   pocket: BinderPocket;
   matchesSearch: boolean;
   searchActive: boolean;
   slotNumber: number;
-  dimmed: boolean;
+  highlightOwned: boolean;
+  ownedQty: Record<string, number>;
   onOpen: (cardId: string) => void;
 }) {
   const variants = pocketVariants(pocket);
   // Default to the highest tier print/finish folded into this pocket (foil, or alt art,
   // or foil alt art) - the whole point of turning variants on is to see the fancy one.
   const [shown, setShown] = useState(variants.length - 1);
+  // Toggling "Show Alt Art / Foil" changes how many variants this same pocket (same key,
+  // same card) has without remounting the tile, so the above initial value alone would
+  // only ever apply once - re-snap to the new highest tier whenever the count changes.
+  useEffect(() => {
+    setShown(variants.length - 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variants.length]);
   const active = variants[Math.min(shown, variants.length - 1)];
   const isAltPrint = active.card.id !== pocket.primary.card.id;
+  // With more than one variant to flip through, dimming has to track the one actually on
+  // screen - otherwise owning just the normal print hides that its foil isn't owned. With
+  // only one variant there is nothing more specific to ask than "is this pocket filled".
+  const dimmed = highlightOwned && (variants.length > 1 ? !variantOwned(active, ownedQty) : !pocketOwned(pocket, ownedQty));
 
   // While a search is active, a non-matching pocket collapses to a plain numbered slot
   // so the matching card(s) stand out instead of getting lost in a full page of art.
@@ -381,7 +395,8 @@ export function BinderApp() {
                 matchesSearch={!searchActive || pocketMatchesSearch(pocket, search)}
                 searchActive={searchActive}
                 slotNumber={i + 1}
-                dimmed={highlightOwned && !pocketOwned(pocket, ownedQty)}
+                highlightOwned={highlightOwned}
+                ownedQty={ownedQty}
                 onOpen={setPreviewCardId}
               />
             ))}

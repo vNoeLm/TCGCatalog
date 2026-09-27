@@ -113,10 +113,20 @@ export function pocketMatchesSearch(pocket: BinderPocket, query: string): boolea
 }
 
 /** True if the collection owns any print/finish folded into this pocket - a pocket
- * represents one binder slot, so any version of the card counts as "have it". */
+ * represents one binder slot, so any version of the card counts as "have it". Used when
+ * a pocket has only one displayable variant, where there is nothing more specific to ask. */
 export function pocketOwned(pocket: BinderPocket, collection: Record<string, number>): boolean {
   return pocketVariants(pocket).some(v => {
     const id = v.card.id;
     return (collection[id] || 0) > 0 || (collection[`${id}_foil`] || 0) > 0;
   });
+}
+
+/** True if the collection owns this exact print and finish - not any other version folded
+ * into the same pocket. Used once a pocket has more than one variant to flip through, so
+ * "Highlight Owned Only" reflects the one actually on screen (e.g. a foil you don't have
+ * isn't hidden just because you own the card's normal print). */
+export function variantOwned(variant: BinderVariant, collection: Record<string, number>): boolean {
+  const key = variant.isFoil ? `${variant.card.id}_foil` : variant.card.id;
+  return (collection[key] || 0) > 0;
 }
