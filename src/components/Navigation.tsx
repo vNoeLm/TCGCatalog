@@ -198,26 +198,6 @@ export function Navigation({ currentPath }: NavigationProps) {
                     My Profile
                   </a>
 
-                  <a
-                    href="/seller"
-                    onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
-                    style={{ color: 'var(--text-secondary)' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--accent-muted)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }}
-                  >
-                    <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
-                    </svg>
-                    <span>Seller Dashboard</span>
-                  </a>
-
                   <button
                     onClick={async () => {
                       setDropdownOpen(false);
@@ -367,7 +347,15 @@ export function Navigation({ currentPath }: NavigationProps) {
                       }
                 }
               >
-                <span>Catalog</span>
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                  </svg>
+                  <span>Catalog</span>
+                </span>
                 <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 
@@ -390,7 +378,14 @@ export function Navigation({ currentPath }: NavigationProps) {
                       }
                 }
               >
-                <span>Marketplace</span>
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <path d="M16 10a4 4 0 01-8 0" />
+                  </svg>
+                  <span>Marketplace</span>
+                </span>
                 <span style={{ color: 'var(--text-tertiary)' }}>→</span>
               </a>
 
@@ -417,7 +412,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                     <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 21h18M3 10h18M5 10V21M19 10V21M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 10l2-6h14l2 6" />
                     </svg>
-                    <span>Seller Dashboard</span>
+                    <span>Seller Hub</span>
                   </span>
                   <span style={{ color: 'var(--text-tertiary)' }}>→</span>
                 </a>
