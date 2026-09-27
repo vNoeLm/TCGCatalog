@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { CatalogCard, UserProfile } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
+import { useExitTransition } from '../../lib/useExitTransition';
 
 export interface HoldRequestModalProps {
   isOpen: boolean;
@@ -61,7 +62,8 @@ export function HoldRequestModal({
     if (isOpen) setQuantity(1);
   }, [isOpen, inventoryItem?.id]);
 
-  if (!isOpen) return null;
+  const { rendered, state } = useExitTransition(isOpen, 250);
+  if (!rendered) return null;
 
   const priceHuf = inventoryItem?.price_huf || 0;
   const sellerName = inventoryItem?.seller_name || 'Community Seller';
@@ -146,13 +148,15 @@ export function HoldRequestModal({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150"
+      data-state={state}
+      className="tv-overlay fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl p-5 sm:p-7 shadow-2xl border transition-all my-8 max-h-[90vh] overflow-y-auto"
+        data-state={state}
+        className="tv-modal-panel relative w-full max-w-lg rounded-2xl p-5 sm:p-7 shadow-2xl border my-8 max-h-[90vh] overflow-y-auto"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',

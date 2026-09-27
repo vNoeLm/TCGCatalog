@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import type { InventoryCard } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
@@ -56,14 +56,25 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
   const rowSeller = (l: InventoryCard) => l.seller_name || 'Community Seller';
 
+  // No isOpen prop - the parent mounts/unmounts this directly, so there's no signal to hold it
+  // for an exit transition. This still gives a real entrance instead of an instant pop-in.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
     <div
       onClick={onClose}
+      data-state={entered ? 'open' : 'closed'}
       style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12, overflowY: 'auto', overscrollBehavior: 'contain' }}
+      className="tv-overlay"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        data-state={entered ? 'open' : 'closed'}
+        className="tv-modal-panel w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
       >
         <button

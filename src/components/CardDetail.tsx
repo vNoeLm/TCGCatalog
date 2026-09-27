@@ -59,6 +59,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const isAdmin = Boolean(profile?.is_admin || profile?.role === 'admin' || profile?.role === 'owner');
   const [sellerSummary, setSellerSummary] = useState<SellerProfileSummary | null>(null);
   const [reviewsModalSellerId, setReviewsModalSellerId] = useState<string | null>(null);
+  // Closing nulls this immediately, but the modal needs a sellerId for the length of its own
+  // exit transition - freeze the last non-null value instead of reading the live one.
+  const reviewsModalSellerIdRef = useRef<string | null>(null);
+  if (reviewsModalSellerId) reviewsModalSellerIdRef.current = reviewsModalSellerId;
 
   useEffect(() => {
     if (data?.seller_id) {
@@ -1412,33 +1416,30 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         </div>
       </div>
 
-      {isHoldModalOpen && (
-        <HoldRequestModal
-          isOpen={isHoldModalOpen}
-          onClose={() => setIsHoldModalOpen(false)}
-          card={card}
-          inventoryItem={data}
-          handoverMethods={data?.handover_methods}
-          profile={profile}
-          
-          onRequestSubmitted={() => {
-            setData((prev: any) => ({
-              ...prev,
-              status: 'On Hold',
-            }));
-            window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-          }}
-        />
-      )}
+      {/* HoldRequestModal, ListCardModal and SellerReviewsModal each hold themselves open for
+          their own exit transition (isOpen) - wrapping them in `{flag && (...)}` here would
+          unmount them the instant the flag goes false, before that transition gets to play. */}
+      <HoldRequestModal
+        isOpen={isHoldModalOpen}
+        onClose={() => setIsHoldModalOpen(false)}
+        card={card}
+        inventoryItem={data}
+        handoverMethods={data?.handover_methods}
+        profile={profile}
+        onRequestSubmitted={() => {
+          setData((prev: any) => ({
+            ...prev,
+            status: 'On Hold',
+          }));
+          window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+        }}
+      />
 
-      {isListModalOpen && (
-        <ListCardModal
-          isOpen={isListModalOpen}
-          onClose={() => setIsListModalOpen(false)}
-          initialCard={card}
-          
-        />
-      )}
+      <ListCardModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+        initialCard={card}
+      />
 
       {showAuthModal && (
         <AuthModal
@@ -1453,13 +1454,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         />
       )}
 
-      {reviewsModalSellerId && (
+      {reviewsModalSellerIdRef.current && (
         <SellerReviewsModal
-          isOpen={true}
+          isOpen={!!reviewsModalSellerId}
           onClose={() => setReviewsModalSellerId(null)}
-          sellerId={reviewsModalSellerId}
+          sellerId={reviewsModalSellerIdRef.current}
           sellerSummary={sellerSummary}
-          
         />
       )}
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
 import { adjustLocalCollection } from '../../lib/collectionClient';
@@ -178,16 +179,17 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
     }
   };
 
-  if (!isOpen) return null;
+  const { rendered, state } = useExitTransition(isOpen, 250);
+  if (!rendered) return null;
 
   const selectedCount = listingCandidates.filter(c => c.selected).reduce((acc, curr) => acc + curr.quantity, 0);
   const totalValue = listingCandidates.filter(c => c.selected).reduce((acc, curr) => acc + (curr.quantity * curr.priceHuf), 0);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+      <div data-state={state} className="tv-overlay absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+
+      <div data-state={state} className="tv-modal-panel relative w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         
         {/* Header */}
         <div className="p-5 border-b flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>

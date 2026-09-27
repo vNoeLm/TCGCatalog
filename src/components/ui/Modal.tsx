@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useExitTransition } from '../../lib/useExitTransition';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function Modal({
   showCloseButton = true,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const { rendered, state } = useExitTransition(isOpen, 250);
 
   // Close on Escape key press
   useEffect(() => {
@@ -42,7 +44,7 @@ export function Modal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!rendered) return null;
 
   const content = (
     <div
@@ -53,12 +55,14 @@ export function Modal({
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+      data-state={state}
+      className="tv-overlay fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-        className={`w-full ${maxWidth} my-auto rounded-2xl border shadow-2xl overflow-hidden transition-all duration-150 animate-in zoom-in-95 ${className}`}
+        data-state={state}
+        className={`tv-modal-panel w-full ${maxWidth} my-auto rounded-2xl border shadow-2xl overflow-hidden ${className}`}
       >
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>

@@ -241,6 +241,137 @@ html[data-theme="light"] {
      viewport subtract this instead of a hand-tuned number, so they fit without scrolling.
      --header-h is measured live by Layout.astro, since the header's height changes with width. */
   --page-chrome-h: calc(var(--header-h, 55px) + 4rem);
+
+  /* Motion: strong custom eases - the built-in CSS ones read as weak/mushy on UI. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ─────────────────────────────────────────────
+   MOTION — shared enter/exit transitions
+   Driven by data-state="open"|"closed" (see src/lib/useExitTransition.ts), which keeps a
+   closing element mounted long enough for its own exit transition to play, instead of the
+   instant unmount a plain `{open && <div>}` gives you. Every element here has a real,
+   independently-verified opacity/transform starting point, unlike the old `animate-in` /
+   `animate-fade-in` classes littered through this codebase - those aren't real Tailwind
+   utilities (no plugin ever supplied them), so every dropdown/modal/drawer that used them was
+   popping in and out with zero motion the whole time.
+───────────────────────────────────────────── */
+.tv-overlay {
+  transition: opacity 250ms var(--ease-out);
+}
+.tv-overlay[data-state="closed"] {
+  opacity: 0;
+}
+
+/* The one popover exempt from trigger-anchored transform-origin - a modal isn't anchored to a
+   trigger, so it stays centered. */
+.tv-modal-panel {
+  transform-origin: center;
+  transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+}
+.tv-modal-panel[data-state="closed"] {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+/* Dropdowns, menus, selects - scales out of the trigger it came from, not out of thin air. Pair
+   with one of the .tv-origin-* modifiers below to match where the trigger actually sits. */
+.tv-popover {
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.tv-popover[data-state="closed"] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+.tv-origin-top-right { transform-origin: top right; }
+.tv-origin-top-left  { transform-origin: top left; }
+.tv-origin-top        { transform-origin: top; }
+
+/* A drawer sliding in from a screen edge (filters, cart). */
+.tv-drawer-left {
+  transition: transform 400ms var(--ease-drawer);
+}
+.tv-drawer-left[data-state="closed"] {
+  transform: translateX(-100%);
+}
+.tv-drawer-right {
+  transition: transform 400ms var(--ease-drawer);
+}
+.tv-drawer-right[data-state="closed"] {
+  transform: translateX(100%);
+}
+
+/* A sheet dropping from under the header (mobile nav menu) - smaller motion than a full drawer
+   sweep, so it sits on the faster "dropdown" budget rather than --ease-drawer. */
+.tv-sheet-down {
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.tv-sheet-down[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Toasts - `ease` rather than `ease-out`, and slightly slower than the usual UI budget, is
+   deliberate (see Sonner's own animation notes): a toast reads as calmer, not urgent. */
+.tv-toast {
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+.tv-toast[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+/* Same enter/exit as .tv-toast, but for the legal footer bar specifically - it also needs its
+   pre-existing color transition (background/border/text) when the theme switches, which a plain
+   `transition-colors` utility alongside `.tv-toast` would lose (the shorthand overwrites it). */
+.tv-footer-bar {
+  transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out), background 200ms, border-color 200ms, color 200ms;
+}
+.tv-footer-bar[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+/* A simple content reveal on mount (a results panel appearing, nothing to close) - needs no JS
+   state at all, unlike the data-state driven classes above which also handle an exit. */
+.tv-reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion means fewer/gentler animations, not zero - keep the opacity fade, drop every
+     transform-based movement. */
+  .tv-overlay, .tv-modal-panel, .tv-popover, .tv-drawer-left, .tv-drawer-right, .tv-sheet-down, .tv-toast {
+    transition-property: opacity;
+  }
+  .tv-footer-bar {
+    /* Keeps its color transition (theme switching) - only the movement is dropped. */
+    transition-property: opacity, background, border-color, color;
+  }
+  .tv-modal-panel[data-state="closed"],
+  .tv-popover[data-state="closed"],
+  .tv-drawer-left[data-state="closed"],
+  .tv-drawer-right[data-state="closed"],
+  .tv-sheet-down[data-state="closed"],
+  .tv-toast[data-state="closed"],
+  .tv-footer-bar[data-state="closed"] {
+    transform: none;
+  }
+  .tv-reveal {
+    transition-property: opacity;
+    @starting-style {
+      transform: none;
+    }
+  }
 }
 
 html {

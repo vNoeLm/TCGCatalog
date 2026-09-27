@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
 import { getCardImageUrl } from '../../lib/supabase';
-import { CardDetail } from '../CardDetail';
+import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { KEYWORD_LIST, keywordSolidColor } from '../../lib/formatGameText';
 
 interface DeckStatisticsModalProps {
@@ -85,6 +85,14 @@ export function DeckStatisticsModal({
   onClose,
   
 }: DeckStatisticsModalProps) {
+  // No isOpen prop - the parent mounts/unmounts this directly, so there's no signal to hold it
+  // for an exit transition. This still gives a real entrance instead of an instant pop-in.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const isCyberpunk = activeGame === 'cyberpunk';
   // 1. Gather all card entries across zones
   const getZoneEntries = (zoneMap: Record<string, number>) => {
@@ -342,6 +350,8 @@ export function DeckStatisticsModal({
   return (
     <div
       onClick={onClose}
+      data-state={entered ? 'open' : 'closed'}
+      className="tv-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -356,6 +366,8 @@ export function DeckStatisticsModal({
     >
       <div
         onClick={e => e.stopPropagation()}
+        data-state={entered ? 'open' : 'closed'}
+        className="tv-modal-panel"
         style={{
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
@@ -1039,20 +1051,7 @@ export function DeckStatisticsModal({
         </div>
       </div>
 
-      {simPreviewCard && (
-        <div
-          onClick={(e) => { e.stopPropagation(); setSimPreviewCard(null); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)' }}
-            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
-          >
-            <CardDetail cardId={simPreviewCard.id} onClose={() => setSimPreviewCard(null)} />
-          </div>
-        </div>
-      )}
+      <CardPreviewOverlay cardId={simPreviewCard?.id ?? null} onClose={() => setSimPreviewCard(null)} zIndex={10000} />
     </div>
   );
 }

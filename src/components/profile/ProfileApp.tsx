@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, cardThumbProps } from '../../lib/supabase';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
 import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
@@ -27,6 +28,11 @@ export function ProfileApp() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Auto-hide nulls the message immediately, but the toast needs it for the length of its own
+  // exit transition - freeze the last shown message instead of reading the live one.
+  const toastMessageRef = useRef<string | null>(null);
+  if (toastMessage) toastMessageRef.current = toastMessage;
+  const toastAnim = useExitTransition(!!toastMessage, 400);
 
   // Repay Pending Order State
 
@@ -1308,9 +1314,10 @@ export function ProfileApp() {
       )}
 
       {/* Toast Notification */}
-      {toastMessage && (
-        <div 
-          className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4 border"
+      {toastAnim.rendered && toastMessageRef.current && (
+        <div
+          data-state={toastAnim.state}
+          className="tv-toast fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2.5 border"
           style={{
             background: 'var(--bg-surface)',
             borderColor: 'var(--border)',
@@ -1318,7 +1325,7 @@ export function ProfileApp() {
           }}
         >
           <span className="w-2 h-2 rounded-full shadow-[0_0_8px_var(--accent)]" style={{ background: 'var(--accent-strong)' }} />
-          <span>{toastMessage}</span>
+          <span>{toastMessageRef.current}</span>
         </div>
       )}
     </div>

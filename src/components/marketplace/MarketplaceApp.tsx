@@ -8,7 +8,7 @@ import { CardGroupTile } from './CardGroupTile';
 import { CardListingsModal } from './CardListingsModal';
 import { QuickShopModal } from './QuickShopModal';
 import { groupListingsByCard, type CardListingGroup } from '../../lib/marketplaceGrouping';
-import { CardDetail } from '../CardDetail';
+import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
 import { matchesCardVariants } from '../../lib/cardVariants';
@@ -668,35 +668,7 @@ export function MarketplaceApp() {
       )}
 
       {/* Card Detail Modal */}
-      {selectedInventoryId && (
-        <div 
-          onClick={() => setSelectedInventoryId(null)}
-          style={{ 
-            position: 'fixed', 
-            inset: 0, 
-            zIndex: 100, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            background: 'rgba(0,0,0,0.85)', 
-            backdropFilter: 'blur(8px)', 
-            padding: '12px', 
-            overflowY: 'auto', 
-            overscrollBehavior: 'contain' 
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{ touchAction: 'auto', background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative border rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
-          >
-            <CardDetail
-              inventoryId={selectedInventoryId}
-              onClose={() => setSelectedInventoryId(null)}
-            />
-          </div>
-        </div>
-      )}
+      <CardPreviewOverlay inventoryId={selectedInventoryId} onClose={() => setSelectedInventoryId(null)} zIndex={100} />
 
       <QuickShopModal
         isOpen={isQuickShopOpen}

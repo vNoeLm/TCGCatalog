@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GAMES, STORAGE_KEYS, EVENTS } from '../lib/constants';
 import { applySiteTheme } from '../lib/theme';
+import { useExitTransition } from '../lib/useExitTransition';
 
 export function GameSelector() {
   const [activeGame, setActiveGame] = useState(() => {
@@ -14,6 +15,7 @@ export function GameSelector() {
   });
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownAnim = useExitTransition(isOpen, 200);
 
   useEffect(() => {
 
@@ -98,9 +100,10 @@ export function GameSelector() {
       </button>
 
       {/* Dropdown Menu */}
-      {isOpen && (
+      {dropdownAnim.rendered && (
         <div
-          className="absolute left-0 mt-1.5 w-56 rounded-xl border shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md"
+          data-state={dropdownAnim.state}
+          className="tv-popover tv-origin-top-left absolute left-0 mt-1.5 w-56 rounded-xl border shadow-2xl z-50 py-1 overflow-hidden backdrop-blur-md"
           style={{
             background: 'var(--bg-surface)',
             borderColor: 'var(--border)',
