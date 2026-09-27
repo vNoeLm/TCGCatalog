@@ -509,9 +509,17 @@ export function CardListApp() {
       return;
     }
 
-    const isFoil = e.shiftKey;
+    // Rare+ cards have no separate foil print - the catalog tile only ever shows one
+    // "Add to Vault" control for them, keyed by the plain card id. Writing a `_foil` entry
+    // here anyway would create a copy the UI has no control to ever remove.
+    const isFoil = e.shiftKey && hasFoilVariant(matched);
     updateCardCount(matched.id, isFoil, 1);
-    showToast(`+1 ${isFoil ? 'foil ' : ''}${matched.name}${matched.card_number ? ` (${matched.card_number})` : ''}`, 'success');
+    const foilRequestedButUnavailable = e.shiftKey && !isFoil;
+    showToast(
+      `+1 ${isFoil ? 'foil ' : ''}${matched.name}${matched.card_number ? ` (${matched.card_number})` : ''}` +
+      (foilRequestedButUnavailable ? ' — no separate foil print, added as normal' : ''),
+      'success'
+    );
     setSearchQuery('');
     requestAnimationFrame(() => searchInputRef.current?.focus());
   };

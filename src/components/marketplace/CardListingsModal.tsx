@@ -15,7 +15,15 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 
 // Seller | Description | Condition | Amount | Price | (View). On a phone the seller, price and View share
 // the first line and the rest wrap underneath.
-const ROW_COLUMNS = 'md:grid-cols-[minmax(150px,1.1fr)_minmax(0,1.5fr)_minmax(150px,auto)_56px_100px_68px]';
+//
+// Gated on the *panel's own* width via a container query, not the viewport - this table lives in
+// the narrower right-hand column of a two-panel layout that only goes side-by-side at `lg`, and
+// even then the panel is well under 720px until the modal itself widens at `2xl`. Gating on a
+// viewport breakpoint (the old `md:`) turned the desktop grid on long before the panel actually
+// had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
+// their 150px floors, so Description effectively vanished into Condition and the row still didn't
+// fit, forcing the whole thing to scroll horizontally.
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(150px,1.1fr)_minmax(0,1.5fr)_minmax(150px,auto)_56px_100px_68px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -92,14 +100,17 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
               {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
             </div>
-            <div className="min-w-0 flex-1 pr-8">
+            <div className="min-w-0 flex-1 pr-8 [container-type:inline-size]">
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
               {sub && <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                 {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+              {/* 4 columns needs real room per box for "Average"/"Listings" - gated on this
+                  column's own width (it's the narrower half of a two-panel modal, not the
+                  viewport), so it falls back to 2x2 instead of squeezing/truncating the labels. */}
+              <div className="grid grid-cols-2 @[280px]:grid-cols-4 gap-2 mt-4">
                 {[
                   { label: 'Lowest', value: group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A', accent: true },
                   { label: 'Average', value: group.avg_price > 0 ? fmtHuf(group.avg_price) : 'N/A' },
@@ -153,8 +164,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{visible.length} shown</span>
           </div>
 
-          <div className="px-2 sm:px-4 py-2">
-            <div className={`hidden md:grid ${ROW_COLUMNS} gap-x-3 px-2 sm:px-3 pb-2 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <div className="px-2 sm:px-4 py-2 [container-type:inline-size]">
+            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} gap-x-3 px-2 sm:px-3 pb-2 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
               <div>Seller</div>
               <div>Description</div>
               <div>Condition</div>
@@ -197,31 +208,31 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         </div>
                       </a>
 
-                      <div className="order-5 md:order-2 col-span-3 md:col-span-1 min-w-0 text-xs leading-snug">
+                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-snug">
                         {(() => {
                           const description = getListingDescription(l.notes);
                           return description
                             ? <span className="line-clamp-2 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
-                            : <span className="hidden md:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                            : <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
                         })()}
                       </div>
 
-                      <div className="order-4 md:order-3 col-span-3 md:col-span-1 flex items-center gap-1.5 flex-wrap md:justify-start">
+                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-start">
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
                         {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
                         {(l.inventory_images || []).length > 0 && (
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }} title="Condition photos attached">Photos</span>
                         )}
                         {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                        <span className="md:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</span>
+                        <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</span>
                       </div>
 
-                      <div className="hidden md:block md:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</div>
-                      <div className="order-2 md:order-5 text-base font-black text-[var(--positive)] text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
+                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</div>
+                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
                       <button
                         type="button"
                         onClick={() => onSelectListing(l.inventory_id)}
-                        className="order-3 md:order-6 px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition"
+                        className="order-3 @[720px]:order-6 px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition"
                         style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                       >
                         View
