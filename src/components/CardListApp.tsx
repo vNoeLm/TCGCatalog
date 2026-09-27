@@ -1724,6 +1724,24 @@ export function CardListApp() {
                   Deck Builder
                 </a>
 
+                {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
+                    same card data, so they live here as catalog actions rather than their own nav item. */}
+                <a
+                  href="/decks"
+                  title="Browse saved decks"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]"
+                >
+                  Decks
+                </a>
+
+                <a
+                  href="/binder"
+                  title="Open Binder Map"
+                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]"
+                >
+                  Binder
+                </a>
+
                 {/* Scan Cards (camera devices only) */}
                 {canScan && (
                   <button
