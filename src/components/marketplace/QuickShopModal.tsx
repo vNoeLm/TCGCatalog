@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { addManyToCart, CART_OPEN_EVENT } from '../../lib/marketplaceCart';
 import { parseWantList, planPurchase, CONDITION_ORDER, type ShopPlan, type ShopStrategy } from '../../lib/quickShop';
@@ -56,7 +57,8 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
     return a.totalCost === b.totalCost && a.baskets.length === b.baskets.length;
   }, [plans]);
 
-  if (!isOpen) return null;
+  const { rendered, state } = useExitTransition(isOpen, 250);
+  if (!rendered) return null;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,11 +131,14 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
   return (
     <div
       onClick={onClose}
+      data-state={state}
       style={{ position: 'fixed', inset: 0, zIndex: 95, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12, overflowY: 'auto', overscrollBehavior: 'contain' }}
+      className="tv-overlay"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        data-state={state}
+        className="tv-modal-panel w-full max-w-3xl my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
       >
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>

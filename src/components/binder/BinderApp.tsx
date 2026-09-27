@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CatalogCard, FilterState } from '../../types';
 import { fetchCardsCatalog } from '../../lib/api';
 import { cardThumbProps } from '../../lib/supabase';
-import { CardDetail } from '../CardDetail';
+import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import {
   buildBinderPockets,
   paginate,
@@ -437,20 +437,7 @@ export function BinderApp() {
         </>
       )}
 
-      {previewCardId && (
-        <div
-          onClick={() => setPreviewCardId(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12, overflowY: 'auto', overscrollBehavior: 'contain' }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 25px 60px rgba(0,0,0,0.9)' }}
-            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
-          >
-            <CardDetail cardId={previewCardId} onClose={() => setPreviewCardId(null)} />
-          </div>
-        </div>
-      )}
+      <CardPreviewOverlay cardId={previewCardId} onClose={() => setPreviewCardId(null)} />
     </div>
   );
 }

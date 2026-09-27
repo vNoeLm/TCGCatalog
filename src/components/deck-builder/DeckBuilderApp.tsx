@@ -8,7 +8,7 @@ import { DeckList } from './DeckList';
 import { DeckPreviewColumn } from './DeckPreviewColumn';
 import { DeckStatisticsModal } from './DeckStatisticsModal';
 import { formatGameText } from '../../lib/formatGameText';
-import { CardDetail } from '../CardDetail';
+import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { Modal } from '../ui/Modal';
@@ -569,30 +569,13 @@ export function DeckBuilderApp() {
       )}
 
       {/* Card Preview Modal */}
-      {previewCard && (
-        <div 
-          data-testid="preview-card-backdrop"
-          onClick={() => setPreviewCard(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              touchAction: 'auto',
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
-            }}
-            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
-          >
-            <CardDetail cardId={previewCard.id} onClose={() => setPreviewCard(null)} />
-          </div>
-        </div>
-      )}
-      {/* Modals for Saved Decks features */}
-      
-      {showSaveModal && (
-        <Modal
-          isOpen={showSaveModal}
+      <CardPreviewOverlay cardId={previewCard?.id ?? null} onClose={() => setPreviewCard(null)} />
+
+      {/* Modals for Saved Decks features. Modal holds itself open for its own exit transition
+          (isOpen), so each is rendered unconditionally rather than wrapped in `{flag && (...)}`,
+          which would unmount it before that transition gets to play. */}
+      <Modal
+        isOpen={showSaveModal}
           onClose={() => setShowSaveModal(false)}
           title={"Save Deck"}
         >
@@ -646,13 +629,11 @@ export function DeckBuilderApp() {
               {loadedSavedDeck && saveMode === 'update' ? 'Update Deck' : 'Save'}
             </button>
           </div>
-        </Modal>
-      )}
+      </Modal>
 
-      {showImportModal && (
-        <Modal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
+      <Modal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
           title={"Import Deck"}
           maxWidth="max-w-xl"
         >
@@ -693,14 +674,12 @@ export function DeckBuilderApp() {
               Import Deck
             </button>
           </div>
-        </Modal>
-      )}
+      </Modal>
 
-      {showExportModal && (
-        <Modal
-          isOpen={showExportModal}
-          onClose={() => setShowExportModal(false)}
-          title={"Export Deck"}
+      <Modal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title={"Export Deck"}
           maxWidth="max-w-xl"
         >
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
@@ -814,8 +793,7 @@ export function DeckBuilderApp() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
             <button onClick={() => setShowExportModal(false)} style={btnStyle()}>Close</button>
           </div>
-        </Modal>
-      )}
+      </Modal>
 
       <Modal
         isOpen={showBrowserModal}

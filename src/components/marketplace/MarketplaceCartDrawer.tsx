@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
 import {
@@ -91,6 +92,8 @@ export function MarketplaceCartDrawer() {
     return Array.from(bySeller.values());
   }, [cart]);
 
+  const drawerAnim = useExitTransition(open, 400);
+
   if (cart.length === 0 && results.length === 0) return null;
 
   const total = cartTotalHuf(cart);
@@ -180,15 +183,17 @@ export function MarketplaceCartDrawer() {
       )}
 
       {/* Drawer */}
-      {open && (
+      {drawerAnim.rendered && (
         <div
-          className="fixed inset-0 z-[9999] flex items-stretch justify-end bg-black/70 backdrop-blur-sm"
+          data-state={drawerAnim.state}
+          className="tv-overlay fixed inset-0 z-[9999] flex items-stretch justify-end bg-black/70 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
-            className="w-full max-w-md h-full overflow-y-auto p-5 sm:p-6 shadow-2xl"
+            data-state={drawerAnim.state}
+            className="tv-drawer-right w-full max-w-md h-full overflow-y-auto p-5 sm:p-6 shadow-2xl"
             style={{ background: 'var(--bg-surface)', borderLeft: '1px solid var(--border)' }}
           >
             <div className="flex items-center justify-between mb-4">

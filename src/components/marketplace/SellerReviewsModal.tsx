@@ -3,6 +3,7 @@ import { getAllReviews } from '../../lib/reviews';
 import type { SellerReview, SellerProfileSummary } from '../../types';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { useSiteTheme } from '../../lib/theme';
+import { useExitTransition } from '../../lib/useExitTransition';
 
 interface SellerReviewsModalProps {
   isOpen: boolean;
@@ -33,17 +34,20 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
     }
   }, [isOpen, sellerId]);
 
-  if (!isOpen) return null;
+  const { rendered, state } = useExitTransition(isOpen, 250);
+  if (!rendered) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150"
+      data-state={state}
+      className="tv-overlay fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl p-5 sm:p-7 shadow-2xl border transition-all my-8 max-h-[90vh] flex flex-col"
+        data-state={state}
+        className="tv-modal-panel relative w-full max-w-lg rounded-2xl p-5 sm:p-7 shadow-2xl border my-8 max-h-[90vh] flex flex-col"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',

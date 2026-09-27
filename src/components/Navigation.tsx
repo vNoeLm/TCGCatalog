@@ -4,6 +4,7 @@ import { getCurrentProfile, signOut } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { fetchUnreadCount } from '../lib/messages';
+import { useExitTransition } from '../lib/useExitTransition';
 
 const MESSAGES_POLL_MS = 5 * 60 * 1000; // 5 min — a basic timer check, not realtime
 
@@ -19,6 +20,10 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownAnim = useExitTransition(dropdownOpen, 200);
+  // 250ms, not the sheet's own 200ms - the backdrop (.tv-overlay) shares this timer and transitions
+  // over 250ms, so unmounting at the sheet's shorter duration would cut the backdrop fade off early.
+  const mobileMenuAnim = useExitTransition(mobileMenuOpen, 250);
 
   useEffect(() => {
     getCurrentProfile().then(p => {
@@ -161,9 +166,10 @@ export function Navigation({ currentPath }: NavigationProps) {
               </button>
 
               {/* User Dropdown Menu */}
-              {dropdownOpen && (
-                <div 
-                  className="absolute top-[calc(100%+8px)] right-0 w-52 rounded-xl p-1.5 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100"
+              {dropdownAnim.rendered && (
+                <div
+                  data-state={dropdownAnim.state}
+                  className="tv-popover tv-origin-top-right absolute top-[calc(100%+8px)] right-0 w-52 rounded-xl p-1.5 z-50 flex flex-col gap-0.5"
                   style={{
                     background: 'var(--bg-surface)',
                     border: '1px solid var(--border)',
@@ -254,15 +260,17 @@ export function Navigation({ currentPath }: NavigationProps) {
       </div>
 
       {/* Mobile Menu Dropdown / Overlay */}
-      {mobileMenuOpen && (
-        <div 
+      {mobileMenuAnim.rendered && (
+        <div
           onClick={() => setMobileMenuOpen(false)}
+          data-state={mobileMenuAnim.state}
           style={{ position: 'fixed', inset: 0, top: 58, zIndex: 120, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-          className="animate-in fade-in duration-150 sm:hidden"
+          className="tv-overlay sm:hidden"
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full p-4 shadow-2xl flex flex-col gap-3.5 animate-in slide-in-from-top-2 duration-150"
+            data-state={mobileMenuAnim.state}
+            className="tv-sheet-down w-full p-4 shadow-2xl flex flex-col gap-3.5"
             style={{
               background: 'var(--bg-surface)',
               borderBottom: '1px solid var(--border)'

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useExitTransition } from '../lib/useExitTransition';
 
 interface FilterDrawerProps {
   open: boolean;
@@ -32,19 +33,24 @@ export function FilterDrawer({ open, onClose, title, activeCount, applyLabel, ch
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  const { rendered, state } = useExitTransition(open, 400);
+
+  if (!rendered) return null;
 
   return (
     <div
       onClick={onClose}
+      data-state={state}
       style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      className="tv-overlay"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm h-full flex flex-col shadow-2xl animate-in slide-in-from-left duration-200 border-r"
+        data-state={state}
+        className="tv-drawer-left w-full max-w-sm h-full flex flex-col shadow-2xl border-r"
         style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
       >
         {/* Drawer Header */}

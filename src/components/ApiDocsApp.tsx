@@ -803,7 +803,7 @@ except Exception as e:
 
               {/* Live Response Panel */}
               {(responseStatus !== null || loading) && (
-                <div className="p-4 rounded-xl border shadow-lg animate-fade-in" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                <div className="tv-reveal p-4 rounded-xl border shadow-lg" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-black uppercase tracking-wider text-zinc-300">Server Response</span>

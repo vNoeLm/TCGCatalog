@@ -3,10 +3,11 @@ import type { CatalogCard, FilterState, UserProfile } from "../types";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CollectionValueChip } from "./CollectionValueChip";
-import { CardDetail } from "./CardDetail";
+import { CardPreviewOverlay } from "./CardPreviewOverlay";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
+import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
@@ -128,6 +129,7 @@ export function CardListApp() {
   >("Card Number (Asc)");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
+  const sortAnim = useExitTransition(sortOpen, 200);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastLoggedSearchRef = useRef<string>('');
 
@@ -145,6 +147,9 @@ export function CardListApp() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resettingCollection, setResettingCollection] = useState(false);
+  const exportModalAnim = useExitTransition(showExportModal, 250);
+  const importModalAnim = useExitTransition(showImportModal, 250);
+  const resetConfirmAnim = useExitTransition(showResetConfirm, 250);
   const [showScanner, setShowScanner] = useState(false);
   // The scanner needs a camera, so it's only offered where one is plausible.
   const [canScan, setCanScan] = useState(false);
@@ -153,6 +158,11 @@ export function CardListApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Auto-hide nulls the message immediately, but the toast needs it for the length of its own
+  // exit transition - freeze the last shown message/type instead of reading the live ones.
+  const toastRef = useRef<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  if (toastMessage) toastRef.current = { message: toastMessage, type: toastType };
+  const toastAnim = useExitTransition(!!toastMessage, 400);
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -1519,8 +1529,8 @@ export function CardListApp() {
                     </svg>
                   </button>
 
-                  {sortOpen && (
-                    <div className={`absolute right-0 mt-1.5 w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100`}>
+                  {sortAnim.rendered && (
+                    <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto`}>
                       {SORT_OPTIONS.map(({ mode, labelKey }) => {
                         const isSelected = sortMode === mode;
                         return (
@@ -1606,8 +1616,8 @@ export function CardListApp() {
                       </svg>
                     </button>
 
-                    {sortOpen && (
-                      <div className={`absolute right-0 mt-1.5 w-full rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-100`}>
+                    {sortAnim.rendered && (
+                      <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-full rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto`}>
                         {SORT_OPTIONS.map(({ mode, labelKey }) => {
                           const isSelected = sortMode === mode;
                           return (
@@ -1871,14 +1881,17 @@ export function CardListApp() {
       </FilterDrawer>
 
       {/* Export Collection Modal */}
-      {showExportModal && (
-        <div 
+      {exportModalAnim.rendered && (
+        <div
           onClick={() => setShowExportModal(false)}
+          data-state={exportModalAnim.state}
+          className="tv-overlay"
           style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
+            data-state={exportModalAnim.state}
             style={{ touchAction: 'auto' }}
-            className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
+            className="tv-modal-panel w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-3">
@@ -2210,24 +2223,27 @@ export function CardListApp() {
       />
 
       {/* Quick List Preview Modal */}
-      {showQuickSalePreview && (
-        <QuickSalePreviewModal
-          isOpen={showQuickSalePreview}
-          onClose={() => setShowQuickSalePreview(false)}
-          ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
-          allCards={allCards}
-          
-        />
-      )}
+      {/* QuickSalePreviewModal handles its own open/close transition internally (isOpen) -
+          wrapping it in another `{showQuickSalePreview && (...)}` here would unmount it the
+          instant isOpen goes false, before its own exit transition gets to play. */}
+      <QuickSalePreviewModal
+        isOpen={showQuickSalePreview}
+        onClose={() => setShowQuickSalePreview(false)}
+        ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
+        allCards={allCards}
+      />
 
-      {showImportModal && (
-        <div 
+      {importModalAnim.rendered && (
+        <div
           onClick={() => setShowImportModal(false)}
+          data-state={importModalAnim.state}
+          className="tv-overlay"
           style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
+            data-state={importModalAnim.state}
             style={{ touchAction: 'auto' }}
-            className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
+            className="tv-modal-panel w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-black text-[var(--text-primary)]">Import Collection</h3>
@@ -2323,42 +2339,46 @@ export function CardListApp() {
       )}
 
       {/* Floating Toast Notification */}
-      {toastMessage && (
+      {toastAnim.rendered && toastRef.current && (
         <div
           role="status"
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 border text-xs font-bold rounded-xl shadow-2xl animate-fade-in ${
-            toastType === 'success'
+          data-state={toastAnim.state}
+          className={`tv-toast fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 border text-xs font-bold rounded-xl shadow-2xl ${
+            toastRef.current.type === 'success'
               ? 'bg-emerald-950/95 border-emerald-600/50 text-emerald-200'
-              : toastType === 'error'
+              : toastRef.current.type === 'error'
               ? 'bg-rose-950/95 border-rose-600/50 text-rose-200'
               : 'bg-[var(--bg-raised)] border-[var(--border-hover)] text-[var(--text-primary)]'
           }`}
         >
-          {toastType === 'success' && (
+          {toastRef.current.type === 'success' && (
             <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           )}
-          {toastType === 'error' && (
+          {toastRef.current.type === 'error' && (
             <svg className="w-4 h-4 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12.5" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           )}
-          <span>{toastMessage}</span>
+          <span>{toastRef.current.message}</span>
         </div>
       )}
 
       {/* Reset Confirmation */}
-      {showResetConfirm && (
+      {resetConfirmAnim.rendered && (
         <div
           onClick={() => !resettingCollection && setShowResetConfirm(false)}
+          data-state={resetConfirmAnim.state}
+          className="tv-overlay"
           style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px' }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-[var(--bg-surface)] border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
+            data-state={resetConfirmAnim.state}
+            className="tv-modal-panel w-full max-w-sm bg-[var(--bg-surface)] border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
           >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-rose-950/60 border border-rose-800/50 flex items-center justify-center shrink-0">
@@ -2403,24 +2423,7 @@ export function CardListApp() {
       )}
 
       {/* Card Detail Modal */}
-      {selectedCardId && (
-        <div 
-          onClick={() => setSelectedCardId(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '12px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              touchAction: 'auto',
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)'
-            }}
-            className="w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
-          >
-            <CardDetail cardId={selectedCardId} onClose={() => setSelectedCardId(null)} />
-          </div>
-        </div>
-      )}
+      <CardPreviewOverlay cardId={selectedCardId} onClose={() => setSelectedCardId(null)} zIndex={100} />
     </div>
   );
 }

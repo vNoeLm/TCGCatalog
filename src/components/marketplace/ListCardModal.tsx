@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
 import { supabase, getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile } from '../../lib/auth';
@@ -155,7 +156,8 @@ export function ListCardModal({
     if (!priceTouched && suggestedHuf) setPriceHuf(suggestedHuf);
   }, [priceTouched, suggestedHuf]);
 
-  if (!isOpen) return null;
+  const { rendered, state } = useExitTransition(isOpen, 250);
+  if (!rendered) return null;
 
   const handleSelectCard = (card: CatalogCard) => {
     setSelectedCard(card);
@@ -285,9 +287,10 @@ export function ListCardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+    <div data-state={state} className="tv-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
       <div
-        className="relative w-full max-w-[540px] rounded-2xl p-4 sm:p-6 border shadow-2xl my-auto max-h-[92vh] flex flex-col transition-all"
+        data-state={state}
+        className="tv-modal-panel relative w-full max-w-[540px] rounded-2xl p-4 sm:p-6 border shadow-2xl my-auto max-h-[92vh] flex flex-col"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',

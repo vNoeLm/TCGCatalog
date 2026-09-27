@@ -16,6 +16,7 @@ export function AuthModal({
   isStandalone = false,
 }: AuthModalProps) {
   const [mounted, setMounted] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +28,16 @@ export function AuthModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Separate from `mounted`: the pre-portal render and the portaled one are different DOM nodes,
+  // so flipping straight to "open" once mounted would skip the transition entirely (there is no
+  // single node to interpolate across that swap). Waiting until after the portal exists, then
+  // flipping this on the node that's actually going to stay, is what makes the fade/scale visible.
+  useEffect(() => {
+    if (!mounted) return;
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)));
+    return () => cancelAnimationFrame(raf);
+  }, [mounted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,12 +225,20 @@ export function AuthModal({
     return content;
   }
 
+  // AuthModal has no isOpen prop - callers mount/unmount it directly, so there is no signal to
+  // hold it open for an exit transition. `mounted` (already used for the portal) still gives a
+  // real, non-instant entrance: rendered closed on the first paint, flipped open a frame later.
   const modalMarkup = (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto"
+      data-state={entered ? 'open' : 'closed'}
+      className="tv-overlay fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto"
     >
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md flex justify-center">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        data-state={entered ? 'open' : 'closed'}
+        className="tv-modal-panel w-full max-w-md flex justify-center"
+      >
         {content}
       </div>
     </div>

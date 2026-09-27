@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
@@ -34,6 +35,12 @@ export function SellerDashboardApp() {
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
+  // Closing nulls editingListing immediately, but the modal needs to keep rendering its fields
+  // during the exit transition - freeze the last non-null value instead of reading the live one.
+  const editingListingRef = useRef<any | null>(null);
+  if (editingListing) editingListingRef.current = editingListing;
+  const editingListingAnim = useExitTransition(!!editingListing, 250);
+  const bulkPriceModalAnim = useExitTransition(showBulkPriceModal, 250);
   const [bulkPriceHuf, setBulkPriceHuf] = useState<number>(500);
   // Lowest active price per card (across every seller on the platform), keyed by
   // `${card_id}::${'foil'|'normal'}` — powers the "Platform Price Health" KPI and
@@ -68,6 +75,11 @@ export function SellerDashboardApp() {
   const [holdRequests, setHoldRequests] = useState<any[]>([]);
   const [loadingHolds, setLoadingHolds] = useState(false);
   const [processingHoldId, setProcessingHoldId] = useState<string | null>(null);
+  // Auto-hide nulls the message immediately, but the toast needs it for the length of its own
+  // exit transition - freeze the last shown message instead of reading the live one.
+  const toastMessageRef = useRef<string | null>(null);
+  if (toastMessage) toastMessageRef.current = toastMessage;
+  const toastAnim = useExitTransition(!!toastMessage, 400);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -730,12 +742,12 @@ export function SellerDashboardApp() {
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-[var(--bg-surface)] border border-emerald-500/50 text-[var(--positive)] font-bold text-xs shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-2">
+      {toastAnim.rendered && toastMessageRef.current && (
+        <div data-state={toastAnim.state} className="tv-toast fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-[var(--bg-surface)] border border-emerald-500/50 text-[var(--positive)] font-bold text-xs shadow-2xl flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0 text-[var(--positive)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          <span>{toastMessage}</span>
+          <span>{toastMessageRef.current}</span>
         </div>
       )}
 
@@ -2051,10 +2063,11 @@ export function SellerDashboardApp() {
       )}
 
       {/* Quick Edit Modal */}
-      {editingListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+      {editingListingAnim.rendered && editingListingRef.current && (
+        <div data-state={editingListingAnim.state} className="tv-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div
-            className="w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
+            data-state={editingListingAnim.state}
+            className="tv-modal-panel w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -2142,11 +2155,11 @@ export function SellerDashboardApp() {
               </button>
               <button
                 type="button"
-                onClick={() => handleSaveListingEdit(editingListing)}
-                disabled={updatingListingId === editingListing.inventory_id}
+                onClick={() => handleSaveListingEdit(editingListingRef.current)}
+                disabled={updatingListingId === editingListingRef.current.inventory_id}
                 className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
               >
-                {updatingListingId === editingListing.inventory_id ? '…' : ('Save')}
+                {updatingListingId === editingListingRef.current.inventory_id ? '…' : ('Save')}
               </button>
             </div>
           </div>
@@ -2154,10 +2167,11 @@ export function SellerDashboardApp() {
       )}
 
       {/* Bulk Price Edit Modal */}
-      {showBulkPriceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+      {bulkPriceModalAnim.rendered && (
+        <div data-state={bulkPriceModalAnim.state} className="tv-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div
-            className="w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
+            data-state={bulkPriceModalAnim.state}
+            className="tv-modal-panel w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -2226,19 +2240,18 @@ export function SellerDashboardApp() {
         />
       )}
 
-      {/* List Card Modal */}
-      {isListModalOpen && (
-        <ListCardModal
-          isOpen={isListModalOpen}
-          onClose={() => setIsListModalOpen(false)}
-          onSuccess={() => {
-            setIsListModalOpen(false);
-            loadSellerListings();
-            showToast('Card successfully listed!');
-          }}
-          
-        />
-      )}
+      {/* List Card Modal - it holds itself open for its own exit transition (isOpen), so it's
+          rendered unconditionally rather than wrapped in `{isListModalOpen && (...)}` here, which
+          would unmount it before that transition gets to play. */}
+      <ListCardModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+        onSuccess={() => {
+          setIsListModalOpen(false);
+          loadSellerListings();
+          showToast('Card successfully listed!');
+        }}
+      />
     </div>
   );
 }

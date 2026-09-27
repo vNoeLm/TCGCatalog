@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useExitTransition } from '../lib/useExitTransition';
 
 export function LegalFooter() {
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [showFullLegalModal, setShowFullLegalModal] = useState<boolean>(false);
+  const collapsedAnim = useExitTransition(collapsed, 200);
+  const expandedAnim = useExitTransition(!collapsed, 200);
+  const legalModalAnim = useExitTransition(showFullLegalModal, 250);
 
   useEffect(() => {
     setMounted(true);
@@ -25,8 +29,8 @@ export function LegalFooter() {
   return (
     <>
       {/* Collapsed State: Sleek Up-Arrow Button in Bottom-Right Corner */}
-      {collapsed && (
-        <div className="fixed bottom-4 right-4 z-40 animate-fade-in">
+      {collapsedAnim.rendered && (
+        <div data-state={collapsedAnim.state} className="tv-toast fixed bottom-4 right-4 z-40">
           <button
             type="button"
             onClick={() => handleToggle(false)}
@@ -51,9 +55,10 @@ export function LegalFooter() {
       )}
 
       {/* Expanded State: Fixed Bottom Bar */}
-      {!collapsed && (
+      {expandedAnim.rendered && (
         <footer
-          className="fixed bottom-0 left-0 right-0 z-40 border-t shadow-2xl backdrop-blur-md animate-fade-in transition-colors duration-200"
+          data-state={expandedAnim.state}
+          className="tv-footer-bar fixed bottom-0 left-0 right-0 z-40 border-t shadow-2xl backdrop-blur-md"
           style={{
             background: 'var(--bg-header)',
             borderColor: 'var(--border)',
@@ -111,9 +116,11 @@ export function LegalFooter() {
       )}
 
       {/* Full Legal & Privacy Modal */}
-      {showFullLegalModal && (
+      {legalModalAnim.rendered && (
         <div
           onClick={() => setShowFullLegalModal(false)}
+          data-state={legalModalAnim.state}
+          className="tv-overlay"
           style={{
             position: 'fixed',
             inset: 0,
@@ -130,7 +137,8 @@ export function LegalFooter() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl border rounded-2xl p-6 sm:p-7 shadow-2xl text-left max-h-[88vh] overflow-y-auto custom-scrollbar my-auto" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+            data-state={legalModalAnim.state}
+            className="tv-modal-panel w-full max-w-2xl border rounded-2xl p-6 sm:p-7 shadow-2xl text-left max-h-[88vh] overflow-y-auto custom-scrollbar my-auto" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between mb-5 pb-3.5 border-b" style={{ borderColor: 'var(--border)' }}>
               <h3 className="text-base sm:text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
