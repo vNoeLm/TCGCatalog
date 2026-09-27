@@ -5,7 +5,6 @@ import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
-import { PriceHistoryChart } from "./marketplace/PriceHistoryChart";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -46,8 +45,6 @@ export function CardListItem(props: CardListItemProps) {
   const valueIsFoil = normalValue === null && foilValue !== null;
 
 
-  const [showPriceHistory, setShowPriceHistory] = useState(false);
-
   const normalQty = typeof props.count === 'number' ? props.count : (props.isOwned ?? props.isCollected ? 1 : 0);
   const foilQty = typeof props.foilCount === 'number' ? props.foilCount : (props.isFoilOwned ?? props.isFoilCollected ? 1 : 0);
   const totalQty = normalQty + foilQty;
@@ -82,7 +79,6 @@ export function CardListItem(props: CardListItemProps) {
   };
 
   return (
-    <>
     <div
       className="rounded-2xl overflow-hidden flex flex-col h-full group/card"
       style={{
@@ -260,20 +256,12 @@ export function CardListItem(props: CardListItemProps) {
         </div>
 
         {shownValue !== null && (
-          <div className={`flex items-center justify-between ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2'}`}>
+          <div
+            className={`flex items-center justify-between ${isSmall ? 'text-[10px] mb-1.5' : 'text-[11px] mb-2'}`}
+            title="Estimated value: the market reference combined with what sellers here are asking"
+          >
             <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Est. value{valueIsFoil ? ' (foil)' : ''}</span>
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPriceHistory(true); }}
-              title="View price history graph"
-              className="flex items-center gap-1 font-black font-mono text-[var(--positive)] hover:brightness-125 hover:underline cursor-pointer"
-            >
-              <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                <polyline points="17 6 23 6 23 12" />
-              </svg>
-              ~{shownValue.toLocaleString('en-US')} Ft
-            </button>
+            <span className="font-black font-mono text-[var(--positive)]">~{shownValue.toLocaleString('en-US')} Ft</span>
           </div>
         )}
 
@@ -360,32 +348,5 @@ export function CardListItem(props: CardListItemProps) {
         </div>
       </div>
     </div>
-
-    {showPriceHistory && (
-      <div
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPriceHistory(false); }}
-        style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12 }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-2xl rounded-2xl border overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
-          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
-        >
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="text-sm font-black truncate pr-3" style={{ color: 'var(--text-primary)' }}>{card.name}</div>
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPriceHistory(false); }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 hover:brightness-110 transition cursor-pointer"
-              style={{ background: 'var(--bg-raised)', color: 'var(--text-tertiary)' }}
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
-          <PriceHistoryChart cardId={card.id} card={{ id: card.id, rarity: card.rarity }} />
-        </div>
-      </div>
-    )}
-    </>
   );
 }
