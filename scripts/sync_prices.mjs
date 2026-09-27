@@ -112,6 +112,15 @@ async function run() {
   const priceIdx = names.indexOf('price');
   const foilPriceIdx = names.indexOf('foilPrice');
 
+  const requiredColumns = { id: idIdx, name: nameIdx, set_name: setIdx, rarity: rarityIdx, price: priceIdx, foilPrice: foilPriceIdx };
+  const missingColumns = Object.entries(requiredColumns).filter(([, idx]) => idx < 0).map(([col]) => col);
+  if (missingColumns.length > 0) {
+    throw new Error(`Price API response is missing expected column(s): ${missingColumns.join(', ')}. The API's data shape may have changed - aborting instead of matching on garbage indices.`);
+  }
+  if (!Array.isArray(dotgg.data) || dotgg.data.length === 0) {
+    throw new Error('Price API returned no card records.');
+  }
+
   console.log(`Received ${dotgg.data?.length || 0} card price records from API.`);
 
   const byKey = new Map();
@@ -203,6 +212,17 @@ async function run() {
 
   console.log(`Matched cards: ${updates.length} / ${riftbound.length} (${unmatchedCount} unmatched)`);
   console.log(`Prices with real market movement: ${changes.length}`);
+
+  // A schema change in the price API (renamed/reordered fields, different id/name format) would
+  // otherwise silently collapse matching to near-zero while the script still exits 0 - failing
+  // loudly here instead of leaving prices stale with no signal.
+  const matchRate = riftbound.length > 0 ? updates.length / riftbound.length : 0;
+  if (riftbound.length > 0 && matchRate < 0.5) {
+    throw new Error(
+      `Only matched ${updates.length}/${riftbound.length} cards (${Math.round(matchRate * 100)}%) - aborting. ` +
+      'This usually means the price API changed its data shape; investigate before re-running.'
+    );
+  }
 
   if (changes.length > 0) {
     console.log('\nSample price changes:');

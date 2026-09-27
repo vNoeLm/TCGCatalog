@@ -6,6 +6,13 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch: # Allows running the sync manually from the GitHub Actions tab
 
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-price-sync
+  cancel-in-progress: false
+
 jobs:
   sync-prices:
     runs-on: ubuntu-latest
