@@ -3,6 +3,9 @@
  * converts them to EUR using current exchange rates, and updates the
  * Supabase database (cards and card_price_history tables) directly.
  *
+ * The matching and price-validation rules are the same ones the manual admin
+ * CSV upload uses (src/lib/priceImport.ts), so the two never drift apart.
+ *
  * No CSV files are saved or committed to Git.
  *
  * Usage:
@@ -12,6 +15,7 @@
 
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
+import { planPriceImport } from '../src/lib/priceImport.ts';
 
 const apply = process.argv.includes('--apply');
 
@@ -24,61 +28,6 @@ if (!supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-// --- Price Validation Rules ---
-const MAX_FOIL_TO_NORMAL = 40;
-const MAX_PRICE_USD = 10000;
-const MIN_PRICE_USD = 0.01;
-const CHEAP_NORMAL_USD = 0.5;
-const MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD = 50;
-
-const norm = (id) => id.toUpperCase().replace(/\s+/g, '').replace(/\/\d+/, '').replace(/\*/g, '-STAR');
-
-function keyFromImage(imagePath) {
-  const file = (imagePath || '').split('/').pop()?.replace(/\.[a-z0-9]+$/i, '');
-  const m = file && file.toUpperCase().match(/^([A-Z]{2,4})-(\d+[A-Z]?)-\d+$/);
-  return m ? `${m[1]}-${m[2]}` : null;
-}
-
-const cardKey = (card) => {
-  if (/^[A-Z]{2,4}\s*-/i.test(card.card_number)) return norm(card.card_number);
-  return keyFromImage(card.image_path) || norm(card.card_number);
-};
-
-const nameKey = (s) => (s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '');
-
-const sameCard = (a, b) => {
-  const x = nameKey(a);
-  const y = nameKey(b);
-  return x === y || (x.length > 3 && y.length > 3 && (x.includes(y) || y.includes(x)));
-};
-
-const hasFoilVariant = (rarity) => rarity === 'Common' || rarity === 'Uncommon';
-const usable = (p) => p !== null && p !== undefined && !isNaN(p) && p > MIN_PRICE_USD && p <= MAX_PRICE_USD;
-
-function pricesFor(card, row) {
-  const normal = usable(row.normal) ? row.normal : null;
-  let foil = usable(row.foil) ? row.foil : null;
-
-  if (hasFoilVariant(card.rarity)) {
-    if (foil !== null && normal !== null && foil < normal) {
-      foil = null;
-    }
-    if (foil !== null && normal !== null && normal < CHEAP_NORMAL_USD) {
-      if (foil > MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD) {
-        foil = null;
-      }
-    } else if (foil !== null && normal !== null && foil / normal > MAX_FOIL_TO_NORMAL) {
-      foil = null;
-    }
-    return { normal, foil };
-  }
-
-  const only = normal ?? foil;
-  return { normal: only, foil: only };
-}
-
-const cents = (n) => (n === null || n === undefined ? null : Math.round(Number(n) * 100));
 
 async function fetchExchangeRates() {
   try {
@@ -112,31 +61,31 @@ async function run() {
   const priceIdx = names.indexOf('price');
   const foilPriceIdx = names.indexOf('foilPrice');
 
-  console.log(`Received ${dotgg.data?.length || 0} card price records from API.`);
-
-  const byKey = new Map();
-  for (const card of dotgg.data) {
-    const rawId = card[idIdx] || '';
-    const rawName = card[nameIdx] || '';
-    const k = norm(rawId);
-    const existing = byKey.get(k);
-    if (!existing || (/oversized/i.test(existing.name) && !/oversized/i.test(rawName))) {
-      byKey.set(k, {
-        id: rawId,
-        name: rawName,
-        set: card[setIdx] || '',
-        rarity: card[rarityIdx] || '',
-        normal: card[priceIdx] ? parseFloat(card[priceIdx]) : null,
-        foil: card[foilPriceIdx] ? parseFloat(card[foilPriceIdx]) : null,
-      });
-    }
+  const requiredColumns = { id: idIdx, name: nameIdx, set_name: setIdx, rarity: rarityIdx, price: priceIdx, foilPrice: foilPriceIdx };
+  const missingColumns = Object.entries(requiredColumns).filter(([, idx]) => idx < 0).map(([col]) => col);
+  if (missingColumns.length > 0) {
+    throw new Error(`Price API response is missing expected column(s): ${missingColumns.join(', ')}. The API's data shape may have changed - aborting instead of matching on garbage indices.`);
   }
+  if (!Array.isArray(dotgg.data) || dotgg.data.length === 0) {
+    throw new Error('Price API returned no card records.');
+  }
+
+  console.log(`Received ${dotgg.data.length} card price records from API.`);
+
+  const rows = dotgg.data.map((card) => ({
+    id: card[idIdx] || '',
+    name: card[nameIdx] || '',
+    set: card[setIdx] || '',
+    rarity: card[rarityIdx] || '',
+    normal: card[priceIdx] ? parseFloat(card[priceIdx]) : null,
+    foil: card[foilPriceIdx] ? parseFloat(card[foilPriceIdx]) : null,
+  }));
 
   console.log('Fetching exchange rates...');
   const rates = await fetchExchangeRates();
   console.log(`USD/EUR exchange rate: ${rates.usdEur} (${rates.date})`);
 
-  // Fetch previous exchange rate stored in Supabase
+  // The rate used by the last sync, so a rate that has merely drifted does not look like a price change.
   const { data: fxRow } = await supabase.from('settings').select('value').eq('key', 'fx_rates').maybeSingle();
   let previousUsdEur = null;
   try {
@@ -145,9 +94,6 @@ async function run() {
       previousUsdEur = Number(parsed.usd_eur);
     }
   } catch {}
-
-  const compareRate = previousUsdEur && previousUsdEur > 0 ? previousUsdEur : rates.usdEur;
-  const inEuros = (dollars, rate) => (dollars !== null ? Math.round(dollars * rate * 100) / 100 : null);
 
   console.log('Loading cards from Supabase...');
   const cards = [];
@@ -161,53 +107,26 @@ async function run() {
     if (data.length < 1000) break;
   }
 
-  const riftbound = cards.filter((c) => c.game === 'riftbound');
-  console.log(`Loaded ${riftbound.length} Riftbound cards.`);
+  const plan = planPriceImport(rows, cards, rates.usdEur, previousUsdEur);
+  console.log(`Loaded ${plan.ourCards} Riftbound cards.`);
+  console.log(`Matched cards: ${plan.updates.length} / ${plan.ourCards} (${plan.unmatched.length} unmatched)`);
+  console.log(`Prices with real market movement: ${plan.changes.length}`);
 
-  const updates = [];
-  const changes = [];
-  let unmatchedCount = 0;
-
-  for (const card of riftbound) {
-    const row = byKey.get(cardKey(card));
-    if (!row || !sameCard(card.name, row.name)) {
-      unmatchedCount++;
-      continue;
-    }
-
-    const { normal, foil } = pricesFor(card, row);
-    const eur = inEuros(normal, rates.usdEur);
-    const eurFoil = inEuros(foil, rates.usdEur);
-    const compareEur = inEuros(normal, compareRate);
-    const compareEurFoil = inEuros(foil, compareRate);
-
-    if (eur !== null || eurFoil !== null) {
-      const updateItem = {
-        id: card.id,
-        name: card.name,
-        cardNumber: card.card_number,
-        eur,
-        eur_foil: eurFoil,
-        compareEur,
-        compareEurFoil,
-        oldEur: card.market_price_eur,
-        oldEurFoil: card.market_price_foil_eur,
-      };
-      updates.push(updateItem);
-
-      if (cents(compareEur) !== cents(card.market_price_eur) || cents(compareEurFoil) !== cents(card.market_price_foil_eur)) {
-        changes.push(updateItem);
-      }
-    }
+  // A schema change in the price API (renamed/reordered fields, different id/name format) would
+  // otherwise silently collapse matching to near-zero while the script still exits 0 - failing
+  // loudly here instead of leaving prices stale with no signal.
+  const matchRate = plan.ourCards > 0 ? plan.updates.length / plan.ourCards : 0;
+  if (plan.ourCards > 0 && matchRate < 0.5) {
+    throw new Error(
+      `Only matched ${plan.updates.length}/${plan.ourCards} cards (${Math.round(matchRate * 100)}%) - aborting. ` +
+      'This usually means the price API changed its data shape; investigate before re-running.'
+    );
   }
 
-  console.log(`Matched cards: ${updates.length} / ${riftbound.length} (${unmatchedCount} unmatched)`);
-  console.log(`Prices with real market movement: ${changes.length}`);
-
-  if (changes.length > 0) {
+  if (plan.changes.length > 0) {
     console.log('\nSample price changes:');
-    changes.slice(0, 5).forEach((c) => {
-      console.log(`  ${c.name} (${c.cardNumber}): €${c.oldEur ?? '-'} -> €${c.eur ?? '-'} (foil: €${c.oldEurFoil ?? '-'} -> €${c.eur_foil ?? '-'})`);
+    plan.changes.slice(0, 5).forEach((u) => {
+      console.log(`  ${u.card.name} (${u.card.card_number}): €${u.card.market_price_eur ?? '-'} -> €${u.eur ?? '-'} (foil: €${u.card.market_price_foil_eur ?? '-'} -> €${u.eurFoil ?? '-'})`);
     });
   }
 
@@ -218,12 +137,12 @@ async function run() {
   }
 
   console.log('\nApplying price updates to Supabase via apply_price_import...');
-  const changedIds = new Set(changes.map((c) => c.id));
-  const rpcRows = updates.map((u) => ({
-    id: u.id,
+  const changedIds = new Set(plan.changes.map((u) => u.card.id));
+  const rpcRows = plan.updates.map((u) => ({
+    id: u.card.id,
     eur: u.eur,
-    eur_foil: u.eur_foil,
-    moved: changedIds.has(u.id),
+    eur_foil: u.eurFoil,
+    moved: changedIds.has(u.card.id),
   }));
 
   const { data: rpcResult, error: rpcError } = await supabase.rpc('apply_price_import', {
@@ -235,7 +154,7 @@ async function run() {
     throw new Error(`Failed to apply prices: ${rpcError.message}`);
   }
 
-  console.log(`Database update complete! Updated: ${rpcResult?.updated ?? updates.length} cards, Recorded in history: ${rpcResult?.recorded ?? changes.length}`);
+  console.log(`Database update complete! Updated: ${rpcResult?.updated ?? plan.updates.length} cards, Recorded in history: ${rpcResult?.recorded ?? plan.changes.length}`);
 
   // Save latest FX rates
   await supabase
