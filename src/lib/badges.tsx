@@ -45,19 +45,75 @@ export function formatGameTitle(game: string): string {
 }
 
 /**
+ * How much each rarity counts toward a collector's completion percentage - not by raw card count,
+ * by roughly how hard that card actually is to get. A Common and a Showcase both count as "1 card"
+ * toward a flat owned/total ratio, despite one going for a few forints and the other for tens of
+ * thousands - which made the last stretch to 100% no harder, by the numbers, than the first. This
+ * weighting means the first 40-50% comes from cheap, plentiful staples (roughly half of any set),
+ * and the top tiers genuinely require the expensive rare-and-up cards, matching how it actually
+ * feels to chase a set.
+ */
+export const RARITY_DIFFICULTY_WEIGHT: Record<string, number> = {
+  common: 1,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  showcase: 4,
+  secret: 4,
+  'nova rare': 6,
+};
+/** A rarity this table doesn't name (a new one added later, or another game entirely) is treated
+ * as moderately hard rather than silently as free (0) or as hard as the rarest known tier. */
+const DEFAULT_RARITY_WEIGHT = 2;
+
+export function weightForRarity(rarity: string | null | undefined): number {
+  return RARITY_DIFFICULTY_WEIGHT[(rarity || '').trim().toLowerCase()] ?? DEFAULT_RARITY_WEIGHT;
+}
+
+/**
+ * The rarity-weighted completion percentage for one game: each card in `cards` contributes its
+ * rarity's weight to the total, and to the owned sum too if `ownedIds` has it. Shared by the
+ * collector badge wherever it's computed - the profile page (from the local collection) and the
+ * public-profile API route (from the synced cloud one) must weigh cards identically or the same
+ * collector would see two different tiers depending on which page they're on.
+ */
+export function weightedCollectorPercentage(
+  cards: { id: string; rarity: string | null }[],
+  ownedIds: Set<string>
+): number {
+  let ownedWeight = 0;
+  let totalWeight = 0;
+  for (const c of cards) {
+    const w = weightForRarity(c.rarity);
+    totalWeight += w;
+    if (ownedIds.has(c.id)) ownedWeight += w;
+  }
+  if (totalWeight <= 0) return 0;
+  return Math.min(100, (ownedWeight / totalWeight) * 100);
+}
+
+/**
  * Calculates a game-specific collector tier based on unique cards owned in that game.
+ *
+ * `ownedInGameCount`/`totalInGameCount` are the plain card counts shown on the badge (e.g.
+ * "612/1424 cards"). Which *tier* that lands in is decided by `weightedPercentage` when the
+ * caller has it (rarity-weighted completion, 0-100) - callers that can't compute it (no rarity
+ * breakdown at hand) fall back to the flat owned/total ratio.
  */
 export function getCollectorTier(
   ownedInGameCount: number,
   totalInGameCount: number,
   game: string = 'riftbound',
   /** Ivory Parchment needs a darker shade of each tier's own color to stay readable on white. */
-  isLight: boolean = false
+  isLight: boolean = false,
+  weightedPercentage?: number
 ): CollectorTier {
   const gameTitle = formatGameTitle(game);
   const total = Math.max(1, totalInGameCount);
   const owned = Math.max(0, ownedInGameCount);
-  const percentage = Math.min(100, Math.round((owned / total) * 100));
+  const percentage = Math.min(100, Math.max(0, Math.round(
+    weightedPercentage !== undefined ? weightedPercentage : (owned / total) * 100
+  )));
 
   if (percentage >= 100) {
     return {

@@ -16,7 +16,7 @@ const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
   { mode: 'dark', name: 'Midnight Slate', hex: ['#3b82f6'] },
   { mode: 'light', name: 'Ivory Parchment', hex: ['#b45309'] },
 ];
-import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, weightedCollectorPercentage } from '../../lib/badges';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
 export function ProfileApp() {
@@ -78,7 +78,7 @@ export function ProfileApp() {
 
 
   // Collection & Badge State
-  const [collectionStats, setCollectionStats] = useState({ owned: 0, total: 1382, game: 'riftbound' });
+  const [collectionStats, setCollectionStats] = useState({ owned: 0, total: 1382, game: 'riftbound', weightedPercentage: 0 });
   const [sellerSalesCount, setSellerSalesCount] = useState(0);
 
   const loadCollectionStats = async () => {
@@ -99,7 +99,7 @@ export function ProfileApp() {
         }
       }
 
-      const { data: cards } = await supabase.from('cards').select('id, game');
+      const { data: cards } = await supabase.from('cards').select('id, game, rarity');
       if (cards) {
         const ownedCardIds = new Set<string>();
         Object.entries(collectionDict).forEach(([k, v]) => {
@@ -107,20 +107,14 @@ export function ProfileApp() {
         });
 
         const targetGame = activeGame.toLowerCase();
-        let totalGame = 0;
-        let ownedGame = 0;
-        cards.forEach(c => {
-          const g = (c.game || 'riftbound').toLowerCase();
-          if (g === targetGame) {
-            totalGame++;
-            if (ownedCardIds.has(c.id)) ownedGame++;
-          }
-        });
+        const gameCards = cards.filter(c => (c.game || 'riftbound').toLowerCase() === targetGame);
+        const ownedGame = gameCards.filter(c => ownedCardIds.has(c.id)).length;
 
         setCollectionStats({
           owned: ownedGame,
-          total: Math.max(1, totalGame),
+          total: Math.max(1, gameCards.length),
           game: activeGame,
+          weightedPercentage: weightedCollectorPercentage(gameCards, ownedCardIds),
         });
       }
     } catch (e) {
@@ -132,12 +126,12 @@ export function ProfileApp() {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
     try {
-      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}&limit=1`);
+      // A dedicated lightweight endpoint, not the full marketplace listings query (which joins
+      // inventory to cards, sets and images) - this needs exactly one number off it.
+      const res = await fetch(`/api/marketplace/seller-stats?seller_id=${targetUid}`);
       if (res.ok) {
         const json = await res.json();
-        if (json.success && json.data && json.data.length > 0 && typeof json.data[0].seller_sales_count === 'number') {
-          setSellerSalesCount(json.data[0].seller_sales_count);
-        }
+        if (json.success) setSellerSalesCount(json.data.salesCount);
       }
     } catch (e) {
       console.warn('Failed to load seller sales count:', e);
@@ -276,7 +270,7 @@ export function ProfileApp() {
   }, [sellerSalesCount, isOwner, isLightTheme]);
 
   const collectorTier = useMemo(() => {
-    return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game, isLightTheme);
+    return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game, isLightTheme, collectionStats.weightedPercentage);
   }, [collectionStats, isLightTheme]);
 
   const handleSaveProfile = async () => {
@@ -636,14 +630,11 @@ export function ProfileApp() {
               {profile.email}
             </div>
             <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              {profile.is_owner || profile.role === 'owner' ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-                  </svg>
-                  <span>Platform Owner</span>
-                </span>
-              ) : profile.is_admin || profile.role === 'admin' ? (
+              {/* The owner case used to have its own "Platform Owner" badge here too, right next
+                  to the SiteOwnerTag below - the exact same fact, said twice. SiteOwnerTag (used
+                  consistently everywhere else this appears - the public profile, a seller card)
+                  is now the only "you're the owner" signal; this falls through to Admin/Collector. */}
+              {profile.is_admin || profile.role === 'admin' ? (
                 <span 
                   className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
                   style={{

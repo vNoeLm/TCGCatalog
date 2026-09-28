@@ -2194,13 +2194,13 @@ export function CardListApp() {
                 id: 'device' as const,
                 icon: 'device' as const,
                 title: 'This device only',
-                text: 'Clears this browser. Your cloud copy is kept and loads back the next time you sign in here.',
+                text: "Clears this browser only. The live collection in your account is kept, and loads back here next time you sign in.",
               },
               {
                 id: 'both' as const,
                 icon: 'cloud-up' as const,
-                title: 'This device and the cloud',
-                text: 'Also clears your cloud copy, so the collection is gone on your other devices too.',
+                title: 'This device and your account',
+                text: "Clears this browser and the live collection in your account, so it's gone on your other devices too.",
               },
             ]).map((opt) => {
               const selected = resetScope === opt.id;
@@ -2242,7 +2242,7 @@ export function CardListApp() {
         )}
         {currentUser && (
           <p className="text-xs leading-relaxed mt-3" style={{ color: 'var(--text-muted)' }}>
-            A backup saved with <span className="font-semibold" style={{ color: 'var(--text-tertiary)' }}>Save to cloud database</span> is never affected.
+            Either way, a separate snapshot you made with <span className="font-semibold" style={{ color: 'var(--text-tertiary)' }}>Save to cloud database</span> in Export is untouched - it's not the same as the live collection above, and you can restore it anytime from Import.
           </p>
         )}
 
