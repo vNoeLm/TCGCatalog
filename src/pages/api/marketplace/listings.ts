@@ -151,18 +151,25 @@ export const GET: APIRoute = async ({ url }) => {
     // Also include platform owner ID as fallback
     sellerIds.add(OWNER_ID);
 
-    const { data: profileRows } = await supabaseAdmin
-      .from('profiles')
-      .select('id, display_name, avatar_url, role, is_admin')
-      .in('id', Array.from(sellerIds));
+    // These three don't depend on each other - only on sellerIds, from the inventory query above -
+    // so they run together instead of adding up one after another.
+    const [{ data: profileRows }, { data: reviewRows }, { data: storeOrdersRow }] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('id, display_name, avatar_url, role, is_admin')
+        .in('id', Array.from(sellerIds)),
+      supabaseAdmin
+        .from('seller_reviews')
+        .select('seller_id, rating')
+        .in('seller_id', Array.from(sellerIds)),
+      supabaseAdmin
+        .from('settings')
+        .select('value')
+        .eq('key', 'store_orders')
+        .maybeSingle(),
+    ]);
 
     const profileMap = new Map((profileRows || []).map(p => [p.id, p]));
-
-    // Fetch review ratings
-    const { data: reviewRows } = await supabaseAdmin
-      .from('seller_reviews')
-      .select('seller_id, rating')
-      .in('seller_id', Array.from(sellerIds));
 
     const ratingsMap = new Map<string, { total: number; count: number }>();
     (reviewRows || []).forEach((r: any) => {
@@ -171,13 +178,6 @@ export const GET: APIRoute = async ({ url }) => {
       cur.count += 1;
       ratingsMap.set(r.seller_id, cur);
     });
-
-    // Fetch store orders to count sales per seller
-    const { data: storeOrdersRow } = await supabaseAdmin
-      .from('settings')
-      .select('value')
-      .eq('key', 'store_orders')
-      .maybeSingle();
 
     // Two distinct stats, deliberately kept separate: `distinctSalesMap` counts completed
     // transactions (orders) per seller — this is what should gate seller tier, so a single

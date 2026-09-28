@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { cardThumbProps } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews';
-import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { getSellerTier, getCollectorTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
+import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import type { SellerProfileSummary, SellerReview } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -19,6 +20,23 @@ export function PublicProfileApp() {
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const isLightTheme = useSiteTheme().theme === 'light';
+
+  // Which game's collector badge to show - the site's globally active game, same as everywhere
+  // else (Catalog, Binder), not something this page picks on its own.
+  const [activeGame, setActiveGame] = useState(() => {
+    if (typeof window === 'undefined') return 'riftbound';
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME) === 'cyberpunk' ? 'cyberpunk' : 'riftbound';
+  });
+  const [collectionStatsByGame, setCollectionStatsByGame] = useState<Record<string, { owned: number; total: number; weightedPercentage: number }>>({});
+
+  useEffect(() => {
+    const onGameChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ game: string }>).detail;
+      if (detail?.game === 'cyberpunk' || detail?.game === 'riftbound') setActiveGame(detail.game);
+    };
+    window.addEventListener(EVENTS.GAME_CHANGE, onGameChange);
+    return () => window.removeEventListener(EVENTS.GAME_CHANGE, onGameChange);
+  }, []);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -43,6 +61,12 @@ export function PublicProfileApp() {
         if (res.ok) {
           const json = await res.json();
           setListings((json.data || []).filter((l: any) => l.status !== 'Sold'));
+        }
+
+        const statsRes = await fetch(`/api/profile/collection-stats?user_id=${id}`);
+        if (statsRes.ok) {
+          const statsJson = await statsRes.json();
+          if (statsJson.success) setCollectionStatsByGame(statsJson.data);
         }
       } catch (e) {
         console.warn('Failed to load profile:', e);
@@ -89,6 +113,10 @@ export function PublicProfileApp() {
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
   const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
+  const gameStats = collectionStatsByGame[activeGame];
+  const collectorTier: CollectorTier | null = gameStats
+    ? getCollectorTier(gameStats.owned, gameStats.total, activeGame, isLightTheme, gameStats.weightedPercentage)
+    : null;
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
     ? new Date(summary.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
@@ -131,6 +159,16 @@ export function PublicProfileApp() {
                 <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
                 <span>{tier.nameEn}</span>
               </span>
+              {collectorTier && (
+                <span
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
+                  style={collectorTier.badgeStyle}
+                  title={`${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
+                >
+                  <BadgeIconSvg iconType={collectorTier.iconType} className="w-3 h-3" />
+                  <span>{collectorTier.nameEn}</span>
+                </span>
+              )}
             </div>
 
             <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
