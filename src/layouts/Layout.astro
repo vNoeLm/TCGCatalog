@@ -3,6 +3,7 @@ import '../styles/global.css';
 import { Navigation } from '../components/Navigation';
 import { GameSelector } from '../components/GameSelector';
 import { LegalFooter } from '../components/LegalFooter';
+import { CookieConsent } from '../components/CookieConsent';
 import { MarketplaceCartDrawer } from '../components/marketplace/MarketplaceCartDrawer';
 
 interface Props {
@@ -61,6 +62,7 @@ const pathname = Astro.url.pathname;
     <slot />
     <MarketplaceCartDrawer client:load />
     <LegalFooter client:load />
+    <CookieConsent client:load />
     <script is:inline>
       // Publishes the sticky header's real height as --header-h (see --page-chrome-h in global.css).
       (function () {
