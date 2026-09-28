@@ -1127,16 +1127,19 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 const displayNotes = getDisplayConditionNotes(data.notes);
                 if (!displayNotes) return null;
                 return (
-                  <p 
-                    className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
-                    style={{
-                      background: 'var(--bg-input)',
-                      borderColor: 'var(--border-subtle)',
-                      color: 'var(--text-secondary)'
-                    }}
-                  >
-                    {displayNotes}
-                  </p>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Seller's Description</p>
+                    <p
+                      className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
+                      style={{
+                        background: 'var(--bg-input)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)'
+                      }}
+                    >
+                      {displayNotes}
+                    </p>
+                  </div>
                 );
               })()}
             </div>
@@ -1235,22 +1238,11 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               className="rounded-2xl p-4 sm:p-5 mb-4 border"
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
             >
-              <div className="mb-4 flex items-end justify-between gap-x-6 gap-y-3 flex-wrap">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
-                  <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
-                    {data.price_huf ? fmt(data.price_huf) : 'N/A'}
-                  </div>
+              <div className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
+                <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
+                  {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </div>
-                {data.quantity > 0 && (
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Available</p>
-                    <div className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
-                      {data.quantity}
-                      <span className="ml-1.5 text-sm font-bold" style={{ color: 'var(--text-tertiary)' }}>{data.quantity === 1 ? 'copy' : 'copies'}</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -1258,7 +1250,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {data.status === 'In Stock' && (
                   <span className="text-xs font-bold px-3 py-1.5 rounded-full border text-[var(--positive)] inline-flex items-center gap-1.5" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    <span>Available</span>
+                    <span>{data.quantity > 1 ? `${data.quantity} available` : 'Available'}</span>
                   </span>
                 )}
                 {(data.status === 'On Hold' || data.status === 'Reserved') && (
