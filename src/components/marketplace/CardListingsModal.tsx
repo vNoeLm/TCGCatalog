@@ -94,8 +94,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:flex lg:flex-row custom-scrollbar">
-         <div className="lg:w-[44%] lg:shrink-0 lg:overflow-y-auto lg:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto min-[1550px]:overflow-hidden min-[1550px]:flex min-[1550px]:flex-row custom-scrollbar">
+         <div className="min-[1550px]:w-[44%] min-[1550px]:shrink-0 min-[1550px]:overflow-y-auto min-[1550px]:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex gap-4 sm:gap-6 p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
               {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
@@ -129,8 +129,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity }} />
          </div>
 
-         <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar">
-          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 lg:pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+         <div className="min-[1550px]:flex-1 min-[1550px]:min-w-0 min-[1550px]:overflow-y-auto custom-scrollbar">
+          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 min-[1550px]:pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ListingSort)}

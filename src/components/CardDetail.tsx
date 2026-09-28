@@ -1235,11 +1235,22 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               className="rounded-2xl p-4 sm:p-5 mb-4 border"
               style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
             >
-              <div className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
-                <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
-                  {data.price_huf ? fmt(data.price_huf) : 'N/A'}
+              <div className="mb-4 flex items-end justify-between gap-x-6 gap-y-3 flex-wrap">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
+                  <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
+                    {data.price_huf ? fmt(data.price_huf) : 'N/A'}
+                  </div>
                 </div>
+                {data.quantity > 0 && (
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Available</p>
+                    <div className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
+                      {data.quantity}
+                      <span className="ml-1.5 text-sm font-bold" style={{ color: 'var(--text-tertiary)' }}>{data.quantity === 1 ? 'copy' : 'copies'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
