@@ -107,19 +107,25 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                 {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
               </p>
 
-              {/* 4 columns needs real room per box for "Average"/"Listings" - gated on this
-                  column's own width (it's the narrower half of a two-panel modal, not the
-                  viewport), so it falls back to 2x2 instead of squeezing/truncating the labels. */}
-              <div className="grid grid-cols-2 @[280px]:grid-cols-4 gap-2 mt-4">
+              {/* 4 columns needs real room per box - not just for the "Average"/"Listings" labels,
+                  but for a HUF price value at this font size ("83 800 Ft" is 9 characters). Gated
+                  on this column's own width (the narrower half of a two-panel modal, not the
+                  viewport), so it falls back to 2x2 instead of squeezing the values. */}
+              <div className="grid grid-cols-2 @[420px]:grid-cols-4 gap-2 mt-4">
                 {[
                   { label: 'Lowest', value: group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A', accent: true },
                   { label: 'Average', value: group.avg_price > 0 ? fmtHuf(group.avg_price) : 'N/A' },
                   { label: 'Listings', value: String(group.listing_count) },
                   { label: 'Copies', value: String(group.total_quantity) },
                 ].map(stat => (
-                  <div key={stat.label} className="rounded-xl px-3 py-2 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
-                    <div className={`text-base sm:text-lg font-black ${stat.accent ? 'text-[var(--positive)]' : ''}`} style={stat.accent ? undefined : { color: 'var(--text-primary)' }}>{stat.value}</div>
+                  <div key={stat.label} className="rounded-xl px-3 py-2 border text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-left" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
+                    <div
+                      className={`text-sm sm:text-base font-black leading-tight text-left whitespace-nowrap ${stat.accent ? 'text-[var(--positive)]' : ''}`}
+                      style={stat.accent ? undefined : { color: 'var(--text-primary)' }}
+                    >
+                      {stat.value}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -130,7 +136,10 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
          </div>
 
          <div className="min-[1550px]:flex-1 min-[1550px]:min-w-0 min-[1550px]:overflow-y-auto custom-scrollbar">
-          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 min-[1550px]:pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          {/* pr-14 always, not just at the width the panels go side-by-side: the close button is
+              absolutely positioned over the whole modal, so this row needs room clear of it in
+              every layout - it used to collide with "N shown" below 1550px. */}
+          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ListingSort)}
@@ -211,9 +220,20 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-snug">
                         {(() => {
                           const description = getListingDescription(l.notes);
-                          return description
-                            ? <span className="line-clamp-2 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
-                            : <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                          if (!description) {
+                            return <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                          }
+                          return (
+                            // The column header says "Description" at 720px+, but below that this
+                            // sits under the Condition badges with nothing else marking it as the
+                            // seller's own note rather than more card info - hence the icon.
+                            <span className="flex items-start gap-1.5">
+                              <svg className="w-3 h-3 mt-0.5 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
+                                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                              </svg>
+                              <span className="line-clamp-2 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
+                            </span>
+                          );
                         })()}
                       </div>
 
