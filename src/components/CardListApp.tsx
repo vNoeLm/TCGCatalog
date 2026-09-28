@@ -4,6 +4,7 @@ import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CollectionValueChip } from "./CollectionValueChip";
 import { CardPreviewOverlay } from "./CardPreviewOverlay";
+import { CollectionModal, ActionRow, Icon } from "./collection/CollectionModal";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
@@ -147,9 +148,7 @@ export function CardListApp() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resettingCollection, setResettingCollection] = useState(false);
-  const exportModalAnim = useExitTransition(showExportModal, 250);
-  const importModalAnim = useExitTransition(showImportModal, 250);
-  const resetConfirmAnim = useExitTransition(showResetConfirm, 250);
+  const [resetScope, setResetScope] = useState<'device' | 'both'>('device');
   const [showScanner, setShowScanner] = useState(false);
   // The scanner needs a camera, so it's only offered where one is plausible.
   const [canScan, setCanScan] = useState(false);
@@ -1256,7 +1255,7 @@ export function CardListApp() {
       // Stamped as a fresh local change, not with the backup's own time, so the usual auto-sync
       // picks it up and pushes it to the live, cross-device collection too.
       saveLocalCollection(backupData);
-      showToast(`☁️ ${"Collection restored from your cloud backup!"}`, 'success');
+      showToast("Collection restored from your cloud backup.", 'success');
       setShowImportModal(false);
       setShowExportModal(false);
     } catch (e: any) {
@@ -1413,12 +1412,31 @@ export function CardListApp() {
   // consequential.
   const handleResetCollection = () => {
     if (uniqueOwnedKeys.length === 0) return;
+    setResetScope('device');
     setShowResetConfirm(true);
   };
 
   const performResetCollection = async () => {
     setResettingCollection(true);
     try {
+      // Signed in, every local change is auto-saved to the cloud, so "this device only" has to
+      // leave sync out of it: the browser's copy AND its change-time are removed instead of being
+      // saved as an empty collection. With no time of its own, this browser then looks like a fresh
+      // one, and the next sign-in loads the untouched cloud copy back.
+      if (currentUser && resetScope === 'device') {
+        setCollection({});
+        collectionRef.current = {};
+        try {
+          localStorage.removeItem('tcg_user_collection');
+          localStorage.removeItem('tcg_collection');
+          localStorage.removeItem(COLLECTION_STAMP_KEY);
+        } catch {
+          // best-effort
+        }
+        showToast('Cleared on this device. Your cloud copy is untouched.', 'success');
+        return;
+      }
+
       setCollection({});
       collectionRef.current = {};
       saveLocalCollection({});
@@ -1430,7 +1448,7 @@ export function CardListApp() {
       // Saved straight away rather than after the usual delay: moving to another page within that
       // delay would cancel it, and the next visit would find the old cloud copy still there.
       const cleared = await pushCollectionToCloud();
-      showToast(cleared ? 'Collection reset everywhere.' : 'Collection reset here, but the cloud copy could not be cleared. Try Save to cloud.', cleared ? 'success' : 'error');
+      showToast(cleared ? 'Cleared on this device and in the cloud.' : 'Cleared here, but the cloud copy could not be cleared. Try again.', cleared ? 'success' : 'error');
     } finally {
       setResettingCollection(false);
       setShowResetConfirm(false);
@@ -1889,337 +1907,147 @@ export function CardListApp() {
       </FilterDrawer>
 
       {/* Export Collection Modal */}
-      {exportModalAnim.rendered && (
-        <div
-          onClick={() => setShowExportModal(false)}
-          data-state={exportModalAnim.state}
-          className="tv-overlay"
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            data-state={exportModalAnim.state}
-            style={{ touchAction: 'auto' }}
-            className="tv-modal-panel w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-black text-[var(--text-primary)]">
-                {exportTab === 'owned' ? "Export Collection" : "Export Missing Cards"}
-              </h3>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:brightness-110 transition cursor-pointer"
-                title={'Close'}
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Tabs: Owned vs Missing */}
-            <div className="flex rounded-xl p-1 bg-[var(--bg-input)] border border-[var(--border)] mb-4">
-              <button
-                type="button"
-                onClick={() => setExportTab('owned')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                  exportTab === 'owned'
-                    ? 'bg-[var(--bg-raised)] text-[var(--text-primary)] shadow-sm'
-                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <span>Owned Cards</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-raised)] text-[var(--text-secondary)]">
-                  {totalOwnedCopies}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setExportTab('missing')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                  exportTab === 'missing'
-                    ? 'bg-amber-500/20 border border-amber-500/40 text-[var(--text-primary)] shadow-sm'
-                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <span>Missing Cards (Want-List)</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 font-black" style={{ color: 'var(--text-primary)' }}>
-                  {getMissingCards().length}
-                </span>
-              </button>
-            </div>
-
-            {/* TAB 1: OWNED COLLECTION EXPORT */}
-            {exportTab === 'owned' && (
-              <>
-                <p className="text-xs text-[var(--text-tertiary)] mb-4">
-                  {`Save your ${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique) to your cloud database account, copy formatted text for sharing, or download a backup file.`}
-                </p>
-
-                {/* Cloud Database Save Section */}
-                <div className="mb-4 pb-4 border-b border-[var(--border)]">
-                  {currentUser ? (
-                    <button
-                      type="button"
-                      onClick={handleSaveToCloud}
-                      disabled={savingToCloud}
-                      className="w-full flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group shadow-lg" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg border flex items-center justify-center shrink-0" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                          <svg className="w-5 h-5" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                            <span>Save to Cloud Database</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>Backup</span>
-                          </div>
-                          <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                            {`Back up your current ${totalOwnedCopies} tracked cards. Kept separately, so a later reset can't remove it — restore it any time below.`}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold shrink-0 pl-2 flex items-center gap-1.5" style={{ color: 'var(--text-accent)' }}>
-                        <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <span>{savingToCloud ? "Saving…" : "Save"}</span>
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="p-3.5 rounded-xl bg-[var(--bg-input)]/80 border border-[var(--border)]/80 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] border border-[var(--border-hover)] flex items-center justify-center shrink-0 text-[var(--text-tertiary)]">
-                          <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-[var(--text-secondary)] truncate">
-                            Sign in to save to database
-                          </div>
-                          <div className="text-[11px] text-[var(--text-muted)] truncate">
-                            Sync and backup your collection to your cloud account
-                          </div>
-                        </div>
-                      </div>
-                      <a
-                        href="/login"
-                        className="px-3 py-1.5 rounded-lg bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-primary)] text-xs font-bold transition border border-[var(--border-hover)] shrink-0"
-                      >
-                        Sign In
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2.5 mb-4">
-                  {/* Option 1: Copy Detailed Text List */}
-                  <button
-                    onClick={handleCopyCollectionText}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        Copy Formatted Card List
-                      </div>
-                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                        Grouped by set with quantities, card numbers, names, and foil tags
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
-                  </button>
-
-                  {/* Option 2: Copy Simple List */}
-                  <button
-                    onClick={handleCopySimpleText}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        Copy Simple Card Names
-                      </div>
-                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                        Compact list with quantities (e.g. 3x Jinx, Demolitionist [Foil])
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
-                  </button>
-
-                  {/* Option 3: Download JSON Backup */}
-                  <button
-                    onClick={handleDownloadJson}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        Download Collection File (JSON)
-                      </div>
-                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                        Full JSON backup file to save on your device or import on another browser
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
-                  </button>
-
-                  {/* Option 4: Copy Raw JSON */}
-                  <button
-                    onClick={handleCopyJson}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        Copy Raw JSON to Clipboard
-                      </div>
-                      <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                        Compact id → quantity map for quick pasting into the Import modal
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Copy →</span>
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* TAB 2: MISSING CARDS EXPORT */}
-            {exportTab === 'missing' && (
-              <>
-                <p className="text-xs text-[var(--text-tertiary)] mb-3">
-                  Export the missing cards that match your currently active filters for trading or shopping want-lists.
-                </p>
-
-                {/* Filter Context Box */}
-                <div className="p-3.5 rounded-xl border mb-4 space-y-1.5" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                  <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--text-accent)' }}>
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                    </svg>
-                    <span>Currently Applied Filters</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="px-2 py-0.5 rounded-md border font-semibold" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-                      {getActiveFilterDescription()}
-                    </span>
-                    <span className="text-[var(--text-secondary)] font-medium">
-                      {`${getMissingCards().length} missing cards (out of ${relevantTotal})`}
-                    </span>
-                  </div>
-                </div>
-
-                {getMissingCards().length === 0 ? (
-                  <div className="py-8 px-4 text-center rounded-xl bg-emerald-950/20 border border-emerald-500/30 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-2 text-[var(--positive)]">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </div>
-                    <div className="text-sm font-bold text-[var(--positive)]">
-                      No missing cards!
-                    </div>
-                    <div className="text-xs text-[var(--text-tertiary)] mt-1">
-                      You already own every card that matches your current filter selection.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2.5 mb-4">
-                    {/* Quick Shop: hand the want-list to the marketplace */}
-                    <button
-                      onClick={handleQuickShopMissing}
-                      className="flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
-                    >
-                      <div>
-                        <div className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                          Quick Shop This List
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                          Find these cards on the marketplace (cheapest or fewest sellers) and add them to your cart
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Shop →</span>
-                    </button>
-
-                    {/* Missing Option 1: Copy Detailed Want-List */}
-                    <button
-                      onClick={handleCopyMissingText}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                          Copy Detailed Want-List
-                        </div>
-                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                          Grouped by set with card numbers, names, and rarities
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Copy →</span>
-                    </button>
-
-                    {/* Missing Option 2: Copy Simple Want-List */}
-                    <button
-                      onClick={handleCopyMissingSimpleText}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                          Copy Simple Want-List
-                        </div>
-                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                          Compact list (e.g. 1x Jinx [VEN-042]), ideal for Discord or trade posts
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>Copy →</span>
-                    </button>
-
-                    {/* Missing Option 3: Download TXT File */}
-                    <button
-                      onClick={handleDownloadMissingTxt}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                          Download Text File (.txt)
-                        </div>
-                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                          Formatted want-list file to save on your device
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
-                    </button>
-
-                    {/* Missing Option 4: Download JSON File */}
-                    <button
-                      onClick={handleDownloadMissingJson}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group"
-                    >
-                      <div>
-                        <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                          Download JSON File (.json)
-                        </div>
-                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                          Structured JSON data with card IDs, numbers, sets, and rarities
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]">Download ↓</span>
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg text-xs font-bold transition cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+      <CollectionModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        icon="export"
+        title={exportTab === 'owned' ? 'Export collection' : 'Export missing cards'}
+        subtitle={
+          exportTab === 'owned'
+            ? `${totalOwnedCopies} owned cards (${uniqueOwnedKeys.length} unique)`
+            : 'The missing cards that match your current filters'
+        }
+      >
+        <div className="flex rounded-xl p-1 border mb-5" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }} role="tablist">
+          {([
+            { id: 'owned', label: 'Owned', count: totalOwnedCopies },
+            { id: 'missing', label: 'Missing (want-list)', count: getMissingCards().length },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={exportTab === tab.id}
+              onClick={() => setExportTab(tab.id)}
+              className="flex-1 h-9 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border"
+              style={
+                exportTab === tab.id
+                  ? { background: 'var(--bg-raised)', borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }
+                  : { background: 'transparent', borderColor: 'transparent', color: 'var(--text-tertiary)' }
+              }
+            >
+              <span>{tab.label}</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-black" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)' }}>{tab.count}</span>
+            </button>
+          ))}
         </div>
-      )}
+
+        {exportTab === 'owned' && (
+          <div className="flex flex-col gap-5">
+            <section>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Back up</h4>
+              {currentUser ? (
+                <ActionRow
+                  tone="accent"
+                  icon="cloud-up"
+                  title="Save to cloud database"
+                  description={`Back up your ${totalOwnedCopies} cards. Kept separately, so a later reset can't remove it.`}
+                  actionLabel={savingToCloud ? 'Saving…' : 'Save'}
+                  actionIcon="cloud-up"
+                  onClick={handleSaveToCloud}
+                  disabled={savingToCloud}
+                />
+              ) : (
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3 rounded-xl border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+                  <span className="w-9 h-9 rounded-lg border flex items-center justify-center" style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }} aria-hidden="true">
+                    <Icon name="user" className="w-[18px] h-[18px]" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Sign in to back up</span>
+                    <span className="block text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Sync and back up your collection to your account</span>
+                  </span>
+                  <a
+                    href="/login"
+                    className="inline-flex items-center justify-center h-8 min-w-[7.5rem] px-3 rounded-lg border text-xs font-bold"
+                    style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  >
+                    Sign in
+                  </a>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Copy or download</h4>
+              <div className="flex flex-col gap-2">
+                <ActionRow index={0} icon="list" title="Formatted card list" description="Grouped by set, with quantities, numbers and foil tags" actionLabel="Copy" actionIcon="copy" onClick={handleCopyCollectionText} />
+                <ActionRow index={1} icon="list" title="Simple card names" description="Compact, e.g. 3x Jinx, Demolitionist [Foil]" actionLabel="Copy" actionIcon="copy" onClick={handleCopySimpleText} />
+                <ActionRow index={2} icon="file" title="Collection file (JSON)" description="A full backup to keep, or to import in another browser" actionLabel="Download" actionIcon="download" onClick={handleDownloadJson} />
+                <ActionRow index={3} icon="code" title="Raw JSON" description="A compact id and quantity map to paste into Import" actionLabel="Copy" actionIcon="copy" onClick={handleCopyJson} />
+              </div>
+            </section>
+          </div>
+        )}
+
+        {exportTab === 'missing' && (
+          <div className="flex flex-col gap-5">
+            <div className="p-3 rounded-xl border flex items-center gap-2 flex-wrap text-xs" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
+              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-accent)' }}>Filters</span>
+              <span className="px-2 py-0.5 rounded-md border font-semibold" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                {getActiveFilterDescription()}
+              </span>
+              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {`${getMissingCards().length} missing (of ${relevantTotal})`}
+              </span>
+            </div>
+
+            {getMissingCards().length === 0 ? (
+              <div className="py-8 px-4 text-center rounded-xl border" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
+                <span className="w-10 h-10 rounded-full border flex items-center justify-center mx-auto mb-2" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }}>
+                  <Icon name="check" className="w-5 h-5" />
+                </span>
+                <div className="text-sm font-bold" style={{ color: 'var(--positive)' }}>No missing cards</div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>You already own every card that matches your current filters.</div>
+              </div>
+            ) : (
+              <>
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Marketplace</h4>
+                  <ActionRow
+                    tone="accent"
+                    icon="cart"
+                    title="Quick shop this list"
+                    description="Find these on the marketplace, cheapest or fewest sellers, and add them to your cart"
+                    actionLabel="Shop"
+                    actionIcon="cart"
+                    onClick={handleQuickShopMissing}
+                  />
+                </section>
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Copy or download</h4>
+                  <div className="flex flex-col gap-2">
+                    <ActionRow index={0} icon="list" title="Detailed want-list" description="Grouped by set, with numbers, names and rarities" actionLabel="Copy" actionIcon="copy" onClick={handleCopyMissingText} />
+                    <ActionRow index={1} icon="list" title="Simple want-list" description="Compact, e.g. 1x Jinx [VEN-042], for Discord or trade posts" actionLabel="Copy" actionIcon="copy" onClick={handleCopyMissingSimpleText} />
+                    <ActionRow index={2} icon="file" title="Text file (.txt)" description="A formatted want-list to save on your device" actionLabel="Download" actionIcon="download" onClick={handleDownloadMissingTxt} />
+                    <ActionRow index={3} icon="code" title="JSON file (.json)" description="Structured data with card ids, numbers, sets and rarities" actionLabel="Download" actionIcon="download" onClick={handleDownloadMissingJson} />
+                  </div>
+                </section>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end mt-6">
+          <button
+            type="button"
+            onClick={() => setShowExportModal(false)}
+            className="px-4 h-9 rounded-lg text-xs font-bold cursor-pointer transition"
+            style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
+          >
+            Close
+          </button>
+        </div>
+      </CollectionModal>
 
       {/* Import Modal */}
       <CardScannerModal
@@ -2241,110 +2069,83 @@ export function CardListApp() {
         allCards={allCards}
       />
 
-      {importModalAnim.rendered && (
-        <div
-          onClick={() => setShowImportModal(false)}
-          data-state={importModalAnim.state}
-          className="tv-overlay"
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px', overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            data-state={importModalAnim.state}
-            style={{ touchAction: 'auto' }}
-            className="tv-modal-panel w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-5 sm:p-7 shadow-2xl text-left max-h-[85vh] overflow-y-auto custom-scrollbar my-auto"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-black text-[var(--text-primary)]">Import Collection</h3>
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:brightness-110 transition cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Import Collection Modal */}
+      <CollectionModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        icon="import"
+        title="Import collection"
+        subtitle="Add cards from a backup, a file or a pasted list"
+      >
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept=".json,.txt,application/json,text/plain"
+          onChange={handleImportFileUpload}
+          className="hidden"
+        />
 
-            {/* Cloud Restore Option (If Authenticated) */}
+        <section>
+          <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Sources</h4>
+          <div className="flex flex-col gap-2">
             {currentUser && (
-              <div className="mb-4 pb-4 border-b border-[var(--border)]">
-                <button
-                  type="button"
-                  onClick={handleRestoreFromCloud}
-                  disabled={restoringFromCloud}
-                  className="w-full flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer text-left group" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg border flex items-center justify-center shrink-0" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                      <svg className="w-4 h-4" style={{ color: 'var(--text-accent)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Restore from Cloud Backup</div>
-                      <div className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                        Bring back whatever you last saved with "Save to Cloud Database"
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold shrink-0 pl-2" style={{ color: 'var(--text-accent)' }}>
-                    {restoringFromCloud ? 'Restoring…' : 'Restore ☁️'}
-                  </span>
-                </button>
-              </div>
+              <ActionRow
+                index={0}
+                tone="accent"
+                icon="cloud-down"
+                title="Cloud backup"
+                description="Bring back what you last saved with Save to cloud database"
+                actionLabel={restoringFromCloud ? 'Restoring…' : 'Restore'}
+                actionIcon="cloud-down"
+                onClick={handleRestoreFromCloud}
+                disabled={restoringFromCloud}
+              />
             )}
-
-            <input
-              ref={importFileInputRef}
-              type="file"
-              accept=".json,.txt,application/json,text/plain"
-              onChange={handleImportFileUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
+            <ActionRow
+              index={currentUser ? 1 : 0}
+              icon="file"
+              title="From a file"
+              description="A .json backup or a .txt card list"
+              actionLabel="Choose file"
+              actionIcon="upload"
               onClick={() => importFileInputRef.current?.click()}
-              className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--bg-raised)]/80 border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer text-left group mb-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] border border-[var(--border-hover)] flex items-center justify-center shrink-0 text-[var(--text-tertiary)]">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-[var(--text-primary)]">Import from File</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">Upload a .json backup or .txt card list</div>
-                </div>
-              </div>
-              <span className="text-xs font-semibold text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)] shrink-0 pl-2">Choose File →</span>
-            </button>
-
-            <p className="text-xs text-[var(--text-tertiary)] mb-4">
-              Or paste a collection list (text with card names/numbers or JSON array) to add to your collection:
-            </p>
-            <textarea
-              rows={7}
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder={`Paste text list or JSON here...\n\nExample text:\n1x Akali, Deadly Weapon (VEN-021a/166)\n1x Renekton, Rage Fueled [Foil]\n\nOr JSON:\n["card-id-1", "card-id-2_foil"]`}
-              className="w-full p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] text-xs font-mono outline-none focus:border-[var(--accent)] transition resize-y mb-4"
             />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 bg-transparent hover:bg-[var(--bg-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] border border-[var(--border)]/80 rounded-lg text-xs font-bold transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleImportCollection()}
-                className="px-4 py-2 bg-[var(--accent-strong)] hover:brightness-110 rounded-lg text-xs font-black transition cursor-pointer shadow-md" style={{ color: 'var(--text-on-accent)' }}
-              >
-                Import Cards
-              </button>
-            </div>
           </div>
+        </section>
+
+        <section className="mt-5">
+          <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Or paste a list</h4>
+          <textarea
+            rows={7}
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            aria-label="Paste a card list or JSON"
+            placeholder={`Card names and numbers, or JSON.\n\n1x Akali, Deadly Weapon (VEN-021a/166)\n1x Renekton, Rage Fueled [Foil]\n\n["card-id-1", "card-id-2_foil"]`}
+            className="w-full p-3 rounded-xl border text-xs font-mono outline-none transition resize-y focus:border-[var(--accent)]"
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+          />
+        </section>
+
+        <div className="flex gap-2 justify-end mt-5">
+          <button
+            type="button"
+            onClick={() => setShowImportModal(false)}
+            className="px-4 h-9 rounded-lg text-xs font-bold cursor-pointer transition border"
+            style={{ background: 'transparent', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => handleImportCollection()}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-black cursor-pointer transition"
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}
+          >
+            <Icon name="import" className="w-3.5 h-3.5" />
+            Import cards
+          </button>
         </div>
-      )}
+      </CollectionModal>
 
       {/* Floating Toast Notification */}
       {toastAnim.rendered && toastRef.current && (
@@ -2376,59 +2177,95 @@ export function CardListApp() {
       )}
 
       {/* Reset Confirmation */}
-      {resetConfirmAnim.rendered && (
-        <div
-          onClick={() => !resettingCollection && setShowResetConfirm(false)}
-          data-state={resetConfirmAnim.state}
-          className="tv-overlay"
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: '16px' }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            data-state={resetConfirmAnim.state}
-            className="tv-modal-panel w-full max-w-sm bg-[var(--bg-surface)] border border-rose-900/50 rounded-2xl p-5 sm:p-6 shadow-2xl text-left"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-rose-950/60 border border-rose-800/50 flex items-center justify-center shrink-0">
-                <svg className="w-4.5 h-4.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-black text-[var(--text-primary)]">Clear your collection?</h3>
-            </div>
-
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              All <span className="font-bold text-[var(--text-primary)]">{totalOwnedCopies}</span> saved cards will be removed.
-            </p>
-            <p className="text-sm text-[var(--text-tertiary)] leading-relaxed mt-2">
-              {currentUser
-                ? <>This clears them from this browser and from your cloud account, so they will be gone on your other devices too. A backup you saved with <span className="font-semibold text-[var(--text-secondary)]">"Save to Cloud Database"</span> is not affected.</>
-                : 'This will remove them from your browser.'}
-            </p>
-
-            <div className="flex justify-end gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                disabled={resettingCollection}
-                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition border bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border-hover)] disabled:opacity-50 disabled:cursor-default"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={performResetCollection}
-                disabled={resettingCollection}
-                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition bg-rose-600 hover:bg-rose-500 text-white shadow-md disabled:opacity-60 disabled:cursor-default"
-              >
-                {resettingCollection ? 'Clearing…' : 'Clear collection'}
-              </button>
-            </div>
+      <CollectionModal
+        open={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        closeDisabled={resettingCollection}
+        tone="danger"
+        icon="trash"
+        maxWidth="max-w-md"
+        title="Clear your collection?"
+        subtitle={`${totalOwnedCopies} saved cards will be removed.`}
+      >
+        {currentUser ? (
+          <div role="radiogroup" aria-label="What to clear" className="flex flex-col gap-2">
+            {([
+              {
+                id: 'device' as const,
+                icon: 'device' as const,
+                title: 'This device only',
+                text: 'Clears this browser. Your cloud copy is kept and loads back the next time you sign in here.',
+              },
+              {
+                id: 'both' as const,
+                icon: 'cloud-up' as const,
+                title: 'This device and the cloud',
+                text: 'Also clears your cloud copy, so the collection is gone on your other devices too.',
+              },
+            ]).map((opt) => {
+              const selected = resetScope === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={resettingCollection}
+                  onClick={() => setResetScope(opt.id)}
+                  className="w-full grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3 rounded-xl border text-left cursor-pointer transition disabled:cursor-default"
+                  style={
+                    selected
+                      ? { background: opt.id === 'both' ? 'var(--negative-muted)' : 'var(--accent-muted)', borderColor: opt.id === 'both' ? 'var(--negative-border)' : 'var(--accent-border)' }
+                      : { background: 'var(--bg-input)', borderColor: 'var(--border)' }
+                  }
+                >
+                  <span className="w-9 h-9 rounded-lg border flex items-center justify-center shrink-0" style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }} aria-hidden="true">
+                    <Icon name={opt.icon} className="w-[18px] h-[18px]" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{opt.title}</span>
+                    <span className="block text-xs mt-0.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>{opt.text}</span>
+                  </span>
+                  <span
+                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                    style={{ borderColor: selected ? (opt.id === 'both' ? 'var(--negative)' : 'var(--accent)') : 'var(--border-hover)' }}
+                    aria-hidden="true"
+                  >
+                    {selected && <span className="w-2 h-2 rounded-full" style={{ background: opt.id === 'both' ? 'var(--negative)' : 'var(--accent)' }} />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+        ) : (
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>This removes them from this browser.</p>
+        )}
+        {currentUser && (
+          <p className="text-xs leading-relaxed mt-3" style={{ color: 'var(--text-muted)' }}>
+            A backup saved with <span className="font-semibold" style={{ color: 'var(--text-tertiary)' }}>Save to cloud database</span> is never affected.
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(false)}
+            disabled={resettingCollection}
+            className="px-4 h-9 rounded-xl text-xs font-bold cursor-pointer transition border disabled:opacity-50 disabled:cursor-default"
+            style={{ background: 'var(--bg-raised)', borderColor: 'var(--border-hover)', color: 'var(--text-secondary)' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={performResetCollection}
+            disabled={resettingCollection}
+            className="px-4 h-9 rounded-xl text-xs font-bold cursor-pointer transition text-white bg-rose-600 hover:bg-rose-500 shadow-md disabled:opacity-60 disabled:cursor-default"
+          >
+            {resettingCollection ? 'Clearing…' : currentUser && resetScope === 'both' ? 'Clear everywhere' : currentUser ? 'Clear this device' : 'Clear collection'}
+          </button>
         </div>
-      )}
+      </CollectionModal>
 
       {/* Card Detail Modal */}
       <CardPreviewOverlay cardId={selectedCardId} onClose={() => setSelectedCardId(null)} zIndex={100} />
