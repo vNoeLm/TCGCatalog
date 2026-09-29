@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { useExitTransition } from '../../lib/useExitTransition';
-import { getCurrentProfile, updateProfile, signOut, fetchUserOrders } from '../../lib/auth';
+import { getCurrentProfile, updateProfile, signOut, fetchUserOrders, onSignedInUserChange } from '../../lib/auth';
 import { cancelOrder } from '../../lib/orders';
 import { getAllReviews, submitSellerReview } from '../../lib/reviews';
 import type { UserProfile, Order, SellerReview } from '../../types';
@@ -215,6 +215,14 @@ export function ProfileApp() {
     window.addEventListener('tcg-orders-changed', handleOrdersChange);
 
     async function loadData() {
+      // Orders have their own loading state, so the page doesn't wait on them: they start
+      // alongside the profile and fill in whenever they arrive.
+      loadCollectionStats();
+      fetchUserOrders().then(userOrders => {
+        setOrders(userOrders as Order[]);
+        setLoadingOrders(false);
+      });
+
       const p = await getCurrentProfile();
       if (p) {
         setProfile(p);
@@ -224,11 +232,7 @@ export function ProfileApp() {
       } else {
         setLoadingDecks(false);
       }
-      loadCollectionStats();
-      const userOrders = await fetchUserOrders();
-      setOrders(userOrders as Order[]);
       setLoading(false);
-      setLoadingOrders(false);
     }
 
     loadData();
@@ -240,7 +244,10 @@ export function ProfileApp() {
     window.addEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
     window.addEventListener('tcg-collection-change', loadCollectionStats);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Only when the signed-in user actually changes: this used to react to every auth event,
+    // including the initial one (the session loadData() just loaded) and the SIGNED_IN supabase-js
+    // repeats each time the tab is shown again - refetching everything on every tab switch.
+    const unsubscribeAuth = onSignedInUserChange((session) => {
       if (session) {
         getCurrentProfile().then(p => {
           setProfile(p);
@@ -256,7 +263,7 @@ export function ProfileApp() {
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribeAuth();
       window.removeEventListener('tcg-orders-changed', handleOrdersChange);
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceEvt);
       window.removeEventListener('tcg-collection-change', loadCollectionStats);

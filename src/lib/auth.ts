@@ -1,3 +1,4 @@
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { UserProfile, SavedDeck } from '../types';
 
@@ -31,16 +32,78 @@ function splitEmail(email: string): string {
   return email.split('@')[0] || 'User';
 }
 
-export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return user;
+/**
+ * Like `supabase.auth.onAuthStateChange`, but only fires when *who* is signed in changes (a sign
+ * in, a sign out, a different account) or their account details are updated. supabase-js also
+ * re-announces SIGNED_IN for the same user every time the tab becomes visible again, and sends
+ * TOKEN_REFRESHED about hourly - pages that reloaded everything on those did it on every tab
+ * switch. The first report (INITIAL_SESSION) is skipped too: it's the session the page is already
+ * loading on mount. Returns the unsubscribe function.
+ */
+export function onSignedInUserChange(callback: (session: Session | null) => void): () => void {
+  let lastUserId: string | null | undefined;
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const userId = session?.user.id ?? null;
+    if (event === 'INITIAL_SESSION') {
+      lastUserId = userId;
+      return;
+    }
+    if (userId === lastUserId && event !== 'USER_UPDATED') return;
+    lastUserId = userId;
+    callback(session);
+  });
+  return () => subscription.unsubscribe();
+}
+
+/*
+ * `auth.getUser()` is a network round trip to Supabase Auth, and the profile a query on top of it -
+ * and a single page asks for them from the header, the page itself, the unread-messages badge and
+ * several lib helpers at once. The profile page alone was making 9 identical user calls and 5
+ * identical profile queries on load. So each is fetched once per signed-in user and shared:
+ * concurrent callers await the same request. Signing in/out, switching account or updating it drops
+ * both, and a failed lookup is never kept. The site is a multi-page app, so this never outlives the
+ * page anyway.
+ */
+type AuthUser = NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>;
+let userRequest: { userId: string; promise: Promise<AuthUser | null> } | null = null;
+let profileRequest: { user: AuthUser; promise: Promise<UserProfile | null> } | null = null;
+
+function forgetCurrentUser() {
+  userRequest = null;
+  profileRequest = null;
+}
+
+if (typeof window !== 'undefined') {
+  onSignedInUserChange(forgetCurrentUser);
+}
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  // Read locally (no request); it's only used to key the cache and to skip the call when signed out.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  if (userRequest?.userId !== session.user.id) {
+    const promise = supabase.auth.getUser().then(({ data: { user }, error }) => (error || !user ? null : user));
+    const request = { userId: session.user.id, promise };
+    userRequest = request;
+    promise.then((user) => {
+      if (!user && userRequest === request) userRequest = null;
+    });
+  }
+  return userRequest.promise;
 }
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  if (profileRequest?.user !== user) {
+    profileRequest = { user, promise: loadProfile(user) };
+  }
+  return profileRequest.promise;
+}
+
+async function loadProfile(user: AuthUser): Promise<UserProfile> {
   // Attempt to fetch profile record from database
   let dbRole: UserProfile['role'] | null = null;
   let dbDisplayName: string | null = null;
@@ -146,6 +209,7 @@ export async function updateProfile(updates: Partial<UserProfile>) {
   const { data: authResult, error: authError } = await supabase.auth.updateUser({
     data: authData,
   });
+  forgetCurrentUser();
 
   return { data: authResult, error: authError };
 }

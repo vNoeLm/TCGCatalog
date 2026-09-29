@@ -12,10 +12,10 @@ import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
-import { supabase } from "../lib/supabase";
 import {
   getCurrentUser,
   getCurrentProfile,
+  onSignedInUserChange,
   saveCollectionToCloud,
   loadCollectionRecordFromCloud,
   saveCollectionBackupToCloud,
@@ -183,7 +183,9 @@ export function CardListApp() {
   useEffect(() => {
     getCurrentUser().then(user => setCurrentUser(user));
     getCurrentProfile().then(prof => setCurrentUserProfile(prof));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Only a real change of who's signed in: the two calls above already cover the first session
+    // report, and supabase-js repeats SIGNED_IN for the same user every time the tab is shown.
+    return onSignedInUserChange((session) => {
       setCurrentUser(session?.user || null);
       if (session?.user) {
         getCurrentProfile().then(prof => setCurrentUserProfile(prof));
@@ -191,9 +193,6 @@ export function CardListApp() {
         setCurrentUserProfile(null);
       }
     });
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   // Lock background scroll when any modal or mobile drawer is open
