@@ -38,6 +38,20 @@ export async function getOrCreateConversation(buyerId: string, sellerId: string)
   }
 }
 
+/** Posts an ordinary chat message on someone's behalf (e.g. the note a buyer wrote at checkout). */
+export async function postUserMessage(conversationId: string, senderId: string, body: string): Promise<void> {
+  try {
+    await supabaseAdmin.from('hold_request_messages').insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      body,
+      message_type: 'user',
+    });
+  } catch (e) {
+    console.warn('Failed to post message:', e);
+  }
+}
+
 /** Posts an automatic system message (hold requested/accepted/rejected/completed) into a conversation. */
 export async function postSystemMessage(
   conversationId: string,

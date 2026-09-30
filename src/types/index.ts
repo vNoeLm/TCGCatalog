@@ -17,6 +17,8 @@ export interface InventoryCard {
   price_huf: number | null;
   status: string;
   notes: string | null;
+  /** Handover methods the seller offers for this listing (marketplace listings API). */
+  handover_methods?: string[];
   is_bulk: boolean;
   quantity: number;
   card_id: string;

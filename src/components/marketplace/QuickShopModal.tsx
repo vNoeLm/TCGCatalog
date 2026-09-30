@@ -117,6 +117,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
         maxQuantity: Math.max(1, listing.quantity || 1),
         isFoil: Boolean(listing.is_foil),
         condition: listing.condition || 'Near Mint',
+        handoverMethods: listing.handover_methods,
       }))
     );
     addManyToCart(items);
