@@ -22,8 +22,8 @@ import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/fo
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
-import { HoldRequestModal } from './marketplace/HoldRequestModal';
-import { addToCart } from '../lib/marketplaceCart';
+import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
+import { useCart } from '../lib/useCart';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -41,7 +41,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isInventory, setIsInventory] = useState(false);
   const [collection, setCollection] = useState<Record<string, number>>({});
-  const [isHoldModalOpen, setIsHoldModalOpen] = useState(false);
+  const cart = useCart();
+  // "Added to cart" confirmation on the button - the floating cart button that also reacts sits
+  // behind this overlay, so without it nothing visible happened on click.
+  const [justAdded, setJustAdded] = useState(false);
+  const justAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (justAddedTimer.current) clearTimeout(justAddedTimer.current); }, []);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -386,6 +391,23 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const parsedDomains = parseDomains(card.domain);
   const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
   const isAvailable = data.status === 'In Stock';
+
+  const inCart = cartQuantityFor(cart, data.id);
+  const copiesLeft = Math.max(0, (Number(data.quantity) || 1) - inCart);
+  const cartItemForListing = (): MarketplaceCartItem => ({
+    inventoryId: data.id,
+    sellerId: data.seller_id,
+    sellerName: sellerSummary?.display_name || data.seller_name || 'Seller',
+    cardName: card.name,
+    cardNumber: card.card_number,
+    imagePath: card.image_path,
+    priceHuf: data.price_huf || 0,
+    quantity: 1,
+    maxQuantity: Math.max(1, Number(data.quantity) || 1),
+    isFoil: Boolean(data.is_foil),
+    condition: data.condition || 'Near Mint',
+    handoverMethods: data.handover_methods,
+  });
 
   // Strictly only the actual user who created this listing is considered the seller
   const isSeller = Boolean(
@@ -1250,8 +1272,25 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {data.status === 'In Stock' && (
                   <span className="text-xs font-bold px-3 py-1.5 rounded-full border text-[var(--positive)] inline-flex items-center gap-1.5" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    <span>{data.quantity > 1 ? `${data.quantity} available` : 'Available'}</span>
+                    {/* Counts what's still left to add, so adding to the cart visibly takes from it. */}
+                    <span key={copiesLeft} className={inCart > 0 ? 'tv-bump inline-block' : 'inline-block'}>
+                      {copiesLeft === 0 ? 'None left to add' : copiesLeft > 1 ? `${copiesLeft} available` : 'Available'}
+                    </span>
                   </span>
+                )}
+                {data.status === 'In Stock' && inCart > 0 && (
+                  <button
+                    type="button"
+                    onClick={openCart}
+                    className="text-xs font-bold px-3 py-1.5 rounded-full border inline-flex items-center gap-1.5 cursor-pointer hover:brightness-110"
+                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                      <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                    </svg>
+                    <span>{inCart} in your cart · View</span>
+                  </button>
                 )}
                 {(data.status === 'On Hold' || data.status === 'Reserved') && (
                   <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/50 inline-flex items-center gap-1.5 uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.25)]">
@@ -1271,11 +1310,15 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </span>
                 )}
 
-                {/* Primary Buyer Action: Request Hold */}
+                {/* Primary Buyer Action: Request Hold. The cart is the one checkout - this puts the
+                    card in it (if it isn't already) and opens it on this seller's request. */}
                 {data.status === 'In Stock' && !isSeller && (
                   <button
                     type="button"
-                    onClick={() => setIsHoldModalOpen(true)}
+                    onClick={() => {
+                      if (inCart === 0) addToCart(cartItemForListing());
+                      openCart();
+                    }}
                     className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                     style={{
                       background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
@@ -1294,30 +1337,34 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {data.status === 'In Stock' && !isSeller && (
                   <button
                     type="button"
+                    disabled={copiesLeft === 0}
                     onClick={() => {
-                      addToCart({
-                        inventoryId: data.id,
-                        sellerId: data.seller_id,
-                        sellerName: sellerSummary?.display_name || data.seller_name || 'Seller',
-                        cardName: card.name,
-                        cardNumber: card.card_number,
-                        imagePath: card.image_path,
-                        priceHuf: data.price_huf || 0,
-                        quantity: 1,
-                        maxQuantity: Math.max(1, data.quantity || 1),
-                        isFoil: Boolean(data.is_foil),
-                        condition: data.condition || 'Near Mint',
-                      });
+                      addToCart(cartItemForListing());
+                      setJustAdded(true);
+                      if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
+                      justAddedTimer.current = setTimeout(() => setJustAdded(false), 1400);
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-                    title="Add this card to your cart"
+                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    style={
+                      justAdded
+                        ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
+                        : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                    }
+                    title={copiesLeft === 0 ? 'Every copy of this listing is already in your cart' : 'Add a copy to your cart'}
                   >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                      <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-                    </svg>
-                    <span>Add to Cart</span>
+                    {justAdded ? (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                      </svg>
+                    )}
+                    <span aria-live="polite">
+                      {justAdded ? 'Added to cart' : copiesLeft === 0 ? 'All in your cart' : inCart > 0 ? 'Add another' : 'Add to Cart'}
+                    </span>
                   </button>
                 )}
 
@@ -1419,25 +1466,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
         </div>
       </div>
 
-      {/* HoldRequestModal, ListCardModal and SellerReviewsModal each hold themselves open for
-          their own exit transition (isOpen) - wrapping them in `{flag && (...)}` here would
-          unmount them the instant the flag goes false, before that transition gets to play. */}
-      <HoldRequestModal
-        isOpen={isHoldModalOpen}
-        onClose={() => setIsHoldModalOpen(false)}
-        card={card}
-        inventoryItem={data}
-        handoverMethods={data?.handover_methods}
-        profile={profile}
-        onRequestSubmitted={() => {
-          setData((prev: any) => ({
-            ...prev,
-            status: 'On Hold',
-          }));
-          window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-        }}
-      />
-
+      {/* ListCardModal and SellerReviewsModal each hold themselves open for their own exit
+          transition (isOpen) - wrapping them in `{flag && (...)}` here would unmount them the
+          instant the flag goes false, before that transition gets to play. */}
       <ListCardModal
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}

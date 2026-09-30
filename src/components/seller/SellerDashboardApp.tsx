@@ -1754,7 +1754,8 @@ export function SellerDashboardApp() {
                             {handoverBadge.label}
                           </span>
                           {(req.handover_details || req.handover_location) && (
-                            <span className="text-xs text-[var(--text-secondary)] font-medium">
+                            // Delivery details arrive one fact per line (recipient, phone, locker...).
+                            <span className="basis-full text-xs text-[var(--text-secondary)] font-medium whitespace-pre-line">
                               {req.handover_details || req.handover_location}
                             </span>
                           )}

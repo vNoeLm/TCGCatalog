@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
-import { getOrCreateConversation, postSystemMessage } from '../../../lib/conversationsServer';
+import { getOrCreateConversation, postSystemMessage, postUserMessage } from '../../../lib/conversationsServer';
+import { handoverMethod, handoverLabel, listingHandoverIds, type HandoverMethodId } from '../../../lib/handover';
 
 export const prerender = false;
 
@@ -31,7 +32,8 @@ export interface HoldRequestRecord {
   buyer_email: string;
   buyer_phone?: string;
   buyer_discord?: string;
-  preferred_handover: 'pickup' | 'foxpost' | 'packeta' | 'posta' | 'other';
+  /** 'pickup' on requests made before in-person was stored as 'personal'. */
+  preferred_handover: HandoverMethodId | 'pickup';
   handover_details?: string;
   message?: string;
   status: 'pending' | 'held' | 'completed' | 'cancelled' | 'rejected';
@@ -275,7 +277,7 @@ type LockResult =
  * both the single-card and multi-card (cart) request paths so a cart is just N of
  * these instead of duplicating the locking logic.
  */
-async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput): Promise<LockResult> {
+async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput, handover: HandoverMethodId): Promise<LockResult> {
   const { data: invRow } = await supabaseAdmin
     .from('inventory')
     .select('id, status, quantity, notes')
@@ -295,15 +297,26 @@ async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput): 
   if (!Number.isFinite(requestedQty) || requestedQty < 1) requestedQty = 1;
   if (requestedQty > availableQty) requestedQty = availableQty;
 
-  // Extract genuine verified seller_id from the database record rather than trusting client body
+  // Extract genuine verified seller_id (and the handover methods it was listed with) from the
+  // database record rather than trusting the client body
   let verifiedSellerId = sellerIdHint;
+  let listedHandovers: string[] | undefined;
   if (invRow.notes) {
     try {
       const parsedNotes = typeof invRow.notes === 'string' && invRow.notes.startsWith('{')
         ? JSON.parse(invRow.notes)
         : null;
       if (parsedNotes?.seller_id) verifiedSellerId = parsedNotes.seller_id;
+      if (Array.isArray(parsedNotes?.handover_methods)) listedHandovers = parsedNotes.handover_methods;
     } catch (e) {}
+  }
+
+  if (!listingHandoverIds(listedHandovers).includes(handover)) {
+    return {
+      ok: false,
+      error: `${line.card_name || 'One of these cards'} isn't offered with ${handoverLabel(handover)} - pick one of the methods the seller listed it with.`,
+      status: 400,
+    };
   }
 
   // ── CRUCIAL: Atomic check-and-lock to prevent race conditions (double hold) ──
@@ -360,12 +373,24 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // A request needs an account: the seller replies in a conversation, which is between two
+    // accounts, and the buyer's contact email is the one they registered with rather than
+    // whatever gets typed into a form.
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+    const { data: { user } } = token ? await supabaseAdmin.auth.getUser(token) : { data: { user: null } };
+    if (!user) {
+      return new Response(JSON.stringify({ success: false, error: 'Sign in to request a hold.' }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
+    const buyerId = user.id;
+
     const {
       seller_id,
       buyer_name,
-      buyer_email,
       buyer_phone,
-      buyer_discord,
       preferred_handover,
       handover_details,
       message,
@@ -385,15 +410,47 @@ export const POST: APIRoute = async ({ request }) => {
       ? cartItems
       : [{ inventory_id, card_name, card_number, image_path, price_huf, is_foil, condition, quantity }];
 
-    if (!seller_id || !buyer_name?.trim() || !buyer_email?.trim() || !rawLines[0]?.inventory_id) {
+    if (!seller_id || !rawLines[0]?.inventory_id) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Missing details (card, seller, name or email).',
+        error: 'Missing details (card or seller).',
       }), {
         status: 400,
         headers: JSON_HEADERS,
       });
     }
+
+    const method = handoverMethod(preferred_handover);
+    if (!method) {
+      return new Response(JSON.stringify({ success: false, error: 'Choose a handover method.' }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+    // Shipping needs somewhere to ship to; "Other" needs the arrangement described. In person
+    // is worked out in the conversation, so it needs nothing up front.
+    const detailsText = typeof handover_details === 'string' ? handover_details.trim() : '';
+    if (method.kind !== 'personal' && !detailsText) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: method.kind === 'custom'
+          ? 'Describe how you want to arrange the handover.'
+          : `Add your delivery details for ${method.label}.`,
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const { data: buyerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('display_name')
+      .eq('id', buyerId)
+      .maybeSingle();
+    const buyerName = buyerProfile?.display_name
+      || (typeof buyer_name === 'string' && buyer_name.trim())
+      || user.user_metadata?.full_name
+      || (user.email || 'Buyer').split('@')[0];
 
     // Lock every card in the request (one for a normal hold, several for a cart
     // checkout), rolling back anything already locked if a later one fails or
@@ -404,7 +461,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     for (const line of rawLines) {
       if (!line?.inventory_id) continue;
-      const result = await lockOneInventoryItem(seller_id, line);
+      const result = await lockOneInventoryItem(seller_id, line, method.id);
       if (!result.ok) {
         for (const locked of lockedForRollback) await restoreInventoryItem(locked.id, locked.quantity);
         return new Response(JSON.stringify({ success: false, error: result.error }), {
@@ -436,37 +493,23 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Get optional authenticated user token
-    let buyerId: string | null = null;
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '').trim();
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) {
-        buyerId = user.id;
-      }
-    }
-
     const first = lockedItems[0];
     const isCart = lockedItems.length > 1;
 
-    // A conversation only makes sense between two real accounts — a guest checkout
-    // (no buyerId) doesn't get one, same as it couldn't use messaging before either.
-    // Reusing the buyer's existing conversation with this seller, if any, is the
-    // whole point: a new purchase becomes an event in that same ongoing thread
-    // instead of starting a fresh one.
-    const conversationId = buyerId ? await getOrCreateConversation(buyerId, verifiedSellerId!) : null;
+    // Reusing the buyer's existing conversation with this seller, if any, is the whole point: a
+    // new purchase becomes an event in that same ongoing thread instead of starting a fresh one.
+    const conversationId = await getOrCreateConversation(buyerId, verifiedSellerId!);
 
     const newRecord: HoldRequestRecord = {
       id: crypto.randomUUID(),
       inventory_id: first.inventory_id,
       seller_id: verifiedSellerId!,
       buyer_id: buyerId,
-      buyer_name: buyer_name.trim(),
-      buyer_email: buyer_email.trim(),
-      buyer_phone: buyer_phone?.trim() || undefined,
-      preferred_handover: preferred_handover || 'pickup',
-      handover_details: handover_details?.trim() || undefined,
+      buyer_name: buyerName,
+      buyer_email: user.email || '',
+      buyer_phone: (typeof buyer_phone === 'string' && buyer_phone.trim()) || undefined,
+      preferred_handover: method.id,
+      handover_details: detailsText || undefined,
       message: message?.trim() || undefined,
       status: 'pending',
       card_name: first.card_name,
@@ -496,15 +539,29 @@ export const POST: APIRoute = async ({ request }) => {
       await saveFallbackHoldRequests(currentList);
     }
 
-    if (conversationId && buyerId) {
+    if (conversationId) {
       const cardLabel = isCart ? `${lockedItems.length} cards` : first.card_name;
       const totalHuf = lockedItems.reduce((sum, it) => sum + (it.price_huf || 0) * (it.quantity || 1), 0);
       await postSystemMessage(
         conversationId,
         buyerId,
-        `Requested a hold on ${cardLabel} — ${totalHuf.toLocaleString()} Ft`,
-        { holdRequestId: newRecord.id, metadata: { action: 'requested', hold_request_id: newRecord.id, card_name: cardLabel, price_huf: totalHuf } }
+        `Requested a hold on ${cardLabel} — ${totalHuf.toLocaleString()} Ft · ${method.label}`,
+        {
+          holdRequestId: newRecord.id,
+          metadata: {
+            action: 'requested',
+            hold_request_id: newRecord.id,
+            card_name: cardLabel,
+            price_huf: totalHuf,
+            handover: method.id,
+            handover_details: detailsText || null,
+          },
+        }
       );
+      // The buyer's note is a message to the seller, so it goes in the chat as one - it used to
+      // be stored only on the request, where just the Seller Hub showed it.
+      const note = typeof message === 'string' ? message.trim() : '';
+      if (note) await postUserMessage(conversationId, buyerId, note);
     }
 
     return new Response(JSON.stringify({

@@ -295,14 +295,25 @@ export function MessagesApp() {
               ) : (
                 messages.map((m) => {
                   if (m.message_type === 'system') {
+                    // A request's delivery details (locker, address, arrangement) ride along with
+                    // its "requested" message, so both sides have them right in the chat.
+                    const details = typeof m.metadata?.handover_details === 'string' ? m.metadata.handover_details : '';
                     return (
-                      <div key={m.id} className="flex justify-center py-1">
+                      <div key={m.id} className="flex flex-col items-center gap-1 py-1">
                         <span
                           className="px-3 py-1.5 rounded-full text-[11px] font-semibold text-center"
                           style={{ background: 'var(--bg-surface-2)', color: 'var(--text-tertiary)' }}
                         >
                           {m.body}
                         </span>
+                        {details && (
+                          <div
+                            className="px-3 py-2 rounded-xl text-[11px] leading-relaxed whitespace-pre-line border max-w-[85%]"
+                            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                          >
+                            {details}
+                          </div>
+                        )}
                       </div>
                     );
                   }

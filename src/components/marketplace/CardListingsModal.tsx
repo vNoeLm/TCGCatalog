@@ -5,6 +5,8 @@ import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 import { getListingDescription } from '../../lib/sellerNotes';
 import { PriceHistoryChart } from './PriceHistoryChart';
+import { cartQuantityFor } from '../../lib/marketplaceCart';
+import { useCart } from '../../lib/useCart';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -36,6 +38,10 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
   const card = group.representative;
   const imagePath = card.card_image_path || card.image_path;
   const { main, sub } = splitCardTitle(card.name);
+
+  const cart = useCart();
+  const inCartFor = (l: InventoryCard) => cartQuantityFor(cart, l.inventory_id);
+  const leftFor = (l: InventoryCard) => Math.max(0, (l.quantity || 0) - inCartFor(l));
 
   const [sort, setSort] = useState<ListingSort>('price_asc');
   const [foilOnly, setFoilOnly] = useState(false);
@@ -244,10 +250,16 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                           <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }} title="Condition photos attached">Photos</span>
                         )}
                         {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                        <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</span>
+                        {inCartFor(l) > 0 && (
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}>
+                            {inCartFor(l)} in your cart
+                          </span>
+                        )}
+                        <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
                       </div>
 
-                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{l.quantity}&times;</div>
+                      {/* What's left to add - copies already in the buyer's cart are taken off. */}
+                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</div>
                       <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
                       <button
                         type="button"

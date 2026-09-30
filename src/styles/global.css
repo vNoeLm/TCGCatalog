@@ -384,6 +384,23 @@ html[data-theme="light"] {
   }
 }
 
+/* A brief pulse acknowledging that a count changed (the cart button when a card is added). Replayed
+   by re-keying the element, so it needs no JS timing of its own. */
+.tv-bump {
+  animation: tv-bump 320ms var(--ease-out);
+}
+@keyframes tv-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-bump {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Reduced motion means fewer/gentler animations, not zero - keep the opacity fade, drop every
      transform-based movement. */
