@@ -48,26 +48,21 @@ export function PublicProfileApp() {
 
     (async () => {
       try {
-        const [sum, revs, publicDecks] = await Promise.all([
+        // None of these depend on each other, so they all go out at once - the listings and the
+        // collection stats used to wait for the first three, then for each other.
+        const getJson = (url: string) => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
+        const [sum, revs, publicDecks, listingsJson, statsJson] = await Promise.all([
           fetchSellerRatingSummary(id),
           fetchSellerReviews(id),
           fetchPublicDecksForUser(id),
+          getJson(`/api/marketplace/listings?seller_id=${id}`),
+          getJson(`/api/profile/collection-stats?user_id=${id}`),
         ]);
         setSummary(sum);
         setReviews(revs);
         setDecks(publicDecks);
-
-        const res = await fetch(`/api/marketplace/listings?seller_id=${id}`);
-        if (res.ok) {
-          const json = await res.json();
-          setListings((json.data || []).filter((l: any) => l.status !== 'Sold'));
-        }
-
-        const statsRes = await fetch(`/api/profile/collection-stats?user_id=${id}`);
-        if (statsRes.ok) {
-          const statsJson = await statsRes.json();
-          if (statsJson.success) setCollectionStatsByGame(statsJson.data);
-        }
+        if (listingsJson) setListings((listingsJson.data || []).filter((l: any) => l.status !== 'Sold'));
+        if (statsJson?.success) setCollectionStatsByGame(statsJson.data);
       } catch (e) {
         console.warn('Failed to load profile:', e);
       } finally {

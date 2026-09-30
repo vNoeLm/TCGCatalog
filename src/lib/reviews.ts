@@ -13,21 +13,37 @@ const CACHE_TTL_MS = 60000; // 1 minute
 /**
  * Fetch all seller reviews from Supabase settings / table
  */
+// The fetch in progress, so callers that arrive together (a page asking for a seller's summary and
+// their review list at once) share one download instead of each starting their own.
+let pendingReviews: Promise<SellerReview[]> | null = null;
+
 export async function getAllReviews(forceRefresh = false): Promise<SellerReview[]> {
   const now = Date.now();
   if (!forceRefresh && cachedReviews && now - lastFetchTime < CACHE_TTL_MS) {
     return cachedReviews;
   }
+  if (!forceRefresh && pendingReviews) return pendingReviews;
 
+  const request = loadAllReviews(now).finally(() => {
+    if (pendingReviews === request) pendingReviews = null;
+  });
+  pendingReviews = request;
+  return request;
+}
+
+async function loadAllReviews(now: number): Promise<SellerReview[]> {
   const map = new Map<string, SellerReview>();
 
-  // 1. Fetch from settings table (primary, guaranteed to exist)
+  // Both sources are read together; the settings copy still takes precedence when merging.
+  const [settingsResult, tableResult] = await Promise.allSettled([
+    supabase.from('settings').select('value').eq('key', REVIEWS_SETTINGS_KEY).maybeSingle(),
+    supabase.from('seller_reviews').select('*').order('created_at', { ascending: false }),
+  ]);
+
+  // 1. Settings table (primary, guaranteed to exist)
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', REVIEWS_SETTINGS_KEY)
-      .maybeSingle();
+    if (settingsResult.status === 'rejected') throw settingsResult.reason;
+    const { data, error } = settingsResult.value;
 
     if (!error && data?.value) {
       const parsed = JSON.parse(data.value);
@@ -41,12 +57,10 @@ export async function getAllReviews(forceRefresh = false): Promise<SellerReview[
     console.warn('Failed to load seller_reviews from settings:', e);
   }
 
-  // 2. Also try fetching from relational seller_reviews table if migrated
+  // 2. Relational seller_reviews table, if migrated
   try {
-    const { data: tableRows, error } = await supabase
-      .from('seller_reviews')
-      .select('*')
-      .order('created_at', { ascending: false });
+    if (tableResult.status === 'rejected') throw tableResult.reason;
+    const { data: tableRows, error } = tableResult.value;
 
     if (!error && Array.isArray(tableRows)) {
       tableRows.forEach((row: any) => {
@@ -94,6 +108,24 @@ export async function fetchOrderReview(orderNumber: string): Promise<SellerRevie
 }
 
 /**
+ * Number of distinct completed sales (not total cards sold) — this is what gates seller tier.
+ * This used to call the full listings endpoint with a `limit=1` that endpoint doesn't actually
+ * read, so it silently fell back to fetching up to 50 fully-joined listing rows just to read one
+ * field off row zero. The dedicated seller-stats endpoint reads the same source directly, with no
+ * join, so every place a seller summary is requested stays cheap.
+ */
+async function fetchSellerSalesCount(sellerId: string): Promise<number> {
+  try {
+    const res = await fetch(`/api/marketplace/seller-stats?seller_id=${sellerId}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && typeof json.data?.salesCount === 'number') return json.data.salesCount;
+    }
+  } catch (e) {}
+  return 0;
+}
+
+/**
  * Calculate aggregate seller rating summary (average & review count)
  */
 export async function fetchSellerRatingSummary(sellerId?: string): Promise<SellerProfileSummary> {
@@ -104,6 +136,15 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
   let isOwner = false;
   let targetCreatedAt: string | null = null;
 
+  const lookupProfile = !targetId
+    ? null
+    : supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, role, created_at')
+        .eq('id', targetId)
+        .maybeSingle()
+        .then(({ data }) => data, () => null);
+
   if (!targetId) {
     const owner = await getStoreOwnerProfile();
     targetId = owner.id;
@@ -111,26 +152,25 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     targetAvatar = owner.avatar_url;
     targetRole = 'owner';
     isOwner = true;
-  } else {
-    // Try to get profile
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, role, created_at')
-        .eq('id', targetId)
-        .maybeSingle();
+  }
+  const id = targetId;
 
-      if (data) {
-        targetDisplayName = data.display_name || 'Seller';
-        targetAvatar = data.avatar_url;
-        targetRole = data.role as UserRole;
-        isOwner = data.role === 'owner';
-        targetCreatedAt = (data as any).created_at || null;
-      }
-    } catch (e) {}
+  // The profile, the reviews and the sales count only need the id, so they're fetched together
+  // rather than one after another.
+  const [profileRow, reviews, salesCount] = await Promise.all([
+    lookupProfile,
+    fetchSellerReviews(id),
+    fetchSellerSalesCount(id),
+  ]);
+
+  if (profileRow) {
+    targetDisplayName = profileRow.display_name || 'Seller';
+    targetAvatar = profileRow.avatar_url;
+    targetRole = profileRow.role as UserRole;
+    isOwner = profileRow.role === 'owner';
+    targetCreatedAt = (profileRow as any).created_at || null;
   }
 
-  const reviews = await fetchSellerReviews(targetId);
   const ratingCount = reviews.length;
   let ratingAvg: number | null = null;
 
@@ -139,25 +179,8 @@ export async function fetchSellerRatingSummary(sellerId?: string): Promise<Selle
     ratingAvg = Math.round((sum / ratingCount) * 10) / 10;
   }
 
-  // Number of distinct completed sales (not total cards sold) — this is what gates seller tier.
-  // This used to call the full listings endpoint with a `limit=1` that endpoint doesn't
-  // actually read, so it silently fell back to fetching up to 50 fully-joined listing rows
-  // just to read one field off row zero. The dedicated seller-stats endpoint reads the same
-  // source directly, with no join, so every place this summary is requested (a card's detail
-  // panel, a public profile, the marketplace's "filtered by seller" banner) stays cheap.
-  let salesCount = 0;
-  try {
-    const res = await fetch(`/api/marketplace/seller-stats?seller_id=${targetId}`);
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && typeof json.data?.salesCount === 'number') {
-        salesCount = json.data.salesCount;
-      }
-    }
-  } catch (e) {}
-
   return {
-    id: targetId,
+    id,
     display_name: targetDisplayName,
     avatar_url: targetAvatar,
     role: targetRole,

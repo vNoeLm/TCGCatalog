@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { getCurrentProfile, signOut } from '../lib/auth';
+import { getCurrentProfile, signOut, onSignedInUserChange } from '../lib/auth';
 import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { fetchUnreadCount } from '../lib/messages';
@@ -31,7 +30,9 @@ export function Navigation({ currentPath }: NavigationProps) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Only a real change of who's signed in - not the session the call above is already loading,
+    // nor the SIGNED_IN supabase-js repeats every time the tab is shown again.
+    const unsubscribeAuth = onSignedInUserChange((session) => {
       if (session) {
         getCurrentProfile().then(p => setUserProfile(p));
       } else {
@@ -48,14 +49,17 @@ export function Navigation({ currentPath }: NavigationProps) {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribeAuth();
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
   // Unread messages badge — a plain timer poll, not realtime.
+  // Keyed on the id, not the profile object: a re-fetched profile for the same user is a new
+  // object, and used to restart the poll (and re-query the count) for nothing.
+  const signedInId = userProfile?.id;
   useEffect(() => {
-    if (!userProfile) {
+    if (!signedInId) {
       setUnreadMessages(0);
       return;
     }
@@ -63,7 +67,7 @@ export function Navigation({ currentPath }: NavigationProps) {
     check();
     const timer = setInterval(check, MESSAGES_POLL_MS);
     return () => clearInterval(timer);
-  }, [userProfile]);
+  }, [signedInId]);
 
   const isActive = (path: string) => {
     if (path === '/' && currentPath === '/') return true;

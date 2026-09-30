@@ -76,6 +76,7 @@ export function MarketplaceApp() {
 
   const sortRef = useRef<HTMLDivElement>(null);
   const lastLoggedSearchRef = useRef<string>('');
+  const hasLoadedOnceRef = useRef(false);
 
   // The catalog's "Quick Shop this list" button hands its want-list over through sessionStorage.
   useEffect(() => {
@@ -186,7 +187,9 @@ export function MarketplaceApp() {
         }).catch(() => {});
       }
       fetchMarketplaceListings();
-    }, 150);
+      // The debounce is for typing; the first load has nothing to wait for.
+    }, hasLoadedOnceRef.current ? 150 : 0);
+    hasLoadedOnceRef.current = true;
 
     const handleMarketplaceChange = () => fetchMarketplaceListings();
     window.addEventListener('tcg-marketplace-changed', handleMarketplaceChange);
