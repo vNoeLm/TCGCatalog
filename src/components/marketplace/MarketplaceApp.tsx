@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
+import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { FilterDrawer } from '../FilterDrawer';
 import { countActiveFilters } from '../../lib/activeFilterCount';
 import { CardItem } from '../CardItem';
@@ -12,7 +13,6 @@ import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
 import { matchesCardVariants } from '../../lib/cardVariants';
-import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,

@@ -8,11 +8,11 @@ import { CollectionModal, ActionRow, Icon } from "./collection/CollectionModal";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
-import { useUrlOverlay } from "../lib/useUrlOverlay";
 import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
+import { useUrlOverlay } from "../lib/useUrlOverlay";
 import {
   getCurrentUser,
   getCurrentProfile,
