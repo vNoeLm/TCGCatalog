@@ -9,6 +9,7 @@ import { DeckPreviewColumn } from './DeckPreviewColumn';
 import { DeckStatisticsModal } from './DeckStatisticsModal';
 import { formatGameText } from '../../lib/formatGameText';
 import { CardPreviewOverlay } from '../CardPreviewOverlay';
+import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { fetchCardsCatalog } from '../../lib/api';
 import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './deckSerializer';
 import { Modal } from '../ui/Modal';
@@ -117,7 +118,9 @@ function ActionButton({ onClick, title, type, children }: ActionButtonProps) {
 export function DeckBuilderApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
+  // In the URL (?card=), so Back closes the preview and it can be shared.
+  const [previewCardId, openPreview, closePreview] = useUrlOverlay('card');
+  const showPreview = (card: CatalogCard) => openPreview(card.id);
   const [isWide, setIsWide] = useState(true);
 
   useEffect(() => {
@@ -218,7 +221,7 @@ export function DeckBuilderApp() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setPreviewCard(null);
+        closePreview();
         setShowSaveModal(false);
         setShowBrowserModal(false);
         setShowExportModal(false);
@@ -228,7 +231,7 @@ export function DeckBuilderApp() {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    if (previewCard || showSaveModal || showBrowserModal || showExportModal || showImportModal || showStatsModal) {
+    if (previewCardId || showSaveModal || showBrowserModal || showExportModal || showImportModal || showStatsModal) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
@@ -237,7 +240,7 @@ export function DeckBuilderApp() {
       };
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewCard, showSaveModal, showBrowserModal, showExportModal, showImportModal, showStatsModal]);
+  }, [previewCardId, showSaveModal, showBrowserModal, showExportModal, showImportModal, showStatsModal]);
 
   const processImportString = (content: string) => {
     if (!content || !content.trim()) {
@@ -417,7 +420,7 @@ export function DeckBuilderApp() {
                 cyberpunkLegends={cyberpunkLegends}
                 legendCard={legendCard}
                 championCard={championCard}
-                onCardClick={setPreviewCard}
+                onCardClick={showPreview}
                 onRemoveCard={removeCardFromAnyZone}
                 isWide={isWide}
               />
@@ -448,7 +451,7 @@ export function DeckBuilderApp() {
             activeZone={activeZone}
             deck={deck}
             onAddCard={(c) => addCard(c, activeZone, cards)}
-            onPreviewCard={setPreviewCard}
+            onPreviewCard={showPreview}
             isWide={isWide}
             filtersSlot={filtersSlot}
             onActiveFiltersCountChange={setActiveFiltersCount}
@@ -543,7 +546,7 @@ export function DeckBuilderApp() {
               legendCard={legendCard} 
               championCard={championCard} 
               onRemoveCard={removeCard}
-              onCardClick={setPreviewCard}
+              onCardClick={showPreview}
               activeZone={activeZone}
               onSetZone={setActiveZone}
               isWide={isWide}
@@ -569,7 +572,7 @@ export function DeckBuilderApp() {
       )}
 
       {/* Card Preview Modal */}
-      <CardPreviewOverlay cardId={previewCard?.id ?? null} onClose={() => setPreviewCard(null)} />
+      <CardPreviewOverlay cardId={previewCardId} onClose={closePreview} />
 
       {/* Modals for Saved Decks features. Modal holds itself open for its own exit transition
           (isOpen), so each is rendered unconditionally rather than wrapped in `{flag && (...)}`,
