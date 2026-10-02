@@ -753,26 +753,27 @@ export function SellerDashboardApp() {
 
       {/* ─── Top Header: Identity & Badges ─────────────────────────── */}
       <div
-        className="rounded-2xl p-6 sm:p-7 mb-6 border shadow-sm"
+        className="rounded-2xl p-5 sm:p-7 mb-6 border shadow-sm"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          {/* Seller Identity */}
-          <div className="flex items-center gap-4 sm:gap-5">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-5">
+          {/* Seller Identity. On a phone it stacks - a large avatar with the name and badges
+              centered under it - instead of a small avatar with everything squeezed beside it. */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left min-w-0">
             {profile.avatar_url ? (
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name || 'Seller'}
-                className="w-16 h-16 rounded-2xl object-cover border-2"
+                className="w-24 h-24 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 shrink-0"
                 style={{ borderColor: sellerTier.color }}
               />
             ) : (
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2"
+                className="w-24 h-24 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-4xl sm:text-3xl font-black border-2 shrink-0"
                 style={{
                   background: 'var(--bg-surface-2)',
                   borderColor: sellerTier.color,
@@ -783,58 +784,32 @@ export function SellerDashboardApp() {
               </div>
             )}
 
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
+            <div className="min-w-0">
+              <div className="flex items-center justify-center sm:justify-start gap-2.5 flex-wrap">
+                <h1 className="text-2xl font-black break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
                   {profile.display_name || 'Seller'}
                 </h1>
                 {isOwner && <SiteOwnerTag />}
                 <span
-                  className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1"
+                  className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1 whitespace-nowrap"
                   style={sellerTier.badgeStyle}
                 >
                   <BadgeIconSvg iconType={sellerTier.iconType} className="w-3 h-3" />
                   <span>{sellerTier.nameEn}</span>
                 </span>
               </div>
-              <div className="text-xs sm:text-sm font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              <div className="text-xs sm:text-sm font-mono mt-1 break-all" style={{ color: 'var(--text-tertiary)' }}>
                 {profile.email}
-              </div>
-              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
-                {averageRating !== null ? (
-                  <>
-                    <span className="flex items-center gap-1 text-amber-400 font-bold">
-                      <span>★</span>
-                      <span>{averageRating.toFixed(1)}</span>
-                    </span>
-                    <span style={{ color: 'var(--text-muted)' }}>•</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {sellerReviews.length} reviews
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-[var(--text-tertiary)] font-medium">
-                    No ratings yet
-                  </span>
-                )}
-                <span style={{ color: 'var(--text-muted)' }}>•</span>
-                <span className="text-[var(--positive)] font-semibold">
-                  {completedSalesCount} sales made
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>•</span>
-                <span className="text-amber-400 font-semibold">
-                  {itemsSold} cards sold
-                </span>
               </div>
             </div>
           </div>
 
-          {/* Quick Action Button */}
-          <div className="flex items-center gap-3 self-start lg:self-auto flex-wrap">
+          {/* Quick actions: one full-width row each on a phone, side by side from 640px */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto lg:self-auto">
             <button
               type="button"
               onClick={() => setIsListModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
+              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
@@ -843,7 +818,7 @@ export function SellerDashboardApp() {
             </button>
             <a
               href="/marketplace"
-              className="px-4 py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center justify-center gap-1.5"
               style={{
                 background: 'var(--bg-surface-2)',
                 borderColor: 'var(--border)',
@@ -855,6 +830,32 @@ export function SellerDashboardApp() {
               </svg>
               <span>Browse Marketplace</span>
             </a>
+          </div>
+        </div>
+
+        {/* Rating, sales and cards sold as three stat boxes - they used to be one dot-separated
+            line under the email that wrapped awkwardly on a phone. */}
+        <div className="grid grid-cols-3 gap-2 mt-5">
+          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Rating</div>
+            {averageRating !== null ? (
+              <div className="text-lg font-black text-amber-400 leading-tight">
+                &#9733; {averageRating.toFixed(1)}
+                <span className="block sm:inline sm:ml-1.5 text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  {sellerReviews.length} review{sellerReviews.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm font-bold leading-tight mt-0.5" style={{ color: 'var(--text-tertiary)' }}>No ratings yet</div>
+            )}
+          </div>
+          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Sales</div>
+            <div className="text-lg font-black text-[var(--positive)] leading-tight">{completedSalesCount}</div>
+          </div>
+          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Cards sold</div>
+            <div className="text-lg font-black text-amber-400 leading-tight">{itemsSold}</div>
           </div>
         </div>
 

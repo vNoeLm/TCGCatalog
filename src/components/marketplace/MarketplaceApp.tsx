@@ -12,6 +12,7 @@ import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
 import { matchesCardVariants } from '../../lib/cardVariants';
+import { gridSizeClasses } from '../../lib/gridSize';
 import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
@@ -439,9 +440,11 @@ export function MarketplaceApp() {
               </div>
 
               {/* Sort & Grid Size Controls */}
-              <div className="flex gap-2 sm:gap-3 items-center">
+              {/* Sort and card size: a row each on a phone - side by side, the size switcher ran
+                  ~40px past the screen edge and cut "Large" off. */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
                 {/* Sort Dropdown */}
-                <div className="relative flex-1 sm:w-56 sm:flex-initial shrink-0 z-40" ref={sortRef}>
+                <div className="relative w-full sm:w-56 shrink-0 z-40" ref={sortRef}>
                   <button
                     type="button"
                     onClick={() => setSortOpen(prev => !prev)}
@@ -480,7 +483,7 @@ export function MarketplaceApp() {
                 </div>
 
                 {/* Grid Size Switcher */}
-                <div className="flex h-11 box-border gap-1 items-center border p-1 rounded-xl" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+                <div className="grid grid-cols-3 sm:flex h-11 box-border gap-1 items-center border p-1 rounded-xl w-full sm:w-auto" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
                   {(["small", "normal", "large"] as const).map(s => (
                     <button
                       key={s}
@@ -554,7 +557,7 @@ export function MarketplaceApp() {
 
           {/* Cards Grid */}
           {loading ? (
-            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+            <div className={`grid ${gridSizeClasses(gridSize)}`}>
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} style={{ borderRadius: 16, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
               ))}
@@ -626,7 +629,7 @@ export function MarketplaceApp() {
               </div>
             </div>
           ) : view === 'cards' ? (
-            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+            <div className={`grid ${gridSizeClasses(gridSize)}`}>
               {groupedCards.map(group => (
                 <CardGroupTile
                   key={group.card_id}
@@ -637,7 +640,7 @@ export function MarketplaceApp() {
               ))}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: getGridCols(gridSize), gap: 16 }}>
+            <div className={`grid ${gridSizeClasses(gridSize)}`}>
               {sortedCards.map(card => (
                 <CardItem
                   key={card.inventory_id}
@@ -691,8 +694,3 @@ export function MarketplaceApp() {
   );
 }
 
-function getGridCols(size: 'small' | 'normal' | 'large') {
-  if (size === 'small') return "repeat(auto-fill, minmax(140px, 1fr))";
-  if (size === 'large') return "repeat(auto-fill, minmax(260px, 1fr))";
-  return "repeat(auto-fill, minmax(190px, 1fr))";
-}

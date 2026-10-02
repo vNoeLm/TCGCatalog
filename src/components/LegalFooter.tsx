@@ -2,122 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { useExitTransition } from '../lib/useExitTransition';
 
 export function LegalFooter() {
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  const [mounted, setMounted] = useState<boolean>(false);
   const [showFullLegalModal, setShowFullLegalModal] = useState<boolean>(false);
-  const collapsedAnim = useExitTransition(collapsed, 200);
-  const expandedAnim = useExitTransition(!collapsed, 200);
   const legalModalAnim = useExitTransition(showFullLegalModal, 250);
 
   useEffect(() => {
-    setMounted(true);
-
-    const saved = localStorage.getItem('tcg_vault_footer_collapsed');
-    if (saved === 'true') {
-      setCollapsed(true);
-    }
-
     // The cookie notice links here rather than duplicating the privacy text.
     const openLegal = () => setShowFullLegalModal(true);
     window.addEventListener('tcg-open-legal', openLegal);
     return () => window.removeEventListener('tcg-open-legal', openLegal);
   }, []);
 
-  const handleToggle = (nextState: boolean) => {
-    setCollapsed(nextState);
-    localStorage.setItem('tcg_vault_footer_collapsed', String(nextState));
-  };
-
-  if (!mounted) return null;
-
   return (
     <>
-      {/* Collapsed State: Sleek Up-Arrow Button in Bottom-Right Corner */}
-      {collapsedAnim.rendered && (
-        <div data-state={collapsedAnim.state} className="tv-toast fixed bottom-4 right-4 z-40">
+      {/* An ordinary footer at the end of the page. It used to be a bar fixed over the bottom of
+          the screen that collapsed into a corner arrow - which on a phone (arrow only, no label)
+          read as "back to top", so that corner now holds a real one (BackToTop). */}
+      <footer className="mt-auto border-t" style={{ borderColor: 'var(--border)', background: 'var(--bg-header)', color: 'var(--text-tertiary)' }}>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-8">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-sm font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                TCG Vault
+              </span>
+              <span className="text-[11px] font-medium">© {new Date().getFullYear()}</span>
+            </div>
+            <p className="text-[11px] leading-relaxed max-w-3xl">
+              An unofficial, community-driven collection tracker, deck builder and peer-to-peer marketplace. Card illustrations, names, logos and trademarks belong to their respective owners. Not affiliated with, endorsed or sponsored by any game publisher.
+            </p>
+          </div>
           <button
             type="button"
-            onClick={() => handleToggle(false)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md transition-all cursor-pointer group active:scale-95 border"
-            style={{
-              background: 'var(--bg-header)',
-              borderColor: 'var(--border)',
-              color: 'var(--text-primary)',
-            }}
-            title={'Expand Legal & Disclaimer Footer'}
+            onClick={() => setShowFullLegalModal(true)}
+            className="self-start md:self-center shrink-0 text-xs font-bold underline underline-offset-2 hover:text-[var(--text-primary)] transition cursor-pointer whitespace-nowrap"
           >
-            <span className="text-xs font-bold hidden sm:inline" style={{ color: 'var(--text-tertiary)' }}>Legal</span>
-            <svg
-              className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
-              style={{ color: 'var(--accent)' }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-            </svg>
+            Legal &amp; Privacy
           </button>
         </div>
-      )}
-
-      {/* Expanded State: Fixed Bottom Bar */}
-      {expandedAnim.rendered && (
-        <footer
-          data-state={expandedAnim.state}
-          className="tv-footer-bar fixed bottom-0 left-0 right-0 z-40 border-t shadow-2xl backdrop-blur-md"
-          style={{
-            background: 'var(--bg-header)',
-            borderColor: 'var(--border)',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          <div className="max-w-[1400px] mx-auto px-4 py-2.5 sm:px-6 sm:py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 sm:gap-4 text-left">
-            
-            {/* Legal Disclaimer & Copyright (Fully visible) */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full md:w-auto min-w-0">
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                  TCG Vault
-                </span>
-                <span className="text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                  © {new Date().getFullYear()}
-                </span>
-              </div>
-
-              <div className="text-[11px] leading-relaxed max-w-4xl" style={{ color: 'var(--text-tertiary)' }}>
-                {(
-                  <span>
-                    TCG Vault is an unofficial, community-driven collection tracker, deck builder, and peer-to-peer marketplace. All card illustrations, names, logos, characters, and related trademarks displayed on this platform are the property of their respective copyright and trademark owners. Not affiliated with, endorsed, or sponsored by official game publishers.
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Actions & Collapse Controls */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 self-end md:self-center">
-              <button
-                type="button"
-                onClick={() => setShowFullLegalModal(true)}
-                className="text-[11px] font-bold hover:text-[var(--text-primary)] transition underline underline-offset-2 cursor-pointer whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}
-              >
-                {'Legal Disclaimer & Privacy Notice'}
-              </button>
-
-              <div className="h-3.5 w-px" style={{ background: 'var(--border)' }} />
-
-              <button
-                type="button"
-                onClick={() => handleToggle(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer active:scale-95 whitespace-nowrap" style={{ background: 'var(--bg-surface)', color: 'var(--text-tertiary)', borderColor: 'var(--border)' }}
-                title={'Collapse footer to corner'}
-              >
-                <span>Collapse</span>
-                <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </footer>
-      )}
+      </footer>
 
       {/* Full Legal & Privacy Modal */}
       {legalModalAnim.rendered && (
