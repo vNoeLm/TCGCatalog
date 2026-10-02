@@ -1758,23 +1758,29 @@ export function CardListApp() {
                   whatever's currently filtered/on screen, so it updates live as filters change. */}
               <CollectionValueChip collection={collection} cards={relevantCards} />
 
-              {/* Collection actions. On a phone they come in rows of related pairs - build (Deck
-                  Builder + Quick List), views (Decks + Binder + Scan, which share a color), data
-                  (Import + Export) - instead of an arbitrary 3-wide grid. From 640px up each group
-                  is `display: contents`, so the buttons sit in one row in their original order. */}
-              <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center w-full sm:w-auto">
-                <div className="grid grid-cols-2 gap-1.5 sm:contents">
+              {/* Collection actions, by width:
+                  - under 768px: rows of related buttons - build (Deck Builder + Quick List), views
+                    (Decks + Binder + Scan, which share a color), data (Import + Export) - each row
+                    full width;
+                  - 768-1280px: one full-width row of their own, every button sharing it equally
+                    (they used to wrap into a half-filled row that crept right until Reset dropped
+                    to yet another line);
+                  - 1280px+: their natural width, on the same row as the size switcher and value.
+                  From 768px each group is `display: contents`, so the buttons line up in one row
+                  in their original order. */}
+              <div className="flex flex-col gap-1.5 md:flex-row md:items-center w-full xl:w-auto">
+                <div className="grid grid-cols-2 gap-1.5 md:contents">
                   <a
                     href="/deck-builder"
                     title="Open Deck Builder"
-                    className={`sm:order-1 flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
+                    className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
                   >
                     Deck Builder
                   </a>
                   <button
                     onClick={() => setShowQuickSalePreview(true)}
                     title={'Quick List based on your rules'}
-                    className="sm:order-5 flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
+                    className="md:order-5 md:flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
                   >
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -1786,15 +1792,15 @@ export function CardListApp() {
                 {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
                     same card data, so they live here as catalog actions rather than their own nav
                     item - plus Scan (camera devices only), the same accent color. */}
-                <div className={`grid ${canScan ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 sm:contents`}>
-                  <a href="/decks" title="Browse saved decks" className={`sm:order-2 ${viewBtnClass}`}>
+                <div className={`grid ${canScan ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 md:contents`}>
+                  <a href="/decks" title="Browse saved decks" className={`md:order-2 md:flex-1 xl:flex-none ${viewBtnClass}`}>
                     Decks
                   </a>
-                  <a href="/binder" title="Open Binder Map" className={`sm:order-3 ${viewBtnClass}`}>
+                  <a href="/binder" title="Open Binder Map" className={`md:order-3 md:flex-1 xl:flex-none ${viewBtnClass}`}>
                     Binder
                   </a>
                   {canScan && (
-                    <button onClick={() => setShowScanner(true)} title="Scan cards with your camera" className={`sm:order-4 gap-1.5 ${viewBtnClass}`}>
+                    <button onClick={() => setShowScanner(true)} title="Scan cards with your camera" className={`md:order-4 md:flex-1 xl:flex-none gap-1.5 ${viewBtnClass}`}>
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 9V7a2 2 0 0 1 2-2h2M17 5h2a2 2 0 0 1 2 2v2M21 15v2a2 2 0 0 1-2 2h-2M7 19H5a2 2 0 0 1-2-2v-2" />
                         <line x1="3" y1="12" x2="21" y2="12" />
@@ -1804,8 +1810,8 @@ export function CardListApp() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5 sm:contents">
-                  <button onClick={() => setShowImportModal(true)} title="Import collection from text list or JSON file" className={`sm:order-7 ${dataBtnClass}`}>
+                <div className="grid grid-cols-2 gap-1.5 md:contents">
+                  <button onClick={() => setShowImportModal(true)} title="Import collection from text list or JSON file" className={`md:order-7 md:flex-1 xl:flex-none ${dataBtnClass}`}>
                     Import
                   </button>
                   <button
@@ -1814,7 +1820,7 @@ export function CardListApp() {
                       setShowExportModal(true);
                     }}
                     title={'Export collection or missing cards'}
-                    className={`sm:order-6 ${dataBtnClass}`}
+                    className={`md:order-6 md:flex-1 xl:flex-none ${dataBtnClass}`}
                   >
                     Export
                   </button>
@@ -1824,7 +1830,7 @@ export function CardListApp() {
                   <button
                     onClick={handleResetCollection}
                     title="Clear tracked collection"
-                    className="sm:order-8 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2.5 sm:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
+                    className="md:order-8 md:flex-1 xl:flex-none flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2.5 md:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
                     style={{ background: 'rgba(244,63,94,0.06)' }}
                   >
                     Reset ({totalOwnedCopies})
@@ -2268,5 +2274,5 @@ export function CardListApp() {
   );
 }
 
-const viewBtnClass = "flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]";
-const dataBtnClass = "flex items-center justify-center px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap";
+const viewBtnClass = "flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]";
+const dataBtnClass = "flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap";

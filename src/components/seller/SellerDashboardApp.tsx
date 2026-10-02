@@ -836,8 +836,8 @@ export function SellerDashboardApp() {
         {/* Rating, sales and cards sold as three stat boxes - they used to be one dot-separated
             line under the email that wrapped awkwardly on a phone. */}
         <div className="grid grid-cols-3 gap-2 mt-5">
-          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Rating</div>
+          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Rating</div>
             {averageRating !== null ? (
               <div className="text-lg font-black text-amber-400 leading-tight">
                 &#9733; {averageRating.toFixed(1)}
@@ -849,12 +849,12 @@ export function SellerDashboardApp() {
               <div className="text-sm font-bold leading-tight mt-0.5" style={{ color: 'var(--text-tertiary)' }}>No ratings yet</div>
             )}
           </div>
-          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Sales</div>
+          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Sales</div>
             <div className="text-lg font-black text-[var(--positive)] leading-tight">{completedSalesCount}</div>
           </div>
-          <div className="rounded-xl border px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Cards sold</div>
+          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Cards sold</div>
             <div className="text-lg font-black text-amber-400 leading-tight">{itemsSold}</div>
           </div>
         </div>

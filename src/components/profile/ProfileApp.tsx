@@ -769,11 +769,11 @@ export function ProfileApp() {
             </div>
 
             {/* Filters: Status + Date */}
-            {/* Pills wrap onto further lines rather than scrolling: on a phone the scrolling rows
-                still widened the page, which then scrolled sideways. */}
+            {/* On a phone the pills sit in equal-width grids rather than scrolling rows - those
+                widened the page, which then scrolled sideways. */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center min-w-0">
-              {/* Status pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              {/* Status pills - equal-width rows of 3 on a phone */}
+              <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5">
                 {[
                   { key: 'All', label: "All" },
                   { key: 'Pending', label: "Pending" },
@@ -795,8 +795,8 @@ export function ProfileApp() {
                 ))}
               </div>
 
-              {/* Date range pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              {/* Date range pills - 2 x 2 on a phone */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5">
                 {([
                   { key: 'all' as const, label: 'All Time' },
                   { key: 'today' as const, label: 'Today' },
