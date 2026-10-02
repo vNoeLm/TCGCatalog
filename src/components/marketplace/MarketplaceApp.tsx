@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
+import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { FilterDrawer } from '../FilterDrawer';
 import { countActiveFilters } from '../../lib/activeFilterCount';
 import { CardItem } from '../CardItem';
@@ -63,14 +64,16 @@ export function MarketplaceApp() {
   // "cards" groups every listing of a card into one tile (Cardmarket-style); "listings" shows
   // each listing separately. Left unset it follows whether the view is scoped to one seller.
   const [viewOverride, setViewOverride] = useState<'cards' | 'listings' | null>(null);
-  const [selectedGroupCardId, setSelectedGroupCardId] = useState<string | null>(null);
+  // Both overlays live in the URL - ?card= for a card's listings, ?listing= for one listing - so
+  // Back closes the top one and either can be shared as a link.
+  const [selectedGroupCardId, openGroup, closeGroup] = useUrlOverlay('card');
 
   // Listings State
   const [cards, setCards] = useState<InventoryCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string | null>(null);
+  const [selectedInventoryId, openListing, closeListing] = useUrlOverlay('listing');
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isQuickShopOpen, setIsQuickShopOpen] = useState(false);
   const [quickShopText, setQuickShopText] = useState('');
@@ -132,7 +135,7 @@ export function MarketplaceApp() {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.delete('seller_id');
-      window.history.replaceState({}, '', url.toString());
+      window.history.replaceState(window.history.state, '', url.toString());
     }
   };
 
@@ -634,7 +637,7 @@ export function MarketplaceApp() {
                 <CardGroupTile
                   key={group.card_id}
                   group={group}
-                  onClick={(g) => setSelectedGroupCardId(g.card_id)}
+                  onClick={(g) => openGroup(g.card_id)}
                   gridSize={gridSize}
                 />
               ))}
@@ -645,7 +648,7 @@ export function MarketplaceApp() {
                 <CardItem
                   key={card.inventory_id}
                   card={card}
-                  onClick={(id) => setSelectedInventoryId(id)}
+                  onClick={(id) => openListing(id)}
                   gridSize={gridSize}
                 />
               ))}
@@ -668,13 +671,13 @@ export function MarketplaceApp() {
       {selectedGroup && (
         <CardListingsModal
           group={selectedGroup}
-          onClose={() => setSelectedGroupCardId(null)}
-          onSelectListing={(id) => setSelectedInventoryId(id)}
+          onClose={closeGroup}
+          onSelectListing={openListing}
         />
       )}
 
       {/* Card Detail Modal */}
-      <CardPreviewOverlay inventoryId={selectedInventoryId} onClose={() => setSelectedInventoryId(null)} zIndex={100} />
+      <CardPreviewOverlay inventoryId={selectedInventoryId} onClose={closeListing} zIndex={100} />
 
       <QuickShopModal
         isOpen={isQuickShopOpen}

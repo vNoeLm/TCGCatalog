@@ -5,6 +5,7 @@ import { getDeckCyberpunkRam } from '../deck-builder/useDeckBuilder';
 import { DeckList } from '../deck-builder/DeckList';
 import { DeckPreviewColumn } from '../deck-builder/DeckPreviewColumn';
 import { CardPreviewOverlay } from '../CardPreviewOverlay';
+import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { fetchCardsCatalog } from '../../lib/api';
 import { fetchDeckById, type PublicDeckSummary } from '../../lib/publicDecks';
 import { useSavedDecks } from '../deck-builder/useSavedDecks';
@@ -20,7 +21,9 @@ export function DeckViewApp() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>('legend');
-  const [previewCard, setPreviewCard] = useState<CatalogCard | null>(null);
+  // In the URL (?card=), so Back closes the preview and it can be shared.
+  const [previewCardId, openPreview, closePreview] = useUrlOverlay('card');
+  const showPreview = (card: CatalogCard) => openPreview(card.id);
   const { saveDeck } = useSavedDecks((deckRow?.game as any) || 'riftbound');
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export function DeckViewApp() {
             cyberpunkLegends={cyberpunkLegends}
             legendCard={legendCard}
             championCard={championCard}
-            onCardClick={setPreviewCard}
+            onCardClick={showPreview}
             isWide
           />
         </div>
@@ -118,7 +121,7 @@ export function DeckViewApp() {
             legendCard={legendCard}
             championCard={championCard}
             onRemoveCard={() => {}}
-            onCardClick={setPreviewCard}
+            onCardClick={showPreview}
             activeZone={activeZone}
             onSetZone={setActiveZone}
             isWide
@@ -126,7 +129,7 @@ export function DeckViewApp() {
         </div>
       </div>
 
-      <CardPreviewOverlay cardId={previewCard?.id ?? null} onClose={() => setPreviewCard(null)} />
+      <CardPreviewOverlay cardId={previewCardId} onClose={closePreview} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import type { CatalogCard, FilterState } from '../../types';
 import { fetchCardsCatalog } from '../../lib/api';
 import { cardThumbProps } from '../../lib/supabase';
 import { CardPreviewOverlay } from '../CardPreviewOverlay';
+import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import {
   buildBinderPockets,
   paginate,
@@ -193,7 +194,8 @@ export function BinderApp() {
   const [includeVariants, setIncludeVariants] = useState(false);
   const [highlightOwned, setHighlightOwned] = useState(false);
   const [page, setPage] = useState(0);
-  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+  // In the URL (?card=), so Back closes the preview and it can be shared.
+  const [previewCardId, openPreview, closePreview] = useUrlOverlay('card');
 
   const ownedQty = useOwnedQtyMap();
 
@@ -397,7 +399,7 @@ export function BinderApp() {
                 slotNumber={i + 1}
                 highlightOwned={highlightOwned}
                 ownedQty={ownedQty}
-                onOpen={setPreviewCardId}
+                onOpen={openPreview}
               />
             ))}
             {Array.from({ length: emptySlots }).map((_, i) => (
@@ -437,7 +439,7 @@ export function BinderApp() {
         </>
       )}
 
-      <CardPreviewOverlay cardId={previewCardId} onClose={() => setPreviewCardId(null)} />
+      <CardPreviewOverlay cardId={previewCardId} onClose={closePreview} />
     </div>
   );
 }

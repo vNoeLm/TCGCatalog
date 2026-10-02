@@ -13,6 +13,7 @@ import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
+import { useUrlOverlay } from "../lib/useUrlOverlay";
 import {
   getCurrentUser,
   getCurrentProfile,
@@ -151,7 +152,8 @@ export function CardListApp() {
     const touch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
     setCanScan(Boolean(navigator.mediaDevices?.getUserMedia) && touch);
   }, []);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  // The open card lives in the URL (?card=) - Back closes it, and the link can be shared.
+  const [selectedCardId, openCard, closeCard] = useUrlOverlay('card');
   const [showExportModal, setShowExportModal] = useState(false);
   const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
@@ -1865,7 +1867,7 @@ export function CardListApp() {
                     isFoilOwned={(collection[`${card.id}_foil`] || 0) > 0}
                     onUpdateCount={updateCardCount}
                     onToggle={toggleOwnership}
-                    onClick={() => setSelectedCardId(card.id)}
+                    onClick={() => openCard(card.id)}
                     gridSize={gridSize}
                   />
                 ))}
@@ -2269,7 +2271,7 @@ export function CardListApp() {
       </CollectionModal>
 
       {/* Card Detail Modal */}
-      <CardPreviewOverlay cardId={selectedCardId} onClose={() => setSelectedCardId(null)} zIndex={100} />
+      <CardPreviewOverlay cardId={selectedCardId} onClose={closeCard} zIndex={100} />
     </div>
   );
 }
