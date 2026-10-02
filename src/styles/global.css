@@ -236,11 +236,11 @@ html[data-theme="light"] {
    BASE
 ───────────────────────────────────────────── */
 :root {
-  /* Space the layout already spends before a page's own content: the sticky header plus the bottom
-     padding on <body> that keeps content clear of the fixed legal bar (4rem). Pages that fill the
-     viewport subtract this instead of a hand-tuned number, so they fit without scrolling.
-     --header-h is measured live by Layout.astro, since the header's height changes with width. */
-  --page-chrome-h: calc(var(--header-h, 55px) + 4rem);
+  /* Space the layout already spends before a page's own content: the sticky header. Pages that
+     fill the viewport subtract this instead of a hand-tuned number, so they fit without scrolling
+     (the footer sits after them, in the page flow). --header-h is measured live by Layout.astro,
+     since the header's height changes with width. */
+  --page-chrome-h: var(--header-h, 55px);
 
   /* Motion: strong custom eases - the built-in CSS ones read as weak/mushy on UI. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -360,17 +360,6 @@ html[data-theme="light"] {
   transform: translateY(100%);
 }
 
-/* Same enter/exit as .tv-toast, but for the legal footer bar specifically - it also needs its
-   pre-existing color transition (background/border/text) when the theme switches, which a plain
-   `transition-colors` utility alongside `.tv-toast` would lose (the shorthand overwrites it). */
-.tv-footer-bar {
-  transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out), background 200ms, border-color 200ms, color 200ms;
-}
-.tv-footer-bar[data-state="closed"] {
-  opacity: 0;
-  transform: translateY(100%);
-}
-
 /* A simple content reveal on mount (a results panel appearing, nothing to close) - needs no JS
    state at all, unlike the data-state driven classes above which also handle an exit. */
 .tv-reveal {
@@ -407,17 +396,12 @@ html[data-theme="light"] {
   .tv-overlay, .tv-modal-panel, .tv-popover, .tv-drawer-left, .tv-drawer-right, .tv-sheet-down, .tv-toast {
     transition-property: opacity;
   }
-  .tv-footer-bar {
-    /* Keeps its color transition (theme switching) - only the movement is dropped. */
-    transition-property: opacity, background, border-color, color;
-  }
   .tv-modal-panel[data-state="closed"],
   .tv-popover[data-state="closed"],
   .tv-drawer-left[data-state="closed"],
   .tv-drawer-right[data-state="closed"],
   .tv-sheet-down[data-state="closed"],
-  .tv-toast[data-state="closed"],
-  .tv-footer-bar[data-state="closed"] {
+  .tv-toast[data-state="closed"] {
     transform: none;
   }
   .tv-reveal {

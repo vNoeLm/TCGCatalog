@@ -209,6 +209,21 @@ export function Navigation({ currentPath }: NavigationProps) {
                   </a>
 
                   <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      window.dispatchEvent(new CustomEvent('tcg-open-legal'));
+                    }}
+                    className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer text-left hover:bg-[var(--bg-raised)]"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" />
+                    </svg>
+                    Legal &amp; Privacy
+                  </button>
+
+                  <button
                     onClick={async () => {
                       setDropdownOpen(false);
                       await signOut();
@@ -466,11 +481,23 @@ export function Navigation({ currentPath }: NavigationProps) {
 
             </div>
 
-            {/* Footer: Sign Out */}
+            {/* Footer: Legal (the page footer is out of reach on infinitely scrolling pages like the
+                catalog, so it's here too) + Sign Out */}
             <div
-              className="flex items-center justify-end pt-2.5"
+              className="flex items-center justify-between pt-2.5"
               style={{ borderTop: '1px solid var(--border-subtle)' }}
             >
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  window.dispatchEvent(new CustomEvent('tcg-open-legal'));
+                }}
+                className="text-xs font-semibold underline underline-offset-2 cursor-pointer"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Legal &amp; Privacy
+              </button>
               {userProfile && (
                 <button
                   onClick={async () => {

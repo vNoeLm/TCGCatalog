@@ -8,6 +8,7 @@ import { CollectionModal, ActionRow, Icon } from "./collection/CollectionModal";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
+import { gridSizeClasses } from "../lib/gridSize";
 import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
@@ -113,7 +114,16 @@ export function CardListApp() {
     }
     return { ...DEFAULT_FILTERS, game: initialGame };
   });
+  // Desktop puts Filters, search and sort on one row; a phone stacks them. This was never updated
+  // from its initial `true`, so phones got the desktop row with the search box squeezed to nothing.
   const [isWide, setIsWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const update = () => setIsWide(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
   
@@ -1748,87 +1758,79 @@ export function CardListApp() {
                   whatever's currently filtered/on screen, so it updates live as filters change. */}
               <CollectionValueChip collection={collection} cards={relevantCards} />
 
-              {/* Collection Actions Buttons - 100% full-width on mobile */}
-              <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                {/* Deck Builder Button */}
-                <a
-                  href="/deck-builder"
-                  title="Open Deck Builder"
-                  className={`flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
-                >
-                  Deck Builder
-                </a>
+              {/* Collection actions, by width:
+                  - under 768px: rows of related buttons - build (Deck Builder + Quick List), views
+                    (Decks + Binder + Scan, which share a color), data (Import + Export) - each row
+                    full width;
+                  - 768-1280px: one full-width row of their own, every button sharing it equally
+                    (they used to wrap into a half-filled row that crept right until Reset dropped
+                    to yet another line);
+                  - 1280px+: their natural width, on the same row as the size switcher and value.
+                  From 768px each group is `display: contents`, so the buttons line up in one row
+                  in their original order. */}
+              <div className="flex flex-col gap-1.5 md:flex-row md:items-center w-full xl:w-auto">
+                <div className="grid grid-cols-2 gap-1.5 md:contents">
+                  <a
+                    href="/deck-builder"
+                    title="Open Deck Builder"
+                    className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
+                  >
+                    Deck Builder
+                  </a>
+                  <button
+                    onClick={() => setShowQuickSalePreview(true)}
+                    title={'Quick List based on your rules'}
+                    className="md:order-5 md:flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                    Quick List
+                  </button>
+                </div>
 
                 {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
-                    same card data, so they live here as catalog actions rather than their own nav item. */}
-                <a
-                  href="/decks"
-                  title="Browse saved decks"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]"
-                >
-                  Decks
-                </a>
+                    same card data, so they live here as catalog actions rather than their own nav
+                    item - plus Scan (camera devices only), the same accent color. */}
+                <div className={`grid ${canScan ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 md:contents`}>
+                  <a href="/decks" title="Browse saved decks" className={`md:order-2 md:flex-1 xl:flex-none ${viewBtnClass}`}>
+                    Decks
+                  </a>
+                  <a href="/binder" title="Open Binder Map" className={`md:order-3 md:flex-1 xl:flex-none ${viewBtnClass}`}>
+                    Binder
+                  </a>
+                  {canScan && (
+                    <button onClick={() => setShowScanner(true)} title="Scan cards with your camera" className={`md:order-4 md:flex-1 xl:flex-none gap-1.5 ${viewBtnClass}`}>
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 9V7a2 2 0 0 1 2-2h2M17 5h2a2 2 0 0 1 2 2v2M21 15v2a2 2 0 0 1-2 2h-2M7 19H5a2 2 0 0 1-2-2v-2" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                      </svg>
+                      Scan
+                    </button>
+                  )}
+                </div>
 
-                <a
-                  href="/binder"
-                  title="Open Binder Map"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]"
-                >
-                  Binder
-                </a>
-
-                {/* Scan Cards (camera devices only) */}
-                {canScan && (
-                  <button
-                    onClick={() => setShowScanner(true)}
-                    title="Scan cards with your camera"
-                    className="flex items-center justify-center gap-1.5 h-10 sm:h-9 px-3 rounded-xl text-xs font-bold transition cursor-pointer border"
-                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
-                  >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9V7a2 2 0 0 1 2-2h2M17 5h2a2 2 0 0 1 2 2v2M21 15v2a2 2 0 0 1-2 2h-2M7 19H5a2 2 0 0 1-2-2v-2" />
-                      <line x1="3" y1="12" x2="21" y2="12" />
-                    </svg>
-                    Scan
+                <div className="grid grid-cols-2 gap-1.5 md:contents">
+                  <button onClick={() => setShowImportModal(true)} title="Import collection from text list or JSON file" className={`md:order-7 md:flex-1 xl:flex-none ${dataBtnClass}`}>
+                    Import
                   </button>
-                )}
-
-                {/* Quick List Button */}
-                <button
-                  onClick={() => setShowQuickSalePreview(true)}
-                  title={'Quick List based on your rules'}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
-                  Quick List
-                </button>
-
-                <button
-                  onClick={() => {
-                    setExportTab(collectionFilter === 'Missing' ? 'missing' : 'owned');
-                    setShowExportModal(true);
-                  }}
-                  title={'Export collection or missing cards'}
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
-                >
-                  Export
-                </button>
-
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  title="Import collection from text list or JSON file"
-                  className="flex items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap"
-                >
-                  Import
-                </button>
+                  <button
+                    onClick={() => {
+                      setExportTab(collectionFilter === 'Missing' ? 'missing' : 'owned');
+                      setShowExportModal(true);
+                    }}
+                    title={'Export collection or missing cards'}
+                    className={`md:order-6 md:flex-1 xl:flex-none ${dataBtnClass}`}
+                  >
+                    Export
+                  </button>
+                </div>
 
                 {uniqueOwnedKeys.length > 0 && (
                   <button
                     onClick={handleResetCollection}
                     title="Clear tracked collection"
-                    className="col-span-3 sm:col-span-1 flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2 sm:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
+                    className="md:order-8 md:flex-1 xl:flex-none flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2.5 md:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
                     style={{ background: 'rgba(244,63,94,0.06)' }}
                   >
                     Reset ({totalOwnedCopies})
@@ -1841,7 +1843,7 @@ export function CardListApp() {
           {/* Cards Grid */}
           <div style={{ minHeight: "40vh" }}>
             {loading ? (
-              <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
+              <div className={`grid ${gridSizeClasses(gridSize)}`}>
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div key={i} style={{ borderRadius: 14, background: "var(--bg-surface-2)", height: 320, animation: "pulse 1.5s ease-in-out infinite" }} />
                 ))}
@@ -1852,7 +1854,7 @@ export function CardListApp() {
                 <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Try clearing filters or search term to discover cards.</p>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: getGridColumns(gridSize), gap: 16 }}>
+              <div className={`grid ${gridSizeClasses(gridSize)}`}>
                 {paginatedCards.map((card) => (
                   <CardListItem
                     key={card.id}
@@ -2272,8 +2274,5 @@ export function CardListApp() {
   );
 }
 
-function getGridColumns(size: 'small'|'normal'|'large') {
-  if (size === 'small') return "repeat(auto-fill, minmax(140px, 1fr))";
-  if (size === 'large') return "repeat(auto-fill, minmax(260px, 1fr))";
-  return "repeat(auto-fill, minmax(190px, 1fr))";
-}
+const viewBtnClass = "flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-bold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap bg-[var(--accent-muted)] hover:bg-[var(--accent-strong)]/20 border border-[var(--accent-border)] text-[var(--text-accent)]";
+const dataBtnClass = "flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-input)] hover:bg-[var(--bg-raised)] border border-[var(--border)] hover:border-[var(--border-hover)] transition cursor-pointer whitespace-nowrap";

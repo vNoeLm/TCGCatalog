@@ -3,6 +3,7 @@ import '../styles/global.css';
 import { Navigation } from '../components/Navigation';
 import { GameSelector } from '../components/GameSelector';
 import { LegalFooter } from '../components/LegalFooter';
+import { BackToTop } from '../components/BackToTop';
 import { CookieConsent } from '../components/CookieConsent';
 import { MarketplaceCartDrawer } from '../components/marketplace/MarketplaceCartDrawer';
 
@@ -42,7 +43,7 @@ const pathname = Astro.url.pathname;
       })();
     </script>
   </head>
-  <body class="min-h-screen font-sans pb-16">
+  <body class="min-h-screen flex flex-col font-sans">
     <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50 transition-colors duration-200">
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
@@ -59,9 +60,15 @@ const pathname = Astro.url.pathname;
         </div>
       </div>
     </header>
-    <slot />
+    <!-- Takes the leftover height so the footer sits at the bottom of short pages. A plain block
+         wrapper rather than making each page a flex item: pages center themselves with
+         `margin: 0 auto` + max-width, which inside a flex column shrinks them to their content. -->
+    <div class="flex-1 w-full">
+      <slot />
+    </div>
     <MarketplaceCartDrawer client:load />
     <LegalFooter client:load />
+    <BackToTop client:load />
     <CookieConsent client:load />
     <script is:inline>
       // Publishes the sticky header's real height as --header-h (see --page-chrome-h in global.css).

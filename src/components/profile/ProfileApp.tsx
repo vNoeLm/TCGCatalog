@@ -339,7 +339,7 @@ export function ProfileApp() {
 
   const renderThemeSection = () => (
     <div
-      className="rounded-2xl p-6 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
+      className="rounded-2xl p-5 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
       style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border)',
@@ -347,10 +347,12 @@ export function ProfileApp() {
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
         <div>
-          <h2 className="text-lg sm:text-xl font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-lg sm:text-xl font-black flex flex-wrap items-center gap-x-2 gap-y-1.5" style={{ color: 'var(--text-primary)' }}>
             <span>{'Appearance & Theme'}</span>
+            {/* whitespace-nowrap: on a phone this broke into a lopsided two-line "Riftbound / Mode"
+                pill; now the whole pill moves under the title instead. */}
             <span
-              className="text-xs font-bold px-2 py-0.5 rounded-full border"
+              className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap"
               style={{
                 background: 'var(--accent-muted)',
                 borderColor: 'var(--accent-border)',
@@ -411,7 +413,7 @@ export function ProfileApp() {
 
   const renderMyDecksSection = () => (
     <div
-      className="rounded-2xl p-6 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
+      className="rounded-2xl p-5 sm:p-7 mb-8 shadow-sm transition-colors duration-200"
       style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b pb-4" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -530,26 +532,27 @@ export function ProfileApp() {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
-      {/* Account Info Header */}
-      <div 
-        className="rounded-2xl p-6 sm:p-7 mb-8 flex flex-wrap items-center justify-between gap-5 shadow-sm border"
+      {/* Account Info Header. On a phone it stacks - a large avatar, centered details, then one
+          full-width row per action - instead of squeezing the details beside a small avatar. */}
+      <div
+        className="rounded-2xl p-5 sm:p-7 mb-8 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-5 shadow-sm border"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
           boxShadow: 'var(--shadow-card)'
         }}
       >
-        <div className="flex items-center gap-4 sm:gap-5">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left min-w-0">
           {profile.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt={profile.display_name || 'User'}
-              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full object-cover shrink-0"
+              className="w-24 h-24 sm:w-20 sm:h-20 rounded-full object-cover shrink-0"
               style={{ border: '1px solid var(--border)' }}
             />
           ) : (
             <div
-              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-2xl font-black border shrink-0"
+              className="w-24 h-24 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-4xl sm:text-3xl font-black border shrink-0"
               style={{
                 background: 'var(--bg-surface-2)',
                 borderColor: 'var(--border)',
@@ -560,10 +563,10 @@ export function ProfileApp() {
             </div>
           )}
 
-          <div>
-            <div className="flex items-center gap-2.5">
+          <div className="min-w-0">
+            <div className="flex items-center justify-center sm:justify-start gap-2.5">
               {isEditing ? (
-                <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap justify-center sm:justify-start gap-2 items-center">
                   <input
                     type="text"
                     value={displayName}
@@ -608,8 +611,8 @@ export function ProfileApp() {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-2xl font-black break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
                     {profile.display_name || 'Valued Collector'}
                   </h1>
                   <button
@@ -633,10 +636,10 @@ export function ProfileApp() {
                 </div>
               )}
             </div>
-            <div className="text-xs sm:text-sm font-mono mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            <div className="text-xs sm:text-sm font-mono mt-1 break-all" style={{ color: 'var(--text-tertiary)' }}>
               {profile.email}
             </div>
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+            <div className="mt-3 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
               {/* The owner case used to have its own "Platform Owner" badge here too, right next
                   to the SiteOwnerTag below - the exact same fact, said twice. SiteOwnerTag (used
                   consistently everywhere else this appears - the public profile, a seller card)
@@ -698,10 +701,10 @@ export function ProfileApp() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 sm:flex-wrap w-full sm:w-auto">
           <a
             href="/seller"
-            className="px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm border"
+            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
             style={{
               background: 'var(--bg-surface-2)',
               borderColor: 'var(--border)',
@@ -716,7 +719,7 @@ export function ProfileApp() {
           {isOwner && (
             <a
               href="/admin/prices"
-              className="px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm border"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
               style={{
                 background: 'var(--bg-surface-2)',
                 borderColor: 'var(--border)',
@@ -732,13 +735,16 @@ export function ProfileApp() {
           )}
           <button
             onClick={handleSignOut}
-            className="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
+            className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer border inline-flex items-center justify-center gap-1.5 hover:brightness-110"
             style={{
-              background: 'var(--bg-surface-2)',
-              borderColor: 'var(--border)',
-              color: 'var(--text-secondary)'
+              background: 'var(--negative-muted)',
+              borderColor: 'var(--negative-border)',
+              color: 'var(--negative)'
             }}
           >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
             Sign Out
           </button>
         </div>
@@ -763,9 +769,11 @@ export function ProfileApp() {
             </div>
 
             {/* Filters: Status + Date */}
-            <div className="flex flex-wrap gap-2 items-center">
-              {/* Status pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar min-w-0">
+            {/* On a phone the pills sit in equal-width grids rather than scrolling rows - those
+                widened the page, which then scrolled sideways. */}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center min-w-0">
+              {/* Status pills - equal-width rows of 3 on a phone */}
+              <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5">
                 {[
                   { key: 'All', label: "All" },
                   { key: 'Pending', label: "Pending" },
@@ -787,8 +795,8 @@ export function ProfileApp() {
                 ))}
               </div>
 
-              {/* Date range pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1 custom-scrollbar min-w-0">
+              {/* Date range pills - 2 x 2 on a phone */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5">
                 {([
                   { key: 'all' as const, label: 'All Time' },
                   { key: 'today' as const, label: 'Today' },
