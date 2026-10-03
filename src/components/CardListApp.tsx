@@ -9,6 +9,7 @@ import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { gridSizeClasses } from "../lib/gridSize";
+import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
@@ -181,7 +182,6 @@ export function CardListApp() {
   const [restoringFromCloud, setRestoringFromCloud] = useState(false);
 
   const [allCards, setAllCards] = useState<CatalogCard[]>([]);
-  const [page, setPage] = useState(1);
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
@@ -279,7 +279,6 @@ export function CardListApp() {
           sessionStorage.setItem('catalogFilters', JSON.stringify(freshFilters));
           sessionStorage.setItem(`catalogFilters_${newGame}`, JSON.stringify(freshFilters));
         } catch (err) {}
-        setPage(1);
       }
     };
     window.addEventListener('tcg-game-change', handleGameChange);
@@ -560,7 +559,6 @@ export function CardListApp() {
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    setPage(1);
 
     const timer = setTimeout(async () => {
       const trimmedQuery = searchQuery.trim();
@@ -831,19 +829,15 @@ export function CardListApp() {
     });
   }, [relevantCards, collectionFilter, collection, showFoilOnly]);
 
-  const paginatedCards = displayedCards.slice(0, page * PAGE_SIZE);
-  const hasMore = paginatedCards.length < displayedCards.length;
-  const observerTarget = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const target = observerTarget.current;
-    if (!target) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && hasMore && !loading) setPage(p => p + 1);
-    }, { threshold: 0.1, rootMargin: '400px' });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [hasMore, loading]);
+  // One batch first, then a "Load more" button, then loading on scroll - so the footer can be
+  // reached. Only the rendering is batched: the tab counts and the collection value above all use
+  // the full filtered list. Starts over whenever the list itself changes.
+  const loadMoreState = useLoadMore(
+    displayedCards.length,
+    PAGE_SIZE,
+    JSON.stringify([filters, searchQuery, collectionFilter, sortMode, showFoilOnly])
+  );
+  const paginatedCards = displayedCards.slice(0, loadMoreState.shown);
 
   // Helper to format collection into grouped text list with set names and card numbers
   const exportCollectionToText = () => {
@@ -1716,7 +1710,7 @@ export function CardListApp() {
                   return (
                     <button
                       key={f}
-                      onClick={() => { setCollectionFilter(f); setPage(1); }}
+                      onClick={() => setCollectionFilter(f)}
                       style={active ? activeStyle : undefined}
                       className={`py-2 px-2.5 text-xs rounded-lg transition border cursor-pointer font-semibold text-center justify-center flex items-center min-w-0 ${
                         active
@@ -1875,14 +1869,7 @@ export function CardListApp() {
             )}
           </div>
 
-          {/* Infinite Scroll Sentinel */}
-          <div ref={observerTarget as any} style={{ display: "flex", justifyContent: "center", padding: "30px 0" }}>
-            {hasMore && !loading && (
-              <div style={{ color: "var(--accent-light)", fontSize: 13, fontWeight: 700 }}>
-                Loading more cards…
-              </div>
-            )}
-          </div>
+          {!loading && <LoadMoreFooter state={loadMoreState} total={displayedCards.length} noun="cards" />}
 
         </div>
       </div>

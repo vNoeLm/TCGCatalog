@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { useUrlOverlay } from '../../lib/useUrlOverlay';
+import { useLoadMore, LoadMoreFooter } from '../LoadMore';
 import { FilterDrawer } from '../FilterDrawer';
 import { countActiveFilters } from '../../lib/activeFilterCount';
 import { CardItem } from '../CardItem';
@@ -306,64 +307,20 @@ export function MarketplaceApp() {
 
   const activeFilterBadgeCount = useMemo(() => countActiveFilters(filters), [filters]);
 
+  // Only the grid is batched - the "N cards for sale across M listings" line uses the full lists.
+  const shownTotal = view === 'cards' ? groupedCards.length : sortedCards.length;
+  const loadMoreState = useLoadMore(
+    shownTotal,
+    48,
+    JSON.stringify([filters, searchQuery, sellerSearch, statusFilter, sortMode, view])
+  );
+
   // ─── LIVE MARKETPLACE ───────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px 24px' }}>
-      {/* Header Banner */}
-      <div 
-        className="rounded-3xl p-6 sm:p-8 border shadow-lg relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6"
-        style={{
-          background: 'var(--bg-surface)',
-          borderColor: 'var(--border)'
-        }}
-      >
-        <div>
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <svg className="w-6 h-6" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
-              Community Marketplace
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', border: '1px solid var(--accent-border)' }}>
-              {isCyberpunk ? 'Cyberpunk TCG' : 'Riftbound'}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--text-secondary)' }}>
-            Browse community classifieds from fellow players. Request a hold on cards and arrange delivery or personal pickup directly with the seller!
-          </p>
-        </div>
-
-        {/* Actions: Quick Shop + List Card for Sale */}
-        <div className="shrink-0 flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setIsQuickShopOpen(true)}
-            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95 flex items-center gap-2 border"
-            style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
-            title="Paste a want-list and let us find the cards for you"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            <span>Quick Shop</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsListModalOpen(true)}
-            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-lg active:scale-95 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-              <circle cx="7" cy="7" r="1" />
-            </svg>
-            <span>+ List Card for Sale</span>
-          </button>
-        </div>
-      </div>
+      {/* The page's heading for screen readers - the big title banner that used to sit here took
+          a screenful on a phone; its two actions now sit with the other controls below. */}
+      <h1 className="sr-only">Community Marketplace</h1>
 
       {filters.sellerId && (
         <div
@@ -505,8 +462,10 @@ export function MarketplaceApp() {
               </div>
             </div>
 
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-3">
+            <div className="flex flex-col gap-3 min-w-0">
             {/* Status Filter Pills */}
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Status:</span>
               {[
                 { id: 'all', label: 'All' },
@@ -529,7 +488,7 @@ export function MarketplaceApp() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>View:</span>
               {([
                 { id: 'cards', label: 'By card' },
@@ -550,8 +509,37 @@ export function MarketplaceApp() {
                 </button>
               ))}
             </div>
+            </div>
 
-            <p className="mt-2.5 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            {/* Actions: Quick Shop + List Card for Sale */}
+            <div className="grid grid-cols-2 lg:flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsQuickShopOpen(true)}
+                className="px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-2 border"
+                style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+                title="Paste a want-list and let us find the cards for you"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                <span>Quick Shop</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsListModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950"
+              >
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                  <circle cx="7" cy="7" r="1" />
+                </svg>
+                <span className="whitespace-nowrap">+ List Card for Sale</span>
+              </button>
+            </div>
+            </div>
+
+            <p className="mt-3 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               {view === 'cards'
                 ? `${groupedCards.length} ${groupedCards.length === 1 ? 'card' : 'cards'} for sale across ${sortedCards.length} ${sortedCards.length === 1 ? 'listing' : 'listings'}`
                 : `${sortedCards.length} marketplace ${sortedCards.length === 1 ? 'listing' : 'listings'} found`}
@@ -633,7 +621,7 @@ export function MarketplaceApp() {
             </div>
           ) : view === 'cards' ? (
             <div className={`grid ${gridSizeClasses(gridSize)}`}>
-              {groupedCards.map(group => (
+              {groupedCards.slice(0, loadMoreState.shown).map(group => (
                 <CardGroupTile
                   key={group.card_id}
                   group={group}
@@ -644,7 +632,7 @@ export function MarketplaceApp() {
             </div>
           ) : (
             <div className={`grid ${gridSizeClasses(gridSize)}`}>
-              {sortedCards.map(card => (
+              {sortedCards.slice(0, loadMoreState.shown).map(card => (
                 <CardItem
                   key={card.inventory_id}
                   card={card}
@@ -653,6 +641,9 @@ export function MarketplaceApp() {
                 />
               ))}
             </div>
+          )}
+          {!loading && !fetchError && (
+            <LoadMoreFooter state={loadMoreState} total={shownTotal} noun={view === 'cards' ? 'cards' : 'listings'} />
           )}
         </main>
       </div>

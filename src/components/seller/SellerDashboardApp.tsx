@@ -763,7 +763,7 @@ export function SellerDashboardApp() {
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-5">
           {/* Seller Identity. On a phone it stacks - a large avatar with the name and badges
               centered under it - instead of a small avatar with everything squeezed beside it. */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left min-w-0">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left min-w-0 sm:flex-1">
             {profile.avatar_url ? (
               <img
                 src={profile.avatar_url}
@@ -804,12 +804,13 @@ export function SellerDashboardApp() {
             </div>
           </div>
 
-          {/* Quick actions: one full-width row each on a phone, side by side from 640px */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto lg:self-auto">
+          {/* Quick actions: a full-width row each on a phone; from 640px one row they share
+              equally; beside the seller's details from 1024px. */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
             <button
               type="button"
               onClick={() => setIsListModalOpen(true)}
-              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
+              className="w-full sm:flex-1 lg:flex-none lg:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-xs font-black transition cursor-pointer shadow-lg flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 active:scale-95"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
@@ -818,7 +819,7 @@ export function SellerDashboardApp() {
             </button>
             <a
               href="/marketplace"
-              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-3 sm:py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center justify-center gap-1.5"
               style={{
                 background: 'var(--bg-surface-2)',
                 borderColor: 'var(--border)',
