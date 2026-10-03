@@ -118,6 +118,20 @@ async function main() {
   process.stdout.write('\n');
   await browser.close();
 
+  // With --game, only that game was rebuilt: keep every other game's entries from the existing file.
+  // This used to write the one game alone, dropping the rest (a riftbound-only run removed all of
+  // Cyberpunk, so those cards stopped being scannable).
+  if (onlyGame && fs.existsSync(OUTPUT)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(OUTPUT, 'utf8'));
+      for (const [game, rows] of Object.entries(existing.games || {})) {
+        if (game !== onlyGame && !games[game]) games[game] = rows;
+      }
+    } catch (e) {
+      console.warn(`Could not read the existing ${path.basename(OUTPUT)} to keep the other games:`, e.message);
+    }
+  }
+
   const file = { version: 1, builtAt: new Date().toISOString(), games };
   fs.writeFileSync(OUTPUT, JSON.stringify(file));
 
