@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useWishlists, wishlistWantText } from '../../lib/wishlists';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { addManyToCart, CART_OPEN_EVENT } from '../../lib/marketplaceCart';
@@ -23,6 +24,8 @@ const STRATEGIES: Array<{ id: ShopStrategy; title: string; blurb: string }> = [
 /** Paste a want-list, pick cheapest or fewest sellers, preview the basket, and add it to the cart. */
 export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: QuickShopModalProps) {
   const [text, setText] = useState(initialText);
+  const { lists: wishlists } = useWishlists();
+  const gameWishlists = wishlists.filter((w) => w.game === game);
   const [minCondition, setMinCondition] = useState('Any');
   const [allowFoil, setAllowFoil] = useState(false);
   const [phase, setPhase] = useState<'input' | 'results' | 'added'>('input');
@@ -162,6 +165,30 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
         <div className="overflow-y-auto custom-scrollbar p-5 sm:p-6">
           {phase === 'input' && (
             <div className="space-y-4">
+              {gameWishlists.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="quickshop-wishlist" className="text-xs font-bold shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                    Use a wishlist
+                  </label>
+                  <select
+                    id="quickshop-wishlist"
+                    value=""
+                    onChange={(e) => {
+                      const list = gameWishlists.find((w) => w.id === e.target.value);
+                      if (!list) return;
+                      setError(null);
+                      wishlistWantText(list).then(setText, () => setError('Could not load that wishlist.'));
+                    }}
+                    className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-xs border outline-none cursor-pointer"
+                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">Fill the list from one of yours…</option>
+                    {gameWishlists.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <textarea
                 rows={10}
                 value={text}

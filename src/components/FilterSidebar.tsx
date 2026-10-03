@@ -16,6 +16,8 @@ interface FilterSidebarProps {
     types: string[];
     domains: string[];
     tags: string[];
+    /** The signed-in user's wishlists for this game; the Wishlist filter shows only when there are some. */
+    wishlists?: { id: string; name: string }[];
   };
 }
 
@@ -253,6 +255,29 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
           Reset
         </button>
       </div>
+
+      {/* 0. WISHLIST - only cards on one of your lists (shown once you have a list) */}
+      {options.wishlists && options.wishlists.length > 0 && (
+        <div className={`border-b ${sidebarTheme.divider} pb-2`}>
+          <SectionHeader label={"Wishlist"} badge={filters.wishlistId ? 1 : 0} collapsible={false} theme={sidebarTheme} />
+          <div className="mt-1">
+            <select
+              value={filters.wishlistId || ''}
+              onChange={(e) => set("wishlistId", e.target.value || undefined)}
+              className={`w-full ${sidebarTheme.input} rounded-md px-2.5 py-1.5 text-xs outline-none cursor-pointer appearance-none transition font-medium`}
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23d4d4d8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 8px center",
+                backgroundSize: "12px",
+              }}
+            >
+              <option value="">Any card</option>
+              {options.wishlists.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* 1. SET SECTION (Default OPEN) */}
       <div className={`border-b ${sidebarTheme.divider} pb-2`}>

@@ -3,6 +3,7 @@ import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { useLoadMore, LoadMoreFooter } from '../LoadMore';
+import { useWishlists, wishlistCardIds } from '../../lib/wishlists';
 import { FilterDrawer } from '../FilterDrawer';
 import { countActiveFilters } from '../../lib/activeFilterCount';
 import { CardItem } from '../CardItem';
@@ -19,7 +20,7 @@ import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
   CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS,
-  STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode
+  STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode, sortSetNames
 } from '../../lib/constants';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -48,10 +49,11 @@ export function MarketplaceApp() {
   // Filters State driven by global game
   const [filters, setFilters] = useState<FilterState>(() => {
     const savedGame = (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME)) || 'riftbound';
-    const sellerId = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('seller_id') || undefined
-      : undefined;
-    return { ...DEFAULT_FILTERS, game: savedGame, sellerId };
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const sellerId = params?.get('seller_id') || undefined;
+    // "Show in marketplace" on a wishlist links here with ?wishlist=<id>.
+    const wishlistId = params?.get('wishlist') || undefined;
+    return { ...DEFAULT_FILTERS, game: savedGame, sellerId, wishlistId };
   });
   const [sellerFilterName, setSellerFilterName] = useState<string | null>(null);
 
@@ -141,6 +143,8 @@ export function MarketplaceApp() {
   };
 
   const isCyberpunk = filters.game === 'cyberpunk';
+  const { lists: allWishlists } = useWishlists();
+  const wishlists = useMemo(() => allWishlists.filter(w => w.game === (filters.game || 'riftbound')), [allWishlists, filters.game]);
 
   // Load marketplace listings
   const fetchMarketplaceListings = async () => {
@@ -231,7 +235,11 @@ export function MarketplaceApp() {
 
   // Filter & sort listings
   const sortedCards = useMemo(() => {
-    const filtered = cards.filter(card => matchesCardVariants(card, filters));
+    const wishlist = filters.wishlistId ? wishlists.find(w => w.id === filters.wishlistId) : undefined;
+    const wishlistIds = wishlist ? wishlistCardIds(wishlist.items) : null;
+    const filtered = cards.filter(card =>
+      matchesCardVariants(card, filters) && (!wishlistIds || wishlistIds.has(card.card_id))
+    );
     return filtered.sort((a, b) => {
       if (sortMode === 'Price (Low to High)') {
         return (a.price_huf ?? 0) - (b.price_huf ?? 0);
@@ -253,7 +261,7 @@ export function MarketplaceApp() {
       }
       return 0;
     });
-  }, [cards, filters, sortMode]);
+  }, [cards, filters, sortMode, wishlists]);
 
   const sellerScoped = Boolean(filters.sellerId) || sellerSearch.trim() !== '';
   useEffect(() => { setViewOverride(null); }, [sellerScoped]);
@@ -288,7 +296,7 @@ export function MarketplaceApp() {
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
-    return Array.from(setNames);
+    return sortSetNames(Array.from(setNames));
   }, [cards, isCyberpunk]);
 
   const sidebar = (
@@ -297,6 +305,7 @@ export function MarketplaceApp() {
       setFilters={setFilters}
       options={{
         sets: availableSets,
+        wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
         rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
         types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
         domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,

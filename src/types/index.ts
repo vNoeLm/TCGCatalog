@@ -118,6 +118,8 @@ export interface FilterState {
   eddiableFilter?: 'all' | 'sellable' | 'non_sellable';
   /** Restrict results to one seller's listings, e.g. from their public profile. */
   sellerId?: string;
+  /** Only cards on this wishlist of the signed-in user (applied client-side: catalog, marketplace). */
+  wishlistId?: string;
   page?: number;
   pageSize?: number;
   sort?: string;

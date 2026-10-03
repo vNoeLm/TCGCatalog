@@ -15,7 +15,7 @@ import {
   type BinderGridSize,
   type BinderPocket,
 } from '../../lib/binderLayout';
-import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
+import { STORAGE_KEYS, EVENTS, sortSetNames } from '../../lib/constants';
 
 const DEFAULT_FILTERS: FilterState = {
   category: 'singles',
@@ -217,7 +217,8 @@ export function BinderApp() {
     let cancelled = false;
     fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame }, '').then(({ data }) => {
       if (cancelled) return;
-      const sets = Array.from(new Set(data.map(c => c.set_name).filter(Boolean))) as string[];
+      // Oldest set first (and the default pick), extras last.
+      const sets = sortSetNames(Array.from(new Set(data.map(c => c.set_name).filter(Boolean))) as string[]);
       setAvailableSets(sets);
       setSelectedSet(prev => prev || sets[0] || '');
     });

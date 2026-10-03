@@ -8,7 +8,7 @@ import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard } from '../../lib/cardVariants';
-import { TAGS, CYBERPUNK_TAGS } from '../../lib/constants';
+import { TAGS, CYBERPUNK_TAGS, sortSetNames } from '../../lib/constants';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -301,7 +301,11 @@ export function DeckCatalog({
       const s = (c as any).sets;
       if (s?.id) seen.set(s.id, s.name || s.code || s.id);
     });
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+    // Oldest set first, extras (promos, starter products) last - not whatever order cards loaded in.
+    const order = sortSetNames(Array.from(new Set(seen.values())));
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
   }, [cards]);
 
   // Domain / Color options
