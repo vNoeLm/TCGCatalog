@@ -27,6 +27,7 @@ const DOMAIN_COLORS: Record<string, { bg: string; text: string; border: string }
   chaos:     { bg: '#a855f7', text: '#f3e8ff', border: '#7e22ce' },
   order:     { bg: '#eab308', text: '#fef9c3', border: '#a16207' },
   colorless: { bg: '#94a3b8', text: '#f1f5f9', border: '#475569' },
+  neutral:   { bg: '#94a3b8', text: '#f1f5f9', border: '#475569' },
   Red:       { bg: '#ef4444', text: '#fee2e2', border: '#b91c1c' },
   Green:     { bg: '#22c55e', text: '#dcfce7', border: '#15803d' },
   Blue:      { bg: '#06b6d4', text: '#cffafe', border: '#0891b2' },
@@ -697,14 +698,15 @@ export function DeckStatisticsModal({
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.bg }} />
                             <span style={{ fontWeight: 700, color: style.text, textTransform: 'capitalize' }}>
-                              {dom}
+                              {/* Neutral power (Neeko) is paid with a rune of any domain. */}
+                              {dom === 'neutral' ? 'Neutral (any rune)' : dom}
                             </span>
                             <span style={{ color: 'var(--text-muted, #94a3b8)', fontWeight: 600 }}>
                               {dStats.total} card{dStats.total === 1 ? '' : 's'}
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
-                            {dStats.strict > 0 && (
+                            {dStats.strict > 0 && dom !== 'neutral' && (
                               <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>
                                 {dStats.strict} pure{dStats.multiPower > 0 ? ` (${dStats.multiPower} need 2+)` : ''}
                               </span>

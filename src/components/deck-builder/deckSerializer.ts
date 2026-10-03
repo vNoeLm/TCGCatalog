@@ -133,6 +133,16 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
     });
   }
 
+  // Riftbound extra legends (Neeko, Blending In)
+  const extraLegends: string[] = [];
+  if (Array.isArray(deckSource.extraLegends)) {
+    deckSource.extraLegends.forEach((item: any) => {
+      const ident = typeof item === 'string' ? item : (item.id || item.name || item.card_number);
+      const c = resolveCard(ident, allCards);
+      if (c && c.card_type === 'Legend' && !extraLegends.includes(c.id)) extraLegends.push(c.id);
+    });
+  }
+
   // If game is cyberpunk or we have legends array
   const isCyberpunk = deckSource.game === 'cyberpunk' || legends.length > 0;
 
@@ -168,6 +178,7 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
     legend: legendId,
     champion: championId,
     legends,
+    extraLegends: isCyberpunk ? [] : extraLegends,
     mainDeck,
     runeDeck,
     battlefields,
@@ -181,10 +192,11 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
 function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
 
-  let currentZone: 'legend' | 'champion' | 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard' | null = null;
+  let currentZone: 'legend' | 'extraLegends' | 'champion' | 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard' | null = null;
   let legendId: string | null = null;
   let championId: string | null = null;
   const legends: string[] = [];
+  const extraLegends: string[] = [];
   const mainDeck: Record<string, number> = {};
   const runeDeck: Record<string, number> = {};
   const battlefields: Record<string, number> = {};
@@ -193,6 +205,11 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
   for (const line of lines) {
     // Check section headers
     const lower = line.toLowerCase();
+    // "// Extra Legends" (Neeko, Blending In) - checked before the plain Legend header.
+    if (/^(\/\/|#|\[)?\s*extra\s*legends?/i.test(lower)) {
+      currentZone = 'extraLegends';
+      continue;
+    }
     if (/^(\/\/|#|\[)?\s*legends?/i.test(lower)) {
       currentZone = 'legend';
       // If line contains card name after colon: "Legend: Blind Monk"
@@ -247,7 +264,9 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
     if (!card) continue;
 
     // Determine target zone
-    if (currentZone === 'legend') {
+    if (currentZone === 'extraLegends') {
+      if (card.card_type === 'Legend' && !extraLegends.includes(card.id)) extraLegends.push(card.id);
+    } else if (currentZone === 'legend') {
       if (card.game === 'cyberpunk' || legends.length > 0) {
         if (!legends.includes(card.id) && legends.length < 3) legends.push(card.id);
       } else {
@@ -286,6 +305,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
     legend: legendId,
     champion: championId,
     legends,
+    extraLegends: isCyberpunk ? [] : extraLegends,
     mainDeck,
     runeDeck,
     battlefields,
@@ -388,6 +408,9 @@ export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckN
     });
   } else {
     exportObj.legend = legendCard ? legendCard.name : deck.legend || null;
+    if (deck.extraLegends && deck.extraLegends.length > 0) {
+      exportObj.extraLegends = deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+    }
     exportObj.champion = championCard ? championCard.name : deck.champion || null;
     exportObj.runeDeck = formatSimplifiedZoneMap(deck.runeDeck, allCards);
     exportObj.battlefields = formatSimplifiedZoneMap(deck.battlefields, allCards);
@@ -420,6 +443,9 @@ export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: Catalo
       });
     } else {
       exportObj.legend = legendCard ? legendCard.name : sd.deck.legend || null;
+      if (sd.deck.extraLegends && sd.deck.extraLegends.length > 0) {
+        exportObj.extraLegends = sd.deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+      }
       exportObj.champion = championCard ? championCard.name : sd.deck.champion || null;
       exportObj.runeDeck = formatSimplifiedZoneMap(sd.deck.runeDeck, allCards);
       exportObj.battlefields = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
@@ -456,6 +482,16 @@ export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckN
       lines.push('// Legend');
       const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
       lines.push(`1 ${legendCard.name}${num}`);
+      lines.push('');
+    }
+
+    const extraLegendCards = (deck.extraLegends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
+    if (extraLegendCards.length > 0) {
+      lines.push(`// Extra Legends (${extraLegendCards.length})`);
+      extraLegendCards.forEach(l => {
+        const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
+        lines.push(`1 ${l.name}${num}`);
+      });
       lines.push('');
     }
 

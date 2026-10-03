@@ -1,3 +1,5 @@
+import { isNeutralCard } from './riftboundRules';
+
 /**
  * Riftbound Card Power Data & Cost Helper
  * Provides exact Power Cost (Rune Requirements) and mixed domain handling.
@@ -2149,12 +2151,6 @@ export function getCardPowerRequirement(card?: {
     .map(s => s.trim().toLowerCase())
     .filter(d => d && d !== 'colorless');
 
-  if (rawDomains.length === 0) {
-    return { power: 0, isMixed: false, domains: [] };
-  }
-
-  const isMixed = rawDomains.length > 1;
-
   // Check exact power map
   const code = (card.card_number || '').toUpperCase().trim();
   const shortCode = code.split('/')[0].trim();
@@ -2163,6 +2159,16 @@ export function getCardPowerRequirement(card?: {
   const idKey = (card.id || '').toLowerCase().trim();
 
   const power = CARD_POWER_MAP[code] ?? CARD_POWER_MAP[shortCode] ?? CARD_POWER_MAP[idKey] ?? CARD_POWER_MAP[normName] ?? CARD_POWER_MAP[baseName] ?? 0;
+
+  if (rawDomains.length === 0) {
+    // A Neutral card (Neeko, Blending In) still has a power cost - payable with a rune of any
+    // domain - so it reports 'neutral' rather than being dropped along with battlefields.
+    return isNeutralCard(card) && power > 0
+      ? { power, isMixed: false, domains: ['neutral'] }
+      : { power: 0, isMixed: false, domains: [] };
+  }
+
+  const isMixed = rawDomains.length > 1;
 
   return {
     power,
