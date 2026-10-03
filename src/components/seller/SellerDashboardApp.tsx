@@ -14,6 +14,8 @@ import { getAllReviews } from '../../lib/reviews';
 import { adjustLocalCollection } from '../../lib/collectionClient';
 import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
 import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
+import { StatBox } from '../StatBox';
+import { Pagination, usePagination } from '../Pagination';
 
 export function SellerDashboardApp() {
   const { theme: effectiveTheme } = useSiteTheme();
@@ -152,7 +154,8 @@ export function SellerDashboardApp() {
     if (!targetUid) return;
     setLoadingListings(true);
     try {
-      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}`);
+      // pageSize: the endpoint's default is 50, which silently cut off any listings past that.
+      const res = await fetch(`/api/marketplace/listings?seller_id=${targetUid}&pageSize=500`);
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -694,6 +697,13 @@ export function SellerDashboardApp() {
     );
   }, [activeListings, searchQuery]);
 
+  // Both tabs show a page at a time instead of every listing at once.
+  const listingsPage = usePagination(filteredListings, 24, searchQuery);
+  const statsRows = useMemo(() => activeListings.slice().sort((a, b) => (b.views || 0) - (a.views || 0)), [activeListings]);
+  const statsPage = usePagination(statsRows, 20, '');
+  const listingsTopRef = useRef<HTMLDivElement>(null);
+  const statsTopRef = useRef<HTMLDivElement>(null);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -836,27 +846,18 @@ export function SellerDashboardApp() {
         {/* Rating, sales and cards sold as three stat boxes - they used to be one dot-separated
             line under the email that wrapped awkwardly on a phone. */}
         <div className="grid grid-cols-3 gap-2 mt-5">
-          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Rating</div>
-            {averageRating !== null ? (
-              <div className="text-lg font-black text-amber-400 leading-tight">
-                &#9733; {averageRating.toFixed(1)}
-                <span className="block sm:inline sm:ml-1.5 text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                  {sellerReviews.length} review{sellerReviews.length === 1 ? '' : 's'}
-                </span>
-              </div>
+          <StatBox
+            label="Rating"
+            title={averageRating !== null ? `${sellerReviews.length} review${sellerReviews.length === 1 ? '' : 's'}` : 'No ratings yet'}
+            valueClassName={averageRating !== null ? 'text-amber-400' : 'text-[var(--text-tertiary)]'}
+            value={averageRating !== null ? (
+              <>&#9733; {averageRating.toFixed(1)} <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>({sellerReviews.length})</span></>
             ) : (
-              <div className="text-sm font-bold leading-tight mt-0.5" style={{ color: 'var(--text-tertiary)' }}>No ratings yet</div>
+              <span className="text-sm">None yet</span>
             )}
-          </div>
-          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Sales</div>
-            <div className="text-lg font-black text-[var(--positive)] leading-tight">{completedSalesCount}</div>
-          </div>
-          <div className="rounded-xl border px-2 sm:px-3 py-2.5 text-center sm:text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>Cards sold</div>
-            <div className="text-lg font-black text-amber-400 leading-tight">{itemsSold}</div>
-          </div>
+          />
+          <StatBox label="Sales" value={completedSalesCount} valueClassName="text-[var(--positive)]" />
+          <StatBox label="Cards sold" value={itemsSold} valueClassName="text-amber-400" />
         </div>
 
         {/* ─── DYNAMIC UPGRADED BADGES BANNER ─── */}
@@ -1182,7 +1183,7 @@ export function SellerDashboardApp() {
 
       {/* ─── TAB 1: ACTIVE LISTINGS ─────────────────────────────────── */}
       {activeTab === 'listings' && (
-        <div>
+        <div ref={listingsTopRef} className="scroll-mt-24">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="relative max-w-sm w-full">
               <input
@@ -1264,9 +1265,9 @@ export function SellerDashboardApp() {
                 type="button"
                 onClick={() => setSelectedListingIds(new Set())}
                 disabled={bulkActionBusy}
-                className="px-3 py-1.5 text-[11px] font-semibold rounded-lg cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg border cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)] transition disabled:opacity-50"
               >
-                Clear
+                Deselect all
               </button>
             </div>
           )}
@@ -1300,7 +1301,7 @@ export function SellerDashboardApp() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredListings.map((item) => {
+              {listingsPage.pageItems.map((item) => {
                 const isSelected = selectedListingIds.has(item.inventory_id);
                 // Once the user has started selecting (clicked at least one checkbox),
                 // clicking anywhere on any card toggles it too — a much bigger hitbox
@@ -1476,6 +1477,7 @@ export function SellerDashboardApp() {
               );})}
             </div>
           )}
+          {!loadingListings && <Pagination state={listingsPage} noun="listings" scrollTargetRef={listingsTopRef} />}
         </div>
       )}
 
@@ -1787,8 +1789,10 @@ export function SellerDashboardApp() {
               Engagement per listing, and how your price compares to the lowest active price for the same card elsewhere on the platform.
             </p>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div ref={statsTopRef} className="overflow-x-auto scroll-mt-24">
+              {/* whitespace-nowrap: the table scrolls sideways on a phone anyway, so cells stay on
+                  one line - "In Stock" used to break into "In / Stock". */}
+              <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead>
                   <tr className="border-b" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
                     <th className="py-2.5 px-3">Card</th>
@@ -1823,9 +1827,7 @@ export function SellerDashboardApp() {
                       </td>
                     </tr>
                   ) : (
-                    activeListings
-                      .slice()
-                      .sort((a, b) => (b.views || 0) - (a.views || 0))
+                    statsPage.pageItems
                       .map((item) => {
                         const views = item.views || 0;
                         const clicks = item.clicks || 0;
@@ -1920,6 +1922,7 @@ export function SellerDashboardApp() {
                 </tbody>
               </table>
             </div>
+            <Pagination state={statsPage} noun="listings" scrollTargetRef={statsTopRef} />
           </div>
         </div>
       )}
