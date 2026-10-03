@@ -5,6 +5,7 @@ import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 import { getListingDescription } from '../../lib/sellerNotes';
 import { PriceHistoryChart } from './PriceHistoryChart';
+import { StatBox } from '../StatBox';
 import { cartQuantityFor } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 
@@ -124,15 +125,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   { label: 'Listings', value: String(group.listing_count) },
                   { label: 'Copies', value: String(group.total_quantity) },
                 ].map(stat => (
-                  <div key={stat.label} className="rounded-xl px-3 py-2 border text-left" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-left" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
-                    <div
-                      className={`text-sm sm:text-base font-black leading-tight text-left whitespace-nowrap ${stat.accent ? 'text-[var(--positive)]' : ''}`}
-                      style={stat.accent ? undefined : { color: 'var(--text-primary)' }}
-                    >
-                      {stat.value}
-                    </div>
-                  </div>
+                  <StatBox key={stat.label} label={stat.label} value={stat.value} valueClassName={stat.accent ? 'text-[var(--positive)]' : undefined} />
                 ))}
               </div>
             </div>

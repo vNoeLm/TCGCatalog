@@ -1,19 +1,25 @@
 import { supabaseAdmin } from './supabaseServer';
 
 /**
- * Finds the persistent conversation between a buyer and seller, creating it if this
- * is their first-ever interaction. Every subsequent hold request between the same
- * two people reuses the same conversation instead of starting a new thread.
+ * Finds the persistent conversation between two people, creating it if this is their first-ever
+ * interaction. Every later hold request between them reuses it - whichever of them is buying.
+ * It used to be looked up as (buyer, seller) only, so once two people swapped roles a second
+ * thread opened for the same pair (see the 20261003 migration, which merged those).
  */
+async function findConversation(a: string, b: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('conversations')
+    .select('id')
+    .or(`and(buyer_id.eq.${a},seller_id.eq.${b}),and(buyer_id.eq.${b},seller_id.eq.${a})`)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  return data?.[0]?.id || null;
+}
+
 export async function getOrCreateConversation(buyerId: string, sellerId: string): Promise<string | null> {
   try {
-    const { data: existing } = await supabaseAdmin
-      .from('conversations')
-      .select('id')
-      .eq('buyer_id', buyerId)
-      .eq('seller_id', sellerId)
-      .maybeSingle();
-    if (existing?.id) return existing.id;
+    const existing = await findConversation(buyerId, sellerId);
+    if (existing) return existing;
 
     const { data: created, error } = await supabaseAdmin
       .from('conversations')
@@ -23,13 +29,7 @@ export async function getOrCreateConversation(buyerId: string, sellerId: string)
 
     if (error) {
       // Another request may have created it in the gap above — fetch instead of failing.
-      const { data: raceWinner } = await supabaseAdmin
-        .from('conversations')
-        .select('id')
-        .eq('buyer_id', buyerId)
-        .eq('seller_id', sellerId)
-        .maybeSingle();
-      return raceWinner?.id || null;
+      return findConversation(buyerId, sellerId);
     }
     return created?.id || null;
   } catch (e) {

@@ -82,7 +82,9 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     return {
       conversation_id: r.id,
       counterpart_id: counterpartId || '',
-      counterpart_name: isSeller ? (latestHold?.buyer_name || 'Buyer') : (profileNames.get(r.seller_id) || 'Seller'),
+      // From the other person's profile either way: one conversation now covers both directions
+      // of buying between two people, so "the buyer" isn't always the other person.
+      counterpart_name: profileNames.get(counterpartId) || (isSeller ? latestHold?.buyer_name : null) || 'User',
       card_name: cardLabel,
       image_path: latestHold?.image_path || null,
       is_seller: isSeller,
