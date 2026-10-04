@@ -31,7 +31,7 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
 }
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-const CACHE_VERSION = 'v27';
+const CACHE_VERSION = 'v28';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -117,9 +117,20 @@ export async function fetchCardsCatalog(
     if (cached) return cached;
   }
 
+  // Parse any s:<set> or set:<set> syntax (e.g. "s:rad", "s:radiance", "set:ogn")
+  const rawSearch = searchQuery.trim();
+  let querySetFilter: string | null = null;
+  let textSearch = rawSearch;
+  const setSyntaxMatch = rawSearch.match(/\b(?:s|set):([a-zA-Z0-9_\-]+)\b/i);
+  if (setSyntaxMatch) {
+    querySetFilter = setSyntaxMatch[1].trim();
+    textSearch = rawSearch.replace(setSyntaxMatch[0], '').replace(/\s+/g, ' ').trim();
+  }
+
   // `*` rather than a column list so newer columns (effect, might_bonus) come through as soon as
   // they exist without the query breaking on databases that haven't added them yet.
-  const selectFields = filters.set
+  const needsInnerSet = Boolean(filters.set || querySetFilter);
+  const selectFields = needsInnerSet
     ? `*, sets!inner ( id, name, code )`
     : `*, sets ( id, name, code )`;
 
@@ -127,12 +138,23 @@ export async function fetchCardsCatalog(
     .from('cards')
     .select(selectFields);
 
-  if (searchQuery.trim() !== '') {
-    const clauses = [`name.ilike.%${searchQuery}%`, `card_number.ilike.%${searchQuery}%`, `artist.ilike.%${searchQuery}%`];
+  if (textSearch !== '') {
+    // Quoted, so commas, dots and brackets in the search ("Azir, Ascendant", "Akali (Promo)") stay
+    // part of the value - unquoted, the or() filter read them as separators and found nothing.
+    const like = `"%${textSearch.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`;
+    const clauses = [`name.ilike.${like}`, `card_number.ilike.${like}`, `artist.ilike.${like}`];
     // Typing a known keyword ("deflect", "xp") also finds cards with that keyword in their text.
-    const searchedKeyword = findSearchableKeyword(searchQuery);
+    const searchedKeyword = findSearchableKeyword(textSearch);
     if (searchedKeyword) clauses.push(...keywordOrClauses(searchedKeyword));
     query = query.or(clauses.join(','));
+  }
+
+  if (querySetFilter) {
+    if (querySetFilter.length <= 4) {
+      query = query.ilike('sets.code', `%${querySetFilter}%`);
+    } else {
+      query = query.ilike('sets.name', `%${querySetFilter}%`);
+    }
   }
 
   // Game filter (defaults to riftbound if not specified or if 'riftbound')

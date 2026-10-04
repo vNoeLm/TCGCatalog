@@ -51,6 +51,7 @@ const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 // Zone-aware type options (only show types valid for each zone)
 const ZONE_TYPE_OPTIONS: Record<string, string[]> = {
   legend:      ['Legend'],
+  extraLegends: ['Legend'],
   legends:     ['Legend'],
   champion:    ['Unit'],
   mainDeck:    ['Unit', 'Spell', 'Gear'],
@@ -352,6 +353,8 @@ export function DeckCatalog({
       } else {
         switch (activeZone) {
           case 'legend':       if (card.card_type !== 'Legend') return false; break;
+          // Neeko's extra legends: any legend, whatever its domain (see the domain check below).
+          case 'extraLegends': if (card.card_type !== 'Legend') return false; break;
           case 'champion':     
             if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
             if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
@@ -367,7 +370,7 @@ export function DeckCatalog({
       }
 
       // 2. Domain restriction from selected Legend (Riftbound only)
-      if (!isCyberpunk && allowedDomains && activeZone !== 'legend') {
+      if (!isCyberpunk && allowedDomains && activeZone !== 'legend' && activeZone !== 'extraLegends') {
         const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
         const isColorless = cardDomains.length === 0 || cardDomains.includes('colorless');
         const matches = cardDomains.some(d => allowedDomains.includes(d));
@@ -930,7 +933,7 @@ export function DeckCatalog({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
-            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : (!legendCard ? "Search Legends…" : "Search cards…")}
+            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : ((!legendCard || activeZone === 'extraLegends') ? "Search Legends…" : "Search cards…")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{

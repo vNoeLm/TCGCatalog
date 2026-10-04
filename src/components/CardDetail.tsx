@@ -21,6 +21,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
 import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
+import { isNeutralCard } from '../lib/riftboundRules';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
@@ -391,6 +392,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const card = data.cards;
   const domainValue = card.domain || 'Colorless';
   const parsedDomains = parseDomains(card.domain);
+  // Neutral cards (Neeko, Blending In) are stored as "Colorless", like battlefields and tokens -
+  // shown as what the game calls them, with the neutral rune.
+  const isNeutral = isNeutralCard(card);
+  const shownDomains = isNeutral ? parsedDomains.map(d => ({ ...d, key: 'neutral', name: 'Neutral' })) : parsedDomains;
   const rarityStyle = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common;
   const isAvailable = data.status === 'In Stock';
 
@@ -697,20 +702,20 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             <div className="flex flex-col gap-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 
-                {card.domain && card.domain !== 'Colorless' && (() => {
+                {((card.domain && card.domain !== 'Colorless') || isNeutral) && (() => {
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                        {card.game === 'cyberpunk' ? ('Color') : (parsedDomains.length > 1 ? "Domains" : "Domain")}
+                        {card.game === 'cyberpunk' ? ('Color') : (shownDomains.length > 1 ? "Domains" : "Domain")}
                       </div>
                       <div className="flex items-center gap-2 text-base font-black flex-wrap">
-                        {parsedDomains.map((d, idx) => {
+                        {shownDomains.map((d, idx) => {
                           const icon = RUNE_ICONS[d.key];
                           return (
                             <span key={d.key} className="inline-flex items-center gap-1.5" style={{ color: d.border }}>
                               {icon && <img src={icon} alt={d.name} className="w-5 h-5 object-contain" />}
                               {d.name}
-                              {idx < parsedDomains.length - 1 && <span className="font-normal" style={{ color: 'var(--text-muted)' }}>/</span>}
+                              {idx < shownDomains.length - 1 && <span className="font-normal" style={{ color: 'var(--text-muted)' }}>/</span>}
                             </span>
                           );
                         })}
@@ -870,7 +875,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
                     >
                       <div className="text-xs font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
-                        {isMulti ? `${parsedDomains.map(d => d.name).join(' / ')} ${"Energy"}` : `${parsedDomains[0]?.name || ''} ${"Energy"}`}
+                        {isMulti ? `${shownDomains.map(d => d.name).join(' / ')} ${"Energy"}` : `${shownDomains[0]?.name || ''} ${"Energy"}`}
                       </div>
                       <div className="text-3xl sm:text-4xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {card.energy}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { CatalogCard } from '../../types';
-import { isCardRamSufficient, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
+import { isCardRamSufficient, deckExtraLegendsRequired, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
+import { extraLegendsRequired, legendNameKey } from '../../lib/riftboundRules';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { CYBERPUNK_COLOR_THEMES } from '../../lib/domainColors';
 
@@ -52,6 +53,12 @@ export function DeckList({
   };
 
   const mainCards = getCardCounts(deck.mainDeck);
+
+  // Extra legends (Neeko, Blending In): how many the deck needs, which card asks, and what's chosen.
+  const extraLegendsNeeded = isCyberpunk ? 0 : deckExtraLegendsRequired(deck, cards);
+  const extraLegendsSource = [championCard, ...mainCards.map(m => m.card)].find(c => c && extraLegendsRequired(c) > 0) || null;
+  const extraLegendCards = (deck.extraLegends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
+  const extraLegendNameClash = Boolean(legendCard && extraLegendCards.some(c => legendNameKey(c.name) === legendNameKey(legendCard.name)));
   const runeCards = getCardCounts(deck.runeDeck);
   const bfCards = getCardCounts(deck.battlefields);
   const sbCards = getCardCounts(deck.sideboard);
@@ -460,6 +467,35 @@ export function DeckList({
             <div style={{ marginBottom: 12, fontSize: 11, color: '#fbbf24', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '4px 8px', borderRadius: 6, alignSelf: 'flex-start' }}>
               Allowed Domains: <strong>{legendCard.domain}</strong>
             </div>
+          )}
+        </>
+      )}
+
+      {/* Extra legends - only while a card in the deck asks for them (Neeko, Blending In), or
+          when some were chosen and that card has since left the deck. */}
+      {(extraLegendsNeeded > 0 || extraLegendCards.length > 0) && (
+        <>
+          <ZoneHeader title={"Extra Legends"} count={extraLegendCards.length} max={extraLegendsNeeded || extraLegendCards.length} exact={extraLegendsNeeded > 0} zoneKey="extraLegends" />
+          {!collapsedZones.has('extraLegends') && (
+            <>
+              {extraLegendCards.map(c => <RiftboundCardRow key={c.id} card={c} zone="extraLegends" />)}
+              <div
+                style={{
+                  marginBottom: 12, fontSize: 11, lineHeight: 1.45, padding: '6px 8px', borderRadius: 6,
+                  ...(extraLegendsNeeded === 0 || extraLegendNameClash
+                    ? { color: 'var(--negative)', background: 'var(--negative-muted)', border: '1px solid var(--negative-border)' }
+                    : { color: 'var(--text-secondary)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }),
+                }}
+              >
+                {extraLegendsNeeded === 0
+                  ? "No card in the deck asks for extra legends any more - these don't count. Remove them, or add the card back."
+                  : extraLegendNameClash
+                    ? 'An extra legend has the same name as your starting legend. They must all have different names.'
+                    : extraLegendCards.length < extraLegendsNeeded
+                      ? `${extraLegendsSource?.name || 'A card in your deck'}: choose ${extraLegendsNeeded - extraLegendCards.length} more legend${extraLegendsNeeded - extraLegendCards.length === 1 ? '' : 's'} besides your starting legend, all with different names. Select this zone and pick from the catalog.`
+                      : `Chosen for ${extraLegendsSource?.name || 'a card in your deck'}.`}
+              </div>
+            </>
           )}
         </>
       )}

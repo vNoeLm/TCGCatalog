@@ -1,3 +1,4 @@
+import { extraLegendsRequired, legendNameKey } from '../../lib/riftboundRules';
 import { useState, useEffect } from 'react';
 import type { CatalogCard } from '../../types';
 import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
@@ -7,6 +8,9 @@ export interface DeckState {
   legend: string | null;
   champion: string | null;
   legends?: string[]; // Exactly 3 for Cyberpunk
+  /** Riftbound: legends chosen besides the starting legend, for a card like Neeko, Blending In
+   * ("choose 3 different legends in addition to your starting legend"). See deckExtraLegendsRequired. */
+  extraLegends?: string[];
   mainDeck: Record<string, number>;
   runeDeck: Record<string, number>;
   battlefields: Record<string, number>;
@@ -57,10 +61,20 @@ export function isCardRamSufficient(card: CatalogCard, ramLimits: CyberpunkRamLi
   };
 }
 
+/**
+ * How many extra legends this deck has to choose: the most any card in the main deck or the
+ * champion slot asks for (Neeko, Blending In: 3). 0 when nothing in the deck asks.
+ */
+export function deckExtraLegendsRequired(deck: DeckState, allCards: CatalogCard[]): number {
+  const ids = [deck.champion, ...Object.keys(deck.mainDeck || {})].filter(Boolean) as string[];
+  return ids.reduce((most, id) => Math.max(most, extraLegendsRequired(allCards.find(c => c.id === id))), 0);
+}
+
 const INITIAL_DECK: DeckState = {
   legend: null,
   champion: null,
   legends: [],
+  extraLegends: [],
   mainDeck: {},
   runeDeck: {},
   battlefields: {},
@@ -86,6 +100,7 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
           ...parsed,
           game: activeGame,
           legends: Array.isArray(parsed.legends) ? parsed.legends : [],
+          extraLegends: Array.isArray(parsed.extraLegends) ? parsed.extraLegends : [],
         });
       } catch (e) {
         console.error('Failed to parse saved deck', e);
@@ -127,6 +142,27 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
           ...prev,
           legends: [...currentLegends, card.id],
         };
+      }
+
+      // Riftbound extra legends (Neeko, Blending In): legends only, as many as the deck asks for,
+      // and "different" - no name may match another chosen legend or the starting legend.
+      if (activeGame === 'riftbound' && zone === 'extraLegends') {
+        if (card.card_type !== 'Legend') return prev;
+        const current = prev.extraLegends || [];
+        if (current.includes(card.id)) return prev;
+        const allowed = deckExtraLegendsRequired(prev, allCards) || 3;
+        if (current.length >= allowed) {
+          alert(`You choose ${allowed} extra legends. Remove one first.`);
+          return prev;
+        }
+        const takenNames = [prev.legend, ...current]
+          .map(id => legendNameKey(allCards.find(c => c.id === id)?.name))
+          .filter(Boolean);
+        if (takenNames.includes(legendNameKey(card.name))) {
+          alert(`"${card.name}" is already one of your legends. The extra legends must all have different names, including from your starting legend.`);
+          return prev;
+        }
+        return { ...prev, extraLegends: [...current, card.id] };
       }
 
       // Riftbound Legend / Champion
@@ -190,6 +226,10 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
         };
       }
 
+      if (zone === 'extraLegends') {
+        return { ...prev, extraLegends: (prev.extraLegends || []).filter(id => id !== cardId) };
+      }
+
       if (zone === 'legend' || zone === 'champion') {
         return { ...prev, [zone]: null };
       }
@@ -219,6 +259,9 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
           ...prev,
           legends: prev.legends.filter(id => id !== cardId),
         };
+      }
+      if (prev.extraLegends && prev.extraLegends.includes(cardId)) {
+        return { ...prev, extraLegends: prev.extraLegends.filter(id => id !== cardId) };
       }
       if (prev.legend === cardId) return { ...prev, legend: null };
       if (prev.champion === cardId) return { ...prev, champion: null };
@@ -253,6 +296,7 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
       ...newDeck,
       game: newDeck.game || activeGame,
       legends: Array.isArray(newDeck.legends) ? newDeck.legends : [],
+      extraLegends: Array.isArray(newDeck.extraLegends) ? newDeck.extraLegends : [],
     });
   };
 

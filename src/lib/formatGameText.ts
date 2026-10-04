@@ -25,6 +25,9 @@ export const KEYWORD_COLORS: Record<string, string> = {
   vanguard:   'linear-gradient(135deg,#6366f1,#4f46e5)',
   intercept:  'linear-gradient(135deg,#6366f1,#4f46e5)',
   stun:       'linear-gradient(135deg,#fbbf24,#d97706)',
+  disarm:     'linear-gradient(135deg,#e11d48,#be123c)',
+  deploy:     'linear-gradient(135deg,#0284c7,#0369a1)',
+  'show off': 'linear-gradient(135deg,#d97706,#b45309)',
 };
 
 export const KEYWORD_FALLBACK_COLOR = 'linear-gradient(135deg,#ec4899,#db2777)';
@@ -35,6 +38,7 @@ export const KEYWORD_LIST = [
   'Ganking', 'Backline', 'Tank', 'Stun', 'Hidden', 'Legion', 'Mighty',
   'Quick-Draw', 'Unique', 'Vision', 'Weaponmaster', 'Equip', 'Equipment',
   'Temporary', 'Buff', 'Spellshield', 'Lifesteal', 'Vanguard', 'Intercept', 'Retaliate',
+  'Disarm', 'Deploy', 'Show Off',
 ];
 
 /** First solid color stop from a KEYWORD_COLORS gradient string, for chips/bars that can't use a CSS gradient. */

@@ -5,9 +5,9 @@
  */
 export const SEARCHABLE_KEYWORDS = [
   'Accelerate', 'Action', 'Ambush', 'Assault', 'Backline', 'Buff', 'Burn', 'Deathknell',
-  'Deflect', 'Empower', 'Equip', 'Flow', 'Ganking', 'Hidden', 'Hunt', 'Legion', 'Level',
-  'Mighty', 'Predict', 'Quick-Draw', 'Reaction', 'Repeat', 'Shield', 'Stun', 'Tank',
-  'Temporary', 'Unique', 'Vision', 'Weaponmaster', 'XP',
+  'Deflect', 'Deploy', 'Disarm', 'Empower', 'Equip', 'Flow', 'Ganking', 'Hidden', 'Hunt', 'Legion',
+  'Level', 'Mighty', 'Predict', 'Quick-Draw', 'Reaction', 'Repeat', 'Shield', 'Show Off', 'Stun',
+  'Tank', 'Temporary', 'Unique', 'Vision', 'Weaponmaster', 'XP',
 ] as const;
 
 export function findSearchableKeyword(query: string): string | null {

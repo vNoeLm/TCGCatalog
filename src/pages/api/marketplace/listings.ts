@@ -112,7 +112,10 @@ export const GET: APIRoute = async ({ url }) => {
       invQuery = invQuery.eq('cards.game', game);
     }
     if (search) {
-      invQuery = invQuery.or(`name.ilike.%${search}%,card_number.ilike.%${search}%,artist.ilike.%${search}%`, { foreignTable: 'cards' });
+      // Quoted, so a comma or bracket in the search ("Azir, Ascendant") is part of the value
+      // rather than a separator in the or() filter (which made such searches find nothing).
+      const like = `"%${search.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`;
+      invQuery = invQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
     }
     if (set) {
       invQuery = invQuery.eq('cards.sets.name', set);
