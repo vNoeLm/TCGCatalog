@@ -226,14 +226,60 @@ export interface SellerReview {
   created_at: string;
 }
 
+/** A rating one side of a completed trade gave the other (see lib/reviewCategories.ts). */
+export interface TradeReview {
+  id: string;
+  order_number: string;
+  reviewer_id: string;
+  reviewee_id: string;
+  direction: 'buyer_to_seller' | 'seller_to_buyer';
+  /** Average of the category scores, 1.0 - 5.0. */
+  rating: number;
+  /** Per-category stars; null on reviews from before categories. */
+  scores: Record<string, number> | null;
+  comment: string | null;
+  reviewer_name: string | null;
+  reviewer_avatar: string | null;
+  created_at: string;
+}
+
+/** How someone has been rated in one role. */
+export interface Reputation {
+  avg: number | null;
+  count: number;
+  categories: Record<string, { avg: number; count: number }>;
+}
+
+export interface TradeStats {
+  salesCount: number;
+  itemsSold: number;
+  purchasesCount: number;
+  itemsBought: number;
+}
+
+export interface UserReputation {
+  reviews: TradeReview[];
+  as_seller: Reputation;
+  as_buyer: Reputation;
+  stats: TradeStats;
+}
+
 export interface SellerProfileSummary {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
   role: UserRole;
+  /** Rating as a seller. */
   rating_avg: number | null;
   rating_count: number;
+  rating_categories?: Reputation['categories'];
   sales_count?: number;
+  items_sold?: number;
+  /** Rating as a buyer, and what they've bought. */
+  buyer_rating_avg?: number | null;
+  buyer_rating_count?: number;
+  purchases_count?: number;
+  items_bought?: number;
   is_owner?: boolean;
   created_at?: string | null;
 }

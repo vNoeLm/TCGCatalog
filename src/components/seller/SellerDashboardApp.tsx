@@ -11,10 +11,12 @@ import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
-import { getAllReviews } from '../../lib/reviews';
+import { fetchReputation, fetchReviewsWrittenBy } from '../../lib/reviews';
+import { BuyerTrustLine, ReviewCard, Stars } from '../reviews/ReviewParts';
+import { RateTradeModal } from '../reviews/RateTradeModal';
 import { adjustLocalCollection } from '../../lib/collectionClient';
 import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
-import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
+import type { UserProfile, Order, TradeReview, QuickSaleRule } from '../../types';
 import { StatBox } from '../StatBox';
 import { Pagination, usePagination } from '../Pagination';
 
@@ -66,7 +68,10 @@ export function SellerDashboardApp() {
   // Seller Sales & Rating State
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
+  const [sellerReviews, setSellerReviews] = useState<TradeReview[]>([]);
+  // Ratings I've given buyers, by order, and the sale being rated right now.
+  const [buyerRatingsByOrder, setBuyerRatingsByOrder] = useState<Record<string, TradeReview>>({});
+  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'quicksale'>('listings');
 
   // Quick List Rules State
@@ -203,14 +208,11 @@ export function SellerDashboardApp() {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
     try {
-      const revs = await getAllReviews();
-      const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com';
-      const mine = revs.filter(r => {
-        if (r.seller_id === targetUid) return true;
-        if (isOwner && (!r.seller_id || r.seller_id === 'platform-owner')) return true;
-        return false;
-      });
-      setSellerReviews(mine);
+      const [rep, written] = await Promise.all([fetchReputation(targetUid, true), fetchReviewsWrittenBy(targetUid)]);
+      setSellerReviews(rep.reviews.filter(r => r.direction === 'buyer_to_seller'));
+      const byOrder: Record<string, TradeReview> = {};
+      written.filter(r => r.direction === 'seller_to_buyer').forEach(r => { byOrder[r.order_number] = r; });
+      setBuyerRatingsByOrder(byOrder);
     } catch (e) {
       console.warn('Failed to load seller reviews:', e);
     }
@@ -1765,6 +1767,7 @@ export function SellerDashboardApp() {
                             req.buyer_name
                           )}
                         </div>
+                        <BuyerTrustLine buyerId={req.buyer_id} />
                         <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-2 flex-wrap">
                           <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -2019,8 +2022,31 @@ export function SellerDashboardApp() {
 
                     {ord.customer_info && (
                       <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                        Buyer: {ord.customer_info.name || ord.customer_info.email || 'Customer'}
+                        Buyer: {ord.user_id ? (
+                          <a href={`/user?id=${ord.user_id}`} className="font-semibold hover:underline">{ord.customer_info.name || 'Customer'}</a>
+                        ) : (ord.customer_info.name || ord.customer_info.email || 'Customer')}
                       </div>
+                    )}
+
+                    {ord.status === 'Delivered' && ord.user_id && ord.user_id !== profile?.id && (
+                      buyerRatingsByOrder[ord.order_number] ? (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          <Stars value={buyerRatingsByOrder[ord.order_number].rating} size={11} />
+                          <span>You rated this buyer {buyerRatingsByOrder[ord.order_number].rating.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRatingOrder(ord)}
+                          className="mt-2 h-7 px-2.5 rounded-lg text-[11px] font-bold border cursor-pointer inline-flex items-center gap-1"
+                          style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                          Rate buyer
+                        </button>
+                      )
                     )}
                   </div>
 
@@ -2053,55 +2079,28 @@ export function SellerDashboardApp() {
                 No reviews received yet
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
-                After orders are delivered, buyers can leave 1-5 star ratings and feedback for your seller profile.
+                Once a buyer confirms they received their cards, they can rate you on communication, packaging, speed and how accurate the listing was.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {sellerReviews.map((rev) => (
-                <div
-                  key={rev.id}
-                  className="p-4 rounded-2xl border flex flex-col gap-2"
-                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-0.5 text-amber-400">
-                        {Array.from({ length: rev.rating }).map((_, i) => (
-                          <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                          </svg>
-                        ))}
-                      </div>
-                      {rev.buyer_id ? (
-                        <a
-                          href={`/user?id=${rev.buyer_id}`}
-                          className="text-xs font-bold hover:underline"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {rev.buyer_name || 'Verified Buyer'}
-                        </a>
-                      ) : (
-                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                          {rev.buyer_name || 'Verified Buyer'}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                      {new Date(rev.created_at).toLocaleDateString('en-US')}
-                    </span>
-                  </div>
-                  {rev.comment && (
-                    <p className="text-xs leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>
-                      "{rev.comment}"
-                    </p>
-                  )}
-                </div>
-              ))}
+              {sellerReviews.map((rev) => <ReviewCard key={rev.id} review={rev} />)}
             </div>
           )}
         </div>
       )}
+
+      <RateTradeModal
+        open={Boolean(ratingOrder)}
+        onClose={() => setRatingOrder(null)}
+        orderNumber={ratingOrder?.order_number || ''}
+        direction="seller_to_buyer"
+        counterpartName={ratingOrder?.customer_info?.name}
+        onDone={(review) => {
+          setBuyerRatingsByOrder(prev => ({ ...prev, [review.order_number]: review }));
+          showToast('Buyer rated - thanks!');
+        }}
+      />
 
       {/* Quick Edit Modal */}
       {editingListingAnim.rendered && editingListingRef.current && (

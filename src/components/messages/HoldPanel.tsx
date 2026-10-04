@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { allowedHoldActions, sellerCanCompleteFrom, OPEN_HOLD_STATUSES, type HoldAction, type HoldRole } from '../../lib/holdFlow';
+import { BuyerTrustLine } from '../reviews/ReviewParts';
 
 interface OpenHold {
   id: string;
@@ -118,6 +119,7 @@ export function HoldPanel({ conversationId, myId, refreshKey, onChanged }: {
               <div className="text-[11px] leading-snug" style={{ color: 'var(--text-secondary)' }}>
                 {stepText(h, role, actions)}
               </div>
+              {role === 'seller' && <BuyerTrustLine buyerId={h.buyer_id} className="mt-0.5" />}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {actions.map((a) => (
