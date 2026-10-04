@@ -26,7 +26,21 @@ export interface BinderPocket {
    *  art foil) so a collector can flip through every version of one card without it
    *  shifting anything else's position. Empty unless variants are turned on. */
   stacked: BinderVariant[];
+  gap?: false;
 }
+
+/** A pocket kept free for a card number the set has but the catalog doesn't (yet) - an
+ *  unrevealed card - so every card after it still sits in its own numbered pocket. */
+export interface BinderGap {
+  key: string;
+  gap: true;
+  /** The missing card number as printed, e.g. "RAD-006". */
+  label: string;
+}
+
+export type BinderSlot = BinderPocket | BinderGap;
+
+export const isBinderGap = (slot: BinderSlot): slot is BinderGap => slot.gap === true;
 
 /** The card number stripped of an alt-art suffix letter, e.g. "VEN-069a/166" ->
  * "VEN-069/166", so an alt-art print can be matched back to its base card's binder slot.
@@ -38,14 +52,23 @@ function baseNumberKey(card: CatalogCard): string {
   return `${card.set_id || card.set_name || ''}::${stripped}`;
 }
 
+/** A set's main-sequence number - "OGN-005/298" -> 5, "RAD-157" -> 157, "012" -> 12 - with its
+ *  prefix. Runes, tokens and specials ("R01", "RAD-T02", "VEN-SP3/006") aren't in the sequence. */
+const MAIN_NUMBER = /^(?:([A-Z]+)-)?(\d+)[a-zA-Z*]?(?:\/\d+)?$/i;
+function mainNumber(card: CatalogCard): { prefix: string; n: number; width: number } | null {
+  const m = (card.card_number || '').trim().match(MAIN_NUMBER);
+  return m ? { prefix: (m[1] || '').toUpperCase(), n: parseInt(m[2], 10), width: m[2].length } : null;
+}
+
 /**
- * Lays a card list out into binder pockets in physical-binder order (by card number).
+ * Lays a card list out into binder pockets in physical-binder order (by card number), with an
+ * empty pocket wherever a number is missing (see BinderGap).
  * With `includeVariants` off, only base prints appear, one per pocket. With it on, each
  * card's alt-art print and foil finish fold into the base card's own pocket instead of
  * getting their own slot - a real binder position never moves depending on which prints
  * you own, so variants only ever stack, never push later cards along.
  */
-export function buildBinderPockets(cards: CatalogCard[], opts: { includeVariants: boolean }): BinderPocket[] {
+export function buildBinderPockets(cards: CatalogCard[], opts: { includeVariants: boolean }): BinderSlot[] {
   const sorted = [...cards].sort((a, b) =>
     (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true })
   );
@@ -80,11 +103,46 @@ export function buildBinderPockets(cards: CatalogCard[], opts: { includeVariants
     pockets.push({ key: card.id, primary: { card, isFoil: false }, stacked });
   };
 
-  bases.forEach(card => addCard(card, altArtsByBase.get(baseNumberKey(card)) || []));
-  // No matching base in view (e.g. filtered down to alt arts only) - still needs its own pocket.
-  orphanAltArts.forEach(card => addCard(card, []));
+  // Numbered cards first, each in the pocket for its number; runes, tokens and specials after.
+  // A print with no base in view (Origins' Fury Rune only exists as "OGN-007a") still takes
+  // its own number's pocket.
+  const numbered = [...bases, ...orphanAltArts].filter(c => mainNumber(c) !== null);
+  const unnumbered = bases.filter(c => mainNumber(c) === null);
+  numbered.sort((a, b) => mainNumber(a)!.n - mainNumber(b)!.n);
 
-  return pockets;
+  const slots: BinderSlot[] = [];
+  const nums = numbered.map(c => mainNumber(c)!);
+  const prefixes = new Set(nums.map(x => x.prefix));
+  const highest = nums.length ? nums[nums.length - 1].n : 0;
+  // Gaps only for a set numbered as one run that's mostly there (Radiance mid-reveal). A starter
+  // deck or promo set is a handful of numbers picked from a bigger run - leaving pockets for the
+  // rest would be pages of nothing.
+  const leaveGaps = prefixes.size === 1 && new Set(nums.map(x => x.n)).size >= highest / 2;
+  const width = Math.max(3, ...nums.map(x => x.width));
+  let expected = 1;
+  numbered.forEach(card => {
+    const { prefix, n } = mainNumber(card)!;
+    if (leaveGaps) {
+      for (; expected < n; expected++) {
+        const label = `${prefix ? `${prefix}-` : ''}${String(expected).padStart(width, '0')}`;
+        slots.push({ key: `gap:${label}`, gap: true, label });
+      }
+      expected = Math.max(expected, n + 1);
+    }
+    addCard(card, isAltArt(card) ? [] : altArtsByBase.get(baseNumberKey(card)) || []);
+    slots.push(pockets[pockets.length - 1]);
+  });
+  unnumbered.forEach(card => {
+    addCard(card, altArtsByBase.get(baseNumberKey(card)) || []);
+    slots.push(pockets[pockets.length - 1]);
+  });
+  // No matching base in view (e.g. filtered down to alt arts only) - still needs its own pocket.
+  orphanAltArts.filter(c => mainNumber(c) === null).forEach(card => {
+    addCard(card, []);
+    slots.push(pockets[pockets.length - 1]);
+  });
+
+  return slots;
 }
 
 export function paginate<T>(items: T[], pageSize: number): T[][] {
