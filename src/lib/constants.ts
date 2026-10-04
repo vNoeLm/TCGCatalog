@@ -20,9 +20,13 @@ export const SEALED_PRODUCT_TYPES = [
 // ─── Riftbound Constants ──────────────────────────────────────────
 export const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 export const TYPES = ['Unit', 'Champion', 'Spell', 'Signature Spell', 'Gear', 'Battlefield', 'Legend', 'Rune', 'Token'];
-export const SETS = ['Origins', 'Spiritforged', 'Unleashed', 'Vendetta', 'Proving Grounds', 'Promo'];
+// Main sets in release order, oldest first (Origins Oct 2025, Spiritforged Feb 2026, Unleashed May
+// 2026, Vendetta Jul 2026, Radiance Oct 2026), then the extras. Set pickers sort by this - see sortSetNames.
+export const SETS = ['Origins', 'Spiritforged', 'Unleashed', 'Vendetta', 'Radiance', 'Proving Grounds', 'Promo'];
+/** Not main sets: starter products and promos, listed after every main set. */
+const EXTRA_SET_NAMES = ['Proving Grounds', 'Promo'];
 export const DOMAINS = ['Fury', 'Calm', 'Mind', 'Body', 'Chaos', 'Order', 'Colorless'];
-export const TAGS = ["Ahri","Akali","Akshan","Ambessa","Anivia","Annie","Aphelios","Ashe","Azir","Bandle City","Bard","Bilgewater","Bird","Blitzcrank","Caitlyn","Cat","Darius","Demacia","Demon","Diana","Dog","Dr. Mundo","Dragon","Draven","Ekko","Elite","Equipment","Evelynn","Ezreal","Fae","Fiora","Fizz","Freljord","Galio","Gangplank","Garen","Heimerdinger","Hwei","Icathia","Illaoi","Ionia","Irelia","Ivern","Ixtal","Janna","Jax","Jayce","Jhin","Jinx","Kai'Sa","Karma","Karthus","Katarina","Kathkan","Kayle","Kayn","Kennen","Kha'Zix","Kog'Maw","LeBlanc","Lee Sin","Leona","Lillia","Lucian","Lux","Malzahar","Master Yi","Mech","Mel","Miss Fortune","Morgana","Mount Targon","Nami","Nasus","Nidalee","Nilah","Nocturne","Noxus","Ornn","Piltover","Pirate","Poppy","Poro","Pyke","Qiyana","Recruit","Rek'Sai","Rell","Renata Glasc","Renekton","Rengar","Riven","Rumble","Sentinel","Sett","Shadow Isles","Shen","Shurima","Sivir","Sona","Soraka","Spider","Spirit","Swain","Syndra","Taric","Teemo","The Void","Trifarian","Tryndamere","Twisted Fate","Udyr","Vayne","Vex","Vi","Viktor","Volibear","Warwick","Xerath","Xin Zhao","Yasuo","Yone","Yordle","Yuumi","Zaun","Zed","Zilean"];
+export const TAGS = ["Ahri","Akali","Akshan","Ambessa","Anivia","Annie","Aphelios","Ashe","Azir","Bandle City","Bard","Bilgewater","Bird","Blitzcrank","Bomb","Caitlyn","Cat","Darius","Demacia","Demon","Diana","Dog","Dr. Mundo","Dragon","Draven","Ekko","Elite","Equipment","Evelynn","Ezreal","Fae","Fiora","Fizz","Freljord","Galio","Gangplank","Garen","Graves","Heimerdinger","Hwei","Icathia","Illaoi","Ionia","Irelia","Ivern","Ixtal","Janna","Jarvan IV","Jax","Jayce","Jhin","Jinx","K'Sante","Kai'Sa","Karma","Karthus","Katarina","Kathkan","Kayle","Kayn","Kennen","Kha'Zix","Kog'Maw","LeBlanc","Lee Sin","Leona","Lillia","Lucian","Lulu","Lux","Malzahar","Master Yi","Mech","Mel","Miss Fortune","Mordekaiser","Morgana","Mount Targon","Nami","Nasus","Neeko","Nidalee","Nilah","Nocturne","Noxus","Orianna","Ornn","Piltover","Pirate","Poppy","Poro","Pyke","Qiyana","Recruit","Rek'Sai","Rell","Renata Glasc","Renekton","Rengar","Riven","Rumble","Sentinel","Seraphine","Sett","Shadow Isles","Shen","Shurima","Sivir","Sona","Soraka","Spider","Spirit","Swain","Syndra","Taric","Teemo","The Void","Trifarian","Tryndamere","Twisted Fate","Udyr","Vayne","Vex","Vi","Viktor","Volibear","Warwick","Xerath","Xin Zhao","Yasuo","Yone","Yordle","Yuumi","Zaun","Zed","Ziggs","Zilean"];
 
 // ─── Cyberpunk Constants ──────────────────────────────────────────
 export const CYBERPUNK_COLORS = ['Red', 'Blue', 'Green', 'Yellow'];
@@ -41,6 +45,25 @@ export const CYBERPUNK_SETS = [
   'The Heist — Retail Starter Deck',
   'Set 1 Promos',
 ];
+
+const isExtraSet = (name: string) =>
+  EXTRA_SET_NAMES.includes(name) || /promo|starter deck|proving grounds/i.test(name);
+
+/**
+ * Set names for a picker: main sets oldest to newest, then extras (starter products, promos).
+ * A set not in the lists above yet - a new release - goes after the known main sets, before the
+ * extras. Every set picker (catalog, marketplace, deck builder, binder) uses this, so none of them
+ * shows sets in whatever order the cards happened to come back in.
+ */
+export function sortSetNames(names: string[]): string[] {
+  const known = [...SETS, ...CYBERPUNK_SETS];
+  const rank = (name: string) => {
+    const i = known.indexOf(name);
+    if (isExtraSet(name)) return 2000 + (i >= 0 ? i : 999);
+    return i >= 0 ? i : 1000;
+  };
+  return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
 export const CYBERPUNK_TAGS = [
   '6th Street', 'AI', 'Aldecado', 'Animal', 'Arasaka', 'Braindance',
   'Corpo', 'Cyberware', 'Doll', 'Drone', 'Extreme', 'Fixer', 'Ganger',

@@ -28,6 +28,8 @@ import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
 import { CardValuePanel } from './CardValuePanel';
+import { WishlistControls } from './wishlists/WishlistControls';
+import { hasFoilVariant } from '../lib/cardVariants';
 import { saveLocalCollection } from '../lib/collectionClient';
 
 const fmt = (n: number) =>
@@ -1135,6 +1137,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 )}
               </div>
             </div>
+          )}
+
+          {/* Wishlists (catalog view): how many copies each of your lists wants */}
+          {!isInventory && (
+            <WishlistControls
+              cardId={card.id}
+              game={card.game || 'riftbound'}
+              hasFoil={hasFoilVariant(card)}
+              signedIn={Boolean(profile)}
+              onRequireSignIn={() => setShowAuthModal(true)}
+            />
           )}
 
           {/* Condition + notes (Inventory only) */}

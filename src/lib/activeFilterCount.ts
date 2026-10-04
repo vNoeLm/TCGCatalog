@@ -4,6 +4,7 @@ import type { FilterState } from '../types';
 export function countActiveFilters(filters: FilterState): number {
   let count = 0;
   if (filters.set) count++;
+  if (filters.wishlistId) count++;
   if (filters.rarities && filters.rarities.length > 0) count += filters.rarities.length;
   if (filters.type) count++;
   if (filters.domains && filters.domains.length > 0) count += filters.domains.length;

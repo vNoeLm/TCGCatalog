@@ -9,9 +9,10 @@ import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { gridSizeClasses } from "../lib/gridSize";
+import { useWishlists, wishlistCardIds } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, sortSetNames } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
 import { useUrlOverlay } from "../lib/useUrlOverlay";
@@ -103,16 +104,19 @@ export function CardListApp() {
       if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
         initialGame = savedGame;
       }
+      // "Show in catalog" on a wishlist links here with ?wishlist=<id>.
+      const wishlistFromLink = new URLSearchParams(window.location.search).get('wishlist') || undefined;
       const savedFilters = sessionStorage.getItem(`catalogFilters_${initialGame}`) || sessionStorage.getItem('catalogFilters');
       if (savedFilters) {
         try {
           const parsed = JSON.parse(savedFilters);
           // Only restore filters if they belong to the same active game
           if (!parsed.game || parsed.game === initialGame) {
-            return { ...DEFAULT_FILTERS, ...parsed, game: initialGame };
+            return { ...DEFAULT_FILTERS, ...parsed, game: initialGame, ...(wishlistFromLink ? { wishlistId: wishlistFromLink } : {}) };
           }
         } catch (e) {}
       }
+      return { ...DEFAULT_FILTERS, game: initialGame, wishlistId: wishlistFromLink };
     }
     return { ...DEFAULT_FILTERS, game: initialGame };
   });
@@ -695,10 +699,18 @@ export function CardListApp() {
   const baseSetFilter = filters.baseSetFilter || 'all';
 
   const cardValues = useCardValueData();
+  const { lists: allWishlists } = useWishlists();
+  const wishlists = useMemo(() => allWishlists.filter(w => w.game === (filters.game || 'riftbound')), [allWishlists, filters.game]);
 
   const relevantCards = useMemo(() => {
     let filtered = cards;
     if (showFoilOnly) filtered = filtered.filter(hasFoilVariant);
+    // A list that's gone (deleted, or signed out) just stops filtering.
+    const wishlist = filters.wishlistId ? wishlists.find(w => w.id === filters.wishlistId) : undefined;
+    if (wishlist) {
+      const ids = wishlistCardIds(wishlist.items);
+      filtered = filtered.filter(c => ids.has(c.id));
+    }
     
     if (baseSetFilter === 'only') {
       filtered = filtered.filter(isBaseSetCard);
@@ -786,7 +798,7 @@ export function CardListApp() {
     });
     
     return filtered;
-  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode, collection, cardValues]);
+  }, [cards, showFoilOnly, signedFilter, altArtFilter, overnumberedFilter, spFilter, baseSetFilter, sortMode, collection, cardValues, filters.wishlistId, wishlists]);
   
   const relevantTotal = relevantCards.length;
   const uniqueOwnedKeys = Object.keys(collection).filter(k => (collection[k] || 0) > 0);
@@ -1487,7 +1499,7 @@ export function CardListApp() {
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
-    return Array.from(setNames);
+    return sortSetNames(Array.from(setNames));
   }, [cards, isCyberpunk]);
 
   return (
@@ -1788,12 +1800,15 @@ export function CardListApp() {
                 {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
                     same card data, so they live here as catalog actions rather than their own nav
                     item - plus Scan (camera devices only), the same accent color. */}
-                <div className={`grid ${canScan ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 md:contents`}>
+                <div className={`grid ${canScan ? 'grid-cols-2' : 'grid-cols-3'} gap-1.5 md:contents`}>
                   <a href="/decks" title="Browse saved decks" className={`md:order-2 md:flex-1 xl:flex-none ${viewBtnClass}`}>
                     Decks
                   </a>
                   <a href="/binder" title="Open Binder Map" className={`md:order-3 md:flex-1 xl:flex-none ${viewBtnClass}`}>
                     Binder
+                  </a>
+                  <a href="/wishlists" title="Your wishlists" className={`md:order-3 md:flex-1 xl:flex-none ${viewBtnClass}`}>
+                    Wishlists
                   </a>
                   {canScan && (
                     <button onClick={() => setShowScanner(true)} title="Scan cards with your camera" className={`md:order-4 md:flex-1 xl:flex-none gap-1.5 ${viewBtnClass}`}>
@@ -1888,6 +1903,7 @@ export function CardListApp() {
           setFilters={setFilters}
           options={{
             sets: availableSets,
+            wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
             rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
             types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
             domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,

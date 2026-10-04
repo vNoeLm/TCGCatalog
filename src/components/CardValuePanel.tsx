@@ -38,9 +38,22 @@ export function CardValuePanel({ card }: CardValuePanelProps) {
     })
     .filter((row) => row.estimate.valueHuf !== null);
 
-  if (rows.length === 0) return null;
-
   const muted = { color: 'var(--text-tertiary)' } as const;
+
+  // No market price and nobody selling it here - typically a set that isn't out yet. Say so, rather
+  // than dropping the panel (and with it the graph tab) without a word.
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl p-4 sm:p-5 mb-4 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+        <div className="text-sm font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Value</div>
+        <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>No price yet</p>
+        <p className="text-xs leading-relaxed mt-1" style={muted}>
+          This card has no market price and nobody is selling it here. New cards get a price once they start selling - usually
+          around their set's release - and the price graph starts from then.
+        </p>
+      </div>
+    );
+  }
   const strong = { color: 'var(--text-primary)' } as const;
 
   return (
