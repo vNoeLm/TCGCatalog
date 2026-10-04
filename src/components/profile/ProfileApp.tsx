@@ -5,6 +5,7 @@ import { getCurrentProfile, updateProfile, signOut, fetchUserOrders, onSignedInU
 import { cancelOrder } from '../../lib/orders';
 import { fetchReviewsWrittenBy } from '../../lib/reviews';
 import { RateTradeModal } from '../reviews/RateTradeModal';
+import { BuyerHolds } from './BuyerHolds';
 import { Stars } from '../reviews/ReviewParts';
 import type { UserProfile, Order, TradeReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
@@ -718,6 +719,9 @@ export function ProfileApp() {
 
       {/* My Decks Section */}
       {renderMyDecksSection()}
+
+      {/* Open holds as a buyer - the buyer's side of Seller Hub's Holds tab */}
+      {profile && <BuyerHolds userId={profile.id} />}
 
       {/* Orders Section */}
       <div className="mb-8">
