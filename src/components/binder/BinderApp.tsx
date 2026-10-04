@@ -12,6 +12,7 @@ import {
   pocketOwned,
   variantOwned,
   BINDER_GRID_OPTIONS,
+  isBinderGap,
   type BinderGridSize,
   type BinderPocket,
 } from '../../lib/binderLayout';
@@ -256,9 +257,9 @@ export function BinderApp() {
   const searchActive = search.trim() !== '';
   const searchMatches = useMemo(() => {
     if (!searchActive) return [];
-    return pockets
-      .map((pocket, idx) => ({ pocket, idx }))
-      .filter(({ pocket }) => pocketMatchesSearch(pocket, search));
+    return pockets.flatMap((pocket, idx) =>
+      !isBinderGap(pocket) && pocketMatchesSearch(pocket, search) ? [{ pocket, idx }] : []
+    );
   }, [pockets, search, searchActive]);
 
   // Jump to the first match's page once typing settles, so results don't jerk the page
@@ -391,7 +392,17 @@ export function BinderApp() {
             className="rounded-2xl border p-3 sm:p-4 grid gap-2.5"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
-            {currentPage.map((pocket, i) => (
+            {currentPage.map((pocket, i) => isBinderGap(pocket) ? (
+              <div
+                key={pocket.key}
+                className="rounded-lg border border-dashed flex flex-col items-center justify-center gap-1 text-center px-1"
+                style={{ borderColor: 'var(--border-subtle)', aspectRatio: '2.5 / 3.5', color: 'var(--text-muted)' }}
+                title={`${pocket.label} isn't in the catalog yet - its pocket is kept free`}
+              >
+                <span className="text-[11px] font-bold">{pocket.label}</span>
+                {!searchActive && <span className="text-[10px]">Not revealed yet</span>}
+              </div>
+            ) : (
               <BinderPocketTile
                 key={pocket.key}
                 pocket={pocket}
