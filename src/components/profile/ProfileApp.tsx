@@ -648,9 +648,9 @@ export function ProfileApp() {
                 <span 
                   className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
                   style={{
-                    background: 'var(--accent-muted)',
-                    borderColor: 'var(--accent-border)',
-                    color: 'var(--text-accent)'
+                    background: 'var(--tag-gold-bg)',
+                    borderColor: 'var(--tag-gold-border)',
+                    color: 'var(--tag-gold)'
                   }}
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -932,7 +932,7 @@ export function ProfileApp() {
                                   ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
                                   : order.payment_method === 'barion'
                                   ? 'bg-emerald-500/10 text-[var(--positive)] border-emerald-500/30'
-                                  : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                                  : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] border-[var(--border)]'
                               }`}
                             >
                               {order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'barion' ? 'Barion' : "Cash / Direct Transfer"}

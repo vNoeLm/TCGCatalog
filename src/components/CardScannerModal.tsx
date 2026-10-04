@@ -468,7 +468,7 @@ export function CardScannerModal({ isOpen, onClose, cards, game, onChangeCount }
         )}
 
         {status === 'starting' && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-zinc-300">
+          <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white/80">
             Starting camera…
           </div>
         )}

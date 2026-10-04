@@ -138,7 +138,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           {/* pr-14 always, not just at the width the panels go side-by-side: the close button is
               absolutely positioned over the whole modal, so this row needs room clear of it in
               every layout - it used to collide with "N shown" below 1550px. */}
-          <div className="flex items-center gap-2 flex-wrap px-4 sm:px-6 pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-2 flex-wrap pl-4 sm:pl-6 pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ListingSort)}

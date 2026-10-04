@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { allowedHoldActions, sellerCanCompleteFrom, OPEN_HOLD_STATUSES, BUYER_CONFIRM_DAYS, type HoldAction } from '../../lib/holdFlow';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
@@ -475,10 +476,12 @@ export function SellerDashboardApp() {
   };
 
   // Hold Request Management Actions
-  const handleHoldAction = async (requestId: string, action: 'hold' | 'confirm_sale' | 'release' | 'reject') => {
+  const handleHoldAction = async (requestId: string, action: HoldAction) => {
     const confirmPrompt =
       action === 'confirm_sale'
-        ? ('Confirm this sale? The card will be marked as Sold and your verified sales count will increase.')
+        ? (`The buyer didn't confirm within ${BUYER_CONFIRM_DAYS} days of handover. Complete the sale now?`)
+        : action === 'mark_handed_over'
+        ? ('Mark as handed over / sent? The buyer then confirms they received it, which completes the sale.')
         : action === 'hold'
         ? ('Approve holding this card for the buyer?')
         : action === 'release'
@@ -505,7 +508,9 @@ export function SellerDashboardApp() {
       if (res.ok && json.success) {
         showToast(
           action === 'confirm_sale'
-            ? ('Sale successfully confirmed and recorded!')
+            ? ('Sale completed and recorded.')
+            : action === 'mark_handed_over'
+            ? ('Marked as handed over - waiting for the buyer to confirm.')
             : action === 'hold'
             ? ('Card marked as on hold.')
             : action === 'release'
@@ -562,7 +567,7 @@ export function SellerDashboardApp() {
   // Only holds still awaiting action belong on the Holds tab — once a request is
   // completed the card is sold and the record lives in Sales History instead.
   const activeHoldRequests = useMemo(() => {
-    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held');
+    return holdRequests.filter(h => OPEN_HOLD_STATUSES.includes(h.status));
   }, [holdRequests]);
   const pendingHoldCount = activeHoldRequests.length;
   // Total units/cards sold across all completed orders (purely informational stat).
@@ -664,7 +669,7 @@ export function SellerDashboardApp() {
 
   const avgOrderValueHuf = completedSalesCount > 0 ? Math.round(totalRevenueHuf / completedSalesCount) : 0;
   const pendingOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'pending').length, [holdRequests]);
-  const heldOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'held').length, [holdRequests]);
+  const heldOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'held' || h.status === 'handed_over').length, [holdRequests]);
 
   const averageRating = useMemo<number | null>(() => {
     if (sellerReviews.length === 0) return null;
@@ -1535,7 +1540,9 @@ export function SellerDashboardApp() {
                   ? cartItems!.reduce((sum: number, it: any) => sum + (it.price_huf || 0) * (it.quantity || 1), 0)
                   : req.price_huf;
                 const isHeld = req.status === 'held';
+                const isHandedOver = req.status === 'handed_over';
                 const isPending = req.status === 'pending';
+                const sellerActions = allowedHoldActions(req.status, 'seller', req.updated_at || req.created_at);
                 const isConfirmed = req.status === 'confirmed' || req.status === 'completed';
                 const isCancelled = req.status === 'cancelled' || req.status === 'rejected';
 
@@ -1555,7 +1562,7 @@ export function SellerDashboardApp() {
                   <div
                     key={req.id}
                     className={`p-5 rounded-2xl border transition-all ${
-                      isHeld
+                      isHeld || isHandedOver
                         ? 'border-amber-500/40 bg-amber-950/10'
                         : isPending
                         ? 'border-indigo-500/30 bg-indigo-950/10'
@@ -1598,6 +1605,14 @@ export function SellerDashboardApp() {
                                   <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
                                 </svg>
                                 <span>ON HOLD</span>
+                              </span>
+                            )}
+                            {isHandedOver && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-500/15 text-sky-300 border border-sky-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+                                </svg>
+                                <span>HANDED OVER</span>
                               </span>
                             )}
                             {isConfirmed && (
@@ -1679,26 +1694,46 @@ export function SellerDashboardApp() {
                           </>
                         )}
 
-                        {isHeld && (
+                        {(isHeld || isHandedOver) && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleHoldAction(req.id, 'confirm_sale')}
-                              disabled={processingHoldId === req.id}
-                              className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                              <span>Confirm Sale</span>
-                            </button>
+                            {sellerActions.includes('mark_handed_over') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'mark_handed_over')}
+                                disabled={processingHoldId === req.id}
+                                className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+                                </svg>
+                                <span>Mark handed over</span>
+                              </button>
+                            )}
+                            {isHandedOver && !sellerActions.includes('confirm_sale') && (
+                              <span className="text-[11px] font-semibold px-3 py-2 rounded-xl border" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', background: 'var(--bg-raised)' }}>
+                                Waiting for the buyer to confirm - you can complete it from {sellerCanCompleteFrom(req.updated_at || req.created_at).toLocaleDateString()}
+                              </span>
+                            )}
+                            {sellerActions.includes('confirm_sale') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'confirm_sale')}
+                                disabled={processingHoldId === req.id}
+                                className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>Complete sale</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleHoldAction(req.id, 'release')}
                               disabled={processingHoldId === req.id}
                               className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/30 disabled:opacity-50"
                             >
-                              <span>Release Hold</span>
+                              <span>{isHandedOver ? 'Cancel sale' : 'Release Hold'}</span>
                             </button>
                           </>
                         )}
