@@ -25,6 +25,8 @@ import { isNeutralCard } from '../lib/riftboundRules';
 import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
+import { CardImageViewer } from './CardImageViewer';
+import { useUrlOverlay } from '../lib/useUrlOverlay';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -42,6 +44,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  // The image on its own, full screen, where it can be rotated (?view=full, so Back closes it).
+  const [fullView, openFullView, closeFullView] = useUrlOverlay('view');
   const [isInventory, setIsInventory] = useState(false);
   const [collection, setCollection] = useState<Record<string, number>>({});
   const cart = useCart();
@@ -513,7 +517,27 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 style={{ filter: card.game === 'cyberpunk' ? 'drop-shadow(0 4px 16px rgba(0,0,0,0.6))' : `drop-shadow(0 4px 16px rgba(0,0,0,0.5))` }}
                 className="relative z-10 w-full rounded-lg overflow-hidden"
               >
-                <img src={activeUrl} alt={card.name} className="w-full h-auto block rounded-lg" />
+                <button
+                  type="button"
+                  onClick={() => openFullView('full')}
+                  className="group block w-full cursor-zoom-in"
+                  aria-label={`View ${card.name} full screen`}
+                  title="Full view"
+                >
+                  <img src={activeUrl} alt={card.name} className="w-full h-auto block rounded-lg" />
+                  <span
+                    className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition"
+                    style={{ background: 'rgba(15,23,42,0.8)', color: '#f8fafc', border: '1px solid rgba(255,255,255,0.18)' }}
+                    aria-hidden="true"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 3 21 3 21 9" />
+                      <polyline points="9 21 3 21 3 15" />
+                      <line x1="21" y1="3" x2="14" y2="10" />
+                      <line x1="3" y1="21" x2="10" y2="14" />
+                    </svg>
+                  </span>
+                </button>
               </div>
             ) : (
               <div className="relative z-10 text-center text-zinc-400 py-10">
@@ -528,6 +552,16 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: card.game === 'cyberpunk' ? 'var(--border)' : `${rarityStyle.text}44`, zIndex: 2 }} />
             ))}
           </div>
+
+          {activeUrl && (
+            <CardImageViewer
+              src={activeUrl}
+              alt={card.name}
+              open={fullView === 'full'}
+              onClose={closeFullView}
+              landscapeCard={(card.card_type || '').toLowerCase() === 'battlefield'}
+            />
+          )}
 
           {/* Thumbnail strip */}
           {allThumbs.length > 0 && (
