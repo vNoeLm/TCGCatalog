@@ -190,23 +190,25 @@ html[data-theme="light"] {
   --border-subtle:    rgba(24, 24, 27, 0.07);
   --border-hover:     rgba(24, 24, 27, 0.24);
 
-  /* Text: near-black ink scale */
-  --text-primary:     #18181b;
-  --text-secondary:   #3f3f46;
-  --text-tertiary:    #71717a;
-  --text-muted:       #a1a1aa;
-  --text-placeholder: #d4d4d8;
-  --text-accent:      #b45309;
-  --text-on-accent:   #1c1207;
+  /* Text: black ink throughout - grey on ivory is hard to read. Hierarchy comes from size and
+     weight instead. Only placeholders stay lighter, so an empty field doesn't look filled in. */
+  --text-primary:     #0a0a0a;
+  --text-secondary:   #121212;
+  --text-tertiary:    #1a1a1a;
+  --text-muted:       #262626;
+  --text-placeholder: #8c8577;
+  /* Accent text is ink too: the accent colour is carried by fills and borders, never by small text. */
+  --text-accent:      #0a0a0a;
+  --text-on-accent:   #0a0a0a;
 
-  /* Accent: antique / gold-leaf amber, deeper than the dark themes' for contrast on white */
-  --accent:           #b45309;
-  --accent-light:     #d97706;
+  /* Accent: rose pink - amber/gold read as brown on the ivory background */
+  --accent:           #e11d48;
+  --accent-light:     #fb7185;
   /* Brighter than --accent on purpose: --accent/--text-accent has to stay dark enough to read as
      small text on white, which makes it look muddy as a big solid button fill. A filled button's
      text is the dark --text-on-accent instead, so the fill itself is free to be this much brighter
-     - the same amber the dark themes already use for their own solid buttons. */
-  --accent-strong:    #f59e0b;
+     - a brighter rose than --accent, with dark text on it. */
+  --accent-strong:    #fb7185;
   --positive:         #047857;
   --positive-muted:   rgba(4, 120, 87, 0.10);
   --positive-border:  rgba(4, 120, 87, 0.35);
@@ -214,12 +216,13 @@ html[data-theme="light"] {
   --negative:         #b91c1c;
   --negative-muted:   rgba(185, 28, 28, 0.10);
   --negative-border:  rgba(185, 28, 28, 0.35);
-  --accent-muted:     rgba(180, 83, 9, 0.10);
-  --accent-border:    rgba(180, 83, 9, 0.35);
-  --accent-glow:      rgba(180, 83, 9, 0.16);
+  /* Selected / active: a soft rose wash with a rose edge. */
+  --accent-muted:     rgba(244, 63, 94, 0.13);
+  --accent-border:    rgba(225, 29, 72, 0.45);
+  --accent-glow:      rgba(244, 63, 94, 0.2);
 
   /* Brand Logo Gradient */
-  --brand-gradient:   linear-gradient(90deg, #92400e, #d97706, #f59e0b);
+  --brand-gradient:   linear-gradient(90deg, #9f1239, #e11d48, #fb7185);
 
   /* Scrollbar */
   --scrollbar-thumb:  rgba(24, 24, 27, 0.18);
@@ -246,7 +249,78 @@ html[data-theme="light"] {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Site Owner / Admin tags: the same gold in every theme, not the theme's accent (which is blue
+     in Dark and cyan in Cyberpunk). Only darkened on the light theme so it stays readable. */
+  --tag-gold:         #fbbf24;
+  --tag-gold-bg:      rgba(245, 158, 11, 0.16);
+  --tag-gold-border:  rgba(245, 158, 11, 0.5);
 }
+html[data-theme="light"] {
+  --tag-gold:         #78350f;
+  --tag-gold-bg:      rgba(234, 179, 8, 0.24);
+  --tag-gold-border:  rgba(161, 98, 7, 0.55);
+}
+
+/* Destructive / reset buttons: the theme's red, in every theme. */
+.tv-btn-danger {
+  color: var(--negative);
+  background: var(--negative-muted);
+  border: 1px solid var(--negative-border);
+}
+
+/* ─────────────────────────────────────────────
+   LIGHT THEME SAFETY NET
+   Plenty of components still hard-code colours picked for a dark background: pastel status text
+   (amber-300, rose-400...), grey text (zinc-400), and the odd dark panel or input (bg-zinc-900).
+   On the ivory theme those read as washed-out pastel or grey-on-beige. These map them to dark
+   ink of the same hue, and the dark surfaces to the light theme's own. Elements that sit on a
+   genuinely dark background of their own (a bg-black label over card art, a -950 toast) keep
+   their light text.
+───────────────────────────────────────────── */
+html[data-theme="light"] .text-red-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-red-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-red-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #991b1b; }
+html[data-theme="light"] .text-red-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #b91c1c; }
+html[data-theme="light"] .text-rose-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-rose-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-rose-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #9f1239; }
+html[data-theme="light"] .text-rose-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #be123c; }
+html[data-theme="light"] .text-amber-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #92400e; }
+html[data-theme="light"] .text-amber-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #b45309; }
+html[data-theme="light"] .text-yellow-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #854d0e; }
+html[data-theme="light"] .text-yellow-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #a16207; }
+html[data-theme="light"] .text-orange-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #9a3412; }
+html[data-theme="light"] .text-orange-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #c2410c; }
+html[data-theme="light"] .text-emerald-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-emerald-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-emerald-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #065f46; }
+html[data-theme="light"] .text-emerald-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #047857; }
+html[data-theme="light"] .text-green-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-green-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-green-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #166534; }
+html[data-theme="light"] .text-green-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #15803d; }
+html[data-theme="light"] .text-sky-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-sky-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-sky-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-sky-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-sky-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-sky-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #075985; }
+html[data-theme="light"] .text-sky-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-sky-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #0369a1; }
+html[data-theme="light"] .text-blue-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-blue-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-blue-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-blue-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-blue-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-blue-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #1e40af; }
+html[data-theme="light"] .text-blue-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-blue-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #1d4ed8; }
+html[data-theme="light"] .text-indigo-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-indigo-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-indigo-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-indigo-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-indigo-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-indigo-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #3730a3; }
+html[data-theme="light"] .text-indigo-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-indigo-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #4338ca; }
+html[data-theme="light"] .text-purple-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-purple-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-purple-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-purple-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-purple-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-purple-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #6b21a8; }
+html[data-theme="light"] .text-purple-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-purple-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #7e22ce; }
+html[data-theme="light"] .text-violet-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-violet-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-violet-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-violet-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-violet-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-violet-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #5b21b6; }
+html[data-theme="light"] .text-violet-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-violet-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #6d28d9; }
+html[data-theme="light"] .text-pink-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-pink-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-pink-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-pink-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-pink-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-pink-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #9d174d; }
+html[data-theme="light"] .text-pink-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-pink-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #be185d; }
+html[data-theme="light"] .text-cyan-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-cyan-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-cyan-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-cyan-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-cyan-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-cyan-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #155e75; }
+html[data-theme="light"] .text-cyan-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-cyan-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #0e7490; }
+html[data-theme="light"] .text-teal-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-teal-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-teal-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-teal-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-teal-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-teal-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #115e59; }
+html[data-theme="light"] .text-teal-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-teal-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #0f766e; }
+html[data-theme="light"] .text-lime-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-lime-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-lime-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-lime-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-lime-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-lime-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #3f6212; }
+html[data-theme="light"] .text-lime-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-lime-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #4d7c0f; }
+html[data-theme="light"] .text-fuchsia-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-fuchsia-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-fuchsia-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-fuchsia-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-fuchsia-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-fuchsia-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #86198f; }
+html[data-theme="light"] .text-fuchsia-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-fuchsia-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #a21caf; }
+html[data-theme="light"] .text-zinc-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-zinc-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-zinc-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-zinc-500:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-zinc-600:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-500:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-600:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-gray-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-gray-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-gray-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-gray-500:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-gray-600:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-neutral-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-neutral-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-neutral-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-neutral-500:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-neutral-600:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-stone-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-stone-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-stone-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-stone-500:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-stone-600:not([class*="bg-black"]):not([class*="-950/9"]) { color: var(--text-secondary); }
+html[data-theme="light"] .text-zinc-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-slate-100:not([class*="bg-black"]):not([class*="-950/9"]) { color: var(--text-primary); }
+html[data-theme="light"] .hover\:text-zinc-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-zinc-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-zinc-300:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-slate-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-slate-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-slate-300:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] [class*="text-zinc-"].hover\:text-white:hover { color: var(--text-primary); }
+html[data-theme="light"] :is(.bg-zinc-800, .bg-zinc-900, .bg-slate-800, .bg-slate-900) { background-color: var(--bg-surface-2); }
+html[data-theme="light"] :is(.bg-zinc-950, .bg-slate-950) { background-color: var(--bg-input); }
+html[data-theme="light"] :is(.bg-zinc-800\/60, .bg-zinc-950\/60) { background-color: var(--bg-surface-2); }
+html[data-theme="light"] :is(.hover\:bg-zinc-700:hover, .hover\:bg-zinc-900\/50:hover) { background-color: var(--bg-raised); }
+html[data-theme="light"] :is(.border-zinc-700, .border-zinc-800, .border-slate-700, .border-slate-800) { border-color: var(--border); }
+html[data-theme="light"] .placeholder\:text-zinc-500::placeholder { color: var(--text-placeholder); }
 
 /* ─────────────────────────────────────────────
    HOVER FEEDBACK
@@ -263,6 +337,9 @@ html[data-theme="light"] {
      `cursor-pointer` themselves. */
   .cursor-pointer:hover, a[href]:hover {
     filter: brightness(1.08);
+  }
+  html[data-theme="light"] .cursor-pointer:hover, html[data-theme="light"] a[href]:hover {
+    filter: brightness(0.94);
   }
 }
 /* Not gated behind prefers-reduced-motion: a brightness/lighting change isn't movement, and that

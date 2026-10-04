@@ -449,9 +449,9 @@ export function SiteOwnerTag({ className = '' }: { className?: string }) {
     <span
       className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 border ${className}`}
       style={{
-        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(234, 179, 8, 0.22) 100%)',
-        borderColor: 'rgba(245, 158, 11, 0.55)',
-        color: 'var(--text-accent)',
+        background: 'var(--tag-gold-bg)',
+        borderColor: 'var(--tag-gold-border)',
+        color: 'var(--tag-gold)',
       }}
       title="Site Owner"
     >

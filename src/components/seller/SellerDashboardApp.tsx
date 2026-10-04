@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { allowedHoldActions, sellerCanCompleteFrom, OPEN_HOLD_STATUSES, BUYER_CONFIRM_DAYS, type HoldAction } from '../../lib/holdFlow';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
@@ -10,10 +11,12 @@ import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
 import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
-import { getAllReviews } from '../../lib/reviews';
+import { fetchReputation, fetchReviewsWrittenBy } from '../../lib/reviews';
+import { BuyerTrustLine, ReviewCard, Stars } from '../reviews/ReviewParts';
+import { RateTradeModal } from '../reviews/RateTradeModal';
 import { adjustLocalCollection } from '../../lib/collectionClient';
 import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
-import type { UserProfile, Order, SellerReview, QuickSaleRule } from '../../types';
+import type { UserProfile, Order, TradeReview, QuickSaleRule } from '../../types';
 import { StatBox } from '../StatBox';
 import { Pagination, usePagination } from '../Pagination';
 
@@ -65,7 +68,10 @@ export function SellerDashboardApp() {
   // Seller Sales & Rating State
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [sellerReviews, setSellerReviews] = useState<SellerReview[]>([]);
+  const [sellerReviews, setSellerReviews] = useState<TradeReview[]>([]);
+  // Ratings I've given buyers, by order, and the sale being rated right now.
+  const [buyerRatingsByOrder, setBuyerRatingsByOrder] = useState<Record<string, TradeReview>>({});
+  const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'quicksale'>('listings');
 
   // Quick List Rules State
@@ -202,14 +208,11 @@ export function SellerDashboardApp() {
     const targetUid = userId || profile?.id;
     if (!targetUid) return;
     try {
-      const revs = await getAllReviews();
-      const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com';
-      const mine = revs.filter(r => {
-        if (r.seller_id === targetUid) return true;
-        if (isOwner && (!r.seller_id || r.seller_id === 'platform-owner')) return true;
-        return false;
-      });
-      setSellerReviews(mine);
+      const [rep, written] = await Promise.all([fetchReputation(targetUid, true), fetchReviewsWrittenBy(targetUid)]);
+      setSellerReviews(rep.reviews.filter(r => r.direction === 'buyer_to_seller'));
+      const byOrder: Record<string, TradeReview> = {};
+      written.filter(r => r.direction === 'seller_to_buyer').forEach(r => { byOrder[r.order_number] = r; });
+      setBuyerRatingsByOrder(byOrder);
     } catch (e) {
       console.warn('Failed to load seller reviews:', e);
     }
@@ -475,10 +478,12 @@ export function SellerDashboardApp() {
   };
 
   // Hold Request Management Actions
-  const handleHoldAction = async (requestId: string, action: 'hold' | 'confirm_sale' | 'release' | 'reject') => {
+  const handleHoldAction = async (requestId: string, action: HoldAction) => {
     const confirmPrompt =
       action === 'confirm_sale'
-        ? ('Confirm this sale? The card will be marked as Sold and your verified sales count will increase.')
+        ? (`The buyer didn't confirm within ${BUYER_CONFIRM_DAYS} days of handover. Complete the sale now?`)
+        : action === 'mark_handed_over'
+        ? ('Mark as handed over / sent? The buyer then confirms they received it, which completes the sale.')
         : action === 'hold'
         ? ('Approve holding this card for the buyer?')
         : action === 'release'
@@ -505,7 +510,9 @@ export function SellerDashboardApp() {
       if (res.ok && json.success) {
         showToast(
           action === 'confirm_sale'
-            ? ('Sale successfully confirmed and recorded!')
+            ? ('Sale completed and recorded.')
+            : action === 'mark_handed_over'
+            ? ('Marked as handed over - waiting for the buyer to confirm.')
             : action === 'hold'
             ? ('Card marked as on hold.')
             : action === 'release'
@@ -562,7 +569,7 @@ export function SellerDashboardApp() {
   // Only holds still awaiting action belong on the Holds tab — once a request is
   // completed the card is sold and the record lives in Sales History instead.
   const activeHoldRequests = useMemo(() => {
-    return holdRequests.filter(h => h.status === 'pending' || h.status === 'held');
+    return holdRequests.filter(h => OPEN_HOLD_STATUSES.includes(h.status));
   }, [holdRequests]);
   const pendingHoldCount = activeHoldRequests.length;
   // Total units/cards sold across all completed orders (purely informational stat).
@@ -664,7 +671,7 @@ export function SellerDashboardApp() {
 
   const avgOrderValueHuf = completedSalesCount > 0 ? Math.round(totalRevenueHuf / completedSalesCount) : 0;
   const pendingOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'pending').length, [holdRequests]);
-  const heldOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'held').length, [holdRequests]);
+  const heldOnlyCount = useMemo(() => holdRequests.filter(h => h.status === 'held' || h.status === 'handed_over').length, [holdRequests]);
 
   const averageRating = useMemo<number | null>(() => {
     if (sellerReviews.length === 0) return null;
@@ -1535,7 +1542,9 @@ export function SellerDashboardApp() {
                   ? cartItems!.reduce((sum: number, it: any) => sum + (it.price_huf || 0) * (it.quantity || 1), 0)
                   : req.price_huf;
                 const isHeld = req.status === 'held';
+                const isHandedOver = req.status === 'handed_over';
                 const isPending = req.status === 'pending';
+                const sellerActions = allowedHoldActions(req.status, 'seller', req.updated_at || req.created_at);
                 const isConfirmed = req.status === 'confirmed' || req.status === 'completed';
                 const isCancelled = req.status === 'cancelled' || req.status === 'rejected';
 
@@ -1555,7 +1564,7 @@ export function SellerDashboardApp() {
                   <div
                     key={req.id}
                     className={`p-5 rounded-2xl border transition-all ${
-                      isHeld
+                      isHeld || isHandedOver
                         ? 'border-amber-500/40 bg-amber-950/10'
                         : isPending
                         ? 'border-indigo-500/30 bg-indigo-950/10'
@@ -1598,6 +1607,14 @@ export function SellerDashboardApp() {
                                   <line x1="12" y1="2" x2="12" y2="22" /><line x1="2" y1="12" x2="22" y2="12" />
                                 </svg>
                                 <span>ON HOLD</span>
+                              </span>
+                            )}
+                            {isHandedOver && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-500/15 text-sky-300 border border-sky-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+                                </svg>
+                                <span>HANDED OVER</span>
                               </span>
                             )}
                             {isConfirmed && (
@@ -1679,26 +1696,46 @@ export function SellerDashboardApp() {
                           </>
                         )}
 
-                        {isHeld && (
+                        {(isHeld || isHandedOver) && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleHoldAction(req.id, 'confirm_sale')}
-                              disabled={processingHoldId === req.id}
-                              className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                              <span>Confirm Sale</span>
-                            </button>
+                            {sellerActions.includes('mark_handed_over') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'mark_handed_over')}
+                                disabled={processingHoldId === req.id}
+                                className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+                                </svg>
+                                <span>Mark handed over</span>
+                              </button>
+                            )}
+                            {isHandedOver && !sellerActions.includes('confirm_sale') && (
+                              <span className="text-[11px] font-semibold px-3 py-2 rounded-xl border" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', background: 'var(--bg-raised)' }}>
+                                Waiting for the buyer to confirm - you can complete it from {sellerCanCompleteFrom(req.updated_at || req.created_at).toLocaleDateString()}
+                              </span>
+                            )}
+                            {sellerActions.includes('confirm_sale') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'confirm_sale')}
+                                disabled={processingHoldId === req.id}
+                                className="px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>Complete sale</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleHoldAction(req.id, 'release')}
                               disabled={processingHoldId === req.id}
                               className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/30 disabled:opacity-50"
                             >
-                              <span>Release Hold</span>
+                              <span>{isHandedOver ? 'Cancel sale' : 'Release Hold'}</span>
                             </button>
                           </>
                         )}
@@ -1730,6 +1767,7 @@ export function SellerDashboardApp() {
                             req.buyer_name
                           )}
                         </div>
+                        <BuyerTrustLine buyerId={req.buyer_id} />
                         <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-2 flex-wrap">
                           <a href={`mailto:${req.buyer_email}`} className="text-indigo-300 hover:underline flex items-center gap-1">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -1984,8 +2022,31 @@ export function SellerDashboardApp() {
 
                     {ord.customer_info && (
                       <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                        Buyer: {ord.customer_info.name || ord.customer_info.email || 'Customer'}
+                        Buyer: {ord.user_id ? (
+                          <a href={`/user?id=${ord.user_id}`} className="font-semibold hover:underline">{ord.customer_info.name || 'Customer'}</a>
+                        ) : (ord.customer_info.name || ord.customer_info.email || 'Customer')}
                       </div>
+                    )}
+
+                    {ord.status === 'Delivered' && ord.user_id && ord.user_id !== profile?.id && (
+                      buyerRatingsByOrder[ord.order_number] ? (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          <Stars value={buyerRatingsByOrder[ord.order_number].rating} size={11} />
+                          <span>You rated this buyer {buyerRatingsByOrder[ord.order_number].rating.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRatingOrder(ord)}
+                          className="mt-2 h-7 px-2.5 rounded-lg text-[11px] font-bold border cursor-pointer inline-flex items-center gap-1"
+                          style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                          Rate buyer
+                        </button>
+                      )
                     )}
                   </div>
 
@@ -2018,55 +2079,28 @@ export function SellerDashboardApp() {
                 No reviews received yet
               </div>
               <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
-                After orders are delivered, buyers can leave 1-5 star ratings and feedback for your seller profile.
+                Once a buyer confirms they received their cards, they can rate you on communication, packaging, speed and how accurate the listing was.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {sellerReviews.map((rev) => (
-                <div
-                  key={rev.id}
-                  className="p-4 rounded-2xl border flex flex-col gap-2"
-                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-0.5 text-amber-400">
-                        {Array.from({ length: rev.rating }).map((_, i) => (
-                          <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                          </svg>
-                        ))}
-                      </div>
-                      {rev.buyer_id ? (
-                        <a
-                          href={`/user?id=${rev.buyer_id}`}
-                          className="text-xs font-bold hover:underline"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {rev.buyer_name || 'Verified Buyer'}
-                        </a>
-                      ) : (
-                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                          {rev.buyer_name || 'Verified Buyer'}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                      {new Date(rev.created_at).toLocaleDateString('en-US')}
-                    </span>
-                  </div>
-                  {rev.comment && (
-                    <p className="text-xs leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>
-                      "{rev.comment}"
-                    </p>
-                  )}
-                </div>
-              ))}
+              {sellerReviews.map((rev) => <ReviewCard key={rev.id} review={rev} />)}
             </div>
           )}
         </div>
       )}
+
+      <RateTradeModal
+        open={Boolean(ratingOrder)}
+        onClose={() => setRatingOrder(null)}
+        orderNumber={ratingOrder?.order_number || ''}
+        direction="seller_to_buyer"
+        counterpartName={ratingOrder?.customer_info?.name}
+        onDone={(review) => {
+          setBuyerRatingsByOrder(prev => ({ ...prev, [review.order_number]: review }));
+          showToast('Buyer rated - thanks!');
+        }}
+      />
 
       {/* Quick Edit Modal */}
       {editingListingAnim.rendered && editingListingRef.current && (

@@ -22,6 +22,19 @@ const JSON_HEADERS = {
 import { OWNER_ID } from '../../../lib/constants';
 
 // ─── GET: Query Marketplace Listings (with Seller Profiles, Ratings & Photos) ───
+/** Ratings buyers gave these sellers, as { seller_id, rating } rows - from the two-way review table,
+ *  or the old seller-only one until its migration has been run. */
+async function sellerRatingRows(sellerIds: string[]): Promise<{ data: { seller_id: string; rating: number }[] }> {
+  const { data, error } = await supabaseAdmin
+    .from('user_reviews')
+    .select('reviewee_id, rating')
+    .eq('direction', 'buyer_to_seller')
+    .in('reviewee_id', sellerIds);
+  if (!error) return { data: (data || []).map((r: any) => ({ seller_id: r.reviewee_id, rating: Number(r.rating) })) };
+  const { data: old } = await supabaseAdmin.from('seller_reviews').select('seller_id, rating').in('seller_id', sellerIds);
+  return { data: (old || []) as { seller_id: string; rating: number }[] };
+}
+
 export const GET: APIRoute = async ({ url }) => {
   try {
     const game = url.searchParams.get('game');
@@ -161,10 +174,7 @@ export const GET: APIRoute = async ({ url }) => {
         .from('profiles')
         .select('id, display_name, avatar_url, role, is_admin')
         .in('id', Array.from(sellerIds)),
-      supabaseAdmin
-        .from('seller_reviews')
-        .select('seller_id, rating')
-        .in('seller_id', Array.from(sellerIds)),
+      sellerRatingRows(Array.from(sellerIds)),
       supabaseAdmin
         .from('settings')
         .select('value')
@@ -177,7 +187,7 @@ export const GET: APIRoute = async ({ url }) => {
     const ratingsMap = new Map<string, { total: number; count: number }>();
     (reviewRows || []).forEach((r: any) => {
       const cur = ratingsMap.get(r.seller_id) || { total: 0, count: 0 };
-      cur.total += r.rating;
+      cur.total += Number(r.rating);
       cur.count += 1;
       ratingsMap.set(r.seller_id, cur);
     });

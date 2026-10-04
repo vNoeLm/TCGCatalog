@@ -250,7 +250,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
         </span>
         <button
           onClick={reset}
-          className="text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-800/40 text-[11px] px-2 py-0.5 rounded font-medium transition cursor-pointer"
+          className="tv-btn-danger text-[11px] px-2 py-0.5 rounded font-medium transition cursor-pointer"
         >
           Reset
         </button>

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getCurrentUser } from './auth';
+import { OPEN_HOLD_STATUSES } from './holdFlow';
 import type { ChatMessage, ConversationSummary } from '../types';
 
 /**
@@ -41,7 +42,7 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
   const openRequestByConv = new Map<string, boolean>();
   (holdRows || []).forEach((r: any) => {
     if (!latestHoldByConv.has(r.conversation_id)) latestHoldByConv.set(r.conversation_id, r);
-    if (r.status === 'pending' || r.status === 'held') {
+    if (OPEN_HOLD_STATUSES.includes(r.status)) {
       openRequestByConv.set(r.conversation_id, true);
     }
   });

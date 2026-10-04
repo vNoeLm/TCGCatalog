@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { getAllReviews } from '../../lib/reviews';
-import type { SellerReview, SellerProfileSummary } from '../../types';
+import React from 'react';
+import type { SellerProfileSummary } from '../../types';
+import { ReputationBreakdown, ReviewCard, useReputation } from '../reviews/ReviewParts';
 import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { useSiteTheme } from '../../lib/theme';
 import { useExitTransition } from '../../lib/useExitTransition';
@@ -14,25 +14,9 @@ interface SellerReviewsModalProps {
 
 export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }: SellerReviewsModalProps) {
   const isLightTheme = useSiteTheme().theme === 'light';
-  const [reviews, setReviews] = useState<SellerReview[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (isOpen && sellerId) {
-      setLoading(true);
-      getAllReviews().then((allRevs) => {
-        // Filter reviews for this specific seller
-        const sellerRevs = allRevs.filter(r => r.seller_id === sellerId);
-        // Sort by newest first
-        sellerRevs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setReviews(sellerRevs);
-        setLoading(false);
-      }).catch(err => {
-        console.warn('Failed to fetch reviews:', err);
-        setLoading(false);
-      });
-    }
-  }, [isOpen, sellerId]);
+  const rep = useReputation(isOpen ? sellerId : null);
+  const loading = isOpen && !rep;
+  const reviews = (rep?.reviews || []).filter(r => r.direction === 'buyer_to_seller');
 
   const { rendered, state } = useExitTransition(isOpen, 250);
   if (!rendered) return null;
@@ -146,6 +130,15 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
           </div>
         </div>
 
+        {rep && rep.as_seller.count > 0 && (
+          <div className="rounded-xl p-3 sm:p-4 border mb-4" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+            <ReputationBreakdown direction="buyer_to_seller" rep={rep.as_seller} emptyText="" />
+            <p className="text-[11px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
+              Sold {rep.stats.itemsSold} card{rep.stats.itemsSold === 1 ? '' : 's'} in {rep.stats.salesCount} sale{rep.stats.salesCount === 1 ? '' : 's'}
+            </p>
+          </div>
+        )}
+
         {/* Reviews List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2">
           {loading ? (
@@ -158,58 +151,7 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
             </div>
           ) : (
             <div className="space-y-3">
-              {reviews.map((review) => (
-                <div 
-                  key={review.id}
-                  className="rounded-xl p-3 sm:p-4 border"
-                  style={{
-                    background: 'var(--bg-surface-2)',
-                    borderColor: 'var(--border)',
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <a
-                      href={review.buyer_id ? `/user?id=${review.buyer_id}` : undefined}
-                      className={`flex items-center gap-2 min-w-0 ${review.buyer_id ? 'hover:opacity-80 transition cursor-pointer' : ''}`}
-                    >
-                      {review.buyer_avatar ? (
-                        <img
-                          src={review.buyer_avatar}
-                          alt={review.buyer_name || 'Reviewer'}
-                          className="w-6 h-6 rounded-full object-cover shrink-0 border"
-                          style={{ borderColor: 'var(--border)' }}
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
-                          {review.buyer_name?.[0]?.toUpperCase() || 'U'}
-                        </div>
-                      )}
-                      <span className="text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--text-secondary)' }}>
-                        {review.buyer_name || 'Verified Buyer'}
-                      </span>
-                    </a>
-                    <div className="flex items-center gap-0.5 text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <span key={i} className="text-[10px] sm:text-xs">
-                          {i < review.rating ? '★' : '☆'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {review.comment && (
-                    <p className="text-xs sm:text-sm italic mb-2" style={{ color: 'var(--text-primary)' }}>
-                      "{review.comment}"
-                    </p>
-                  )}
-                  <div className="text-[10px] text-right" style={{ color: 'var(--text-tertiary)' }}>
-                    {new Date(review.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </div>
-                </div>
-              ))}
+              {reviews.map((review) => <ReviewCard key={review.id} review={review} />)}
             </div>
           )}
         </div>

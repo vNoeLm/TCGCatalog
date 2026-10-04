@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { cardThumbProps } from '../../lib/supabase';
-import { fetchSellerRatingSummary, fetchSellerReviews } from '../../lib/reviews';
+import { fetchSellerRatingSummary, fetchReputation } from '../../lib/reviews';
+import { ReputationBreakdown, ReviewCard, Stars } from '../reviews/ReviewParts';
 import { getSellerTier, getCollectorTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
-import type { SellerProfileSummary, SellerReview } from '../../types';
+import type { SellerProfileSummary, UserReputation } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
   fury: '#ef4444', calm: '#22c55e', mind: '#3b82f6',
@@ -16,7 +17,8 @@ export function PublicProfileApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SellerProfileSummary | null>(null);
   const [listings, setListings] = useState<any[]>([]);
-  const [reviews, setReviews] = useState<SellerReview[]>([]);
+  const [reputation, setReputation] = useState<UserReputation | null>(null);
+  const [reviewTab, setReviewTab] = useState<'buyer_to_seller' | 'seller_to_buyer'>('buyer_to_seller');
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const isLightTheme = useSiteTheme().theme === 'light';
@@ -53,13 +55,15 @@ export function PublicProfileApp() {
         const getJson = (url: string) => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
         const [sum, revs, publicDecks, listingsJson, statsJson] = await Promise.all([
           fetchSellerRatingSummary(id),
-          fetchSellerReviews(id),
+          fetchReputation(id),
           fetchPublicDecksForUser(id),
           getJson(`/api/marketplace/listings?seller_id=${id}`),
           getJson(`/api/profile/collection-stats?user_id=${id}`),
         ]);
         setSummary(sum);
-        setReviews(revs);
+        setReputation(revs);
+        // Open on whichever side they've actually been rated in.
+        if (revs.as_seller.count === 0 && revs.as_buyer.count > 0) setReviewTab('seller_to_buyer');
         setDecks(publicDecks);
         if (listingsJson) setListings((listingsJson.data || []).filter((l: any) => l.status !== 'Sold'));
         if (statsJson?.success) setCollectionStatsByGame(statsJson.data);
@@ -173,19 +177,40 @@ export function PublicProfileApp() {
               >
                 {summary.rating_count > 0 && summary.rating_avg !== null ? (
                   <>
-                    <span className="text-amber-400">★</span>
+                    <Stars value={summary.rating_avg} size={11} />
                     <span style={{ color: 'var(--text-primary)' }}>{summary.rating_avg.toFixed(1)}</span>
-                    <span>({summary.rating_count})</span>
+                    <span>as seller ({summary.rating_count})</span>
                   </>
                 ) : (
-                  'No ratings yet'
+                  'No seller ratings yet'
+                )}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                {summary.buyer_rating_count && summary.buyer_rating_avg != null ? (
+                  <>
+                    <Stars value={summary.buyer_rating_avg} size={11} />
+                    <span style={{ color: 'var(--text-primary)' }}>{summary.buyer_rating_avg.toFixed(1)}</span>
+                    <span>as buyer ({summary.buyer_rating_count})</span>
+                  </>
+                ) : (
+                  'No buyer ratings yet'
                 )}
               </span>
               <span
                 className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-[var(--positive)]"
                 style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
               >
-                {summary.sales_count || 0} sales made
+                Sold {summary.items_sold || 0} card{summary.items_sold === 1 ? '' : 's'} ({summary.sales_count || 0} sale{summary.sales_count === 1 ? '' : 's'})
+              </span>
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                title="Completed purchases from other collectors"
+              >
+                Bought {summary.items_bought || 0} card{summary.items_bought === 1 ? '' : 's'} ({summary.purchases_count || 0} purchase{summary.purchases_count === 1 ? '' : 's'})
               </span>
               <span
                 className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-indigo-300"
@@ -310,72 +335,53 @@ export function PublicProfileApp() {
         </div>
       )}
 
-      {/* Reviews */}
+      {/* Reviews - how sellers rated them as a buyer, and buyers rated them as a seller */}
       <h2 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
-        Reviews ({reviews.length})
+        Reputation
       </h2>
-      {reviews.length === 0 ? (
-        <div
-          className="p-10 text-center rounded-2xl border"
-          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-        >
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-            No reviews yet.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {reviews.map((rev) => (
-            <div
-              key={rev.id}
-              className="rounded-xl p-4 border"
-              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-            >
-              <div className="flex items-center justify-between mb-2 gap-3">
-                <a
-                  href={rev.buyer_id ? `/user?id=${rev.buyer_id}` : undefined}
-                  className={`flex items-center gap-2 min-w-0 ${rev.buyer_id ? 'hover:opacity-80 transition cursor-pointer' : ''}`}
-                >
-                  {rev.buyer_avatar ? (
-                    <img
-                      src={rev.buyer_avatar}
-                      alt={rev.buyer_name || 'Reviewer'}
-                      className="w-6 h-6 rounded-full object-cover shrink-0 border"
-                      style={{ borderColor: 'var(--border)' }}
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">
-                      {rev.buyer_name?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                  )}
-                  <span className="text-xs font-bold truncate" style={{ color: 'var(--text-secondary)' }}>
-                    {rev.buyer_name || 'Verified Buyer'}
-                  </span>
-                </a>
-                <div className="flex items-center gap-0.5 text-amber-400 shrink-0">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-xs">
-                      {i < rev.rating ? '★' : '☆'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {rev.comment && (
-                <p className="text-sm italic mb-1" style={{ color: 'var(--text-primary)' }}>
-                  "{rev.comment}"
-                </p>
-              )}
-              <div className="text-[10px] text-right" style={{ color: 'var(--text-tertiary)' }}>
-                {new Date(rev.created_at).toLocaleDateString(undefined, {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {([
+          ['buyer_to_seller', 'As a seller', reputation?.as_seller, 'No ratings as a seller yet.'],
+          ['seller_to_buyer', 'As a buyer', reputation?.as_buyer, 'No ratings as a buyer yet.'],
+        ] as const).map(([direction, title, rep, empty]) => (
+          <div key={direction} className="rounded-2xl p-4 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>{title}</div>
+            {rep ? <ReputationBreakdown direction={direction} rep={rep} emptyText={empty} /> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-3" role="tablist" aria-label="Reviews">
+        {([
+          ['buyer_to_seller', 'From buyers', reputation?.as_seller.count || 0],
+          ['seller_to_buyer', 'From sellers', reputation?.as_buyer.count || 0],
+        ] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={reviewTab === key}
+            onClick={() => setReviewTab(key)}
+            className="h-8 px-3 rounded-lg text-xs font-bold border cursor-pointer transition"
+            style={reviewTab === key
+              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
+              : { background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+          >
+            {label} ({count})
+          </button>
+        ))}
+      </div>
+      {(() => {
+        const list = (reputation?.reviews || []).filter(r => r.direction === reviewTab);
+        if (list.length === 0) {
+          return (
+            <div className="p-10 text-center rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No reviews yet.</p>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        }
+        return <div className="space-y-3">{list.map(rev => <ReviewCard key={rev.id} review={rev} />)}</div>;
+      })()}
     </div>
   );
 }

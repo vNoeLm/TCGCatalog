@@ -3,6 +3,7 @@ import { getCurrentProfile } from '../../lib/auth';
 import { cardThumbProps } from '../../lib/supabase';
 import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
 import { AuthModal } from '../auth/AuthModal';
+import { HoldPanel } from './HoldPanel';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
 
 /** Vertical padding around the page; also subtracted when sizing the inbox to the viewport. */
@@ -283,6 +284,13 @@ export function MessagesApp() {
               )}
             </div>
 
+            <HoldPanel
+              conversationId={selectedId}
+              myId={profile.id}
+              refreshKey={messages.length}
+              onChanged={() => { loadThread(selectedId); loadConversations(); }}
+            />
+
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
               {loadingThread ? (
                 <div className="text-center text-xs font-semibold py-8" style={{ color: 'var(--text-tertiary)' }}>
@@ -350,7 +358,8 @@ export function MessagesApp() {
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Type a message…"
                 maxLength={1000}
-                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 outline-none focus:border-amber-400 transition"
+                className="flex-1 border rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-amber-400 transition"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
               />
               <button
                 type="submit"

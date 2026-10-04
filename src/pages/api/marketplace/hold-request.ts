@@ -1,9 +1,12 @@
 import type { APIRoute } from 'astro';
+import { allowedHoldActions, sellerCanCompleteFrom, BUYER_CONFIRM_DAYS, type HoldAction, type HoldStatus } from '../../../lib/holdFlow';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getOrCreateConversation, postSystemMessage, postUserMessage } from '../../../lib/conversationsServer';
 import { handoverMethod, handoverLabel, listingHandoverIds, type HandoverMethodId } from '../../../lib/handover';
 
 export const prerender = false;
+
+const BUYER_CONFIRM_DAYS_TEXT = `${BUYER_CONFIRM_DAYS} days`;
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -36,7 +39,7 @@ export interface HoldRequestRecord {
   preferred_handover: HandoverMethodId | 'pickup';
   handover_details?: string;
   message?: string;
-  status: 'pending' | 'held' | 'completed' | 'cancelled' | 'rejected';
+  status: HoldStatus;
   /** The persistent buyer-seller conversation this request's chat belongs to (null for guest checkouts without an account). */
   conversation_id?: string | null;
   card_name?: string;
@@ -610,14 +613,9 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    const { action, rejection_reason } = body;
-    // Actions:
-    // 'hold': Seller accepts hold -> inventory.status = 'On Hold', request.status = 'held'
-    // 'release': Seller releases hold -> inventory.status = 'In Stock', request.status = 'cancelled'
-    // 'reject': Seller rejects -> inventory.status = 'In Stock', request.status = 'rejected'
-    // 'confirm_sale': Seller confirms handover/sale -> inventory.status = 'Sold', request.status = 'completed'
-
-    const isOwner = user.email === 'vnoel05@gmail.com';
+    // Who may do what, and when, is in lib/holdFlow.ts - the buyer completes a sale by
+    // confirming they received the card; the seller only marks it handed over.
+    const action = body.action as HoldAction;
 
     // Fetch existing request
     let currentReq: HoldRequestRecord | null = null;
@@ -641,38 +639,37 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    // Permission check: Must be the authentic seller, or the buyer (for cancel)
     const isSeller = currentReq.seller_id === user.id;
     const isBuyer = currentReq.buyer_id === user.id;
-
-    if (!isSeller && (!isBuyer || action !== 'release')) {
+    if (!isSeller && !isBuyer) {
       return new Response(JSON.stringify({ success: false, error: 'Forbidden.' }), {
         status: 403,
         headers: JSON_HEADERS,
       });
     }
 
-    let newStatus: HoldRequestRecord['status'] = currentReq.status;
-    let newInventoryStatus: 'In Stock' | 'Reserved' | 'Sold' = 'In Stock';
-
-    if (action === 'hold') {
-      newStatus = 'held';
-      newInventoryStatus = 'Reserved';
-    } else if (action === 'release') {
-      newStatus = 'cancelled';
-      newInventoryStatus = 'In Stock';
-    } else if (action === 'reject') {
-      newStatus = 'rejected';
-      newInventoryStatus = 'In Stock';
-    } else if (action === 'confirm_sale') {
-      newStatus = 'completed';
-      newInventoryStatus = 'Sold';
-    } else {
-      return new Response(JSON.stringify({ success: false, error: 'Unknown action.' }), {
-        status: 400,
+    const allowed = allowedHoldActions(currentReq.status, isSeller ? 'seller' : 'buyer', currentReq.updated_at);
+    if (!allowed.includes(action)) {
+      const error = action === 'confirm_sale' && currentReq.status === 'handed_over'
+        ? `The buyer has until ${sellerCanCompleteFrom(currentReq.updated_at).toLocaleDateString('en-GB')} to confirm they received it.`
+        : action === 'release' && currentReq.status === 'handed_over'
+        ? 'This has already been handed over - message the seller if something is wrong.'
+        : `This request is ${currentReq.status.replace('_', ' ')} - that can't be done now.`;
+      return new Response(JSON.stringify({ success: false, error }), {
+        status: 409,
         headers: JSON_HEADERS,
       });
     }
+
+    const completes = action === 'confirm_received' || action === 'confirm_sale';
+    const newStatus: HoldStatus =
+      action === 'hold' ? 'held'
+      : action === 'reject' ? 'rejected'
+      : action === 'release' ? 'cancelled'
+      : action === 'mark_handed_over' ? 'handed_over'
+      : 'completed';
+    let newInventoryStatus: 'In Stock' | 'Reserved' | 'Sold' =
+      action === 'hold' ? 'Reserved' : completes ? 'Sold' : 'In Stock';
 
     const nowIso = new Date().toISOString();
     const updatedReq: HoldRequestRecord = {
@@ -681,11 +678,22 @@ export const PATCH: APIRoute = async ({ request }) => {
       updated_at: nowIso,
     };
 
-    // 1. Update hold request table or fallback
-    await supabaseAdmin
-      .from('hold_requests')
-      .update({ status: newStatus, updated_at: nowIso })
-      .eq('id', id);
+    // 1. Update hold request table or fallback. Only if it's still in the state it was read in -
+    // two clicks (or both people) acting at once must not complete a sale twice.
+    if (dbItem) {
+      const { data: changed } = await supabaseAdmin
+        .from('hold_requests')
+        .update({ status: newStatus, updated_at: nowIso })
+        .eq('id', id)
+        .eq('status', currentReq.status)
+        .select('id');
+      if (!changed || changed.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: 'This request was just updated - refresh and try again.' }), {
+          status: 409,
+          headers: JSON_HEADERS,
+        });
+      }
+    }
 
     const fallbackList = await getFallbackHoldRequests();
     const idx = fallbackList.findIndex(r => r.id === id);
@@ -700,7 +708,8 @@ export const PATCH: APIRoute = async ({ request }) => {
     // The requested quantity was already deducted from inventory.quantity when the hold
     // request was created (see POST above), so here we only need to restore it on
     // release/reject, and decide each item's final status from however much stock remains.
-    for (const item of itemsOf(currentReq)) {
+    // Handing over changes nothing in stock - the card stays reserved until the sale completes.
+    for (const item of action === 'mark_handed_over' ? [] : itemsOf(currentReq)) {
       if (!item.inventory_id) continue;
       const requestQty = Math.max(1, Number(item.quantity) || 1);
       const { data: currentInv } = await supabaseAdmin
@@ -716,7 +725,7 @@ export const PATCH: APIRoute = async ({ request }) => {
         updateData.status = 'In Stock';
       } else if (action === 'hold') {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Reserved';
-      } else if (action === 'confirm_sale') {
+      } else if (completes) {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Sold';
       }
 
@@ -730,7 +739,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 
     // 3. If confirming sale, record completed order so seller ratings and sales count are enabled.
     // The seller's collection was already decremented when the card was first listed, not here.
-    if (action === 'confirm_sale') {
+    if (completes) {
       await recordCompletedSaleInOrders(updatedReq);
     }
 
@@ -741,7 +750,9 @@ export const PATCH: APIRoute = async ({ request }) => {
         hold: { body: 'Accepted the hold — this card is reserved.', sender: currentReq.seller_id },
         release: { body: 'Hold released — the card is back in stock.', sender: user.id },
         reject: { body: 'Hold request rejected.', sender: currentReq.seller_id },
-        confirm_sale: { body: 'Sale confirmed — order completed!', sender: currentReq.seller_id },
+        mark_handed_over: { body: 'Marked as handed over / sent. Once you have it, confirm with "I received it" above.', sender: currentReq.seller_id },
+        confirm_received: { body: 'Received the card - sale completed!', sender: currentReq.buyer_id || user.id },
+        confirm_sale: { body: `No reply for ${BUYER_CONFIRM_DAYS_TEXT} after handover - sale completed by the seller.`, sender: currentReq.seller_id },
       };
       const entry = actionMessages[action];
       if (entry) {
