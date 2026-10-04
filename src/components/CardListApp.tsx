@@ -1841,8 +1841,7 @@ export function CardListApp() {
                   <button
                     onClick={handleResetCollection}
                     title="Clear tracked collection"
-                    className="md:order-8 md:flex-1 xl:flex-none flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-800/40 text-xs px-3 py-2.5 md:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
-                    style={{ background: 'rgba(244,63,94,0.06)' }}
+                    className="tv-btn-danger md:order-8 md:flex-1 xl:flex-none flex items-center justify-center text-xs px-3 py-2.5 md:py-1.5 rounded-lg font-semibold transition cursor-pointer whitespace-nowrap"
                   >
                     Reset ({totalOwnedCopies})
                   </button>

@@ -881,19 +881,8 @@ export function DeckCatalog({
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={resetFilters}
-                  style={{
-                    background: 'transparent',
-                    border: `1px solid ${theme.accentBorder}`,
-                    color: theme.accent,
-                    padding: '5px 12px',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    transition: 'all 0.15s ease',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = theme.accentMuted}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="tv-btn-danger cursor-pointer transition"
+                  style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}
                 >
                   Reset Filters
                 </button>

@@ -197,18 +197,18 @@ html[data-theme="light"] {
   --text-tertiary:    #1a1a1a;
   --text-muted:       #262626;
   --text-placeholder: #8c8577;
-  /* Accent text is ink too: the gold is carried by fills and borders, never by small text. */
+  /* Accent text is ink too: the accent colour is carried by fills and borders, never by small text. */
   --text-accent:      #0a0a0a;
   --text-on-accent:   #0a0a0a;
 
-  /* Accent: antique / gold-leaf amber, deeper than the dark themes' for contrast on white */
-  --accent:           #a16207;
-  --accent-light:     #ca8a04;
+  /* Accent: rose pink - amber/gold read as brown on the ivory background */
+  --accent:           #e11d48;
+  --accent-light:     #fb7185;
   /* Brighter than --accent on purpose: --accent/--text-accent has to stay dark enough to read as
      small text on white, which makes it look muddy as a big solid button fill. A filled button's
      text is the dark --text-on-accent instead, so the fill itself is free to be this much brighter
-     - the same amber the dark themes already use for their own solid buttons. */
-  --accent-strong:    #f59e0b;
+     - a brighter rose than --accent, with dark text on it. */
+  --accent-strong:    #fb7185;
   --positive:         #047857;
   --positive-muted:   rgba(4, 120, 87, 0.10);
   --positive-border:  rgba(4, 120, 87, 0.35);
@@ -216,13 +216,13 @@ html[data-theme="light"] {
   --negative:         #b91c1c;
   --negative-muted:   rgba(185, 28, 28, 0.10);
   --negative-border:  rgba(185, 28, 28, 0.35);
-  /* Selected / active: a gold-leaf wash with a gold edge (it used to be a brown-orange tint). */
-  --accent-muted:     rgba(234, 179, 8, 0.26);
-  --accent-border:    rgba(161, 98, 7, 0.55);
-  --accent-glow:      rgba(202, 138, 4, 0.22);
+  /* Selected / active: a soft rose wash with a rose edge. */
+  --accent-muted:     rgba(244, 63, 94, 0.13);
+  --accent-border:    rgba(225, 29, 72, 0.45);
+  --accent-glow:      rgba(244, 63, 94, 0.2);
 
   /* Brand Logo Gradient */
-  --brand-gradient:   linear-gradient(90deg, #92400e, #d97706, #f59e0b);
+  --brand-gradient:   linear-gradient(90deg, #9f1239, #e11d48, #fb7185);
 
   /* Scrollbar */
   --scrollbar-thumb:  rgba(24, 24, 27, 0.18);
@@ -260,6 +260,13 @@ html[data-theme="light"] {
   --tag-gold:         #78350f;
   --tag-gold-bg:      rgba(234, 179, 8, 0.24);
   --tag-gold-border:  rgba(161, 98, 7, 0.55);
+}
+
+/* Destructive / reset buttons: the theme's red, in every theme. */
+.tv-btn-danger {
+  color: var(--negative);
+  background: var(--negative-muted);
+  border: 1px solid var(--negative-border);
 }
 
 /* ─────────────────────────────────────────────
