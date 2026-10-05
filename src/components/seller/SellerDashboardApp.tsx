@@ -7,6 +7,7 @@ import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
+import { ShippingSettingsPanel } from './ShippingSettingsPanel';
 import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
@@ -72,7 +73,7 @@ export function SellerDashboardApp() {
   // Ratings I've given buyers, by order, and the sale being rated right now.
   const [buyerRatingsByOrder, setBuyerRatingsByOrder] = useState<Record<string, TradeReview>>({});
   const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
-  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'quicksale'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'shipping' | 'quicksale'>('listings');
 
   // Quick List Rules State
   const [quickSaleRules, setQuickSaleRules] = useState<QuickSaleRule[]>([]);
@@ -1148,6 +1149,11 @@ export function SellerDashboardApp() {
             iconFill: true,
           },
           {
+            id: 'shipping' as const,
+            label: 'Shipping',
+            icon: <path d="M1 3h15v13H1zM16 8h4l3 3v5h-7M5.5 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM18.5 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />,
+          },
+          {
             id: 'quicksale' as const,
             label: 'Quick List',
             icon: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
@@ -1639,6 +1645,9 @@ export function SellerDashboardApp() {
                             {priceHuf && (
                               <span className="text-[var(--positive)] font-black font-mono ml-1">
                                 {priceHuf.toLocaleString()} Ft
+                                {Number(req.shipping_huf) > 0 && (
+                                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}> + {Number(req.shipping_huf).toLocaleString()} Ft shipping</span>
+                                )}
                               </span>
                             )}
                           </div>
@@ -2268,6 +2277,11 @@ export function SellerDashboardApp() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── TAB: SHIPPING OPTIONS ──────────────────────────────────── */}
+      {activeTab === 'shipping' && profile && (
+        <ShippingSettingsPanel sellerId={profile.id} onToast={showToast} />
       )}
 
       {/* ─── TAB: QUICK SALE RULES ──────────────────────────────────── */}

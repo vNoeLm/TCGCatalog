@@ -54,6 +54,7 @@ export function ListCardModal({
     'personal',
     'foxpost',
     'packeta',
+    'gls',
     'posta',
     'other',
   ]);
@@ -797,6 +798,7 @@ export function ListCardModal({
                   { id: 'personal', label: 'Personal pickup', desc: 'In person' },
                   { id: 'foxpost', label: 'Foxpost', desc: 'Parcel locker' },
                   { id: 'packeta', label: 'Packeta', desc: 'Pickup point' },
+                  { id: 'gls', label: 'GLS', desc: 'Home delivery' },
                   { id: 'posta', label: 'Magyar Posta', desc: 'Post' },
                   { id: 'other', label: 'Other arrangement', desc: 'Custom' },
                 ].map((m) => {

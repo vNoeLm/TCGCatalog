@@ -238,7 +238,7 @@ export const GET: APIRoute = async ({ url }) => {
 
       let views = 0;
       let clicks = 0;
-      let handoverMethods = ['personal', 'foxpost', 'packeta', 'posta', 'other'];
+      let handoverMethods = ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
       try {
         if (row.notes && row.notes.startsWith('{')) {
           const parsed = JSON.parse(row.notes);
@@ -395,7 +395,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const safeHandoverMethods = Array.isArray(handover_methods) && handover_methods.length > 0
       ? handover_methods
-      : ['personal', 'foxpost', 'packeta', 'posta', 'other'];
+      : ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
 
     const notesPayload = JSON.stringify({
       source: 'marketplace',

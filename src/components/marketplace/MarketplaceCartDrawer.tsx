@@ -23,6 +23,8 @@ import {
   type HandoverMethodId,
 } from '../../lib/handover';
 import { AuthModal } from '../auth/AuthModal';
+import { methodAvailability, type MethodAvailability, type ShippingSettings } from '../../lib/shipping';
+import { fetchShippingSettings } from '../../lib/shippingClient';
 import type { UserProfile } from '../../types';
 
 const fmt = (n: number) =>
@@ -58,8 +60,12 @@ interface SellerGroup {
   sellerId: string;
   sellerName: string;
   items: MarketplaceCartItem[];
-  /** Methods every card in this group was listed with - the only ones one request can use. */
+  /** Methods every card in this group was listed with and the seller offers, with their price and
+   *  minimum for this order - the only ones one request can use. */
+  options: MethodAvailability[];
+  /** Of those, the ones this order is big enough for. */
   methods: HandoverMethodId[];
+  subtotal: number;
 }
 
 interface SellerChoice {
@@ -92,6 +98,8 @@ export function MarketplaceCartDrawer() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [results, setResults] = useState<SendResult[]>([]);
+  // Each seller's shipping options (price and minimum per method).
+  const [shippingBySeller, setShippingBySeller] = useState<Record<string, ShippingSettings | null>>({});
 
   useEffect(() => {
     const handleOpen = () => setOpen(true);
@@ -109,7 +117,7 @@ export function MarketplaceCartDrawer() {
   }, []);
 
   const groups: SellerGroup[] = useMemo(() => {
-    const bySeller = new Map<string, Omit<SellerGroup, 'methods'>>();
+    const bySeller = new Map<string, Pick<SellerGroup, 'sellerId' | 'sellerName' | 'items'>>();
     cart.forEach((item) => {
       let g = bySeller.get(item.sellerId);
       if (!g) {
@@ -118,11 +126,21 @@ export function MarketplaceCartDrawer() {
       }
       g.items.push(item);
     });
-    return Array.from(bySeller.values()).map((g) => ({
-      ...g,
-      methods: sharedHandoverIds(g.items.map((i) => i.handoverMethods)),
-    }));
-  }, [cart]);
+    return Array.from(bySeller.values()).map((g) => {
+      const subtotal = cartTotalHuf(g.items);
+      const settings = shippingBySeller[g.sellerId];
+      const options = sharedHandoverIds(g.items.map((i) => i.handoverMethods))
+        .map((id) => methodAvailability(settings, id, subtotal))
+        .filter((o) => o.offered);
+      return { ...g, subtotal, options, methods: options.filter((o) => o.short === 0).map((o) => o.id) };
+    });
+  }, [cart, shippingBySeller]);
+
+  const sellerKey = groups.map((g) => g.sellerId).join(',');
+  useEffect(() => {
+    if (!sellerKey) return;
+    fetchShippingSettings(sellerKey.split(',')).then((map) => setShippingBySeller((prev) => ({ ...prev, ...map })));
+  }, [sellerKey]);
 
   // The cart button pulses when a card is added - not on page load, when the count just appears.
   const cardCount = cartItemCount(cart);
@@ -137,7 +155,11 @@ export function MarketplaceCartDrawer() {
 
   if (cart.length === 0 && results.length === 0) return null;
 
-  const total = cartTotalHuf(cart);
+  const shippingFor = (group: SellerGroup) => {
+    const method = choiceFor(group).method;
+    return group.options.find((o) => o.id === method)?.price || 0;
+  };
+  const itemsTotal = cartTotalHuf(cart);
 
   const choiceFor = (group: SellerGroup): SellerChoice => {
     const stored = choices[group.sellerId];
@@ -151,6 +173,7 @@ export function MarketplaceCartDrawer() {
   const setChoice = (group: SellerGroup, patch: Partial<SellerChoice>) =>
     setChoices((prev) => ({ ...prev, [group.sellerId]: { ...choiceFor(group), ...patch } }));
 
+  const total = itemsTotal + groups.reduce((s, g) => s + shippingFor(g), 0);
   const chosen = groups.map((g) => choiceFor(g).method).filter(Boolean) as HandoverMethodId[];
   const shipsAny = chosen.some((m) => ['locker', 'address'].includes(handoverMethod(m)?.kind || ''));
   const needs = (id: HandoverMethodId) => chosen.includes(id);
@@ -158,8 +181,11 @@ export function MarketplaceCartDrawer() {
   const validate = (): string | null => {
     for (const group of groups) {
       const c = choiceFor(group);
-      if (group.methods.length === 0) {
+      if (group.options.length === 0) {
         return `The cards from ${group.sellerName} don't share a handover method - remove one to send the rest.`;
+      }
+      if (group.methods.length === 0) {
+        return `Your order from ${group.sellerName} is below the minimum for their delivery options - add a card or two.`;
       }
       if (!c.method) return `Choose how to get the cards from ${group.sellerName}.`;
       if (handoverMethod(c.method)?.kind === 'custom' && !c.custom.trim()) {
@@ -261,7 +287,7 @@ export function MarketplaceCartDrawer() {
             <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
             <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
           </svg>
-          <span className="text-xs font-black">{cardCount} card{cardCount === 1 ? '' : 's'} · {fmt(total)}</span>
+          <span className="text-xs font-black">{cardCount} card{cardCount === 1 ? '' : 's'} · {fmt(itemsTotal)}</span>
         </button>
       )}
 
@@ -330,7 +356,8 @@ export function MarketplaceCartDrawer() {
                 {groups.map((group) => {
                   const c = choiceFor(group);
                   const m = handoverMethod(c.method);
-                  const subtotal = cartTotalHuf(group.items);
+                  const subtotal = group.subtotal;
+                  const shipping = shippingFor(group);
                   return (
                     <div key={group.sellerId} className="mb-5 rounded-2xl border p-3" style={{ background: 'color-mix(in srgb, var(--bg-surface-2) 55%, transparent)', borderColor: 'var(--border-subtle)' }}>
                       <div className="flex items-center justify-between mb-2.5 px-0.5">
@@ -397,30 +424,46 @@ export function MarketplaceCartDrawer() {
                       <div className="text-[11px] font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                         Handover
                       </div>
-                      {group.methods.length === 0 ? (
+                      {group.options.length === 0 ? (
                         <p className="text-[11px] leading-relaxed p-2.5 rounded-lg border mb-2" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
                           These cards were listed with different handover methods, so one request can't cover them all. Remove one to send the rest.
                         </p>
                       ) : (
-                        <div className="grid grid-cols-3 gap-1.5 mb-2">
-                          {HANDOVER_METHODS.filter((hm) => group.methods.includes(hm.id)).map((hm) => {
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
+                          {HANDOVER_METHODS.map((hm) => {
+                            const opt = group.options.find((o) => o.id === hm.id);
+                            if (!opt) return null;
                             const active = c.method === hm.id;
+                            const locked = opt.short > 0;
                             return (
                               <button
                                 type="button"
                                 key={hm.id}
                                 aria-pressed={active}
+                                disabled={locked}
                                 onClick={() => setChoice(group, { method: hm.id })}
-                                className={`p-2 rounded-lg border text-left transition cursor-pointer ${
+                                title={locked ? `${hm.label} is available from ${fmt(opt.min)} - add ${fmt(opt.short)} more from ${group.sellerName}` : undefined}
+                                className={`p-2 rounded-lg border text-left transition ${locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                                   active ? 'bg-[var(--accent-muted)] border-[var(--accent-border)]' : 'border-[var(--border)]'
                                 }`}
                                 style={active ? undefined : { background: 'var(--bg-input)' }}
                               >
                                 <span className={`block text-[11px] font-bold ${active ? 'text-[var(--text-accent)]' : 'text-[var(--text-secondary)]'}`}>{hm.label}</span>
-                                <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>{KIND_HINT[hm.kind]}</span>
+                                <span className="block text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                                  {opt.price > 0 ? fmt(opt.price) : 'Free'}
+                                </span>
+                                <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                  {locked ? `Add ${fmt(opt.short)} more` : KIND_HINT[hm.kind]}
+                                </span>
                               </button>
                             );
                           })}
+                        </div>
+                      )}
+                      {shipping > 0 && (
+                        <div className="flex items-center justify-between text-[11px] mb-2 px-0.5" style={{ color: 'var(--text-secondary)' }}>
+                          <span>Shipping ({handoverMethod(c.method)?.label})</span>
+                          <span className="font-bold">{fmt(shipping)}</span>
                         </div>
                       )}
 
@@ -481,7 +524,7 @@ export function MarketplaceCartDrawer() {
                         <a href={handoverMethod('packeta')?.finderUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-semibold hover:underline" style={{ color: 'var(--text-accent)' }}>Find a Packeta pickup point</a>
                       </div>
                     )}
-                    {needs('posta') && (
+                    {chosen.some((id) => handoverMethod(id)?.kind === 'address') && (
                       <>
                         <div className="grid grid-cols-[6rem_1fr] gap-2">
                           <input type="text" inputMode="numeric" autoComplete="postal-code" value={delivery.postalCode} onChange={(e) => setDelivery({ ...delivery, postalCode: e.target.value })} placeholder="Postcode *" className={inputCls} style={inputStyle} />
