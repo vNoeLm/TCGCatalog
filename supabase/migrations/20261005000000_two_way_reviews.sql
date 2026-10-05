@@ -62,3 +62,8 @@ ON CONFLICT DO NOTHING;
 -- The old table no longer takes reviews straight from the browser (anyone signed in could rate any
 -- seller with a made-up order number). It stays readable; new reviews go to user_reviews.
 DROP POLICY IF EXISTS "Authenticated users can insert review" ON public.seller_reviews;
+
+-- Hold requests: status changes go through the server (/api/marketplace/hold-request), which
+-- enforces the steps (only the buyer completes a sale). The old rule let a seller change a
+-- request's status straight from the browser, skipping those checks.
+DROP POLICY IF EXISTS "Sellers can update their own hold requests" ON public.hold_requests;
