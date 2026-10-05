@@ -44,6 +44,7 @@ import { parseCollectionKey } from "../lib/sellerNotes";
 import type { ListDefaults, NamedCollection } from "../lib/collectionDefaults";
 import { CollectionSwitcher } from "./collection/CollectionSwitcher";
 import { ManageCollectionsModal } from "./collection/ManageCollectionsModal";
+import { MoveCardsModal } from "./collection/MoveCardsModal";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -147,6 +148,7 @@ export function CardListApp() {
   const activeNamed = activeNamedCollection(collectionsStore);
   const collection = activeNamed ? activeNamed.cards : personalCollection;
   const [showManageCollections, setShowManageCollections] = useState(false);
+  const [showMoveCards, setShowMoveCards] = useState(false);
   const [collectionFilter, setCollectionFilter] = useState<"All" | "Owned" | "Playset" | "Missing">("All");
   const [sortMode, setSortMode] = useState<
     "Card Number (Asc)" | "Card Number (Desc)" |
@@ -1822,6 +1824,7 @@ export function CardListApp() {
               <CollectionSwitcher
                 personalCount={Object.values(personalCollection).reduce((sum, n) => sum + (n || 0), 0)}
                 onManage={() => setShowManageCollections(true)}
+                onMove={() => setShowMoveCards(true)}
               />
 
               <CollectionValueChip collection={collection} cards={relevantCards} />
@@ -2139,6 +2142,20 @@ export function CardListApp() {
         ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
         allCards={allCards}
         sourceCollectionId={activeNamed?.id ?? null}
+      />
+
+      <MoveCardsModal
+        open={showMoveCards}
+        onClose={() => setShowMoveCards(false)}
+        personalCards={personalCollection}
+        applyPersonal={(next) => { setCollection(next); saveLocalCollection(next); }}
+        pricesFor={(coll, defaults, cardsMap) => alwaysListPrices(coll, defaults, cardsMap)}
+        cardLabel={(key) => {
+          const id = key.replace(/_foil$/, '');
+          const card = allCards.find(c => c.id === id) || cards.find(c => c.id === id);
+          return card ? card.name : null;
+        }}
+        onToast={(msg, type) => showToast(msg, type || 'info')}
       />
 
       <ManageCollectionsModal
