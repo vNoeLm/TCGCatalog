@@ -354,7 +354,6 @@ export function PublicProfileApp() {
                     {domains.map(dom => (
                       <div key={dom} className="w-2 h-2 rounded-full" style={{ background: DOMAIN_COLORS[dom] || '#94a3b8' }} title={dom} />
                     ))}
-                    <span className="text-[10px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>{d.views} views</span>
                   </div>
                 </div>
               </a>

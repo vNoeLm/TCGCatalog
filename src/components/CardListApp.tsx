@@ -7,7 +7,7 @@ import { CardPreviewOverlay } from "./CardPreviewOverlay";
 import { CollectionModal, ActionRow, Icon } from "./collection/CollectionModal";
 import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
-import { fetchCardsCatalog } from "../lib/api";
+import { fetchCardsCatalog, setIncludeHiddenPreviews } from "../lib/api";
 import { gridSizeClasses } from "../lib/gridSize";
 import { useWishlists, wishlistCardIds } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
@@ -196,6 +196,12 @@ export function CardListApp() {
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  // Admins can show unreleased cards that aren't official previews, to mark the ones Riot previewed.
+  const isAdminUser = Boolean(currentUserProfile?.is_admin || currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'owner');
+  const [showHiddenPreviews, setShowHiddenPreviews] = useState(false);
+  useEffect(() => {
+    setIncludeHiddenPreviews(isAdminUser && showHiddenPreviews);
+  }, [isAdminUser, showHiddenPreviews]);
   const [savingToCloud, setSavingToCloud] = useState(false);
   const [restoringFromCloud, setRestoringFromCloud] = useState(false);
 
@@ -623,6 +629,7 @@ export function CardListApp() {
         }).catch(() => {});
       }
 
+      setIncludeHiddenPreviews(isAdminUser && showHiddenPreviews);
       const { data } = await fetchCardsCatalog(filters, searchQuery);
       if (isMounted) {
         setCards(data || []);
@@ -647,7 +654,7 @@ export function CardListApp() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [filters, searchQuery]);
+  }, [filters, searchQuery, isAdminUser, showHiddenPreviews]);
 
   const hasFoilVariant = (card: CatalogCard) => {
     return card.card_type !== 'Rune' && (card.rarity === 'Common' || card.rarity === 'Uncommon');
@@ -1826,6 +1833,21 @@ export function CardListApp() {
                 onManage={() => setShowManageCollections(true)}
                 onMove={() => setShowMoveCards(true)}
               />
+
+              {isAdminUser && (
+                <button
+                  type="button"
+                  aria-pressed={showHiddenPreviews}
+                  onClick={() => setShowHiddenPreviews(v => !v)}
+                  className="h-9 px-3 rounded-lg border text-xs font-bold cursor-pointer"
+                  style={showHiddenPreviews
+                    ? { background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }
+                    : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                  title="Admins: show unreleased cards that aren't official Riot previews, to mark the ones that are"
+                >
+                  {showHiddenPreviews ? 'Showing hidden previews' : 'Show hidden previews'}
+                </button>
+              )}
 
               <CollectionValueChip collection={collection} cards={relevantCards} />
 

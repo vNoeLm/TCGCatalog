@@ -32,7 +32,6 @@ async function attachDeckMeta(rows: any[]) {
     name: r.name,
     game: r.game,
     is_public: r.is_public,
-    views: r.views,
     created_at: r.created_at,
     updated_at: r.updated_at,
     user_id: r.user_id,

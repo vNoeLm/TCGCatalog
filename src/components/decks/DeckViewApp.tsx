@@ -83,7 +83,6 @@ export function DeckViewApp() {
           <a href={`/user?id=${deckRow.user_id}`} className="text-xs font-bold hover:underline" style={{ color: 'var(--text-tertiary)' }}>
             by {deckRow.owner_name}
           </a>
-          <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>&middot; {deckRow.views} views</span>
         </div>
         <button
           type="button"

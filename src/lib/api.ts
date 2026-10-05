@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { previewStateOf } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { getCyberpunkMeta } from './cyberpunkCardData';
 import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
@@ -106,15 +107,29 @@ export function clearStoreCache(): void {
   }
 }
 
+// Unreleased cards that aren't official Riot previews are left out (lib/cardPreview.ts). Admins can
+// switch them back on to mark the official previews.
+let includeHiddenPreviews = false;
+export function setIncludeHiddenPreviews(on: boolean) {
+  includeHiddenPreviews = on;
+}
+export const includesHiddenPreviews = () => includeHiddenPreviews;
+
+const withoutHidden = (result: { data: CatalogCard[]; count: number | null }) => {
+  if (includeHiddenPreviews) return result;
+  const data = result.data.filter((c) => c.preview_state !== 'hidden');
+  return data.length === result.data.length ? result : { data, count: data.length };
+};
+
 export async function fetchCardsCatalog(
   filters: FilterState,
   searchQuery: string,
   bypassCache = false
 ): Promise<{ data: CatalogCard[]; count: number | null }> {
-  const cacheKey = `catalog_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}`;
+  const cacheKey = `catalog2_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}`;
   if (!bypassCache) {
     const cached = getCached<{ data: CatalogCard[]; count: number | null }>(cacheKey);
-    if (cached) return cached;
+    if (cached) return withoutHidden(cached);
   }
 
   // Parse any s:<set> or set:<set> syntax (e.g. "s:rad", "s:radiance", "set:ogn")
@@ -131,8 +146,8 @@ export async function fetchCardsCatalog(
   // they exist without the query breaking on databases that haven't added them yet.
   const needsInnerSet = Boolean(filters.set || querySetFilter);
   const selectFields = needsInnerSet
-    ? `*, sets!inner ( id, name, code )`
-    : `*, sets ( id, name, code )`;
+    ? `*, sets!inner ( id, name, code, release_date )`
+    : `*, sets ( id, name, code, release_date )`;
 
   let query = supabase
     .from('cards')
@@ -258,6 +273,7 @@ export async function fetchCardsCatalog(
       set_name: row.sets?.name || '',
       set_code: row.sets?.code || '',
       sets: row.sets || undefined,
+      preview_state: previewStateOf(row.sets?.release_date, row.official_preview),
     };
   });
 
@@ -275,7 +291,7 @@ export async function fetchCardsCatalog(
 
   const result = { data: mappedData, count: mappedData.length };
   setCached(cacheKey, result);
-  return result;
+  return withoutHidden(result);
 }
 
 export async function fetchOwnerStoreInventory(
@@ -586,19 +602,28 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
 }
 
 export async function fetchCardOnly(cardId: string, bypassCache = false) {
-  const cacheKey = `card_only_${cardId}`;
+  const cacheKey = `card_only2_${cardId}`;
   if (!bypassCache) {
     const cached = getCached<any>(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      if (cached.preview_state === 'hidden' && !includeHiddenPreviews) {
+        throw new Error("This card hasn't been released or officially previewed yet.");
+      }
+      return cached;
+    }
   }
 
   const { data, error } = await supabase
     .from('cards')
-    .select(`*, sets ( name, code )`)
+    .select(`*, sets ( name, code, release_date )`)
     .eq('id', cardId)
     .single();
   if (error) throw error;
-  setCached(cacheKey, data);
-  return data;
+  const card = { ...data, preview_state: previewStateOf((data as any)?.sets?.release_date, (data as any)?.official_preview) };
+  setCached(cacheKey, card);
+  if (card.preview_state === 'hidden' && !includeHiddenPreviews) {
+    throw new Error("This card hasn't been released or officially previewed yet.");
+  }
+  return card;
 }
 

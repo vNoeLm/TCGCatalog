@@ -63,6 +63,8 @@ export interface InventoryCard {
 
 export interface CatalogCard {
   id: string;
+  /** Released, an official Riot preview of an unreleased set, or hidden (lib/cardPreview.ts). */
+  preview_state?: 'released' | 'official-preview' | 'hidden';
   card_number: string;
   name: string;
   rarity: string;

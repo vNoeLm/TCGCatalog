@@ -1,6 +1,6 @@
+// Riftbound only for now. (Cyberpunk TCG was removed; its game-specific code paths are unused.)
 export const GAMES = [
   { id: 'riftbound', name: 'Riftbound', active: true },
-  { id: 'cyberpunk', name: 'Cyberpunk TCG', active: true },
 ];
 
 export const CATEGORIES = [

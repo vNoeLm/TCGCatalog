@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { isUnreleasedSet } from '../../../lib/cardPreview';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getSellerTier } from '../../../lib/badges';
 import {
@@ -92,7 +93,8 @@ export const GET: APIRoute = async ({ url }) => {
           sets (
             id,
             name,
-            code
+            code,
+            release_date
           )
         ),
         inventory_images (
@@ -157,7 +159,18 @@ export const GET: APIRoute = async ({ url }) => {
     }
 
     const invRes = await invQuery;
-    const invRows = invRes.data || [];
+    // Riot's digital tools policy: cards of an unreleased set only appear if Riot officially
+    // previewed them. Looked up separately (select *) so this works before that column exists.
+    let invRows = invRes.data || [];
+    const unreleasedIds = [...new Set(invRows
+      .filter((r: any) => isUnreleasedSet(r.cards?.sets?.release_date))
+      .map((r: any) => r.cards?.id)
+      .filter(Boolean))];
+    if (unreleasedIds.length) {
+      const { data: previewRows } = await supabaseAdmin.from('cards').select('*').in('id', unreleasedIds);
+      const previewed = new Set((previewRows || []).filter((c: any) => c.official_preview === true).map((c: any) => c.id));
+      invRows = invRows.filter((r: any) => !isUnreleasedSet(r.cards?.sets?.release_date) || previewed.has(r.cards?.id));
+    }
 
     // Collect all seller IDs to batch fetch user profiles
     const sellerIds = new Set<string>();
