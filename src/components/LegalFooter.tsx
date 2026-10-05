@@ -97,14 +97,18 @@ export function LegalFooter() {
           Items marked Soon are pages a registered business will need; they're shown, not linked,
           until they exist. */}
       <footer className="mt-auto border-t" style={{ borderColor: 'var(--border)', background: 'var(--bg-header)', color: 'var(--text-tertiary)' }}>
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-8 pb-6">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-x-6 gap-y-7">
             <div className="col-span-2 md:col-span-4 lg:col-span-1 min-w-0">
-              <div className="text-base font-black tracking-tight mb-1.5" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                TCG Vault
+              <div className="flex items-baseline gap-2 mb-1.5">
+                <span className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                  TCG Vault
+                </span>
+                <span className="text-[11px] font-semibold">© {new Date().getFullYear()}</span>
               </div>
               <p className="text-xs leading-relaxed max-w-xs mb-3">
                 Track your collection, build decks and trade cards with other collectors - prices in HUF, handover in person or by parcel.
+                An unofficial fan project, not affiliated with any game publisher.
               </p>
               <div className="flex items-center gap-2">
                 <a
@@ -130,6 +134,11 @@ export function LegalFooter() {
                   </span>
                 ))}
               </div>
+              {/* Placeholder for the operator details a registered business must show. */}
+              <p className="text-[10px] leading-relaxed mt-3 max-w-xs opacity-80">
+                Operator: <span className="font-semibold">-</span> · Company reg. no.: <span className="font-semibold">-</span> · Tax no.: <span className="font-semibold">-</span> · Registered office: <span className="font-semibold">-</span>
+                <span className="block">Listed here once TCG Vault is a registered business.</span>
+              </p>
             </div>
 
             {FOOTER_COLUMNS.map((col) => (
@@ -157,27 +166,6 @@ export function LegalFooter() {
             ))}
           </div>
 
-          <div className="mt-8 pt-5 border-t flex flex-col gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold">© {new Date().getFullYear()} TCG Vault</span>
-              <button
-                type="button"
-                onClick={() => setShowFullLegalModal(true)}
-                className="self-start sm:self-auto text-[11px] font-bold underline underline-offset-2 hover:text-[var(--text-primary)] transition cursor-pointer"
-              >
-                Legal &amp; Privacy
-              </button>
-            </div>
-            <p className="text-[11px] leading-relaxed max-w-4xl">
-              An unofficial, community-driven collection tracker, deck builder and peer-to-peer marketplace. Card illustrations, names, logos and trademarks belong to their respective owners. Not affiliated with, endorsed or sponsored by any game publisher.
-            </p>
-            {/* Placeholder for the operator details a registered business must show (company name,
-                registration and tax number, registered office). */}
-            <p className="text-[10px] leading-relaxed opacity-80">
-              Operator: <span className="font-semibold">-</span> · Company reg. no.: <span className="font-semibold">-</span> · Tax no.: <span className="font-semibold">-</span> · Registered office: <span className="font-semibold">-</span>
-              <span className="ml-1">(listed here once TCG Vault is a registered business)</span>
-            </p>
-          </div>
         </div>
       </footer>
 
