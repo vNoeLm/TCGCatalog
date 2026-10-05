@@ -4,6 +4,8 @@ import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getOrCreateConversation, postSystemMessage, postUserMessage } from '../../../lib/conversationsServer';
 import { handoverMethod, handoverLabel, listingHandoverIds, type HandoverMethodId } from '../../../lib/handover';
 import { methodAvailability, normalizeShipping, fmtHuf, type ShippingSettings } from '../../../lib/shipping';
+import { listingCollectionLinks, collectionKey } from '../../../lib/sellerNotes';
+import { adjustNamedCollectionCard } from '../../../lib/collectionsServer';
 
 export const prerender = false;
 
@@ -749,7 +751,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       const requestQty = Math.max(1, Number(item.quantity) || 1);
       const { data: currentInv } = await supabaseAdmin
         .from('inventory')
-        .select('quantity')
+        .select('quantity, notes, card_id, is_foil')
         .eq('id', item.inventory_id)
         .maybeSingle();
       const currentQty = Number(currentInv?.quantity) || 0;
@@ -762,6 +764,12 @@ export const PATCH: APIRoute = async ({ request }) => {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Reserved';
       } else if (completes) {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Sold';
+        // Sold copies of an always-list collection's listing leave the collection too (they were
+        // still counted in it while the buyer held them).
+        const { alwaysListId } = listingCollectionLinks(currentInv?.notes);
+        if (alwaysListId && currentInv?.card_id) {
+          await adjustNamedCollectionCard(currentReq.seller_id, alwaysListId, collectionKey(currentInv.card_id, Boolean(currentInv.is_foil)), -requestQty);
+        }
       }
 
       newInventoryStatus = updateData.status || newInventoryStatus;

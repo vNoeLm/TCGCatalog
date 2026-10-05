@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabaseServer';
 import { collectionKey } from './sellerNotes';
+import { adjustNamedCollectionCard } from './collectionsServer';
 
 /**
  * Adjust how many copies of a card a seller has in their tracked collection.
@@ -20,9 +21,12 @@ export async function adjustSellerCollection(
   sellerId: string | null | undefined,
   cardId: string | null | undefined,
   isFoil: boolean,
-  delta: number
+  delta: number,
+  /** A named collection to change instead of Personal (copies listed from it by Quick List). */
+  namedCollectionId?: string | null
 ): Promise<number> {
   if (!sellerId || !cardId || !delta) return 0;
+  if (namedCollectionId) return adjustNamedCollectionCard(sellerId, namedCollectionId, collectionKey(cardId, isFoil), delta);
   try {
     const { data: row } = await supabaseAdmin
       .from('user_collections')

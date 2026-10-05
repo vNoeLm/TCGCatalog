@@ -20,7 +20,10 @@ import { fetchReputation, fetchReviewsWrittenBy } from '../../lib/reviews';
 import { BuyerTrustLine, ReviewCard, Stars } from '../reviews/ReviewParts';
 import { RateTradeModal } from '../reviews/RateTradeModal';
 import { adjustLocalCollection } from '../../lib/collectionClient';
-import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
+import { listingCollectionLinks } from '../../lib/sellerNotes';
+import { EditListingModal } from './EditListingModal';
+import { useCollectionsStore, refreshCollections } from '../../lib/collectionsStore';
+import { PERSONAL_COLLECTION_ID } from '../../lib/collectionDefaults';
 import type { UserProfile, Order, TradeReview, QuickSaleRule } from '../../types';
 import { StatBox } from '../StatBox';
 import { Pagination, usePagination } from '../Pagination';
@@ -38,18 +41,13 @@ export function SellerDashboardApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<any | null>(null);
-  const [editPriceHuf, setEditPriceHuf] = useState<number>(500);
-  const [editQuantity, setEditQuantity] = useState<number>(1);
-  const [editDescription, setEditDescription] = useState('');
   const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
-  // Closing nulls editingListing immediately, but the modal needs to keep rendering its fields
-  // during the exit transition - freeze the last non-null value instead of reading the live one.
-  const editingListingRef = useRef<any | null>(null);
-  if (editingListing) editingListingRef.current = editingListing;
-  const editingListingAnim = useExitTransition(!!editingListing, 250);
+  // Named collections: to name the one a listing belongs to, and as a Quick List source.
+  const collectionsStore = useCollectionsStore();
+  const collectionName = (id: string | null) => collectionsStore.collections.find(c => c.id === id)?.name || 'a collection';
   const bulkPriceModalAnim = useExitTransition(showBulkPriceModal, 250);
   const [bulkPriceHuf, setBulkPriceHuf] = useState<number>(500);
   // Lowest active price per card (across every seller on the platform), keyed by
@@ -290,6 +288,10 @@ export function SellerDashboardApp() {
   const [preparingQuickList, setPreparingQuickList] = useState(false);
   const [quickListCards, setQuickListCards] = useState<CatalogCard[]>([]);
   const [quickListOwned, setQuickListOwned] = useState<{ cardId: string; count: number }[]>([]);
+  // Which collection Quick List takes its spare copies from (not an always-list one - those are listed already).
+  const [quickListSource, setQuickListSource] = useState<string>(PERSONAL_COLLECTION_ID);
+  const quickListSources = collectionsStore.collections.filter(c => !c.always_list);
+  const quickListNamed = quickListSources.find(c => c.id === quickListSource) || null;
 
   const runQuickList = async () => {
     if (!profile || preparingQuickList) return;
@@ -297,14 +299,17 @@ export function SellerDashboardApp() {
       showToast('Add and save a Quick List rule below first.');
       return;
     }
-    // Listing takes the copies out of the collection on this device too, so it has to be this
-    // account's copy - on a device that hasn't synced it yet, that happens in the Catalog.
-    if (getLocalCollectionOwner() !== profile.id) {
+    // Listing takes the copies out of Personal on this device too, so it has to be this account's
+    // copy - on a device that hasn't synced it yet, that happens in the Catalog. A named collection
+    // lives on the server.
+    if (!quickListNamed && getLocalCollectionOwner() !== profile.id) {
       showToast('Open the Catalog once on this device so your collection syncs, then run Quick List here.');
       return;
     }
     let owned: { cardId: string; count: number }[] = [];
-    try {
+    if (quickListNamed) {
+      owned = Object.entries(quickListNamed.cards).map(([cardId, count]) => ({ cardId, count }));
+    } else try {
       const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
       const dict: Record<string, number> = raw ? JSON.parse(raw) : {};
       owned = Object.entries(dict)
@@ -314,7 +319,7 @@ export function SellerDashboardApp() {
       owned = [];
     }
     if (owned.length === 0) {
-      showToast('Your collection is empty - add the cards you own in the Catalog first.');
+      showToast(quickListNamed ? `"${quickListNamed.name}" is empty - add cards to it in the Catalog first.` : 'Your collection is empty - add the cards you own in the Catalog first.');
       return;
     }
     setPreparingQuickList(true);
@@ -349,10 +354,14 @@ export function SellerDashboardApp() {
 
   // Actions: Unlist & Edit
   const handleUnlistCard = async (listingId: string) => {
-    if (!confirm('Are you sure you want to remove this listing?')) return;
+    const listing = listings.find(item => item.inventory_id === listingId);
+    const links = listingCollectionLinks(listing?.notes);
+    const question = links.alwaysListId
+      ? `Remove this listing? Its ${listing?.quantity || 0} cop${Number(listing?.quantity) === 1 ? 'y comes' : 'ies come'} out of "${collectionName(links.alwaysListId)}" too, since that collection lists everything in it.`
+      : 'Are you sure you want to remove this listing?';
+    if (!confirm(question)) return;
     setUpdatingListingId(listingId);
     try {
-      const listing = listings.find(item => item.inventory_id === listingId);
       const session = (await supabase.auth.getSession()).data.session;
       if (!session?.access_token) {
         throw new Error('No active user session. Please sign in again.');
@@ -367,11 +376,8 @@ export function SellerDashboardApp() {
         const json = await res.json().catch(() => null);
         setListings(prev => prev.filter(item => item.inventory_id !== listingId));
         showToast('Listing removed successfully');
-        // Copies that came out of the collection when listed go back into it; the server says how many.
-        if (listing && Number(json?.collection_delta) > 0) {
-          adjustLocalCollection(listing.card_id, Boolean(listing.is_foil), Number(json.collection_delta));
-        }
-        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+        // Copies that came out of a collection when listed go back into it; the server says how many.
+        if (listing) afterListingChange(listing, json);
       } else {
         const json = await res.json().catch(() => null);
         showToast(json?.error || `Failed to remove listing (${res.status})`);
@@ -383,44 +389,45 @@ export function SellerDashboardApp() {
     }
   };
 
-  const handleSaveListingEdit = async (item: any) => {
+  /** After a listing changed on the server: mirror what moved in or out of a collection. */
+  const afterListingChange = (item: any, json: any) => {
+    // Personal lives in this browser too, so its change is mirrored here; named ones are re-read.
+    if (Number(json?.collection_delta)) {
+      adjustLocalCollection(item.card_id, Boolean(item.is_foil), Number(json.collection_delta));
+    }
+    if (json?.named_collection_id && Number(json?.named_collection_delta)) void refreshCollections();
+    window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+  };
+
+  const handleListingSaved = (json: any) => {
+    showToast('Listing updated');
+    const item = editingListing || listings.find(l => l.inventory_id === json?.listing?.id) || {};
+    afterListingChange({ card_id: json?.listing?.card_id ?? item.card_id, is_foil: json?.listing?.is_foil ?? item.is_foil }, json);
+    loadSellerListings();
+  };
+
+  /** +1 / -1 copy in stock, right from the listing row. Going below 1 unlists it. */
+  const adjustStock = async (item: any, delta: number) => {
+    const next = (Number(item.quantity) || 0) + delta;
+    if (next < 1) {
+      await handleUnlistCard(item.inventory_id);
+      return;
+    }
     setUpdatingListingId(item.inventory_id);
     try {
-      const newQuantity = Math.max(1, editQuantity);
       const session = (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token) {
-        throw new Error('No active user session. Please sign in again.');
-      }
-
+      if (!session?.access_token) throw new Error('No active user session. Please sign in again.');
       const res = await fetch('/api/marketplace/listings', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          id: item.inventory_id,
-          price_huf: Math.max(1, editPriceHuf),
-          quantity: newQuantity,
-          description: editDescription,
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id: item.inventory_id, quantity: next }),
       });
       const json = await res.json();
-      if (res.ok && json.success) {
-        showToast('Listing updated successfully');
-        setEditingListing(null);
-        loadSellerListings();
-        // Raising the listed quantity takes more copies out of the collection; lowering it gives back
-        // only those that came out of it. The server says what the collection really changed by.
-        if (Number(json.collection_delta)) {
-          adjustLocalCollection(item.card_id, Boolean(item.is_foil), Number(json.collection_delta));
-        }
-        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-      } else {
-        showToast(json.error || 'Failed to update listing');
-      }
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not change the stock.');
+      setListings(prev => prev.map(l => (l.inventory_id === item.inventory_id ? { ...l, quantity: next } : l)));
+      afterListingChange(item, json);
     } catch (e: any) {
-      showToast(e?.message || 'Error updating listing');
+      showToast(e?.message || 'Could not change the stock.');
     } finally {
       setUpdatingListingId(null);
     }
@@ -1441,9 +1448,47 @@ export function SellerDashboardApp() {
                         <span className="text-sm font-black text-[var(--positive)]">
                           {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
                         </span>
-                        <span className="text-xs text-[var(--text-tertiary)]">
-                          ({item.quantity} in stock)
+                        <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1" title="Change how many copies are in stock">
+                          <button
+                            type="button"
+                            aria-label={`One fewer ${item.name} in stock`}
+                            onClick={() => adjustStock(item, -1)}
+                            disabled={updatingListingId === item.inventory_id}
+                            className="w-6 h-6 rounded-md border text-xs font-bold cursor-pointer disabled:opacity-40"
+                            style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-bold min-w-[4.5rem] text-center" style={{ color: 'var(--text-secondary)' }}>{item.quantity} in stock</span>
+                          <button
+                            type="button"
+                            aria-label={`One more ${item.name} in stock`}
+                            onClick={() => adjustStock(item, 1)}
+                            disabled={updatingListingId === item.inventory_id}
+                            className="w-6 h-6 rounded-md border text-xs font-bold cursor-pointer disabled:opacity-40"
+                            style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                          >
+                            +
+                          </button>
                         </span>
+                        {(() => {
+                          const links = listingCollectionLinks(item.notes);
+                          if (links.alwaysListId) {
+                            return (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }} title="Stock follows this always-list collection">
+                                {collectionName(links.alwaysListId)}
+                              </span>
+                            );
+                          }
+                          if (links.sourceId) {
+                            return (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border" style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }} title="Listed from this collection; unlisting gives the copies back to it">
+                                From {collectionName(links.sourceId)}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1516,12 +1561,7 @@ export function SellerDashboardApp() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setEditingListing(item);
-                          setEditPriceHuf(item.price_huf || 500);
-                          setEditQuantity(item.quantity || 1);
-                          setEditDescription(getListingDescription(item.notes) || '');
-                        }}
+                        onClick={() => setEditingListing(item)}
                         className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border-[var(--border)]"
                       >
                         Edit
@@ -2161,108 +2201,17 @@ export function SellerDashboardApp() {
       />
 
       {/* Quick Edit Modal */}
-      {editingListingAnim.rendered && editingListingRef.current && (
-        <div data-state={editingListingAnim.state} className="tv-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div
-            data-state={editingListingAnim.state}
-            className="tv-modal-panel w-full max-w-sm rounded-2xl p-5 border shadow-2xl"
-            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
-                Edit Listing
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingListing(null)}
-                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-                aria-label="Close"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                  Price (HUF)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={editPriceHuf}
-                  onChange={(e) => setEditPriceHuf(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold outline-none border"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="edit-listing-description" className="block text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                  Description
-                </label>
-                <input
-                  id="edit-listing-description"
-                  type="text"
-                  value={editDescription}
-                  maxLength={MAX_LISTING_DESCRIPTION}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="Shown to buyers next to the listing"
-                  className="w-full px-3 py-2 rounded-xl text-xs outline-none border"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingListing(null)}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveListingEdit(editingListingRef.current)}
-                disabled={updatingListingId === editingListingRef.current.inventory_id}
-                className="px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md disabled:opacity-50"
-              >
-                {updatingListingId === editingListingRef.current.inventory_id ? '…' : ('Save')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditListingModal
+        listing={editingListing}
+        collectionNote={(() => {
+          const links = listingCollectionLinks(editingListing?.notes);
+          if (links.alwaysListId) return `Stock follows "${collectionName(links.alwaysListId)}": changing it here changes the count in that collection too.`;
+          if (links.sourceId) return `Listed from "${collectionName(links.sourceId)}". Lowering the stock gives copies back to it; raising it takes more out.`;
+          return 'Lowering the stock gives copies back to your Personal collection; raising it takes more out (if they are there).';
+        })()}
+        onClose={() => setEditingListing(null)}
+        onSaved={handleListingSaved}
+      />
 
       {/* Bulk Price Edit Modal */}
       {bulkPriceModalAnim.rendered && (
@@ -2342,9 +2291,24 @@ export function SellerDashboardApp() {
           <div className="min-w-0">
             <div className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>Run Quick List</div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Lists the spare copies in your collection using your saved rules below. You'll see every card and price before anything goes up.
+              Lists the spare copies in a collection using your saved rules below. You'll see every card and price before anything goes up.
             </p>
           </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+          {quickListSources.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              <span className="shrink-0">From</span>
+              <select
+                value={quickListSource}
+                onChange={(e) => setQuickListSource(e.target.value)}
+                className="h-10 px-3 rounded-xl text-xs font-bold border cursor-pointer w-full sm:w-auto"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              >
+                <option value={PERSONAL_COLLECTION_ID}>Personal</option>
+                {quickListSources.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+          )}
           <button
             type="button"
             onClick={runQuickList}
@@ -2357,6 +2321,7 @@ export function SellerDashboardApp() {
             </svg>
             {preparingQuickList ? 'Loading cards…' : 'Run Quick List'}
           </button>
+          </div>
         </div>
       )}
       {activeTab === 'quicksale' && (
@@ -2377,6 +2342,7 @@ export function SellerDashboardApp() {
         }}
         ownedCards={quickListOwned}
         allCards={quickListCards}
+        sourceCollectionId={quickListNamed?.id ?? null}
       />
 
       {/* List Card Modal - it holds itself open for its own exit transition (isOpen), so it's

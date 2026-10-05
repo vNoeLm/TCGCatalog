@@ -1,0 +1,90 @@
+import type { QuickSaleRule } from '../types';
+import { quickSalePrice } from './quickSaleRules';
+import { ALL_HANDOVER_IDS } from './handover';
+
+/**
+ * Named collections, as the browser and the server both see them. "personal" is the original
+ * collection (kept in the browser and synced); everything else is a named one stored on the server.
+ */
+
+export const PERSONAL_COLLECTION_ID = 'personal';
+export const MAX_COLLECTIONS = 20;
+export const MAX_COLLECTION_NAME = 60;
+
+/** How an always-list collection lists a card it gets. */
+export interface ListDefaults {
+  condition: string;
+  /** Same modes as Quick List: one fixed price, or each card's market price / estimated value. */
+  price_mode: 'fixed' | 'market' | 'estimate';
+  /** The fixed price, or the fallback for a card without market data. */
+  base_price_huf: number;
+  /** Added to a market / estimated price, so -10 lists 10% under it. */
+  price_adjust_pct: number;
+  /** A market / estimated price is never lower than this. */
+  min_price_huf: number;
+  handover_methods: string[];
+}
+
+export const DEFAULT_LIST_DEFAULTS: ListDefaults = {
+  condition: 'Near Mint',
+  price_mode: 'market',
+  base_price_huf: 100,
+  price_adjust_pct: 0,
+  min_price_huf: 0,
+  handover_methods: ['personal'],
+};
+
+export const LISTING_CONDITIONS = ['Mint', 'Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
+
+export interface NamedCollection {
+  id: string;
+  name: string;
+  cards: Record<string, number>;
+  always_list: boolean;
+  list_defaults: ListDefaults;
+  created_at: string;
+  updated_at: string;
+}
+
+const int = (v: unknown, min: number, max: number, fallback: number) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+};
+
+export function normalizeListDefaults(raw: unknown): ListDefaults {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, any>) : {};
+  const methods = Array.isArray(o.handover_methods)
+    ? o.handover_methods.filter((m: unknown) => typeof m === 'string' && (ALL_HANDOVER_IDS as string[]).includes(m))
+    : [];
+  return {
+    condition: LISTING_CONDITIONS.includes(o.condition) ? o.condition : DEFAULT_LIST_DEFAULTS.condition,
+    price_mode: o.price_mode === 'fixed' || o.price_mode === 'estimate' ? o.price_mode : 'market',
+    base_price_huf: int(o.base_price_huf, 1, 10_000_000, DEFAULT_LIST_DEFAULTS.base_price_huf),
+    price_adjust_pct: int(o.price_adjust_pct, -90, 500, 0),
+    min_price_huf: int(o.min_price_huf, 0, 10_000_000, 0),
+    handover_methods: methods.length ? methods : DEFAULT_LIST_DEFAULTS.handover_methods,
+  };
+}
+
+/** Counts cleaned up: whole numbers from 1 to 9999, nothing else. */
+export function normalizeCards(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof key !== 'string' || !/^[0-9a-f-]{36}(_foil)?$/i.test(key)) continue;
+    const n = int(value, 0, 9999, 0);
+    if (n > 0) out[key] = n;
+  }
+  return out;
+}
+
+/** The price an always-list collection lists a card at, from its defaults and the card's values. */
+export function defaultListPrice(defaults: ListDefaults, values: { marketHuf: number | null; estimateHuf: number | null }): number {
+  const rule = {
+    basePriceHuf: defaults.base_price_huf,
+    priceMode: defaults.price_mode,
+    priceAdjustPct: defaults.price_adjust_pct,
+    minPriceHuf: defaults.min_price_huf,
+  } as unknown as QuickSaleRule;
+  return quickSalePrice(rule, values).priceHuf;
+}
