@@ -8,7 +8,7 @@ const countOf = (cards: Record<string, number>) => Object.values(cards).reduce((
  * Which collection the Catalog shows and edits: Personal, or one of the named ones. Signed-out
  * visitors only have Personal, so there's nothing to pick and this renders nothing.
  */
-export function CollectionSwitcher({ personalCount, onManage }: { personalCount: number; onManage: () => void }) {
+export function CollectionSwitcher({ personalCount, onManage, onMove }: { personalCount: number; onManage: () => void; onMove: () => void }) {
   const store = useCollectionsStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -98,6 +98,17 @@ export function CollectionSwitcher({ personalCount, onManage }: { personalCount:
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             New / manage collections
+          </button>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onMove(); }}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-bold cursor-pointer hover:bg-[var(--bg-raised)]"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+            Move cards between collections
           </button>
         </div>
       )}

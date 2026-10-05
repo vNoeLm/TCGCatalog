@@ -135,7 +135,7 @@ export async function refreshCollections(): Promise<void> {
 
 type Pending = { deltas: Record<string, number>; prices: Record<string, number>; timer: ReturnType<typeof setTimeout> | null };
 const pending = new Map<string, Pending>();
-const inFlight = new Map<string, Promise<void>>();
+const inFlight = new Map<string, Promise<boolean>>();
 const errorListeners = new Set<(msg: string) => void>();
 
 /** Hear about a change the server refused or clamped (e.g. copies a buyer is holding). */
@@ -171,11 +171,11 @@ export function changeCollectionCard(id: string, key: string, delta: number, pri
   pending.set(id, p);
 }
 
-/** Replaces every count in a collection (import, clear). */
-export async function setCollectionCards(id: string, cards: Record<string, number>, prices: Record<string, number> = {}): Promise<void> {
+/** Replaces every count in a collection (import, clear, moving cards). Resolves false if the server refused. */
+export async function setCollectionCards(id: string, cards: Record<string, number>, prices: Record<string, number> = {}): Promise<boolean> {
   await flushPending(id);
   applyLocally(id, () => ({ ...cards }));
-  await send(id, { set: cards, prices });
+  return send(id, { set: cards, prices });
 }
 
 async function flushPending(id: string): Promise<void> {
@@ -190,8 +190,8 @@ async function flushPending(id: string): Promise<void> {
   await send(id, { deltas, prices: p.prices });
 }
 
-function send(id: string, payload: { deltas?: Record<string, number>; set?: Record<string, number>; prices: Record<string, number> }): Promise<void> {
-  const run = (async () => {
+function send(id: string, payload: { deltas?: Record<string, number>; set?: Record<string, number>; prices: Record<string, number> }): Promise<boolean> {
+  const run = (async (): Promise<boolean> => {
     try {
       const json = await api<{ collection: NamedCollection; clamped: Record<string, number> }>('/api/collections/cards', {
         method: 'POST',
@@ -208,9 +208,11 @@ function send(id: string, payload: { deltas?: Record<string, number>; set?: Reco
       replaceCollection({ ...json.collection, cards });
       const clampedCount = Object.keys(json.clamped || {}).length;
       if (clampedCount) tell(`${clampedCount === 1 ? 'A card' : `${clampedCount} cards`} couldn't go lower - buyers are holding those copies.`);
+      return true;
     } catch (e: any) {
       tell(e?.message || 'Could not save the change - reloading the collection.');
       await loadFor(state.userId);
+      return false;
     } finally {
       inFlight.delete(id);
     }
