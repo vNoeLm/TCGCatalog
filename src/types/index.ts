@@ -181,6 +181,8 @@ export interface Order {
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
   total_price_huf: number;
   total_huf?: number;
+  /** Shipping the buyer paid, included in total_price_huf. */
+  shipping_huf?: number;
   shipping_name?: string | null;
   shipping_address?: string | null;
   tracking_number?: string | null;

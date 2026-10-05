@@ -4,7 +4,7 @@
  * the hold-request API so both agree on what each method needs.
  */
 
-export type HandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'posta' | 'other';
+export type HandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'gls' | 'posta' | 'other';
 
 /** What the buyer has to provide for a method. */
 export type HandoverKind = 'personal' | 'locker' | 'address' | 'custom';
@@ -21,6 +21,7 @@ export const HANDOVER_METHODS: HandoverMethod[] = [
   { id: 'personal', label: 'In person', kind: 'personal' },
   { id: 'foxpost', label: 'Foxpost', kind: 'locker', finderUrl: 'https://foxpost.hu/csomagautomatak' },
   { id: 'packeta', label: 'Packeta', kind: 'locker', finderUrl: 'https://www.packeta.hu/atvevohelyek' },
+  { id: 'gls', label: 'GLS', kind: 'address' },
   { id: 'posta', label: 'Magyar Posta', kind: 'address' },
   { id: 'other', label: 'Other', kind: 'custom' },
 ];
@@ -83,7 +84,7 @@ export function missingDeliveryFields(methodId: string, d: DeliveryDetails): str
   if (!d.phone.trim()) missing.push('phone number');
   if (m.id === 'foxpost' && !d.foxpostLocker.trim()) missing.push('Foxpost locker');
   if (m.id === 'packeta' && !d.packetaPoint.trim()) missing.push('Packeta pickup point');
-  if (m.id === 'posta') {
+  if (m.kind === 'address') {
     if (!d.postalCode.trim()) missing.push('postal code');
     if (!d.city.trim()) missing.push('city');
     if (!d.street.trim()) missing.push('street address');
@@ -102,6 +103,6 @@ export function formatHandoverDetails(methodId: string, d: DeliveryDetails, cust
   const lines = [`Recipient: ${d.recipientName.trim()}`, `Phone: ${d.phone.trim()}`];
   if (m.id === 'foxpost') lines.push(`Foxpost locker: ${d.foxpostLocker.trim()}`);
   if (m.id === 'packeta') lines.push(`Packeta pickup point: ${d.packetaPoint.trim()}`);
-  if (m.id === 'posta') lines.push(`Address: ${d.postalCode.trim()} ${d.city.trim()}, ${d.street.trim()}`);
+  if (m.kind === 'address') lines.push(`Address: ${d.postalCode.trim()} ${d.city.trim()}, ${d.street.trim()}`);
   return lines.join('\n');
 }

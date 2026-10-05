@@ -973,6 +973,9 @@ export function ProfileApp() {
                         rows.push({ label: 'Last updated', value: new Date(order.updated_at).toLocaleString() });
                       }
                       rows.push({ label: 'Items', value: `${totalUnits} card${totalUnits === 1 ? '' : 's'}` });
+                      if (Number(order.shipping_huf) > 0) {
+                        rows.push({ label: 'Shipping', value: `${Number(order.shipping_huf).toLocaleString()} Ft (included in the total)` });
+                      }
                       if (order.seller_id) {
                         rows.push({
                           label: 'Seller',

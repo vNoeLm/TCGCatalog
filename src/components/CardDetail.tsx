@@ -27,6 +27,9 @@ import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '
 import { useCart } from '../lib/useCart';
 import { CardImageViewer } from './CardImageViewer';
 import { useUrlOverlay } from '../lib/useUrlOverlay';
+import { HANDOVER_METHODS, listingHandoverIds } from '../lib/handover';
+import { describeOption, shippingOption, type ShippingSettings } from '../lib/shipping';
+import { fetchShippingSettings } from '../lib/shippingClient';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -75,6 +78,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   // exit transition - freeze the last non-null value instead of reading the live one.
   const reviewsModalSellerIdRef = useRef<string | null>(null);
   if (reviewsModalSellerId) reviewsModalSellerIdRef.current = reviewsModalSellerId;
+
+  // The seller's delivery prices and minimums, shown under the listing's price.
+  const [sellerShipping, setSellerShipping] = useState<ShippingSettings | null>(null);
+  const shippingSellerId = data?.seller_id || sellerSummary?.id || null;
+  useEffect(() => {
+    if (!isInventory || !shippingSellerId) return;
+    fetchShippingSettings([shippingSellerId]).then(map => setSellerShipping(map[shippingSellerId] ?? null));
+  }, [isInventory, shippingSellerId]);
 
   useEffect(() => {
     if (data?.seller_id) {
@@ -1318,6 +1329,30 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   {data.price_huf ? fmt(data.price_huf) : 'N/A'}
                 </div>
               </div>
+
+              {/* Delivery: the methods this card was listed with that the seller offers, with what
+                  each costs and the order it needs (the minimum is for everything bought from them). */}
+              {(() => {
+                const listed = listingHandoverIds(data.handover_methods);
+                const offered = HANDOVER_METHODS
+                  .filter(m => listed.includes(m.id))
+                  .map(m => ({ m, o: shippingOption(sellerShipping, m.id) }))
+                  .filter(({ o }) => o.enabled);
+                if (offered.length === 0) return null;
+                return (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Delivery</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {offered.map(({ m, o }) => (
+                        <span key={m.id} className="text-[11px] px-2 py-1 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{m.label}</span>{' '}
+                          {describeOption({ price: o.price_huf, min: o.min_order_huf })}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex items-center gap-2.5 flex-wrap">
                 {/* Status Badges */}

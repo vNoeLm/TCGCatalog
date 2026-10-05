@@ -373,6 +373,7 @@ export function QuickSaleSettingsPanel({ rules, onSave, saving }: Props) {
                       { id: 'personal', label: 'In person' },
                       { id: 'foxpost', label: 'Foxpost' },
                       { id: 'packeta', label: 'Packeta' },
+                      { id: 'gls', label: 'GLS' },
                       { id: 'posta', label: 'Posta' }
                     ].map(method => (
                       <label key={method.id} className="flex items-center gap-2 cursor-pointer">

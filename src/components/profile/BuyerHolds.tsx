@@ -16,6 +16,7 @@ interface BuyerHold {
   is_foil: boolean | null;
   condition: string | null;
   items: HoldRequestItem[] | null;
+  shipping_huf?: number | null;
   conversation_id: string | null;
   preferred_handover: string | null;
   created_at: string;
@@ -50,7 +51,7 @@ export function BuyerHolds({ userId }: { userId: string }) {
   const load = async () => {
     const { data } = await supabase
       .from('hold_requests')
-      .select('id, seller_id, status, card_name, image_path, price_huf, quantity, is_foil, condition, items, conversation_id, preferred_handover, created_at, updated_at')
+      .select('*')
       .eq('buyer_id', userId)
       .in('status', OPEN_HOLD_STATUSES as string[])
       .order('created_at', { ascending: false });
@@ -95,7 +96,8 @@ export function BuyerHolds({ userId }: { userId: string }) {
       <div className="flex flex-col gap-3">
         {holds.map((h) => {
           const items = itemsOf(h);
-          const total = items.reduce((s, it) => s + (it.price_huf || 0) * (it.quantity || 1), 0);
+          const shipping = Number(h.shipping_huf) || 0;
+          const total = items.reduce((s, it) => s + (it.price_huf || 0) * (it.quantity || 1), 0) + shipping;
           const actions = allowedHoldActions(h.status, 'buyer', h.updated_at);
           const stepIndex = STEPS.indexOf(h.status as typeof STEPS[number]);
           return (
@@ -121,7 +123,7 @@ export function BuyerHolds({ userId }: { userId: string }) {
                   <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                     from{' '}
                     <a href={`/user?id=${h.seller_id}`} className="font-bold hover:underline">{sellerNames[h.seller_id] || 'Seller'}</a>
-                    {' · '}{total.toLocaleString()} Ft{h.preferred_handover ? ` · ${handoverLabel(h.preferred_handover)}` : ''}
+                    {' · '}{total.toLocaleString()} Ft{shipping > 0 ? ` (incl. ${shipping.toLocaleString()} Ft shipping)` : ''}{h.preferred_handover ? ` · ${handoverLabel(h.preferred_handover)}` : ''}
                   </div>
                   {items.length > 1 && (
                     <div className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>

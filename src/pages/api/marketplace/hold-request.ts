@@ -3,6 +3,7 @@ import { allowedHoldActions, sellerCanCompleteFrom, BUYER_CONFIRM_DAYS, type Hol
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getOrCreateConversation, postSystemMessage, postUserMessage } from '../../../lib/conversationsServer';
 import { handoverMethod, handoverLabel, listingHandoverIds, type HandoverMethodId } from '../../../lib/handover';
+import { methodAvailability, normalizeShipping, fmtHuf, type ShippingSettings } from '../../../lib/shipping';
 
 export const prerender = false;
 
@@ -51,6 +52,8 @@ export interface HoldRequestRecord {
   condition?: string;
   /** Present when this request bundles multiple cards from one seller (cart checkout). */
   items?: HoldRequestItem[];
+  /** What the buyer pays for the chosen handover method (seller shipping options). */
+  shipping_huf?: number;
   created_at: string;
   updated_at: string;
 }
@@ -120,7 +123,8 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
     }
 
     const lineItems = itemsOf(req);
-    const orderTotal = lineItems.reduce((sum, it) => sum + it.price_huf * it.quantity, 0);
+    const shippingHuf = Math.max(0, Number(req.shipping_huf) || 0);
+    const orderTotal = lineItems.reduce((sum, it) => sum + it.price_huf * it.quantity, 0) + shippingHuf;
     const orderNumber = `P2P-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
     let sellerName: string | undefined;
@@ -141,6 +145,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<void
       seller_name: sellerName,
       status: 'Delivered',
       total_price_huf: orderTotal,
+      shipping_huf: shippingHuf,
       shipping_name: req.buyer_name,
       shipping_method: req.preferred_handover,
       shipping_address: req.handover_details || undefined,
@@ -283,7 +288,7 @@ type LockResult =
 async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput, handover: HandoverMethodId): Promise<LockResult> {
   const { data: invRow } = await supabaseAdmin
     .from('inventory')
-    .select('id, status, quantity, notes')
+    .select('id, status, quantity, notes, price_huf, condition, is_foil')
     .eq('id', line.inventory_id)
     .maybeSingle();
 
@@ -346,10 +351,12 @@ async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput, h
       card_name: line.card_name || 'TCG Card',
       card_number: line.card_number,
       image_path: line.image_path,
-      price_huf: typeof line.price_huf === 'number' ? line.price_huf : 0,
+      // Price, condition and finish from the listing itself, never from the request body - the
+      // browser could send anything, and the order total and shipping minimums depend on them.
+      price_huf: Math.max(0, Math.round(Number(invRow.price_huf) || 0)),
       quantity: requestedQty,
-      is_foil: Boolean(line.is_foil),
-      condition: line.condition || 'Near Mint',
+      is_foil: Boolean(invRow.is_foil),
+      condition: invRow.condition || 'Near Mint',
     },
   };
 }
@@ -496,6 +503,31 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // The seller's shipping options: is this method offered, is the order big enough for it, and
+    // what does it cost. Checked against the listing prices just locked, not the cart's figures.
+    const { data: shippingRow } = await supabaseAdmin
+      .from('seller_shipping')
+      .select('options')
+      .eq('seller_id', verifiedSellerId!)
+      .maybeSingle()
+      .then((r) => r, () => ({ data: null }));
+    const shippingSettings: ShippingSettings | null = shippingRow ? normalizeShipping((shippingRow as any).options) : null;
+    const subtotalHuf = lockedItems.reduce((sum, it) => sum + (it.price_huf || 0) * (it.quantity || 1), 0);
+    const availability = methodAvailability(shippingSettings, method.id, subtotalHuf);
+    if (!availability.offered || availability.short > 0) {
+      for (const locked of lockedForRollback) await restoreInventoryItem(locked.id, locked.quantity);
+      return new Response(JSON.stringify({
+        success: false,
+        error: !availability.offered
+          ? `This seller doesn't offer ${method.label}.`
+          : `${method.label} needs an order of at least ${fmtHuf(availability.min)} from this seller - add ${fmtHuf(availability.short)} more or pick another method.`,
+      }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+    const shippingHuf = availability.price;
+
     const first = lockedItems[0];
     const isCart = lockedItems.length > 1;
 
@@ -523,6 +555,8 @@ export const POST: APIRoute = async ({ request }) => {
       is_foil: first.is_foil,
       condition: first.condition,
       items: isCart ? lockedItems : undefined,
+      // Only written when there is a charge, so requests still save before the shipping migration.
+      ...(shippingHuf > 0 ? { shipping_huf: shippingHuf } : {}),
       conversation_id: conversationId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -544,11 +578,11 @@ export const POST: APIRoute = async ({ request }) => {
 
     if (conversationId) {
       const cardLabel = isCart ? `${lockedItems.length} cards` : first.card_name;
-      const totalHuf = lockedItems.reduce((sum, it) => sum + (it.price_huf || 0) * (it.quantity || 1), 0);
+      const totalHuf = subtotalHuf + shippingHuf;
       await postSystemMessage(
         conversationId,
         buyerId,
-        `Requested a hold on ${cardLabel} — ${totalHuf.toLocaleString()} Ft · ${method.label}`,
+        `Requested a hold on ${cardLabel} — ${totalHuf.toLocaleString()} Ft · ${method.label}${shippingHuf > 0 ? ` (incl. ${shippingHuf.toLocaleString()} Ft shipping)` : ''}`,
         {
           holdRequestId: newRecord.id,
           metadata: {
@@ -556,6 +590,7 @@ export const POST: APIRoute = async ({ request }) => {
             hold_request_id: newRecord.id,
             card_name: cardLabel,
             price_huf: totalHuf,
+            shipping_huf: shippingHuf,
             handover: method.id,
             handover_details: detailsText || null,
           },
