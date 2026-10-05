@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { printLanguage } from '../lib/cardPreview';
 import type { CatalogCard } from "../types";
 import { cardThumbProps } from "../lib/supabase";
 import { parseDomains } from "../lib/domainColors";
@@ -128,8 +129,30 @@ export function CardListItem(props: CardListItemProps) {
           )}
         </div>
 
-        {/* Top right badges: Signed */}
+        {/* Top right badges: Preview / foreign print / Signed */}
         <div className="absolute top-2 right-2 flex flex-col items-end gap-1" style={{ zIndex: 3 }}>
+          {/* Riot's policy: an officially previewed card of an unreleased set is labelled as such. Hidden
+              ones only reach admins (marking previews) and say so. */}
+          {card.preview_state && card.preview_state !== 'released' && (
+            <span
+              className="px-1.5 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider shadow-md"
+              style={card.preview_state === 'official-preview'
+                ? { background: 'rgba(14,165,233,0.95)', color: '#fff', border: '1px solid #7dd3fc' }
+                : { background: 'rgba(220,38,38,0.95)', color: '#fff', border: '1px solid #fca5a5' }}
+              title={card.preview_state === 'official-preview' ? 'Officially previewed by Riot - not released yet' : 'Unreleased and not an official preview - only admins see this'}
+            >
+              {card.preview_state === 'official-preview' ? 'Preview · unreleased' : 'Hidden · not previewed'}
+            </span>
+          )}
+          {printLanguage(card.name) && (
+            <span
+              className="px-1.5 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider shadow-md"
+              style={{ background: 'rgba(15,23,42,0.9)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
+              title="Non-English print - the official English text is in the card details"
+            >
+              {printLanguage(card.name)} print
+            </span>
+          )}
           {(() => {
             const num = (card.card_number || '').toUpperCase();
             const sub = (card.subtype || '').toLowerCase().trim();

@@ -6,7 +6,6 @@ export interface PublicDeckSummary {
   name: string;
   game: 'riftbound' | 'cyberpunk';
   is_public: boolean;
-  views: number;
   created_at: string;
   updated_at: string;
   user_id: string;

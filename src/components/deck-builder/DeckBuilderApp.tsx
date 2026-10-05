@@ -887,7 +887,7 @@ export function DeckBuilderApp() {
                     <div key={pd.id} className="flex items-center justify-between gap-3 p-3 bg-zinc-950/60 rounded-xl border border-zinc-800">
                       <div className="min-w-0">
                         <div className="font-bold text-sm text-zinc-100 truncate">{pd.name}</div>
-                        <div className="text-[11px] text-zinc-500">{pd.views} view{pd.views === 1 ? '' : 's'} &middot; {pd.is_public ? 'Public' : 'Unlisted'}</div>
+                        <div className="text-[11px] text-zinc-500">{pd.is_public ? 'Public' : 'Unlisted'}</div>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button

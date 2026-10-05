@@ -38,13 +38,14 @@ export const GET: APIRoute = async ({ params, request }) => {
       row.champion_card_id ? supabaseAdmin.from('cards').select('*').eq('id', row.champion_card_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
 
-    // Fire-and-forget view counter; never blocks the response on failure.
-    supabaseAdmin.from('public_decks').update({ views: (row.views || 0) + 1 }).eq('id', row.id).then(() => {}, () => {});
+    // Deck views aren't counted or shown: popularity of decks is the kind of metagame data Riot's
+    // Riftbound policy asks apps not to publish.
+    const { views: _views, ...deckRow } = row as any;
 
     return new Response(JSON.stringify({
       success: true,
       deck: {
-        ...row,
+        ...deckRow,
         owner_name: profile?.display_name || 'Collector',
         owner_avatar: profile?.avatar_url || null,
         legend_card: legendCard || null,

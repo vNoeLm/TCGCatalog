@@ -132,6 +132,11 @@ export function LegalFooter() {
                 </span>
               ))}
             </div>
+            {/* The statement Riot's "Legal Jibber Jabber" (section 6) asks fan projects to show, where it's
+                easy to find - every page. */}
+            <p className="text-[10px] leading-relaxed mt-3 max-w-xs">
+              TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+            </p>
             {/* Placeholder for the operator details a registered business has to show. */}
             <p className="text-[10px] leading-relaxed mt-3 max-w-xs opacity-80">
               Operator: <span className="font-semibold">-</span> · Company reg. no.: <span className="font-semibold">-</span> · Tax no.: <span className="font-semibold">-</span> · Registered office: <span className="font-semibold">-</span>
