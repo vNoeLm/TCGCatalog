@@ -8,6 +8,10 @@ import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { ShippingSettingsPanel } from './ShippingSettingsPanel';
+import { QuickSalePreviewModal } from '../collection/QuickSalePreviewModal';
+import { fetchCardsCatalog } from '../../lib/api';
+import { getLocalCollectionOwner } from '../../lib/collectionClient';
+import type { CatalogCard, FilterState } from '../../types';
 import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
@@ -279,6 +283,51 @@ export function SellerDashboardApp() {
       window.removeEventListener('tcg-collection-change', loadCollectionStats);
     };
   }, []);
+
+  // Running Quick List from here, without going back to the Catalog: the same preview, fed the
+  // collection kept on this device and the full card list of both games.
+  const [quickListOpen, setQuickListOpen] = useState(false);
+  const [preparingQuickList, setPreparingQuickList] = useState(false);
+  const [quickListCards, setQuickListCards] = useState<CatalogCard[]>([]);
+  const [quickListOwned, setQuickListOwned] = useState<{ cardId: string; count: number }[]>([]);
+
+  const runQuickList = async () => {
+    if (!profile || preparingQuickList) return;
+    if (quickSaleRules.length === 0) {
+      showToast('Add and save a Quick List rule below first.');
+      return;
+    }
+    // Listing takes the copies out of the collection on this device too, so it has to be this
+    // account's copy - on a device that hasn't synced it yet, that happens in the Catalog.
+    if (getLocalCollectionOwner() !== profile.id) {
+      showToast('Open the Catalog once on this device so your collection syncs, then run Quick List here.');
+      return;
+    }
+    let owned: { cardId: string; count: number }[] = [];
+    try {
+      const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
+      const dict: Record<string, number> = raw ? JSON.parse(raw) : {};
+      owned = Object.entries(dict)
+        .filter(([, count]) => typeof count === 'number' && count > 0)
+        .map(([cardId, count]) => ({ cardId, count }));
+    } catch {
+      owned = [];
+    }
+    if (owned.length === 0) {
+      showToast('Your collection is empty - add the cards you own in the Catalog first.');
+      return;
+    }
+    setPreparingQuickList(true);
+    try {
+      const base: FilterState = { category: 'singles', game: 'riftbound', set: '', rarities: [], type: '', domains: [], tags: [], costMin: 1, costMax: 10 };
+      const lists = await Promise.all((['riftbound', 'cyberpunk'] as const).map(game => fetchCardsCatalog({ ...base, game }, '')));
+      setQuickListCards(lists.flatMap(l => l.data || []));
+      setQuickListOwned(owned);
+      setQuickListOpen(true);
+    } finally {
+      setPreparingQuickList(false);
+    }
+  };
 
   const saveQuickSaleRules = async (rules: QuickSaleRule[]) => {
     setSavingRules(true);
@@ -2286,6 +2335,31 @@ export function SellerDashboardApp() {
 
       {/* ─── TAB: QUICK SALE RULES ──────────────────────────────────── */}
       {activeTab === 'quicksale' && (
+        <div
+          className="rounded-2xl border p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>Run Quick List</div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Lists the spare copies in your collection using your saved rules below. You'll see every card and price before anything goes up.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={runQuickList}
+            disabled={preparingQuickList}
+            className="h-10 px-5 rounded-xl text-xs font-black cursor-pointer transition shrink-0 inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-default"
+            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            {preparingQuickList ? 'Loading cards…' : 'Run Quick List'}
+          </button>
+        </div>
+      )}
+      {activeTab === 'quicksale' && (
         <QuickSaleSettingsPanel
           rules={quickSaleRules}
           onSave={saveQuickSaleRules}
@@ -2293,6 +2367,17 @@ export function SellerDashboardApp() {
           
         />
       )}
+
+      <QuickSalePreviewModal
+        isOpen={quickListOpen}
+        onClose={() => {
+          setQuickListOpen(false);
+          loadSellerListings();
+          window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+        }}
+        ownedCards={quickListOwned}
+        allCards={quickListCards}
+      />
 
       {/* List Card Modal - it holds itself open for its own exit transition (isOpen), so it's
           rendered unconditionally rather than wrapped in `{isListModalOpen && (...)}` here, which
