@@ -36,6 +36,15 @@ const pathname = Astro.url.pathname;
       (function() {
         try {
           var override = localStorage.getItem('tcg_theme_override');
+          // Cyberpunk TCG was removed: a browser still set to it switches back to Riftbound here,
+          // before any part of the page reads the active game or saved catalog filters.
+          if (localStorage.getItem('tcg_active_game') === 'cyberpunk') localStorage.setItem('tcg_active_game', 'riftbound');
+          try {
+            ['catalogFilters', 'catalogGame', 'inventoryFilters'].forEach(function (k) {
+              var v = sessionStorage.getItem(k);
+              if (v && v.indexOf('cyberpunk') !== -1) sessionStorage.removeItem(k);
+            });
+          } catch (e) {}
           var game = localStorage.getItem('tcg_active_game') || 'riftbound';
           var theme = (override === 'cyberpunk' || override === 'riftbound' || override === 'dark' || override === 'light') ? override : (game === 'cyberpunk' ? 'cyberpunk' : 'riftbound');
           document.documentElement.setAttribute('data-theme', theme);
