@@ -66,14 +66,13 @@ export function CookieConsent() {
             >
               Accept
             </button>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('tcg-open-legal'))}
+            <a
+              href="/legal/cookies"
               className="text-xs font-bold underline underline-offset-2 cursor-pointer"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              Privacy notice
-            </button>
+              Cookie notice
+            </a>
           </div>
         </div>
       </div>

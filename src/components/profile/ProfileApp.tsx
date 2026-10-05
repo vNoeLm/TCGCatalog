@@ -3,7 +3,7 @@ import { supabase, cardThumbProps } from '../../lib/supabase';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { getCurrentProfile, updateProfile, signOut, fetchUserOrders, onSignedInUserChange } from '../../lib/auth';
 import { cancelOrder } from '../../lib/orders';
-import { fetchReviewsWrittenBy } from '../../lib/reviews';
+import { fetchReviewsWrittenBy, fetchReputation } from '../../lib/reviews';
 import { RateTradeModal } from '../reviews/RateTradeModal';
 import { BuyerHolds } from './BuyerHolds';
 import { Stars } from '../reviews/ReviewParts';
@@ -233,9 +233,14 @@ export function ProfileApp() {
 
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
   const isLightTheme = effectiveTheme === 'light';
+  // The same rating the public profile uses, so the seller badge here matches what others see.
+  const [sellerRatingAvg, setSellerRatingAvg] = useState<number | null>(null);
+  useEffect(() => {
+    if (profile?.id) fetchReputation(profile.id).then(rep => setSellerRatingAvg(rep.as_seller.avg));
+  }, [profile?.id]);
   const sellerTier = useMemo(() => {
-    return getSellerTier(sellerSalesCount, null, isOwner, isLightTheme);
-  }, [sellerSalesCount, isOwner, isLightTheme]);
+    return getSellerTier(sellerSalesCount, sellerRatingAvg, isOwner, isLightTheme);
+  }, [sellerSalesCount, sellerRatingAvg, isOwner, isLightTheme]);
 
   const collectorTier = useMemo(() => {
     return getCollectorTier(collectionStats.owned, collectionStats.total, collectionStats.game, isLightTheme, collectionStats.weightedPercentage);
@@ -666,6 +671,18 @@ export function ProfileApp() {
             (they used to wrap onto a new line at their natural width, leaving it half empty);
             beside the details from 1024px. */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
+          <a
+            href={`/user?id=${profile.id}`}
+            className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+            style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+            title="See your profile the way other collectors see it - ratings, sales, purchases and reviews"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>View public profile</span>
+          </a>
           <a
             href="/seller"
             className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"

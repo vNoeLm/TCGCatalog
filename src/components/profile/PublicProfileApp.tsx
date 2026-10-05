@@ -6,6 +6,7 @@ import { getSellerTier, getCollectorTier, BadgeIconSvg, SiteOwnerTag, type Colle
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
+import { getCurrentUser } from '../../lib/auth';
 import type { SellerProfileSummary, UserReputation } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -22,6 +23,12 @@ export function PublicProfileApp() {
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const isLightTheme = useSiteTheme().theme === 'light';
+  // Viewing your own profile: say so, with a way back to the editable one.
+  const [isMe, setIsMe] = useState(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (id) getCurrentUser().then(u => setIsMe(Boolean(u && u.id === id)));
+  }, []);
 
   // Which game's collector badge to show - the site's globally active game, same as everywhere
   // else (Catalog, Binder), not something this page picks on its own.
@@ -123,6 +130,27 @@ export function PublicProfileApp() {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
+      {isMe && (
+        <div
+          className="rounded-xl border px-4 py-2.5 mb-4 flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
+        >
+          <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            This is how other collectors see your profile.
+          </span>
+          <a
+            href="/profile"
+            className="h-8 px-3 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit profile
+          </a>
+        </div>
+      )}
+
       {/* Identity */}
       <div
         className="rounded-2xl p-6 sm:p-7 mb-6 border"

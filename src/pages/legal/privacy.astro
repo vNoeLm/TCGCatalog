@@ -1,0 +1,81 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+import { CONTACT_EMAIL } from '../../lib/site';
+---
+
+<DocLayout
+  title="Privacy notice"
+  lead="What TCG Vault stores about you, who can see it, and what you can ask us to do with it."
+  group="legal"
+  updated="5 October 2026"
+>
+  <p class="doc-note">
+    TCG Vault is a fan project run by a private individual, not a company. For anything in this notice, email
+    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+  </p>
+
+  <h2>1. Using the site without an account</h2>
+  <p>
+    You can browse the catalog, track a collection and build decks without signing up. That data stays in your browser
+    (see the <a href="/legal/cookies">cookie notice</a>) and is never sent to us.
+  </p>
+
+  <h2>2. What we store when you have an account</h2>
+  <ul>
+    <li><strong>Account</strong>: your email address, a password (stored only as a secure hash by our sign-in provider), your display name and profile picture, and when you joined.</li>
+    <li><strong>Your collection</strong>: the cards you track, synced to your account so it follows you between devices, plus a backup if you save one.</li>
+    <li><strong>Decks and wishlists</strong>: decks you save, and wishlists. Decks you publish are public; everything else is only yours.</li>
+    <li><strong>Seller settings</strong>: Quick List rules and shipping options.</li>
+    <li><strong>Marketplace</strong>: your listings and their photos, hold requests you send or receive, the handover details on them (for example your name, phone number, address or parcel locker), the messages you exchange about a trade, completed orders, and the reviews you give and receive.</li>
+    <li><strong>Usage counts</strong>: how often a listing is viewed or clicked (shown to its seller), and search terms typed into the catalog or marketplace, stored without your account attached.</li>
+  </ul>
+
+  <h2>3. Who can see what</h2>
+  <ul>
+    <li><strong>Everyone</strong>: your display name and picture, your public profile (member since, sales and purchases made, seller and buyer ratings, reviews), your listings, and decks you published.</li>
+    <li><strong>The other person in a trade</strong>: your hold request, the handover details you entered for it, and your messages. Delivery details are only sent to the seller you are buying from.</li>
+    <li><strong>Only you</strong>: your email address, collection, saved decks, wishlists and settings.</li>
+    <li><strong>The site operator</strong> can access the database to run and fix the site, and does so only when needed.</li>
+  </ul>
+
+  <h2>4. Why we use it (legal basis)</h2>
+  <ul>
+    <li>To provide the account, collection sync and marketplace you asked for (performance of a contract).</li>
+    <li>To keep the site secure and working, and to show sellers anonymous demand statistics (legitimate interest).</li>
+  </ul>
+  <p>We do not sell your data, show ads, or use analytics or advertising trackers.</p>
+
+  <h2>5. Services we rely on</h2>
+  <ul>
+    <li><strong>Supabase</strong> (database, sign-in and image storage, hosted in the EU).</li>
+    <li><strong>Vercel</strong> (hosting; our server code runs in Frankfurt). Like any host, it keeps short-lived technical logs such as IP addresses.</li>
+    <li><strong>Google Fonts</strong>: your browser loads the site's fonts from Google, which sees your IP address when it does.</li>
+    <li><strong>Riot Games' content servers</strong>: some Riftbound icons are loaded from Riot, which also sees your IP address.</li>
+  </ul>
+  <p>Links to other sites (Cardmarket, Foxpost, Packeta) only take you there; their own privacy policies apply.</p>
+
+  <h2>6. How long we keep it</h2>
+  <p>
+    As long as you have an account. If you ask us to delete it, we delete your account and the personal data linked to it
+    within 30 days. Data kept only in your browser stays there until you clear it or use Reset in the Catalog.
+  </p>
+
+  <h2>7. Your rights</h2>
+  <p>Under the GDPR you can ask us to:</p>
+  <ul>
+    <li>show you the data we hold about you, or give you a copy (you can also export your collection yourself from the Catalog);</li>
+    <li>correct it (you can change your display name and picture in your profile);</li>
+    <li>delete it, or restrict or object to how we use it.</li>
+  </ul>
+  <p>
+    Email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and we will reply within 30 days. If you are not happy with
+    the answer, you can complain to the Hungarian data protection authority (NAIH, <a href="https://naih.hu" rel="noopener noreferrer" target="_blank">naih.hu</a>)
+    or the authority where you live.
+  </p>
+
+  <h2>8. Age</h2>
+  <p>You need to be at least 16 to create an account.</p>
+
+  <h2>9. Changes</h2>
+  <p>If this notice changes in a way that matters, the date at the top changes and we will mention it on the site.</p>
+</DocLayout>

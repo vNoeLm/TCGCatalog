@@ -1,0 +1,48 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+import { CONTACT_EMAIL } from '../../lib/site';
+---
+
+<DocLayout
+  title="Copyright & rights holders"
+  lead="TCG Vault is an unofficial fan project. The games, cards and artwork shown here belong to their owners."
+  group="legal"
+  updated="5 October 2026"
+>
+  <h2>Riftbound</h2>
+  <p>
+    TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does
+    not endorse or sponsor this project.
+  </p>
+  <p>Riftbound, its card names, text, artwork, icons and logos are trademarks and copyrights of Riot Games, Inc.</p>
+
+  <h2>Other games</h2>
+  <p>
+    Cards and artwork from other games shown on TCG Vault, including the Cyberpunk trading card game, belong to their
+    respective publishers and rights holders. TCG Vault is not affiliated with, endorsed or sponsored by any of them.
+  </p>
+
+  <h2>What TCG Vault uses them for</h2>
+  <p>
+    Card images and details are shown so players can identify cards, track their collections, build decks and trade with each
+    other. TCG Vault is free to use and does not sell card images or game content.
+  </p>
+
+  <h2>Photos and content from users</h2>
+  <p>
+    Photos and text that users upload with their listings, reviews and messages belong to the people who posted them. If you
+    believe something on the site uses your work without permission, tell us.
+  </p>
+
+  <h2>Rights holders: asking for removal</h2>
+  <p>
+    If you own the rights to something shown here and want it changed or taken down, email
+    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with:
+  </p>
+  <ul>
+    <li>what the content is and where it appears (a link is best);</li>
+    <li>who you are and how you hold the rights;</li>
+    <li>what you would like us to do.</li>
+  </ul>
+  <p>We respond as quickly as we can, and remove content that shouldn't be here.</p>
+</DocLayout>

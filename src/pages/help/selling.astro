@@ -1,0 +1,66 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+import { CONTACT_EMAIL } from '../../lib/site';
+---
+
+<DocLayout
+  title="Seller guidelines"
+  lead="How to list cards, describe them, price them and handle holds so buyers trust you and come back."
+  group="help"
+  updated="5 October 2026"
+>
+  <h2>What you can sell</h2>
+  <ul>
+    <li>Cards you own and have with you, ready to hand over.</li>
+    <li>Not allowed: counterfeits, proxies sold as real cards, cards you don't have yet, or anything else from the <a href="/legal/terms">terms</a>.</li>
+  </ul>
+
+  <h2>Listing a card</h2>
+  <ul>
+    <li>Pick the exact card and version (number, alternate art, foil or not).</li>
+    <li>Choose the handover methods you will do for that card. Your shipping prices and minimums from Seller Hub &gt; Shipping apply on top.</li>
+    <li>Add photos of the actual card for anything valuable or not Near Mint - front and back, in good light.</li>
+    <li>Use the description for anything a buyer should know: language, signed, small flaws.</li>
+  </ul>
+
+  <h2>Condition</h2>
+  <table>
+    <thead><tr><th>Condition</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td>Mint</td><td>Perfect. Straight from the pack, no marks at all.</td></tr>
+      <tr><td>Near Mint</td><td>Looks unplayed. At most a tiny speck or edge mark you need to look for.</td></tr>
+      <tr><td>Lightly Played</td><td>Light edge or corner wear, a few small scratches. No creases.</td></tr>
+      <tr><td>Moderately Played</td><td>Clear wear on edges and surface, small dents or scuffs. Still sleeve-playable.</td></tr>
+      <tr><td>Heavily Played</td><td>Heavy wear, creases or marks, but intact.</td></tr>
+      <tr><td>Damaged</td><td>Tears, water damage, bends, writing or missing pieces.</td></tr>
+    </tbody>
+  </table>
+  <p>When unsure between two grades, choose the lower one. A buyer who gets a better card than expected leaves a better review.</p>
+
+  <h2>Pricing</h2>
+  <ul>
+    <li>The card window shows the market price and what other sellers on TCG Vault are asking - use them as a guide.</li>
+    <li>Set shipping prices that cover your real costs, and a minimum order for methods that aren't worth it for single cheap cards.</li>
+    <li>Quick List can list your spare copies in one go using your rules, with a full preview before anything goes live.</li>
+  </ul>
+
+  <h2>Handling holds</h2>
+  <ul>
+    <li>Answer hold requests within a day or two - accept or reject, don't leave buyers waiting.</li>
+    <li>Agree payment and handover in Messages, so it is all in one place.</li>
+    <li>Press <em>Mark handed over</em> only once you have met up or posted the cards, and share the tracking number if there is one.</li>
+    <li>The buyer completes the sale by confirming they received the cards. If they don't respond for 14 days after handover, you can complete it yourself.</li>
+    <li>If you can't go through with a sale, cancel it and tell the buyer why.</li>
+  </ul>
+  <p>The <a href="/help/shipping">shipping &amp; handover guide</a> covers packing and meetups.</p>
+
+  <h2>Reviews and reputation</h2>
+  <p>
+    After each completed sale, the buyer rates you on communication, packaging, speed and how accurate your listing was, and
+    you can rate the buyer on communication, payment and reliability. Your ratings and number of sales show on your profile and
+    next to your listings. Fast replies, honest condition grades and careful packing are what get you five stars.
+  </p>
+
+  <h2>Questions</h2>
+  <p>Email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
+</DocLayout>

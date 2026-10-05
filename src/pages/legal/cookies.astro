@@ -1,0 +1,46 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+import { CONTACT_EMAIL } from '../../lib/site';
+---
+
+<DocLayout
+  title="Cookie notice"
+  lead="TCG Vault sets no tracking or advertising cookies. It keeps a few things in your browser's storage so the site works."
+  group="legal"
+  updated="5 October 2026"
+>
+  <h2>What's stored in your browser</h2>
+  <p>
+    Instead of cookies, the site uses your browser's local storage. Everything there is needed for a feature you use, and
+    none of it is shared with advertisers or used to follow you around the web.
+  </p>
+  <table>
+    <thead>
+      <tr><th>What</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Sign-in session</td><td>Keeps you signed in (set by our sign-in provider, Supabase).</td></tr>
+      <tr><td>Your collection</td><td>The cards you track, so it works without an account and loads fast with one.</td></tr>
+      <tr><td>Theme and active game</td><td>Remembers the look and the game you picked.</td></tr>
+      <tr><td>Marketplace cart</td><td>The cards you added, until you send the request.</td></tr>
+      <tr><td>Delivery details</td><td>Your shipping address or parcel locker, so you don't retype it. It only leaves this device when you send a hold request.</td></tr>
+      <tr><td>Draft decks and filters</td><td>Deck builder drafts and catalog preferences.</td></tr>
+      <tr><td>This notice</td><td>Remembers that you have seen the cookie notice.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Third parties</h2>
+  <p>
+    Fonts come from Google Fonts and some Riftbound icons from Riot Games' servers. Loading them tells those servers your IP
+    address, but they set no cookies through this site. There are no analytics, advertising or social media trackers.
+  </p>
+
+  <h2>Clearing it</h2>
+  <p>
+    You can delete this data at any time in your browser's settings (site data / storage). Clearing it signs you out and
+    removes anything that was only stored on this device, such as a collection you never synced to an account. Because all of
+    it is needed for the site to work, there are no settings to switch individual parts off.
+  </p>
+
+  <p>Questions: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. More about personal data in the <a href="/legal/privacy">privacy notice</a>.</p>
+</DocLayout>
