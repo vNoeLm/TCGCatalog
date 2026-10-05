@@ -17,6 +17,7 @@ import {
   type BinderPocket,
 } from '../../lib/binderLayout';
 import { STORAGE_KEYS, EVENTS, sortSetNames } from '../../lib/constants';
+import { useCollectionsStore, activeNamedCollection } from '../../lib/collectionsStore';
 
 const DEFAULT_FILTERS: FilterState = {
   category: 'singles',
@@ -31,8 +32,11 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 /** Reads the tracked collection the same way the rest of the app does, and stays in
- * sync with it (other tabs, other pages, the "Add to Vault" buttons here). */
+ * sync with it (other tabs, other pages, the "Add to Vault" buttons here). Follows the collection
+ * that's active in the Catalog: Personal from this browser, or a named one. */
 function useOwnedQtyMap(): Record<string, number> {
+  const store = useCollectionsStore();
+  const named = activeNamedCollection(store);
   const [qty, setQty] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -64,7 +68,7 @@ function useOwnedQtyMap(): Record<string, number> {
     };
   }, []);
 
-  return qty;
+  return named ? named.cards : qty;
 }
 
 function BinderPocketTile({

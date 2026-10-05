@@ -29,7 +29,7 @@ export function collectionKey(cardId: string, isFoil: boolean): string {
 /** The longest description a seller can put on a listing. */
 export const MAX_LISTING_DESCRIPTION = 200;
 
-function parseNotesObject(notes: string | null | undefined): Record<string, any> {
+export function parseNotesObject(notes: string | null | undefined): Record<string, any> {
   if (!notes) return {};
   try {
     const parsed = JSON.parse(notes);
@@ -89,4 +89,24 @@ export function copiesToReturn(
   const lent = Math.min(fromCollection, Math.max(0, before));
   const remaining = Math.min(lent, Math.max(0, after));
   return { giveBack: lent - remaining, remaining };
+}
+
+/**
+ * The named collection a listing belongs to, if any:
+ * - `collection_id`: listed by an "always list" collection - the collection is its stock, so the
+ *   listing's quantity and the collection's count move together (see lib/collectionsServer.ts);
+ * - `source_collection_id`: listed from a named collection by Quick List - unlisting gives the
+ *   copies back to that collection rather than to Personal.
+ */
+export function listingCollectionLinks(notes: string | null | undefined): { alwaysListId: string | null; sourceId: string | null } {
+  const o = parseNotesObject(notes);
+  return {
+    alwaysListId: typeof o.collection_id === 'string' ? o.collection_id : null,
+    sourceId: typeof o.source_collection_id === 'string' ? o.source_collection_id : null,
+  };
+}
+
+/** The card id and finish a collection key stands for ("<id>" or "<id>_foil"). */
+export function parseCollectionKey(key: string): { cardId: string; isFoil: boolean } {
+  return key.endsWith('_foil') ? { cardId: key.slice(0, -5), isFoil: true } : { cardId: key, isFoil: false };
 }

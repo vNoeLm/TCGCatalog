@@ -9,6 +9,9 @@ import {
   withListingNotes,
   copiesToReturn,
 } from '../../../lib/sellerNotes';
+import { listingCollectionLinks, collectionKey as collectionKeyOf } from '../../../lib/sellerNotes';
+import { adjustNamedCollectionCard } from '../../../lib/collectionsServer';
+import { ALL_HANDOVER_IDS } from '../../../lib/handover';
 import { adjustSellerCollection } from '../../../lib/collectionServer';
 
 export const prerender = false;
@@ -552,14 +555,31 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
       await supabaseAdmin.from('inventory').delete().eq('id', listingId);
 
-      // Whatever was still unsold on this listing goes back into the seller's collection.
-      // Only copies that came out of the collection when listed go back into it.
-      const { giveBack } = copiesToReturn(getCopiesFromCollection(invRow.notes), Number(invRow.quantity) || 0, 0);
-      const returned = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack);
+      const links = listingCollectionLinks(invRow.notes);
+      let returned = 0;
+      let namedDelta = 0;
+      if (links.alwaysListId) {
+        // An always-list collection's copies ARE the listing: taking it down takes them out.
+        namedDelta = await adjustNamedCollectionCard(
+          sellerId!, links.alwaysListId, collectionKeyOf(invRow.card_id, Boolean(invRow.is_foil)), -(Number(invRow.quantity) || 0)
+        );
+      } else {
+        // Whatever was still unsold on this listing goes back into the collection it came from.
+        // Only copies that came out of the collection when listed go back into it.
+        const { giveBack } = copiesToReturn(getCopiesFromCollection(invRow.notes), Number(invRow.quantity) || 0, 0);
+        const back = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack, links.sourceId);
+        if (links.sourceId) namedDelta = back;
+        else returned = back;
+      }
 
-      // `collection_delta` is what the seller's collection really changed by, so the browser can
-      // mirror it exactly.
-      return new Response(JSON.stringify({ success: true, unlisted_id: listingId, collection_delta: returned }), {
+      // `collection_delta` is what Personal really changed by, so the browser can mirror it exactly.
+      return new Response(JSON.stringify({
+        success: true,
+        unlisted_id: listingId,
+        collection_delta: returned,
+        named_collection_id: links.alwaysListId || links.sourceId || null,
+        named_collection_delta: namedDelta,
+      }), {
         status: 200,
         headers: JSON_HEADERS,
       });
@@ -646,14 +666,28 @@ export const PATCH: APIRoute = async ({ request }) => {
       // settles that up front; a bigger one is settled after the collection has been asked.
       const quantityBefore = Number(invRow.quantity) || 0;
       const lentBefore = getCopiesFromCollection(invRow.notes);
+      // A listing made by an always-list collection is that collection's stock: its quantity and
+      // the collection's count move together. One listed from a named collection by Quick List
+      // gives copies back to that collection, not Personal.
+      const links = listingCollectionLinks(invRow.notes);
       let notesPatch: Record<string, unknown> = {};
       let giveBack = 0;
-      if (explicitQuantity !== null && explicitQuantity < quantityBefore) {
+      if (!links.alwaysListId && explicitQuantity !== null && explicitQuantity < quantityBefore) {
         const settled = copiesToReturn(lentBefore, quantityBefore, explicitQuantity);
         giveBack = settled.giveBack;
         notesPatch.from_collection = settled.remaining;
       }
       if (typeof body.description === 'string') notesPatch.user_notes = cleanListingDescription(body.description);
+      if (Array.isArray(body.handover_methods)) {
+        const methods = body.handover_methods.filter((m: unknown) => typeof m === 'string' && (ALL_HANDOVER_IDS as string[]).includes(m));
+        if (methods.length === 0) {
+          return new Response(JSON.stringify({ success: false, error: 'Offer at least one handover method.' }), {
+            status: 400,
+            headers: JSON_HEADERS,
+          });
+        }
+        notesPatch.handover_methods = methods;
+      }
       if (Object.keys(notesPatch).length > 0) updates.notes = withListingNotes(invRow.notes, notesPatch);
 
       const { data: updated, error: updateErr } = await supabaseAdmin
@@ -670,12 +704,36 @@ export const PATCH: APIRoute = async ({ request }) => {
         });
       }
 
+      // Photos: the list sent replaces the listing's photos.
+      if (Array.isArray(body.images)) {
+        const photos = body.images.filter((u: unknown) => typeof u === 'string' && u.trim().length > 0).slice(0, 8);
+        await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', id);
+        if (photos.length) {
+          await supabaseAdmin.from('inventory_images').insert(
+            photos.map((url: string, index: number) => ({ inventory_id: id, image_path: url, display_order: index + 1 }))
+          );
+        }
+      }
+
+      // `collection_delta` is only for Personal (the browser mirrors it); named collections are
+      // re-read from the server, so the change there is reported separately.
       let collectionDelta = 0;
-      if (giveBack > 0) {
-        collectionDelta = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack);
+      let namedCollectionDelta = 0;
+      const quantityAfter = typeof updates.quantity === 'number' ? updates.quantity : quantityBefore;
+      if (links.alwaysListId) {
+        if (quantityAfter !== quantityBefore) {
+          namedCollectionDelta = await adjustNamedCollectionCard(
+            sellerId!, links.alwaysListId, collectionKeyOf(invRow.card_id, Boolean(invRow.is_foil)), quantityAfter - quantityBefore
+          );
+        }
+      } else if (giveBack > 0) {
+        const returned = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack, links.sourceId);
+        if (links.sourceId) namedCollectionDelta = returned;
+        else collectionDelta = returned;
       } else if (explicitQuantity !== null && explicitQuantity > quantityBefore) {
-        const taken = -(await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -(explicitQuantity - quantityBefore)));
-        collectionDelta = -taken;
+        const taken = -(await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -(explicitQuantity - quantityBefore), links.sourceId));
+        if (links.sourceId) namedCollectionDelta = -taken;
+        else collectionDelta = -taken;
         if (taken > 0) {
           await supabaseAdmin
             .from('inventory')
@@ -684,7 +742,13 @@ export const PATCH: APIRoute = async ({ request }) => {
         }
       }
 
-      return new Response(JSON.stringify({ success: true, listing: updated, collection_delta: collectionDelta }), {
+      return new Response(JSON.stringify({
+        success: true,
+        listing: updated,
+        collection_delta: collectionDelta,
+        named_collection_id: links.alwaysListId || links.sourceId || null,
+        named_collection_delta: namedCollectionDelta,
+      }), {
         status: 200,
         headers: JSON_HEADERS,
       });

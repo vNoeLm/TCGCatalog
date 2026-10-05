@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
-import { extractSellerId, listingSignature, collectionKey, getCopiesFromCollection, withListingNotes } from '../../../lib/sellerNotes';
+import { extractSellerId, listingSignature, collectionKey, getCopiesFromCollection, withListingNotes, listingCollectionLinks } from '../../../lib/sellerNotes';
+import { loadCollection, saveCollectionCards } from '../../../lib/collectionsServer';
 
 export const prerender = false;
 
@@ -24,7 +25,18 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'User is banned' }), { status: 403 });
     }
 
-    const { listings } = await request.json();
+    const body = await request.json();
+    const listings = body?.listings;
+    // Quick List can draw from a named collection instead of Personal; its copies come out of that
+    // one, and unlisting later gives them back to it. An always-list collection is already listed.
+    const sourceCollectionId: string | null = typeof body?.collection_id === 'string' && body.collection_id !== 'personal' ? body.collection_id : null;
+    const sourceCollection = sourceCollectionId ? await loadCollection(user.id, sourceCollectionId) : null;
+    if (sourceCollectionId && !sourceCollection) {
+      return new Response(JSON.stringify({ error: 'Collection not found' }), { status: 404 });
+    }
+    if (sourceCollection?.always_list) {
+      return new Response(JSON.stringify({ error: 'That collection already lists everything in it automatically.' }), { status: 400 });
+    }
 
     if (!Array.isArray(listings) || listings.length === 0) {
       return new Response(JSON.stringify({ error: 'No listings provided' }), { status: 400 });
@@ -48,16 +60,22 @@ export const POST: APIRoute = async ({ request }) => {
     const existingBySignature = new Map<string, any>();
     for (const row of existingRows || []) {
       if (extractSellerId(row.notes) !== user.id) continue;
+      // Only merge into a listing that came from the same collection, so its copies go back to the
+      // right place when unlisted; always-list listings are their collection's own business.
+      const links = listingCollectionLinks(row.notes);
+      if (links.alwaysListId || links.sourceId !== sourceCollectionId) continue;
       existingBySignature.set(listingSignature(row.card_id, row.condition, row.is_foil), row);
     }
 
     // A seller can never have more copies listed than they own, so clamp each
     // request against their collection minus whatever is already on the market.
-    const { data: collectionRow } = await supabaseAdmin
-      .from('user_collections')
-      .select('cards')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const { data: collectionRow } = sourceCollection
+      ? { data: { cards: sourceCollection.cards } }
+      : await supabaseAdmin
+          .from('user_collections')
+          .select('cards')
+          .eq('user_id', user.id)
+          .maybeSingle();
     const ownedCards: Record<string, number> = (collectionRow?.cards as any) || {};
     // Copies committed to a listing leave the tracked collection immediately, mirrored
     // here as one batched write at the end instead of a round-trip per card.
@@ -124,6 +142,7 @@ export const POST: APIRoute = async ({ request }) => {
             clicks: 0,
             listed_at: new Date().toISOString(),
             from_collection: fromCollection,
+            ...(sourceCollectionId ? { source_collection_id: sourceCollectionId } : {}),
           })
         });
       }
@@ -149,10 +168,14 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     if (collectionChanged) {
-      await supabaseAdmin
-        .from('user_collections')
-        .update({ cards: collectionAfter, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
+      if (sourceCollection) {
+        await saveCollectionCards(user.id, sourceCollection.id, collectionAfter);
+      } else {
+        await supabaseAdmin
+          .from('user_collections')
+          .update({ cards: collectionAfter, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id);
+      }
     }
 
     return new Response(JSON.stringify({

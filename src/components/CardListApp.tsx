@@ -38,6 +38,12 @@ import { useCardValueData, valueOfCard } from "../lib/cardValues";
 import { hasFoilVariant } from "../lib/cardVariants";
 import { FilterDrawer } from "./FilterDrawer";
 import { countActiveFilters } from "../lib/activeFilterCount";
+import { useCollectionsStore, activeNamedCollection, changeCollectionCard, setCollectionCards, onCollectionsMessage } from "../lib/collectionsStore";
+import { listPriceForCard } from "../lib/collectionPricing";
+import { parseCollectionKey } from "../lib/sellerNotes";
+import type { ListDefaults, NamedCollection } from "../lib/collectionDefaults";
+import { CollectionSwitcher } from "./collection/CollectionSwitcher";
+import { ManageCollectionsModal } from "./collection/ManageCollectionsModal";
 
 const RARITY_WEIGHTS: Record<string, number> = {
   'Common': 1,
@@ -134,7 +140,13 @@ export function CardListApp() {
   const [gridSize, setGridSize] = useState<'small'|'normal'|'large'>('normal');
   
   // Local Collection State (Record mapping cardId / cardId_foil to quantity)
-  const [collection, setCollection] = useState<Record<string, number>>({});
+  // Personal - the original collection, kept in this browser and synced to the account below.
+  const [personalCollection, setCollection] = useState<Record<string, number>>({});
+  // Which collection the catalog shows and edits: Personal, or a named one (lib/collectionsStore).
+  const collectionsStore = useCollectionsStore();
+  const activeNamed = activeNamedCollection(collectionsStore);
+  const collection = activeNamed ? activeNamed.cards : personalCollection;
+  const [showManageCollections, setShowManageCollections] = useState(false);
   const [collectionFilter, setCollectionFilter] = useState<"All" | "Owned" | "Playset" | "Missing">("All");
   const [sortMode, setSortMode] = useState<
     "Card Number (Asc)" | "Card Number (Desc)" |
@@ -379,8 +391,8 @@ export function CardListApp() {
   // The browser's copy carries the time it was last changed (saveLocalCollection) and the cloud's
   // carries the time it was last saved. Whichever changed last wins (lib/collectionSync.ts), which is
   // what lets a reset or a lowered count stick instead of being undone by an older copy.
-  const collectionRef = useRef(collection);
-  collectionRef.current = collection;
+  const collectionRef = useRef(personalCollection);
+  collectionRef.current = personalCollection;
   /** The time last known to be identical in the cloud, so data that has not changed is never re-saved. */
   const syncedStampRef = useRef<string | null>(null);
   /**
@@ -488,10 +500,39 @@ export function CardListApp() {
     return () => {
       if (cloudDebounceTimer.current) clearTimeout(cloudDebounceTimer.current);
     };
-  }, [collection, currentUser, cloudSyncReady]);
+  }, [personalCollection, currentUser, cloudSyncReady]);
+
+  /** The price an always-list collection lists a card at (its defaults + the card's values). */
+  const alwaysListPrice = (cardId: string, isFoil: boolean, defaults: ListDefaults) =>
+    listPriceForCard(defaults, allCards.find(c => c.id === cardId) || cards.find(c => c.id === cardId), isFoil, cardValues);
+  const alwaysListPrices = (coll: NamedCollection, defaults: ListDefaults, cardsMap: Record<string, number> = coll.cards) => {
+    const prices: Record<string, number> = {};
+    for (const key of Object.keys(cardsMap)) {
+      const { cardId, isFoil } = parseCollectionKey(key);
+      prices[cardId] = alwaysListPrice(cardId, isFoil, defaults);
+    }
+    return prices;
+  };
+
+  /** Saves a whole new set of counts to the active collection (import). */
+  const commitCollection = (next: Record<string, number>) => {
+    if (activeNamed) {
+      void setCollectionCards(activeNamed.id, next, activeNamed.always_list ? alwaysListPrices(activeNamed, activeNamed.list_defaults, next) : {});
+      return;
+    }
+    commitCollection(next);
+  };
+
+  // A change the server couldn't make (or limited) for a named collection.
+  useEffect(() => onCollectionsMessage((msg) => showToast(msg, 'error')), []);
 
   const updateCardCount = (cardId: string, isFoil: boolean, delta: number) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
+    if (activeNamed) {
+      const price = activeNamed.always_list && delta > 0 ? alwaysListPrice(cardId, isFoil, activeNamed.list_defaults) : null;
+      changeCollectionCard(activeNamed.id, targetKey, delta, price);
+      return;
+    }
     setCollection(prev => {
       const next = { ...prev };
       const current = next[targetKey] || 0;
@@ -539,6 +580,11 @@ export function CardListApp() {
 
   const toggleOwnership = (cardId: string, isFoil?: boolean) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
+    if (activeNamed) {
+      const current = activeNamed.cards[targetKey] || 0;
+      updateCardCount(cardId, Boolean(isFoil), current > 0 ? -current : 1);
+      return;
+    }
     setCollection(prev => {
       const next = { ...prev };
       if (next[targetKey] && next[targetKey] > 0) {
@@ -1059,6 +1105,10 @@ export function CardListApp() {
       showToast('Please sign in to save your collection to cloud.', 'error');
       return;
     }
+    if (activeNamed) {
+      showToast(`"${activeNamed.name}" is already stored in your account. Cloud backups are for Personal.`, 'info');
+      return;
+    }
     setSavingToCloud(true);
     try {
       const result = await saveCollectionBackupToCloud(collection);
@@ -1260,6 +1310,10 @@ export function CardListApp() {
   // other changes have happened to the live collection since.
   const handleRestoreFromCloud = async () => {
     if (!currentUser) return;
+    if (activeNamed) {
+      showToast('Cloud backups are for your Personal collection - switch to Personal to restore one.', 'error');
+      return;
+    }
     setRestoringFromCloud(true);
     try {
       const record = await loadCollectionBackupFromCloud();
@@ -1322,8 +1376,7 @@ export function CardListApp() {
           showToast(parsed.cards.length > 0 ? 'None of the cards in that backup could be matched to this catalog.' : 'That backup file has no cards in it.', 'error');
           return;
         }
-        setCollection(next);
-        saveLocalCollection(next);
+        commitCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${countAdded} cards from backup file!`, 'success');
@@ -1340,8 +1393,7 @@ export function CardListApp() {
           showToast('That JSON list is empty.', 'error');
           return;
         }
-        setCollection(next);
-        saveLocalCollection(next);
+        commitCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`, 'success');
@@ -1360,8 +1412,7 @@ export function CardListApp() {
           showToast('That JSON has no cards with a quantity greater than zero.', 'error');
           return;
         }
-        setCollection(next);
-        saveLocalCollection(next);
+        commitCollection(next);
         setShowImportModal(false);
         setImportText("");
         showToast(`✓ Successfully imported ${countAdded} cards from JSON!`, 'success');
@@ -1402,8 +1453,7 @@ export function CardListApp() {
         next[key] = (next[key] || 0) + qty;
         totalAdded += qty;
       });
-      setCollection(next);
-      saveLocalCollection(next);
+      commitCollection(next);
       setShowImportModal(false);
       setImportText("");
       showToast(`✓ Successfully imported ${totalAdded} cards from text list!`, 'success');
@@ -1436,6 +1486,11 @@ export function CardListApp() {
   const performResetCollection = async () => {
     setResettingCollection(true);
     try {
+      if (activeNamed) {
+        await setCollectionCards(activeNamed.id, {});
+        showToast(`Cleared "${activeNamed.name}".`, 'success');
+        return;
+      }
       // Signed in, every local change is auto-saved to the cloud, so "this device only" has to
       // leave sync out of it: the browser's copy AND its change-time are removed instead of being
       // saved as an empty collection. With no time of its own, this browser then looks like a fresh
@@ -1764,6 +1819,11 @@ export function CardListApp() {
 
               {/* What the collection is worth, between the size switcher and the actions - scoped to
                   whatever's currently filtered/on screen, so it updates live as filters change. */}
+              <CollectionSwitcher
+                personalCount={Object.values(personalCollection).reduce((sum, n) => sum + (n || 0), 0)}
+                onManage={() => setShowManageCollections(true)}
+              />
+
               <CollectionValueChip collection={collection} cards={relevantCards} />
 
               {/* Collection actions, by width:
@@ -1786,7 +1846,13 @@ export function CardListApp() {
                     Deck Builder
                   </a>
                   <button
-                    onClick={() => setShowQuickSalePreview(true)}
+                    onClick={() => {
+                      if (activeNamed?.always_list) {
+                        showToast(`"${activeNamed.name}" already lists everything in it automatically.`, 'info');
+                        return;
+                      }
+                      setShowQuickSalePreview(true);
+                    }}
                     title={'Quick List based on your rules'}
                     className="md:order-5 md:flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
                   >
@@ -2072,6 +2138,14 @@ export function CardListApp() {
         onClose={() => setShowQuickSalePreview(false)}
         ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
         allCards={allCards}
+        sourceCollectionId={activeNamed?.id ?? null}
+      />
+
+      <ManageCollectionsModal
+        open={showManageCollections}
+        onClose={() => setShowManageCollections(false)}
+        pricesFor={(coll, defaults) => alwaysListPrices(coll, defaults)}
+        onToast={(msg, type) => showToast(msg, type || 'info')}
       />
 
       {/* Import Collection Modal */}
@@ -2189,10 +2263,14 @@ export function CardListApp() {
         tone="danger"
         icon="trash"
         maxWidth="max-w-md"
-        title="Clear your collection?"
+        title={activeNamed ? `Clear "${activeNamed.name}"?` : "Clear your collection?"}
         subtitle={`${totalOwnedCopies} saved cards will be removed.`}
       >
-        {currentUser ? (
+        {activeNamed ? (
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            Removes every card from this collection{activeNamed.always_list ? ' and takes its listings off the marketplace (copies buyers are holding stay until those holds are done)' : ''}. Your other collections aren't touched.
+          </p>
+        ) : currentUser ? (
           <div role="radiogroup" aria-label="What to clear" className="flex flex-col gap-2">
             {([
               {
@@ -2262,7 +2340,7 @@ export function CardListApp() {
             disabled={resettingCollection}
             className="px-4 h-9 rounded-xl text-xs font-bold cursor-pointer transition text-white bg-rose-600 hover:bg-rose-500 shadow-md disabled:opacity-60 disabled:cursor-default"
           >
-            {resettingCollection ? 'Clearing…' : currentUser && resetScope === 'both' ? 'Clear everywhere' : currentUser ? 'Clear this device' : 'Clear collection'}
+            {resettingCollection ? 'Clearing…' : activeNamed ? 'Clear collection' : currentUser && resetScope === 'both' ? 'Clear everywhere' : currentUser ? 'Clear this device' : 'Clear collection'}
           </button>
         </div>
       </CollectionModal>

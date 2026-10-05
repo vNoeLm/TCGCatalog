@@ -3,6 +3,7 @@ import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUser } from '../../lib/auth';
 import { adjustLocalCollection } from '../../lib/collectionClient';
+import { refreshCollections } from '../../lib/collectionsStore';
 import { findMatchingRule, quickSalePrice, type QuickSalePriceSource } from '../../lib/quickSaleRules';
 import { loadCardValueData, valueOfCard, type CardValueData } from '../../lib/cardValues';
 import { roundHuf } from '../../lib/priceSuggestion';
@@ -13,6 +14,8 @@ interface Props {
   onClose: () => void;
   ownedCards: { cardId: string, count: number }[];
   allCards: CatalogCard[];
+  /** List from this named collection instead of Personal (its copies come out of it). */
+  sourceCollectionId?: string | null;
 }
 
 const PRICE_SOURCE_LABELS: Record<QuickSalePriceSource, string> = {
@@ -22,7 +25,7 @@ const PRICE_SOURCE_LABELS: Record<QuickSalePriceSource, string> = {
   fallback: 'No price data, fixed price used',
 };
 
-export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }: Props) {
+export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards, sourceCollectionId = null }: Props) {
   const [rules, setRules] = useState<QuickSaleRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [listingCandidates, setListingCandidates] = useState<any[]>([]);
@@ -152,13 +155,18 @@ export function QuickSalePreviewModal({ isOpen, onClose, ownedCards, allCards }:
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ listings: selected })
+        body: JSON.stringify({ listings: selected, collection_id: sourceCollectionId || undefined })
       });
       if (res.ok) {
         // The listed copies just left the collection server-side (Quick List only
         // ever lists non-foil copies); mirror that locally so counts update now.
-        for (const c of selected) {
-          adjustLocalCollection(c.cardId, false, -c.quantity);
+        if (sourceCollectionId) {
+          // A named collection lives on the server, which already took the copies out of it.
+          await refreshCollections();
+        } else {
+          for (const c of selected) {
+            adjustLocalCollection(c.cardId, false, -c.quantity);
+          }
         }
         onClose();
       } else {

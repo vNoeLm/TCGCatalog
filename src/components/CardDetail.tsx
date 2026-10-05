@@ -37,6 +37,9 @@ import { CardValuePanel } from './CardValuePanel';
 import { WishlistControls } from './wishlists/WishlistControls';
 import { hasFoilVariant } from '../lib/cardVariants';
 import { saveLocalCollection } from '../lib/collectionClient';
+import { useCollectionsStore, activeNamedCollection, changeCollectionCard } from '../lib/collectionsStore';
+import { listPriceForCard } from '../lib/collectionPricing';
+import { useCardValueData } from '../lib/cardValues';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -50,7 +53,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   // The image on its own, full screen, where it can be rotated (?view=full, so Back closes it).
   const [fullView, openFullView, closeFullView] = useUrlOverlay('view');
   const [isInventory, setIsInventory] = useState(false);
-  const [collection, setCollection] = useState<Record<string, number>>({});
+  // Personal, from this browser; the tracker shows whichever collection is active in the catalog.
+  const [personalCollection, setCollection] = useState<Record<string, number>>({});
+  const collectionsStore = useCollectionsStore();
+  const activeNamed = activeNamedCollection(collectionsStore);
+  const collection = activeNamed ? activeNamed.cards : personalCollection;
+  const cardValuesForListing = useCardValueData();
   const cart = useCart();
   // "Added to cart" confirmation on the button - the floating cart button that also reacts sits
   // behind this overlay, so without it nothing visible happened on click.
@@ -139,7 +147,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const handleUpdateCount = (targetCardId: string, isFoil: boolean, delta: number) => {
     if (!targetCardId) return;
     const targetKey = isFoil ? `${targetCardId}_foil` : targetCardId;
-    const next = { ...collection };
+    if (activeNamed) {
+      const price = activeNamed.always_list && delta > 0
+        ? listPriceForCard(activeNamed.list_defaults, data?.cards, isFoil, cardValuesForListing)
+        : null;
+      changeCollectionCard(activeNamed.id, targetKey, delta, price);
+      return;
+    }
+    const next = { ...personalCollection };
     const current = next[targetKey] || 0;
     const updated = current + delta;
     if (updated <= 0) {
@@ -1065,7 +1080,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
                     <line x1="12" y1="22.08" x2="12" y2="12"/>
                   </svg>
-                  <span>My Collection Tracker</span>
+                  <span>{activeNamed ? activeNamed.name : 'My Collection Tracker'}</span>
+                  {activeNamed?.always_list && (
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }}>
+                      Always listed
+                    </span>
+                  )}
                 </div>
                 {(((collection[card.id] || 0) + (collection[`${card.id}_foil`] || 0)) > 0) && (
                   <span 
