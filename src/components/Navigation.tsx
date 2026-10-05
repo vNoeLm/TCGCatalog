@@ -208,12 +208,9 @@ export function Navigation({ currentPath }: NavigationProps) {
                     My Profile
                   </a>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      window.dispatchEvent(new CustomEvent('tcg-open-legal'));
-                    }}
+                  <a
+                    href="/legal/privacy"
+                    onClick={() => setDropdownOpen(false)}
                     className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer text-left hover:bg-[var(--bg-raised)]"
                     style={{ color: 'var(--text-tertiary)' }}
                   >
@@ -221,7 +218,7 @@ export function Navigation({ currentPath }: NavigationProps) {
                       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" />
                     </svg>
                     Legal &amp; Privacy
-                  </button>
+                  </a>
 
                   <button
                     onClick={async () => {
@@ -487,17 +484,14 @@ export function Navigation({ currentPath }: NavigationProps) {
               className="flex items-center justify-between pt-2.5"
               style={{ borderTop: '1px solid var(--border-subtle)' }}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  window.dispatchEvent(new CustomEvent('tcg-open-legal'));
-                }}
+              <a
+                href="/legal/privacy"
+                onClick={() => setMobileMenuOpen(false)}
                 className="text-xs font-semibold underline underline-offset-2 cursor-pointer"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 Legal &amp; Privacy
-              </button>
+              </a>
               {userProfile && (
                 <button
                   onClick={async () => {

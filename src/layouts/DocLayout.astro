@@ -1,0 +1,90 @@
+---
+/**
+ * A plain reading page (legal notices, guides): the site layout with a narrow text column and a
+ * sidebar of the other pages in the same group.
+ */
+import Layout from './Layout.astro';
+import { LEGAL_PAGES, HELP_PAGES } from '../lib/site';
+
+interface Props {
+  title: string;
+  /** One or two sentences under the title. */
+  lead: string;
+  group: 'legal' | 'help';
+  updated: string;
+}
+
+const { title, lead, group, updated } = Astro.props;
+const pages = group === 'legal' ? LEGAL_PAGES : HELP_PAGES;
+const pathname = Astro.url.pathname.replace(/\/$/, '');
+---
+
+<Layout title={`${title} | TCG Vault`}>
+  <div class="doc-wrap">
+    <aside class="doc-side" aria-label={group === 'legal' ? 'Legal' : 'Guides'}>
+      <div class="doc-side-title">{group === 'legal' ? 'Legal' : 'Guides'}</div>
+      <ul>
+        {pages.map((p) => (
+          <li><a href={p.href} aria-current={p.href === pathname ? 'page' : undefined}>{p.label}</a></li>
+        ))}
+      </ul>
+    </aside>
+
+    <article class="doc">
+      <h1>{title}</h1>
+      <p class="doc-lead">{lead}</p>
+      <p class="doc-updated">Last updated {updated}</p>
+      <slot />
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .doc-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: clamp(20px, 4vw, 40px) clamp(16px, 3vw, 24px) 48px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  @media (min-width: 900px) {
+    .doc-wrap { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; }
+    .doc-side { position: sticky; top: calc(var(--page-chrome-h) + 24px); align-self: start; }
+  }
+  .doc-side-title {
+    font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-primary); margin-bottom: 8px;
+  }
+  .doc-side ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; }
+  @media (min-width: 900px) { .doc-side ul { flex-direction: column; gap: 2px; } }
+  .doc-side a {
+    display: block; font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border-subtle);
+  }
+  @media (min-width: 900px) { .doc-side a { border-color: transparent; } }
+  .doc-side a:hover { background: var(--bg-surface-2); color: var(--text-primary); }
+  .doc-side a[aria-current='page'] { background: var(--accent-muted); color: var(--text-accent); font-weight: 700; border-color: var(--accent-border); }
+
+  .doc { max-width: 720px; color: var(--text-secondary); font-size: 15px; line-height: 1.7; }
+  .doc h1 { font-size: clamp(26px, 4vw, 34px); font-weight: 900; color: var(--text-primary); line-height: 1.15; margin: 0 0 8px; font-family: var(--font-display); }
+  .doc-lead { font-size: 16px; color: var(--text-secondary); margin: 0 0 4px; }
+  .doc-updated { font-size: 12px; color: var(--text-tertiary); margin: 0 0 28px; }
+  .doc :global(h2) { font-size: 19px; font-weight: 800; color: var(--text-primary); margin: 32px 0 8px; font-family: var(--font-display); }
+  .doc :global(h3) { font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 20px 0 4px; }
+  .doc :global(p) { margin: 0 0 12px; }
+  .doc :global(ul), .doc :global(ol) { margin: 0 0 14px; padding-left: 20px; }
+  .doc :global(ul) { list-style: disc; }
+  .doc :global(ol) { list-style: decimal; }
+  .doc :global(li) { margin: 4px 0; }
+  .doc :global(strong) { color: var(--text-primary); }
+  .doc :global(a) { color: var(--text-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .doc :global(.doc-note) {
+    border: 1px solid var(--border); background: var(--bg-surface); border-radius: 12px;
+    padding: 12px 14px; font-size: 14px; margin: 0 0 16px;
+  }
+  .doc :global(table) { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 16px; }
+  .doc :global(th), .doc :global(td) { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  .doc :global(th) { color: var(--text-primary); font-weight: 700; }
+  .doc :global(code) { font-size: 12px; background: var(--bg-surface-2); padding: 1px 5px; border-radius: 4px; }
+</style>
