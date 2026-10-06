@@ -1,10 +1,13 @@
 /**
- * Permanently removes cards from TCG Vault: the Cyberpunk game (all its sets), the Radiance set,
- * and the Chinese-language prints - their database rows and their images in storage.
+ * Permanently removes cards from TCG Vault - their database rows and their images in storage.
+ *
+ * Default selection: the Cyberpunk game (all its sets), the Radiance set and the Chinese prints.
+ * With --all: every card except the demo set (code DEMO) - take the real card data off the server
+ * (export it first with scripts/export_card_data.mjs).
  *
  * Dry run by default: prints what would be deleted and changes nothing.
- *   node scripts/remove_cards.mjs            (dry run)
- *   node scripts/remove_cards.mjs --confirm  (delete)
+ *   node scripts/remove_cards.mjs [--all]            (dry run)
+ *   node scripts/remove_cards.mjs [--all] --confirm  (delete)
  *
  * What goes, in an order the foreign keys allow:
  *   1. card images + thumbnails in the card-images bucket
@@ -19,6 +22,8 @@ import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
 const CONFIRM = process.argv.includes('--confirm');
+const ALL = process.argv.includes('--all');
+const DEMO_SET_CODE = 'DEMO';
 const supabase = createClient(process.env.PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
@@ -39,10 +44,14 @@ async function must(promise, what) {
 
 async function main() {
   const sets = await must(supabase.from('sets').select('id, code, name, game'), 'sets');
-  const doomedSets = sets.filter((s) => s.game === 'cyberpunk' || s.code === 'RAD');
+  const doomedSets = ALL
+    ? sets.filter((s) => s.code !== DEMO_SET_CODE)
+    : sets.filter((s) => s.game === 'cyberpunk' || s.code === 'RAD');
   const cards = await must(supabase.from('cards').select('id, name, game, card_number, image_path, set_id').limit(10000), 'cards');
   const doomedSetIds = new Set(doomedSets.map((s) => s.id));
-  const doomed = cards.filter((c) => c.game === 'cyberpunk' || doomedSetIds.has(c.set_id) || /\(Chinese/i.test(c.name));
+  const doomed = ALL
+    ? cards.filter((c) => doomedSetIds.has(c.set_id) || !sets.some((s) => s.id === c.set_id))
+    : cards.filter((c) => c.game === 'cyberpunk' || doomedSetIds.has(c.set_id) || /\(Chinese/i.test(c.name));
   const ids = doomed.map((c) => c.id);
   const idSet = new Set(ids);
   const isDoomedKey = (k) => idSet.has(String(k).replace(/_foil$/, ''));
@@ -104,7 +113,12 @@ async function main() {
     if (!count) await must(supabase.from('sets').delete().eq('id', s.id), `set ${s.name}`);
   }
 
-  // 5. Collections and wishlists that still mention them
+  // 5. Collections and wishlists that still mention them. With --all they're kept: they point at
+  //    card ids, which come back when the export is restored.
+  if (ALL) {
+    console.log('Done. Collections and wishlists were left as they are.');
+    return;
+  }
   const strip = (obj) => Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !isDoomedKey(k)));
   for (const row of await must(supabase.from('user_collections').select('user_id, cards, backup_cards'), 'user_collections')) {
     const cards = strip(row.cards);
