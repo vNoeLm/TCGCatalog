@@ -33,3 +33,6 @@ images/
 
 # price CSVs and the backups the import script takes (third-party data, not ours to commit)
 data/
+
+# Local exports of card data (may contain third-party/Riot assets) - never commit
+card-data-backup/
