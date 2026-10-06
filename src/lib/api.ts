@@ -32,9 +32,9 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
 }
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-// Bump when the card data changes underneath (e.g. the switch to the demo set), so browsers drop
+// Bump when the card data changes underneath (e.g. a set removed or restored), so browsers drop
 // their cached card lists on the next load instead of showing old cards for up to 20 minutes.
-const CACHE_VERSION = 'v29';
+const CACHE_VERSION = 'v30';
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
