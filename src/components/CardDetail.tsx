@@ -655,47 +655,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             );
           })()}
 
-          {/* Riot's digital tools policy: previews of unreleased sets are labelled, foreign prints show
-              the official English text (the ability text below). */}
-          {(card.preview_state === 'official-preview' || card.preview_state === 'hidden' || printLanguage(card.name)) && (
-            <div className="flex flex-col items-center gap-1.5 mb-3">
-              {card.preview_state === 'official-preview' && (
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg border" style={{ background: 'rgba(14,165,233,0.12)', borderColor: 'rgba(14,165,233,0.45)', color: 'var(--text-primary)' }}>
-                  Officially previewed by Riot - not released yet
-                </span>
-              )}
-              {card.preview_state === 'hidden' && (
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg border" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
-                  Hidden: unreleased and not marked as an official preview. Only admins see this card.
-                </span>
-              )}
-              {printLanguage(card.name) && (
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                  {printLanguage(card.name)} print - the official English text is shown below.
-                </span>
-              )}
-              {isAdmin && card.preview_state && card.preview_state !== 'released' && (
-                <label className="inline-flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={card.preview_state === 'official-preview'}
-                    onChange={async (e) => {
-                      const on = e.target.checked;
-                      const token = (await supabase.auth.getSession()).data.session?.access_token;
-                      const res = await fetch('/api/admin/card-preview', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ card_id: card.id, official_preview: on }),
-                      });
-                      const json = await res.json().catch(() => ({}));
-                      if (!res.ok || !json.success) { alert(json.error || 'Could not save.'); return; }
-                      clearApiCache();
-                      setData((d: any) => ({ ...d, cards: { ...d.cards, preview_state: on ? 'official-preview' : 'hidden' } }));
-                    }}
-                  />
-                  Official Riot preview (shown to everyone, labelled unreleased)
-                </label>
-              )}
+          {/* Foreign prints show the official English text (the ability text below). */}
+          {printLanguage(card.name) && (
+            <div className="flex justify-center mb-3">
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                {printLanguage(card.name)} print - the official English text is shown below.
+              </span>
             </div>
           )}
           </div>
