@@ -57,8 +57,8 @@ export function keywordSolidColor(kw: string): string {
  * - Keywords with a numeric value (e.g. [Empower] [5] or [Assault 4]) are merged into one badge
  * - Rune tokens (:rb_rune_X:) become official inline SVG icons
  * - Energy tokens (:rb_energy_N: or [N]) become numbered indigo circles
- * - :rb_might: / [S] / [M] become the might glyph (lib/riftboundIcons)
- * - :rb_exhaust: / [T] become the exhaust glyph (lib/riftboundIcons)
+ * - :rb_might: / [S] / [M] become the official might SVG glyph
+ * - :rb_exhaust: / [T] become the official exhaust SVG glyph
  */
 export function formatGameText(text: string | null | undefined): string {
   if (!text) return '';
@@ -94,7 +94,7 @@ export function formatGameText(text: string | null | undefined): string {
   // 2. Energy circles
   f = f.replace(/:rb_energy_(\d+):/g, (_: string, n: string) => numCircle(n));
 
-  // 3. Might and Exhaust - SVG glyphs (no emoji)
+  // 3. Might and Exhaust - official SVG glyphs (no emoji)
   f = f.replace(/:rb_might:|\[S\]|\[M\]/g, icon(GLYPH_ICONS.might, 'Might', 18));
   f = f.replace(/:rb_exhaust:|\[T\]/g, icon(GLYPH_ICONS.exhaust, 'Exhaust', 18));
 
