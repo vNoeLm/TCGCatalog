@@ -523,7 +523,8 @@ export function CardListApp() {
       void setCollectionCards(activeNamed.id, next, activeNamed.always_list ? alwaysListPrices(activeNamed, activeNamed.list_defaults, next) : {});
       return;
     }
-    commitCollection(next);
+    setCollection(next);
+    saveLocalCollection(next);
   };
 
   // A change the server couldn't make (or limited) for a named collection.
@@ -1350,9 +1351,15 @@ export function CardListApp() {
       return;
     }
 
-    // 1. Try parsing as JSON (array, quantity object, or a full backup file)
+    // 1. Try parsing as JSON (array, quantity object, or a full backup file). Only the parse is
+    // guarded: an error while applying the cards must surface, not fall through to the text parser.
+    let parsed: any;
     try {
-      const parsed = JSON.parse(content.trim());
+      parsed = JSON.parse(content.trim());
+    } catch {
+      // Not JSON, continue to text list parsing
+    }
+    if (parsed !== undefined) {
       if (parsed && typeof parsed === 'object' && Array.isArray(parsed.cards)) {
         // Full backup format (see buildCollectionBackupObject): resolve primarily by id,
         // falling back to name/card number in case ids don't line up (e.g. a backup
@@ -1421,8 +1428,6 @@ export function CardListApp() {
         showToast(`✓ Successfully imported ${countAdded} cards from JSON!`, 'success');
         return;
       }
-    } catch (e) {
-      // Not JSON, continue to text list parsing
     }
 
     // 2. Parse as text list line-by-line with multiplier support (e.g. 3x Card Name)
