@@ -15,7 +15,7 @@ import type { CatalogCard, FilterState } from '../../types';
 import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
-import { getCollectorTier, getSellerTier, formatGameTitle, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
 import { fetchReputation, fetchReviewsWrittenBy } from '../../lib/reviews';
 import { BuyerTrustLine, ReviewCard, Stars } from '../reviews/ReviewParts';
 import { RateTradeModal } from '../reviews/RateTradeModal';
@@ -57,16 +57,9 @@ export function SellerDashboardApp() {
   // Search-demand count (last 7 days) per card_id, platform-wide.
   const [demandByCard, setDemandByCard] = useState<Record<string, number>>({});
 
-  // Collection & Badges State
-  const [activeBadgeGame, setActiveBadgeGame] = useState<'riftbound' | 'cyberpunk'>('riftbound');
-  const [gameCardCounts, setGameCardCounts] = useState<{ riftbound: number; cyberpunk: number }>({
-    riftbound: 1382,
-    cyberpunk: 151,
-  });
-  const [userGameOwned, setUserGameOwned] = useState<{ riftbound: number; cyberpunk: number }>({
-    riftbound: 0,
-    cyberpunk: 0,
-  });
+  // Collector badge: unique Riftbound cards owned out of all cards in the catalog.
+  const [totalCardCount, setTotalCardCount] = useState(1);
+  const [ownedCardCount, setOwnedCardCount] = useState(0);
 
   // Seller Sales & Rating State
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
@@ -119,10 +112,8 @@ export function SellerDashboardApp() {
       // 2. Fetch cards mapping (id, game)
       const { data: cards, error } = await supabase.from('cards').select('id, game');
       if (!error && cards) {
-        let totalRift = 0;
-        let totalCyber = 0;
-        let ownedRift = 0;
-        let ownedCyber = 0;
+        let total = 0;
+        let owned = 0;
 
         const ownedCardIds = new Set<string>();
         Object.entries(collectionDict).forEach(([key, count]) => {
@@ -133,24 +124,12 @@ export function SellerDashboardApp() {
         });
 
         cards.forEach(c => {
-          const g = (c.game || 'riftbound').toLowerCase();
-          if (g === 'cyberpunk') {
-            totalCyber++;
-            if (ownedCardIds.has(c.id)) ownedCyber++;
-          } else {
-            totalRift++;
-            if (ownedCardIds.has(c.id)) ownedRift++;
-          }
+          total++;
+          if (ownedCardIds.has(c.id)) owned++;
         });
 
-        setGameCardCounts({
-          riftbound: Math.max(1, totalRift),
-          cyberpunk: Math.max(1, totalCyber),
-        });
-        setUserGameOwned({
-          riftbound: ownedRift,
-          cyberpunk: ownedCyber,
-        });
+        setTotalCardCount(Math.max(1, total));
+        setOwnedCardCount(owned);
       }
     } catch (err) {
       console.warn('Error computing collection stats:', err);
@@ -325,8 +304,8 @@ export function SellerDashboardApp() {
     setPreparingQuickList(true);
     try {
       const base: FilterState = { category: 'singles', game: 'riftbound', set: '', rarities: [], type: '', domains: [], tags: [], costMin: 1, costMax: 10 };
-      const lists = await Promise.all((['riftbound', 'cyberpunk'] as const).map(game => fetchCardsCatalog({ ...base, game }, '')));
-      setQuickListCards(lists.flatMap(l => l.data || []));
+      const list = await fetchCardsCatalog(base, '');
+      setQuickListCards(list.data || []);
       setQuickListOwned(owned);
       setQuickListOpen(true);
     } finally {
@@ -743,12 +722,10 @@ export function SellerDashboardApp() {
     return getSellerTier(completedSalesCount, averageRating, isOwner, isLightTheme);
   }, [completedSalesCount, averageRating, isOwner, isLightTheme]);
 
-  // Collector Tier Calculation (Game-Specific)
+  // Collector Tier Calculation
   const collectorTier: CollectorTier = useMemo(() => {
-    const owned = activeBadgeGame === 'cyberpunk' ? userGameOwned.cyberpunk : userGameOwned.riftbound;
-    const total = activeBadgeGame === 'cyberpunk' ? gameCardCounts.cyberpunk : gameCardCounts.riftbound;
-    return getCollectorTier(owned, total, activeBadgeGame, isLightTheme);
-  }, [activeBadgeGame, userGameOwned, gameCardCounts, isLightTheme]);
+    return getCollectorTier(ownedCardCount, totalCardCount, 'riftbound', isLightTheme);
+  }, [ownedCardCount, totalCardCount, isLightTheme]);
 
   const filteredListings = useMemo(() => {
     if (!searchQuery.trim()) return activeListings;
@@ -993,34 +970,16 @@ export function SellerDashboardApp() {
             }}
           >
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center" style={{ color: collectorTier.color }}>
-                    <BadgeIconSvg iconType={collectorTier.iconType} className="w-5 h-5" />
-                  </span>
-                  <span className="text-sm font-black" style={{ color: collectorTier.color }}>
-                    {collectorTier.nameEn}
-                  </span>
-                </div>
-
-                {/* Game Switcher Dropdown for Collector Badges */}
-                <select
-                  value={activeBadgeGame}
-                  onChange={(e) => setActiveBadgeGame(e.target.value as 'riftbound' | 'cyberpunk')}
-                  aria-label={'Select Game'}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition outline-none cursor-pointer border shadow-sm"
-                  style={{
-                    background: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  <option value="riftbound">Riftbound</option>
-                  <option value="cyberpunk">Cyberpunk</option>
-                </select>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex items-center" style={{ color: collectorTier.color }}>
+                  <BadgeIconSvg iconType={collectorTier.iconType} className="w-5 h-5" />
+                </span>
+                <span className="text-sm font-black" style={{ color: collectorTier.color }}>
+                  {collectorTier.nameEn}
+                </span>
               </div>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {`Unique cards owned in your ${formatGameTitle(activeBadgeGame)} catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
+                {`Unique cards owned in your Riftbound catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
               </p>
             </div>
 
