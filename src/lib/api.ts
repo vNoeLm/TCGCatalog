@@ -31,9 +31,12 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
 }
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-// Bump when the card data changes underneath (e.g. a set removed or restored), so browsers drop
-// their cached card lists on the next load instead of showing old cards for up to 20 minutes.
+// Card data changes (sets added or removed, release dates, the price sync) are noticed on their
+// own - see ensureFreshCache. Bump this only when the shape of what's cached changes in the code.
 const CACHE_VERSION = 'v30';
+const DATA_VERSION_KEY = 'tcg_card_data_version';
+/** How long a page load waits for the freshness check before using the cache anyway. */
+const DATA_VERSION_TIMEOUT_MS = 1500;
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -91,6 +94,34 @@ export function clearApiCache(): void {
   }
 }
 
+let freshnessCheck: Promise<void> | null = null;
+
+/**
+ * Once per page load: asks the server for the card data's current fingerprint
+ * (/api/card-data-version) and drops every cached list if it differs from the one the cache was
+ * filled under. Waits at most DATA_VERSION_TIMEOUT_MS; if the check fails or is slow, the cache is
+ * used as before.
+ */
+function ensureFreshCache(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (!freshnessCheck) {
+    const check = fetch('/api/card-data-version')
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => {
+        const version = typeof json?.version === 'string' ? json.version : null;
+        if (!version) return;
+        let previous: string | null = null;
+        try { previous = sessionStorage.getItem(DATA_VERSION_KEY); } catch (e) {}
+        if (previous === version) return;
+        clearApiCache();
+        try { sessionStorage.setItem(DATA_VERSION_KEY, version); } catch (e) {}
+      })
+      .catch(() => {});
+    freshnessCheck = Promise.race([check, new Promise<void>(resolve => setTimeout(resolve, DATA_VERSION_TIMEOUT_MS))]);
+  }
+  return freshnessCheck;
+}
+
 export function clearStoreCache(): void {
   for (const key of Array.from(memoryCache.keys())) {
     if (key.includes('owner_store_') || key.includes('inv_') || key.includes('card_detail_')) {
@@ -115,6 +146,7 @@ export async function fetchCardsCatalog(
 ): Promise<{ data: CatalogCard[]; count: number | null }> {
   const cacheKey = `catalog3_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<{ data: CatalogCard[]; count: number | null }>(cacheKey);
     if (cached) return cached;
   }
@@ -289,6 +321,7 @@ export async function fetchLegacyInventory(
 ): Promise<{ data: InventoryCard[]; count: number | null }> {
   const cacheKey = `legacy_inv_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}_p${page}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<{ data: InventoryCard[]; count: number | null }>(cacheKey);
     if (cached) return cached;
   }
@@ -503,6 +536,7 @@ export async function fetchInventory(
 export async function fetchCardDetail(inventoryId: string, bypassCache = false) {
   const cacheKey = `card_detail_inv_${inventoryId}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<any>(cacheKey);
     if (cached) return cached;
   }
@@ -577,6 +611,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
 export async function fetchCardOnly(cardId: string, bypassCache = false) {
   const cacheKey = `card_only3_${cardId}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<any>(cacheKey);
     if (cached) return cached;
   }
