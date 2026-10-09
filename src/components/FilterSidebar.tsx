@@ -422,7 +422,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                <span>{baseSet === 'only' ? `✓ ${"Base Set Only (1 - Max)"}: ON` : "Base Set Only (1 - Max)"}</span>
+                <span className="inline-flex items-center gap-1">{baseSet === 'only' && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}{baseSet === 'only' ? "Base Set Only (1 - Max): ON" : "Base Set Only (1 - Max)"}</span>
               </button>
 
               {/* Foil Toggle */}
@@ -555,7 +555,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   >
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs.dot }} />
                     <span className="truncate">{r}</span>
-                    {active && <span className="ml-auto text-[10px] font-bold">✓</span>}
+                    {active && <svg className="ml-auto w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}
                   </button>
                 );
               })}
@@ -589,7 +589,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     }`}
                   >
                     <span className="truncate">{st}</span>
-                    {active && <span className="text-[10px] font-bold">✓</span>}
+                    {active && <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}
                   </button>
                 );
               })}

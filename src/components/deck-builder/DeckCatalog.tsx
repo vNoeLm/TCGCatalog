@@ -926,7 +926,7 @@ export function DeckCatalog({
                           }}
                           title="In your collection"
                         >
-                          ✓
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
                         </div>
                       );
                     }

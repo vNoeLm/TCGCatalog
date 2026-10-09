@@ -1018,7 +1018,7 @@ export function CardListApp() {
     }
     const text = exportCollectionToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${totalOwnedCopies} owned cards to clipboard!`, 'success');
+    showToast(`Copied ${totalOwnedCopies} owned cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1029,7 +1029,7 @@ export function CardListApp() {
     }
     const text = exportCollectionToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied cards list to clipboard!`, 'success');
+    showToast(`Copied cards list to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1040,7 +1040,7 @@ export function CardListApp() {
     }
     const data = JSON.stringify(collection, null, 2);
     navigator.clipboard.writeText(data);
-    showToast(`✓ Copied collection JSON to clipboard!`, 'success');
+    showToast(`Copied collection JSON to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1095,7 +1095,7 @@ export function CardListApp() {
     a.download = `my-collection-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('✓ Collection JSON backup downloaded!', 'success');
+    showToast('Collection JSON backup downloaded!', 'success');
     setShowExportModal(false);
   };
 
@@ -1225,7 +1225,7 @@ export function CardListApp() {
     }
     const text = exportMissingCardsToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
+    showToast(`Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1248,7 +1248,7 @@ export function CardListApp() {
     }
     const text = exportMissingCardsToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
+    showToast(`Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1269,7 +1269,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.txt)`, 'success');
+    showToast(`Downloaded ${missing.length} missing cards (.txt)`, 'success');
     setShowExportModal(false);
   };
 
@@ -1304,7 +1304,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.json)`, 'success');
+    showToast(`Downloaded ${missing.length} missing cards (.json)`, 'success');
     setShowExportModal(false);
   };
 
@@ -1388,7 +1388,7 @@ export function CardListApp() {
         commitCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from backup file!`, 'success');
+        showToast(`Successfully imported ${countAdded} cards from backup file!`, 'success');
         return;
       } else if (Array.isArray(parsed)) {
         const next = { ...collection };
@@ -1405,7 +1405,7 @@ export function CardListApp() {
         commitCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`, 'success');
+        showToast(`Successfully imported ${parsed.length} entries from JSON!`, 'success');
         return;
       } else if (parsed && typeof parsed === 'object') {
         const next = { ...collection };
@@ -1424,7 +1424,7 @@ export function CardListApp() {
         commitCollection(next);
         setShowImportModal(false);
         setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from JSON!`, 'success');
+        showToast(`Successfully imported ${countAdded} cards from JSON!`, 'success');
         return;
       }
     }
@@ -1463,7 +1463,7 @@ export function CardListApp() {
       commitCollection(next);
       setShowImportModal(false);
       setImportText("");
-      showToast(`✓ Successfully imported ${totalAdded} cards from text list!`, 'success');
+      showToast(`Successfully imported ${totalAdded} cards from text list!`, 'success');
     } else {
       alert("Could not recognize any valid cards in the provided input. Please check the format.");
     }
