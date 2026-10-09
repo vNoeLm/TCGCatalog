@@ -91,7 +91,7 @@ export function LegalFooter() {
               <span className="text-[11px] font-semibold">© {new Date().getFullYear()}</span>
             </div>
             <p className="text-xs leading-relaxed max-w-xs mb-3">
-              Track your collection, build decks and trade cards with other collectors - prices in HUF, handover in person or by parcel.
+              Track your collection, build decks and trade cards with other collectors.
               An unofficial fan project, not affiliated with any game publisher.
             </p>
             <div className="flex items-center gap-2 flex-wrap">
@@ -136,10 +136,6 @@ export function LegalFooter() {
                 easy to find - every page. */}
             <p className="text-[10px] leading-relaxed mt-3 max-w-xs">
               TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
-            </p>
-            {/* Placeholder for the operator details a registered business has to show. */}
-            <p className="text-[10px] leading-relaxed mt-3 max-w-xs opacity-80">
-              Operator: <span className="font-semibold">-</span> · Company reg. no.: <span className="font-semibold">-</span> · Tax no.: <span className="font-semibold">-</span> · Registered office: <span className="font-semibold">-</span>
             </p>
           </div>
 
