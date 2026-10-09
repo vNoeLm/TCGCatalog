@@ -1,9 +1,8 @@
 import { supabase } from './supabase';
 import { isUnreleasedSet } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
-import { getCyberpunkMeta } from './cyberpunkCardData';
 import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
-import { OWNER_ID, SETS, CYBERPUNK_SETS, DOMAINS, CYBERPUNK_COLORS, RARITIES, CYBERPUNK_RARITIES } from './constants';
+import { OWNER_ID, DOMAINS, RARITIES } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
@@ -164,20 +163,15 @@ export async function fetchCardsCatalog(
   const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
   query = query.eq('game', targetGame);
 
-  // Validate set against active game so an incompatible set from another game never breaks results
   let validSet: string | null = null;
   if (filters.set) {
-    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
-    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
-    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
-      validSet = filters.set;
-      query = query.eq('sets.name', validSet);
-    }
+    validSet = filters.set;
+    query = query.eq('sets.name', validSet);
   }
 
   // Validate rarities against active game
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const allowedRarities = RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('rarity', cleanRarities);
@@ -202,7 +196,7 @@ export async function fetchCardsCatalog(
 
   // Validate domains against active game
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const allowedDomains = DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
@@ -271,13 +265,6 @@ export async function fetchCardsCatalog(
     mappedData = mappedData.filter(card => card.set_name === validSet);
   }
 
-  if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
-    mappedData = mappedData.filter(card => {
-      const meta = getCyberpunkMeta(card);
-      const isEddiable = Boolean(meta?.is_eddiable);
-      return filters.eddiableFilter === 'sellable' ? isEddiable : !isEddiable;
-    });
-  }
 
   const result = { data: mappedData, count: mappedData.length };
   setCached(cacheKey, result);
@@ -341,14 +328,10 @@ export async function fetchLegacyInventory(
   query = query.eq('cards.game', targetGame);
 
   if (filters.set) {
-    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
-    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
-    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
-      query = query.eq('cards.sets.name', filters.set);
-    }
+    query = query.eq('cards.sets.name', filters.set);
   }
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const allowedRarities = RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('cards.rarity', cleanRarities);
@@ -370,7 +353,7 @@ export async function fetchLegacyInventory(
     }
   }
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const allowedDomains = DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');

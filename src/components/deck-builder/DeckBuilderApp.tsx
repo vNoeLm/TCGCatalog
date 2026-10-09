@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { CatalogCard } from '../../types';
 import { supabase, getCardImageUrl } from '../../lib/supabase';
-import { useDeckBuilder, getDeckCyberpunkRam, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
+import { useDeckBuilder, type DeckState } from './useDeckBuilder';
 import { useSavedDecks } from './useSavedDecks';
 import { DeckCatalog } from './DeckCatalog';
 import { DeckList } from './DeckList';
@@ -36,7 +36,6 @@ const DOMAIN_COLORS: Record<string, string> = {
 interface ActionButtonProps {
   onClick: () => void;
   title?: string;
-  isCyberpunk?: boolean;
   type: 'stats' | 'save' | 'browse' | 'import' | 'export' | 'clear';
   children: React.ReactNode;
 }
@@ -130,13 +129,7 @@ export function DeckBuilderApp() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const [activeGame, setActiveGame] = useState<'riftbound' | 'cyberpunk'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('tcg_active_game');
-      if (saved === 'cyberpunk' || saved === 'riftbound') return saved;
-    }
-    return 'riftbound';
-  });
+  const activeGame = 'riftbound' as const;
 
   const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder(activeGame);
   const { savedDecks, saveDeck, updateDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
@@ -144,7 +137,7 @@ export function DeckBuilderApp() {
   // creating a copy. Cleared when the deck is emptied or the game changes. Persisted per game
   // (like the working deck itself) so a page refresh doesn't lose the association and silently
   // turn every future Save into a duplicate instead of an overwrite.
-  const loadedDeckIdStorageKey = activeGame === 'cyberpunk' ? 'cyberpunk_loaded_deck_id' : 'riftbound_loaded_deck_id';
+  const loadedDeckIdStorageKey = 'riftbound_loaded_deck_id';
   const [loadedSavedDeckId, setLoadedSavedDeckId] = useState<string | null>(null);
   const [loadedSavedDeckIdReady, setLoadedSavedDeckIdReady] = useState(false);
 
@@ -163,7 +156,7 @@ export function DeckBuilderApp() {
 
   const [saveMode, setSaveMode] = useState<'update' | 'new'>('update');
   const loadedSavedDeck = savedDecks.find(d => d.id === loadedSavedDeckId) || null;
-  const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>(activeGame === 'cyberpunk' ? 'legends' : 'legend');
+  const [activeZone, setActiveZone] = useState<keyof DeckState>('legend');
 
   // Left column shows either the deck preview or the catalog filters. The filter panel itself
   // is owned by DeckCatalog and portaled into this slot so its state stays next to the catalog logic.
@@ -203,19 +196,6 @@ export function DeckBuilderApp() {
   }, [currentUser]);
 
 
-  // Listen to game switch from top header selector
-  useEffect(() => {
-    const handleGameChange = (e: Event) => {
-      const customEvent = e as CustomEvent<{ game: string }>;
-      if (customEvent.detail?.game === 'cyberpunk' || customEvent.detail?.game === 'riftbound') {
-        const nextGame = customEvent.detail.game as 'riftbound' | 'cyberpunk';
-        setActiveGame(nextGame);
-        setActiveZone(nextGame === 'cyberpunk' ? 'legends' : 'legend');
-      }
-    };
-    window.addEventListener('tcg-game-change', handleGameChange);
-    return () => window.removeEventListener('tcg-game-change', handleGameChange);
-  }, []);
 
   // Lock background scroll when preview modal or dialog is open, and handle Escape key to close modals
   useEffect(() => {
@@ -287,7 +267,7 @@ export function DeckBuilderApp() {
     }
     setPublishingSavedDeckId(sd.id);
     try {
-      const result = await publishDeck(sd.name, (sd.deck.game || activeGame) as 'riftbound' | 'cyberpunk', sd.deck);
+      const result = await publishDeck(sd.name, 'riftbound', sd.deck);
       if (result.success) {
         refreshPublishedDecks();
         alert(`"${sd.name}" is now public on your profile!`);
@@ -318,18 +298,6 @@ export function DeckBuilderApp() {
     }
     loadCards();
   }, [activeGame]);
-
-  const isCyberpunk = activeGame === 'cyberpunk';
-
-  const cyberpunkRamLimits: CyberpunkRamLimits = useMemo(() => {
-    if (!isCyberpunk) return { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
-    return getDeckCyberpunkRam(deck.legends || [], cards);
-  }, [isCyberpunk, deck.legends, cards]);
-
-  const cyberpunkLegends = useMemo(() => {
-    if (!isCyberpunk) return [];
-    return (deck.legends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
-  }, [isCyberpunk, deck.legends, cards]);
 
   const legendCard = useMemo(() => {
     if (!deck.legend) return null;
@@ -417,7 +385,6 @@ export function DeckBuilderApp() {
                 deck={deck}
                 cards={cards}
                 activeGame={activeGame}
-                cyberpunkLegends={cyberpunkLegends}
                 legendCard={legendCard}
                 championCard={championCard}
                 onCardClick={showPreview}
@@ -444,7 +411,6 @@ export function DeckBuilderApp() {
           <DeckCatalog
             cards={cards}
             activeGame={activeGame}
-            cyberpunkRamLimits={cyberpunkRamLimits}
             allowedDomains={allowedDomains}
             legendCard={legendCard}
             championCard={championCard}
@@ -541,8 +507,6 @@ export function DeckBuilderApp() {
               deck={deck} 
               cards={cards} 
               activeGame={activeGame}
-              cyberpunkRamLimits={cyberpunkRamLimits}
-              cyberpunkLegends={cyberpunkLegends}
               legendCard={legendCard} 
               championCard={championCard} 
               onRemoveCard={removeCard}
@@ -562,8 +526,6 @@ export function DeckBuilderApp() {
           deck={deck}
           cards={cards}
           activeGame={activeGame}
-          cyberpunkRamLimits={cyberpunkRamLimits}
-          cyberpunkLegends={cyberpunkLegends}
           legendCard={legendCard}
           championCard={championCard}
           onClose={() => setShowStatsModal(false)}

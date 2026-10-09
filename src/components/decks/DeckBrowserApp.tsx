@@ -12,14 +12,14 @@ const PAGE_SIZE = 24;
 export function DeckBrowserApp() {
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [count, setCount] = useState(0);
-  const [game, setGame] = useState<'all' | 'riftbound' | 'cyberpunk'>('all');
+  const game = 'riftbound';
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setPage(1);
-  }, [game, search]);
+  }, [search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,22 +45,6 @@ export function DeckBrowserApp() {
       </p>
 
       <div className="flex items-center gap-3 flex-wrap mb-6">
-        <div className="flex rounded-xl p-1 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-          {(['all', 'riftbound', 'cyberpunk'] as const).map(g => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setGame(g)}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer"
-              style={{
-                background: game === g ? 'var(--accent)' : 'transparent',
-                color: game === g ? 'var(--text-on-accent, #000)' : 'var(--text-secondary)',
-              }}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
         <input
           type="text"
           value={search}

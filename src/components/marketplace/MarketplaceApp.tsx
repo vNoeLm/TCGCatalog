@@ -19,7 +19,6 @@ import { gridSizeClasses } from '../../lib/gridSize';
 import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
-  CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS,
   STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode, sortSetNames
 } from '../../lib/constants';
 
@@ -142,7 +141,6 @@ export function MarketplaceApp() {
     }
   };
 
-  const isCyberpunk = filters.game === 'cyberpunk';
   const { lists: allWishlists } = useWishlists();
   const wishlists = useMemo(() => allWishlists.filter(w => w.game === (filters.game || 'riftbound')), [allWishlists, filters.game]);
 
@@ -291,13 +289,12 @@ export function MarketplaceApp() {
   );
 
   const availableSets = useMemo(() => {
-    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
-    const setNames = new Set(baseSets);
+    const setNames = new Set(SETS);
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
     return sortSetNames(Array.from(setNames));
-  }, [cards, isCyberpunk]);
+  }, [cards]);
 
   const sidebar = (
     <FilterSidebar
@@ -306,10 +303,10 @@ export function MarketplaceApp() {
       options={{
         sets: availableSets,
         wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-        rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
-        types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
-        domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
-        tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
+        rarities: RARITIES,
+        types: TYPES,
+        domains: DOMAINS,
+        tags: TAGS,
       }}
     />
   );

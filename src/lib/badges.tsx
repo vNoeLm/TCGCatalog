@@ -39,7 +39,6 @@ export interface SellerTier {
 
 export function formatGameTitle(game: string): string {
   const g = (game || 'riftbound').toLowerCase();
-  if (g === 'cyberpunk') return 'Cyberpunk';
   if (g === 'riftbound') return 'Riftbound';
   return g.charAt(0).toUpperCase() + g.slice(1);
 }

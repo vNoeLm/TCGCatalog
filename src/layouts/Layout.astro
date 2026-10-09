@@ -45,8 +45,9 @@ const pathname = Astro.url.pathname;
               if (v && v.indexOf('cyberpunk') !== -1) sessionStorage.removeItem(k);
             });
           } catch (e) {}
-          var game = localStorage.getItem('tcg_active_game') || 'riftbound';
-          var theme = (override === 'cyberpunk' || override === 'riftbound' || override === 'dark' || override === 'light') ? override : (game === 'cyberpunk' ? 'cyberpunk' : 'riftbound');
+          // The old Cyberpunk ("Dark Tech") theme is gone too: that choice falls back to the default.
+          if (override === 'cyberpunk') { localStorage.removeItem('tcg_theme_override'); override = null; }
+          var theme = (override === 'riftbound' || override === 'dark' || override === 'light') ? override : 'riftbound';
           document.documentElement.setAttribute('data-theme', theme);
         } catch (e) {}
       })();

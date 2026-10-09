@@ -10,10 +10,10 @@ export interface SavedDeck {
   createdAt: number;
 }
 
-export function useSavedDecks(activeGame: 'riftbound' | 'cyberpunk' = 'riftbound') {
+export function useSavedDecks(activeGame: 'riftbound' = 'riftbound') {
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const storageKey = activeGame === 'cyberpunk' ? 'cyberpunk_saved_decks' : 'riftbound_saved_decks';
+  const storageKey = 'riftbound_saved_decks';
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);

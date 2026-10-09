@@ -14,15 +14,12 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
   Rare:            { bg: "rgba(88, 28, 135, 0.9)", text: "#d8b4fe", glow: "rgba(216, 180, 254, 0.5)" },
   Epic:            { bg: "rgba(154, 52, 18, 0.9)", text: "#fb923c", glow: "rgba(251, 146, 60, 0.5)" },
   Showcase:        { bg: "rgba(113, 63, 18, 0.9)", text: "#fde047", glow: "rgba(253, 224, 71, 0.6)" },
-  "Nova Rare":     { bg: "rgba(6, 182, 212, 0.9)", text: "#67e8f9", glow: "rgba(6, 182, 212, 0.5)" },
-  "Secret":        { bg: "rgba(236, 72, 153, 0.9)", text: "#ffffff", glow: "rgba(236, 72, 153, 0.5)" },
 };
 
 import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { isNeutralCard } from '../lib/riftboundRules';
-import { getCyberpunkMeta } from '../lib/cyberpunkCardData';
 import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
 import { CardImageViewer } from './CardImageViewer';
@@ -532,8 +529,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           <div 
             style={{
               background: 'var(--bg-input)',
-              border: card.game === 'cyberpunk' ? '1px solid var(--border)' : `1px solid ${rarityStyle.text}33`,
-              boxShadow: card.game === 'cyberpunk' ? '0 10px 30px rgba(0,0,0,0.5), 0 0 20px var(--accent-glow)' : `0 4px 24px rgba(0,0,0,0.4)`
+              border: `1px solid ${rarityStyle.text}33`,
+              boxShadow: `0 4px 24px rgba(0,0,0,0.4)`
             }}
             className="rounded-2xl sm:rounded-3xl overflow-hidden relative p-4 sm:p-6 flex items-center justify-center mb-3"
           >
@@ -541,7 +538,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
             {activeUrl ? (
               <div 
-                style={{ filter: card.game === 'cyberpunk' ? 'drop-shadow(0 4px 16px rgba(0,0,0,0.6))' : `drop-shadow(0 4px 16px rgba(0,0,0,0.5))` }}
+                style={{ filter: `drop-shadow(0 4px 16px rgba(0,0,0,0.5))` }}
                 className="relative z-10 w-full rounded-lg overflow-hidden"
               >
                 <button
@@ -576,7 +573,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             )}
 
             {[['top-3 left-3', 'border-l-2 border-t-2'], ['top-3 right-3', 'border-r-2 border-t-2'], ['bottom-3 left-3', 'border-l-2 border-b-2'], ['bottom-3 right-3', 'border-r-2 border-b-2']].map(([pos, border], i) => (
-              <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: card.game === 'cyberpunk' ? 'var(--border)' : `${rarityStyle.text}44`, zIndex: 2 }} />
+              <div key={i} className={`absolute w-5 h-5 ${pos} ${border}`} style={{ borderColor: `${rarityStyle.text}44`, zIndex: 2 }} />
             ))}
           </div>
 
@@ -676,16 +673,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             <div className="flex items-center gap-2 flex-wrap">
               {/* Rarity icon + label */}
               {(() => {
-                if (card.game === 'cyberpunk') {
-                  return (
-                    <span 
-                      className="inline-flex items-center text-sm font-bold px-3 py-1.5 rounded-xl tracking-wider"
-                      style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                    >
-                      {card.rarity}
-                    </span>
-                  );
-                }
                 const rarityKey = (card.rarity || '').toLowerCase();
                 const rarityIcon = RARITY_ICONS[rarityKey];
                 return (
@@ -695,25 +682,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   >
                     {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-5 h-5 object-contain" />}
                     {card.rarity}
-                  </span>
-                );
-              })()}
-
-              {/* Cyberpunk Eddiable: Sellable / Non-Sellable */}
-              {card.game === 'cyberpunk' && (() => {
-                const cpMeta = getCyberpunkMeta(card);
-                const isSellable = cpMeta?.is_eddiable;
-                return (
-                  <span 
-                    className="inline-flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-xl border uppercase tracking-wider shadow-sm"
-                    style={
-                      isSellable
-                        ? { background: 'rgba(6, 78, 59, 0.4)', color: '#6ee7b7', borderColor: 'rgba(16, 185, 129, 0.4)' }
-                        : { background: 'var(--bg-surface)', color: 'var(--text-tertiary)', borderColor: 'var(--border-subtle)' }
-                    }
-                  >
-                    <span className="font-mono text-[var(--positive)] font-black">€$</span>
-                    {isSellable ? ('Sellable') : ('Non-Sellable')}
                   </span>
                 );
               })()}
@@ -776,7 +744,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                        {card.game === 'cyberpunk' ? ('Color') : (shownDomains.length > 1 ? "Domains" : "Domain")}
+                        {shownDomains.length > 1 ? "Domains" : "Domain"}
                       </div>
                       <div className="flex items-center gap-2 text-base font-black flex-wrap">
                         {shownDomains.map((d, idx) => {
@@ -795,18 +763,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 })()}
 
                 {(() => {
-                  const isCyberpunk = card.game === 'cyberpunk';
                   const rawType = (card.card_type || '').toLowerCase();
                   const superType = (card.subtype || '').toLowerCase();
-                  const typeIcon = isCyberpunk ? null : TYPE_ICONS[rawType];
-                  const superIcon = isCyberpunk ? null : TYPE_ICONS[superType];
+                  const typeIcon = TYPE_ICONS[rawType];
+                  const superIcon = TYPE_ICONS[superType];
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</div>
                       <div className="flex items-center gap-1.5 text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                         {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
                         <span className="truncate">{card.card_type}</span>
-                        {!isCyberpunk && superType && (
+                        {superType && (
                           <>
                             <span className="mx-0.5" style={{ color: 'var(--text-muted)' }}>·</span>
                             {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
@@ -846,75 +813,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             </div>
           </div>
 
-          {card.game === 'cyberpunk' ? (() => {
-            const cpMeta = getCyberpunkMeta(card);
-            const costVal = cpMeta?.cost ?? card.cost;
-            const powerVal = cpMeta?.power ?? (card.might ? parseInt(card.might, 10) : null);
-            const ramVal = cpMeta?.ram;
-
-            const hasCost = costVal != null;
-            const hasPower = powerVal != null;
-            const hasRam = ramVal != null;
-
-            if (!hasCost && !hasPower && !hasRam) return null;
-
-            const statCount = (hasCost ? 1 : 0) + (hasPower ? 1 : 0) + (hasRam ? 1 : 0);
-            const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
-
-            return (
-              <div className={`grid ${gridClass} gap-2.5 mb-4`}>
-                {hasCost && (
-                  <div 
-                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg border"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-                  >
-                    <div className="text-xs font-black uppercase tracking-wider mb-0.5 flex items-center gap-1" style={{ color: 'var(--text-accent)' }}>
-                      <svg className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-                      </svg>
-                      Cost
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>
-                      {costVal}
-                    </div>
-                  </div>
-                )}
-
-                {hasPower && (
-                  <div 
-                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg border"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-                  >
-                    <div className="text-xs font-black text-rose-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <rect width="16" height="16" x="4" y="4" rx="2" /><rect width="6" height="6" x="9" y="9" rx="1" />
-                        <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" />
-                      </svg>
-                      PWR
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-black text-rose-300">
-                      {powerVal}
-                    </div>
-                  </div>
-                )}
-
-                {hasRam && (
-                  <div 
-                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg border"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-                  >
-                    <div className="text-xs font-black text-cyan-400 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-                      RAM
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-black text-cyan-300">
-                      {ramVal}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })() : (() => {
+          {(() => {
             const powerReq = getCardPowerRequirement(card);
             const hasPowerCost = powerReq.power > 0 && powerReq.domains.length > 0;
             const hasEnergy = card.energy != null;

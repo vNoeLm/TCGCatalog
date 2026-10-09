@@ -12,7 +12,7 @@ import { gridSizeClasses } from "../lib/gridSize";
 import { useWishlists, wishlistCardIds } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, sortSetNames } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { t } from "../lib/labels";
 import { useUrlOverlay } from "../lib/useUrlOverlay";
@@ -74,7 +74,6 @@ const DEFAULT_FILTERS: FilterState = {
   altArtFilter: 'all',
   spFilter: 'all',
   baseSetFilter: 'all',
-  eddiableFilter: 'all',
 };
 
 const SORT_OPTIONS = [
@@ -108,7 +107,7 @@ export function CardListApp() {
     let initialGame = 'riftbound';
     if (typeof window !== 'undefined') {
       const savedGame = localStorage.getItem('tcg_active_game');
-      if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
+      if (savedGame === 'riftbound') {
         initialGame = savedGame;
       }
       // "Show in catalog" on a wishlist links here with ?wishlist=<id>.
@@ -1535,8 +1534,7 @@ export function CardListApp() {
     }
   };
 
-  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
-  const isCyberpunk = filters.game === 'cyberpunk';
+  const { isDark } = useSiteTheme(filters.game);
   const isRiftbound = !filters.game || filters.game === 'riftbound';
 
   const catalogTheme = {
@@ -1557,13 +1555,12 @@ export function CardListApp() {
   };
 
   const availableSets = useMemo(() => {
-    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
-    const setNames = new Set(baseSets);
+    const setNames = new Set(SETS);
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
     return sortSetNames(Array.from(setNames));
-  }, [cards, isCyberpunk]);
+  }, [cards]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
@@ -1979,10 +1976,10 @@ export function CardListApp() {
           options={{
             sets: availableSets,
             wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-            rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
-            types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
-            domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
-            tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
+            rarities: RARITIES,
+            types: TYPES,
+            domains: DOMAINS,
+            tags: TAGS,
           }}
         />
       </FilterDrawer>

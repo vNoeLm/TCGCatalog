@@ -16,7 +16,7 @@ import {
   type BinderGridSize,
   type BinderPocket,
 } from '../../lib/binderLayout';
-import { STORAGE_KEYS, EVENTS, sortSetNames } from '../../lib/constants';
+import { EVENTS, sortSetNames } from '../../lib/constants';
 import { useCollectionsStore, activeNamedCollection } from '../../lib/collectionsStore';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -185,11 +185,7 @@ function BinderPocketTile({
 }
 
 export function BinderApp() {
-  const [activeGame, setActiveGame] = useState<'riftbound' | 'cyberpunk'>(() => {
-    if (typeof window === 'undefined') return 'riftbound';
-    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
-    return saved === 'cyberpunk' ? 'cyberpunk' : 'riftbound';
-  });
+  const [activeGame, setActiveGame] = useState<'riftbound'>('riftbound');
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableSets, setAvailableSets] = useState<string[]>([]);
@@ -207,7 +203,7 @@ export function BinderApp() {
   useEffect(() => {
     const handleGameChange = (e: Event) => {
       const detail = (e as CustomEvent<{ game: string }>).detail;
-      if (detail?.game === 'cyberpunk' || detail?.game === 'riftbound') {
+      if (detail?.game === 'riftbound') {
         setActiveGame(detail.game);
         setSelectedSet('');
       }

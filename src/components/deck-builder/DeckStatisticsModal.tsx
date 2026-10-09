@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { CatalogCard } from '../../types';
-import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
-import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
+import type { DeckState } from './useDeckBuilder';
 import { RUNE_ICONS } from '../../lib/riftboundIcons';
 import { getCardPowerRequirement } from '../../lib/cardPowerData';
 import { getCardImageUrl } from '../../lib/supabase';
@@ -11,9 +10,7 @@ import { KEYWORD_LIST, keywordSolidColor } from '../../lib/formatGameText';
 interface DeckStatisticsModalProps {
   deck: DeckState;
   cards: CatalogCard[];
-  activeGame?: 'riftbound' | 'cyberpunk';
-  cyberpunkRamLimits?: CyberpunkRamLimits;
-  cyberpunkLegends?: CatalogCard[];
+  activeGame?: 'riftbound';
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
   onClose: () => void;
@@ -79,8 +76,6 @@ export function DeckStatisticsModal({
   deck,
   cards,
   activeGame = 'riftbound',
-  cyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 },
-  cyberpunkLegends = [],
   legendCard,
   championCard,
   onClose,
@@ -94,7 +89,6 @@ export function DeckStatisticsModal({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const isCyberpunk = activeGame === 'cyberpunk';
   // 1. Gather all card entries across zones
   const getZoneEntries = (zoneMap: Record<string, number>) => {
     return Object.entries(zoneMap || {})
@@ -114,9 +108,7 @@ export function DeckStatisticsModal({
   const runeCount = runeEntries.reduce((sum, e) => sum + e.qty, 0);
   const bfCount = bfEntries.reduce((sum, e) => sum + e.qty, 0);
   const sbCount = sbEntries.reduce((sum, e) => sum + e.qty, 0);
-  const totalDeckCount = isCyberpunk
-    ? cyberpunkLegends.length + mainCardCount + sbCount
-    : (legendCard ? 1 : 0) + mainCardCount + runeCount + bfCount + sbCount;
+  const totalDeckCount = (legendCard ? 1 : 0) + mainCardCount + runeCount + bfCount + sbCount;
 
   // 2. Energy Curve (Main Deck + Champion)
   const energyCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
@@ -197,27 +189,18 @@ export function DeckStatisticsModal({
 
   // 5. Rarity Breakdown
   const rarityCounts: Record<string, number> = {};
-  if (isCyberpunk) {
-    cyberpunkLegends.forEach(l => {
-      const r = l.rarity || 'Common';
-      rarityCounts[r] = (rarityCounts[r] || 0) + 1;
-    });
-  } else {
-    if (legendCard) rarityCounts[legendCard.rarity || 'Common'] = (rarityCounts[legendCard.rarity || 'Common'] || 0) + 1;
-    if (championCard) rarityCounts[championCard.rarity || 'Common'] = (rarityCounts[championCard.rarity || 'Common'] || 0) + 1;
-  }
+  if (legendCard) rarityCounts[legendCard.rarity || 'Common'] = (rarityCounts[legendCard.rarity || 'Common'] || 0) + 1;
+  if (championCard) rarityCounts[championCard.rarity || 'Common'] = (rarityCounts[championCard.rarity || 'Common'] || 0) + 1;
   [...mainEntries, ...runeEntries, ...bfEntries, ...sbEntries].forEach(e => {
     const r = e.card.rarity || 'Common';
     rarityCounts[r] = (rarityCounts[r] || 0) + e.qty;
   });
 
-  const defaultRarities = isCyberpunk
-    ? ['Common', 'Uncommon', 'Rare', 'Epic']
-    : ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
+  const defaultRarities = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 
   // Dynamically query added cards for extra/custom rarities
   const extraRarities = Object.keys(rarityCounts).filter(
-    r => !defaultRarities.includes(r) && (isCyberpunk ? r !== 'Showcase' : true)
+    r => !defaultRarities.includes(r)
   );
   const displayRarities = [...defaultRarities, ...extraRarities];
 
@@ -398,7 +381,7 @@ export function DeckStatisticsModal({
               Deck Statistics
             </h2>
             <div style={{ fontSize: 12, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
-              {isCyberpunk ? `${cyberpunkLegends.length} Legends · ` : (legendCard ? `${legendCard.name} · ` : '')}{mainCardCount} Main Deck cards ({totalDeckCount} total)
+              {legendCard ? `${legendCard.name} · ` : ''}{mainCardCount} Main Deck cards ({totalDeckCount} total)
             </div>
           </div>
           <button
@@ -469,45 +452,23 @@ export function DeckStatisticsModal({
             </div>
           </div>
 
-          {isCyberpunk ? (
-            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                Legends
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: cyberpunkLegends.length === 3 ? '#10b981' : 'var(--text-accent)' }}>
-                {cyberpunkLegends.length} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 3</span>
-              </div>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
+              Avg Power Cost
             </div>
-          ) : (
-            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                Avg Power Cost
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
-                {avgPowerCost}
-              </div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
+              {avgPowerCost}
             </div>
-          )}
+          </div>
 
-          {isCyberpunk ? (
-            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                Main Deck
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: mainCardCount >= 40 && mainCardCount <= 50 ? '#10b981' : '#ef4444' }}>
-                {mainCardCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 40-50</span>
-              </div>
+          <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
+              Rune Deck
             </div>
-          ) : (
-            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                Rune Deck
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
-                {runeCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 12</span>
-              </div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-accent)' }}>
+              {runeCount} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>/ 12</span>
             </div>
-          )}
+          </div>
 
           <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -561,173 +522,101 @@ export function DeckStatisticsModal({
           </div>
         </div>
 
-        {/* Section 2: Power Cost or Cyberpunk RAM Distribution */}
-        {isCyberpunk ? (
-          <div style={{ background: '#111218', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 14, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#fcee0a' }}>
-                Cyberpunk RAM Limits & Color Distribution
-              </h3>
-              <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
-                Cumulative RAM provided by 3 Legends
-              </span>
-            </div>
+        {/* Section 2: Power Cost */}
+        <div style={{ background: '#0e1c36', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#f59e0b' }}>
+              Power Cost (Rune Demands)
+            </h3>
+            <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
+              {totalPowerCards} cards with power cost
+            </span>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-              {(['Red', 'Green', 'Blue', 'Yellow'] as const).map(col => {
-                const limit = cyberpunkRamLimits[col] || 0;
-                const theme = DOMAIN_COLORS[col] || DOMAIN_COLORS.colorless;
-                
-                // Count cards of this color in main deck
-                const colorCards = mainEntries.filter(e => {
-                  const meta = getCyberpunkMeta(e.card);
-                  const cColor = (meta?.color || e.card.domain || '').trim();
-                  return cColor.toLowerCase() === col.toLowerCase();
-                });
-                const count = colorCards.reduce((sum, e) => sum + e.qty, 0);
-                const maxCardRam = colorCards.reduce((max, e) => {
-                  const meta = getCyberpunkMeta(e.card);
-                  return Math.max(max, meta?.ram ?? 0);
-                }, 0);
-                const pctOfMain = mainCardCount > 0 ? Math.round((count / mainCardCount) * 100) : 0;
-                const hasViolation = maxCardRam > limit;
+          {/* Power Curve Bars */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, height: 110, paddingBottom: 6 }}>
+            {[0, 1, 2, 3].map(p => {
+              const count = powerCurve[p] || 0;
+              const maxPower = Math.max(1, ...Object.values(powerCurve));
+              const heightPct = (count / maxPower) * 100;
+              const label = p === 3 ? '3+ Power' : `${p} Power`;
 
-                return (
+              return (
+                <div key={p} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? '#fbbf24' : 'var(--text-muted, #64748b)' }}>
+                    {count}
+                  </span>
                   <div
-                    key={col}
                     style={{
-                      background: '#161822',
-                      border: `1px solid ${hasViolation ? '#ef4444' : (limit > 0 ? theme.border : 'rgba(255,255,255,0.08)')}`,
-                      borderRadius: 10,
-                      padding: '12px 14px',
-                      boxShadow: limit > 0 ? `0 0 12px ${theme.border}30` : 'none',
+                      width: '100%',
+                      maxWidth: 44,
+                      height: `${Math.max(4, heightPct)}%`,
+                      background: count > 0 ? 'linear-gradient(to top, #d97706, #fbbf24)' : 'rgba(255,255,255,0.04)',
+                      borderRadius: '6px 6px 2px 2px',
+                      transition: 'height 0.3s ease',
+                      boxShadow: count > 0 ? '0 0 10px rgba(245,158,11,0.35)' : 'none',
                     }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: theme.bg }} />
-                        <span style={{ fontWeight: 800, fontSize: 14, color: theme.bg }}>
-                          {col}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: limit > 0 ? '#fff' : 'var(--text-muted)' }}>
-                        {limit} RAM Limit
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                      <span>{count} cards ({pctOfMain}%)</span>
-                      {count > 0 && (
-                        <span style={{ color: hasViolation ? '#ef4444' : 'var(--text-muted)', fontWeight: hasViolation ? 800 : 600 }}>
-                          {hasViolation ? `Exceeds RAM: ${maxCardRam} RAM` : `Max card: ${maxCardRam} RAM`}
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${pctOfMain}%`, height: '100%', background: theme.bg, borderRadius: 3 }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: '#0e1c36', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 14, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#f59e0b' }}>
-                Power Cost (Rune Demands)
-              </h3>
-              <span style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
-                {totalPowerCards} cards with power cost
-              </span>
-            </div>
-
-            {/* Power Curve Bars */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, height: 110, paddingBottom: 6 }}>
-              {[0, 1, 2, 3].map(p => {
-                const count = powerCurve[p] || 0;
-                const maxPower = Math.max(1, ...Object.values(powerCurve));
-                const heightPct = (count / maxPower) * 100;
-                const label = p === 3 ? '3+ Power' : `${p} Power`;
-
-                return (
-                  <div key={p} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? '#fbbf24' : 'var(--text-muted, #64748b)' }}>
-                      {count}
-                    </span>
-                    <div
-                      style={{
-                        width: '100%',
-                        maxWidth: 44,
-                        height: `${Math.max(4, heightPct)}%`,
-                        background: count > 0 ? 'linear-gradient(to top, #d97706, #fbbf24)' : 'rgba(255,255,255,0.04)',
-                        borderRadius: '6px 6px 2px 2px',
-                        transition: 'height 0.3s ease',
-                        boxShadow: count > 0 ? '0 0 10px rgba(245,158,11,0.35)' : 'none',
-                      }}
-                    />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)', textAlign: 'center' }}>
-                      {label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Domain Demand Bars */}
-            {Object.keys(domainDemand).length > 0 && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(245, 158, 11, 0.15)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase' }}>
-                    Domain Rune Requirements
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted, #94a3b8)', marginTop: 2, lineHeight: 1.4 }}>
-                    How many cards need runes of each domain to cast. <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>Pure</span> = only that domain works, and the number in parentheses is how many of those need 2 or more runes of it. <span style={{ color: '#38bdf8' }}>Dual</span> = either domain works, counted separately.
-                  </div>
+                  />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)', textAlign: 'center' }}>
+                    {label}
+                  </span>
                 </div>
-                {Object.entries(domainDemand)
-                  .sort((a, b) => b[1].total - a[1].total)
-                  .map(([dom, dStats]) => {
-                    const style = DOMAIN_COLORS[dom.toLowerCase()] || DOMAIN_COLORS.colorless;
-                    const pctOfMain = mainCardCount > 0 ? Math.round((dStats.total / mainCardCount) * 100) : 0;
+              );
+            })}
+          </div>
 
-                    return (
-                      <div key={dom} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.bg }} />
-                            <span style={{ fontWeight: 700, color: style.text, textTransform: 'capitalize' }}>
-                              {/* Neutral power (Neeko) is paid with a rune of any domain. */}
-                              {dom === 'neutral' ? 'Neutral (any rune)' : dom}
-                            </span>
-                            <span style={{ color: 'var(--text-muted, #94a3b8)', fontWeight: 600 }}>
-                              {dStats.total} card{dStats.total === 1 ? '' : 's'}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
-                            {dStats.strict > 0 && dom !== 'neutral' && (
-                              <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>
-                                {dStats.strict} pure{dStats.multiPower > 0 ? ` (${dStats.multiPower} need 2+)` : ''}
-                              </span>
-                            )}
-                            {dStats.mixed > 0 && (
-                              <span style={{ color: '#38bdf8', fontSize: 11 }}>
-                                {dStats.mixed} dual
-                              </span>
-                            )}
-                          </div>
+          {/* Domain Demand Bars */}
+          {Object.keys(domainDemand).length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(245, 158, 11, 0.15)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase' }}>
+                  Domain Rune Requirements
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted, #94a3b8)', marginTop: 2, lineHeight: 1.4 }}>
+                  How many cards need runes of each domain to cast. <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>Pure</span> = only that domain works, and the number in parentheses is how many of those need 2 or more runes of it. <span style={{ color: '#38bdf8' }}>Dual</span> = either domain works, counted separately.
+                </div>
+              </div>
+              {Object.entries(domainDemand)
+                .sort((a, b) => b[1].total - a[1].total)
+                .map(([dom, dStats]) => {
+                  const style = DOMAIN_COLORS[dom.toLowerCase()] || DOMAIN_COLORS.colorless;
+                  const pctOfMain = mainCardCount > 0 ? Math.round((dStats.total / mainCardCount) * 100) : 0;
+
+                  return (
+                    <div key={dom} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: style.bg }} />
+                          <span style={{ fontWeight: 700, color: style.text, textTransform: 'capitalize' }}>
+                            {/* Neutral power (Neeko) is paid with a rune of any domain. */}
+                            {dom === 'neutral' ? 'Neutral (any rune)' : dom}
+                          </span>
+                          <span style={{ color: 'var(--text-muted, #94a3b8)', fontWeight: 600 }}>
+                            {dStats.total} card{dStats.total === 1 ? '' : 's'}
+                          </span>
                         </div>
-                        <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ width: `${pctOfMain}%`, height: '100%', background: style.bg, borderRadius: 3 }} />
+                        <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
+                          {dStats.strict > 0 && dom !== 'neutral' && (
+                            <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>
+                              {dStats.strict} pure{dStats.multiPower > 0 ? ` (${dStats.multiPower} need 2+)` : ''}
+                            </span>
+                          )}
+                          {dStats.mixed > 0 && (
+                            <span style={{ color: '#38bdf8', fontSize: 11 }}>
+                              {dStats.mixed} dual
+                            </span>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-        )}
+                      <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ width: `${pctOfMain}%`, height: '100%', background: style.bg, borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
 
         {/* Section 3: Card Types & Rarities */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>

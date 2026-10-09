@@ -144,7 +144,7 @@ export function GameSelector() {
               );
             }
 
-            const gameDotColor = g.id === 'cyberpunk' ? '#fcee0a' : (g.id === 'riftbound' ? '#f59e0b' : '#a1a1aa');
+            const gameDotColor = g.id === 'riftbound' ? '#f59e0b' : '#a1a1aa';
 
             return (
               <button

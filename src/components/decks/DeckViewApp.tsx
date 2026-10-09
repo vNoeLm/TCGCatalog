@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from '../deck-builder/useDeckBuilder';
-import { getDeckCyberpunkRam } from '../deck-builder/useDeckBuilder';
 import { DeckList } from '../deck-builder/DeckList';
 import { DeckPreviewColumn } from '../deck-builder/DeckPreviewColumn';
 import { CardPreviewOverlay } from '../CardPreviewOverlay';
@@ -20,7 +19,7 @@ export function DeckViewApp() {
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [activeZone, setActiveZone] = useState<keyof DeckState | 'legends'>('legend');
+  const [activeZone, setActiveZone] = useState<keyof DeckState>('legend');
   // In the URL (?card=), so Back closes the preview and it can be shared.
   const [previewCardId, openPreview, closePreview] = useUrlOverlay('card');
   const showPreview = (card: CatalogCard) => openPreview(card.id);
@@ -38,20 +37,16 @@ export function DeckViewApp() {
       const row = await fetchDeckById(id);
       if (!row) { setNotFound(true); setLoading(false); return; }
       setDeckRow(row);
-      setActiveZone(row.game === 'cyberpunk' ? 'legends' : 'legend');
       const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: row.game }, '', true);
       setCards(data || []);
       setLoading(false);
     })();
   }, []);
 
-  const deck: DeckState = deckRow?.deck || { legend: null, champion: null, legends: [], mainDeck: {}, runeDeck: {}, battlefields: {}, sideboard: {} };
-  const isCyberpunk = deckRow?.game === 'cyberpunk';
+  const deck: DeckState = deckRow?.deck || { legend: null, champion: null, mainDeck: {}, runeDeck: {}, battlefields: {}, sideboard: {} };
 
   const legendCard = useMemo(() => cards.find(c => c.id === deck.legend) || null, [cards, deck.legend]);
   const championCard = useMemo(() => cards.find(c => c.id === deck.champion) || null, [cards, deck.champion]);
-  const cyberpunkLegends = useMemo(() => (deck.legends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[], [cards, deck.legends]);
-  const cyberpunkRamLimits = useMemo(() => isCyberpunk ? getDeckCyberpunkRam(deck.legends || [], cards) : { Red: 0, Green: 0, Blue: 0, Yellow: 0 }, [isCyberpunk, deck.legends, cards]);
 
   if (loading) {
     return (
@@ -103,7 +98,6 @@ export function DeckViewApp() {
             deck={deck}
             cards={cards}
             activeGame={(deckRow.game as any) || 'riftbound'}
-            cyberpunkLegends={cyberpunkLegends}
             legendCard={legendCard}
             championCard={championCard}
             onCardClick={showPreview}
@@ -115,8 +109,6 @@ export function DeckViewApp() {
             deck={deck}
             cards={cards}
             activeGame={(deckRow.game as any) || 'riftbound'}
-            cyberpunkRamLimits={cyberpunkRamLimits}
-            cyberpunkLegends={cyberpunkLegends}
             legendCard={legendCard}
             championCard={championCard}
             onRemoveCard={() => {}}
