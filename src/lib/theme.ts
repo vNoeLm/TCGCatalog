@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
-export type ThemeMode = 'auto' | 'cyberpunk' | 'riftbound' | 'dark' | 'light';
-export type ActiveTheme = 'cyberpunk' | 'riftbound' | 'dark' | 'light';
+export type ThemeMode = 'auto' | 'riftbound' | 'dark' | 'light';
+export type ActiveTheme = 'riftbound' | 'dark' | 'light';
 
 export const THEME_OVERRIDE_KEY = 'tcg_theme_override';
 export const ACTIVE_GAME_KEY = 'tcg_active_game';
@@ -10,7 +10,7 @@ export function getThemeOverride(): ThemeMode {
   if (typeof window === 'undefined') return 'auto';
   try {
     const saved = localStorage.getItem(THEME_OVERRIDE_KEY) as ThemeMode;
-    if (saved === 'cyberpunk' || saved === 'riftbound' || saved === 'dark' || saved === 'light' || saved === 'auto') {
+    if (saved === 'riftbound' || saved === 'dark' || saved === 'light' || saved === 'auto') {
       return saved;
     }
   } catch (e) {}
@@ -26,13 +26,9 @@ export function getActiveGame(): string {
   }
 }
 
-export function getEffectiveTheme(activeGame?: string): ActiveTheme {
+export function getEffectiveTheme(_activeGame?: string): ActiveTheme {
   const override = getThemeOverride();
-  if (override === 'cyberpunk' || override === 'riftbound' || override === 'dark' || override === 'light') {
-    return override;
-  }
-  const game = activeGame || getActiveGame();
-  return game === 'cyberpunk' ? 'cyberpunk' : 'riftbound';
+  return override === 'auto' ? 'riftbound' : override;
 }
 
 export function applySiteTheme(activeGame?: string): ActiveTheme {
@@ -65,7 +61,6 @@ export function useSiteTheme(cardGame?: string): {
   theme: ActiveTheme;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
-  isCyberpunk: boolean;
   isRiftbound: boolean;
   isDark: boolean;
   isLight: boolean;
@@ -119,7 +114,6 @@ export function useSiteTheme(cardGame?: string): {
     theme,
     themeMode,
     setThemeMode: updateMode,
-    isCyberpunk: theme === 'cyberpunk',
     isRiftbound: theme === 'riftbound',
     isDark: theme === 'dark',
     isLight: theme === 'light',

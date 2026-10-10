@@ -34,14 +34,14 @@ export function PublicProfileApp() {
   // else (Catalog, Binder), not something this page picks on its own.
   const [activeGame, setActiveGame] = useState(() => {
     if (typeof window === 'undefined') return 'riftbound';
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME) === 'cyberpunk' ? 'cyberpunk' : 'riftbound';
+    return 'riftbound';
   });
   const [collectionStatsByGame, setCollectionStatsByGame] = useState<Record<string, { owned: number; total: number; weightedPercentage: number }>>({});
 
   useEffect(() => {
     const onGameChange = (e: Event) => {
       const detail = (e as CustomEvent<{ game: string }>).detail;
-      if (detail?.game === 'cyberpunk' || detail?.game === 'riftbound') setActiveGame(detail.game);
+      if (detail?.game === 'riftbound') setActiveGame(detail.game);
     };
     window.addEventListener(EVENTS.GAME_CHANGE, onGameChange);
     return () => window.removeEventListener(EVENTS.GAME_CHANGE, onGameChange);

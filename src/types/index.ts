@@ -115,7 +115,6 @@ export interface FilterState {
   overnumberedFilter?: 'all' | 'only' | 'none';
   spFilter?: 'all' | 'only' | 'none';
   baseSetFilter?: 'all' | 'only';
-  eddiableFilter?: 'all' | 'sellable' | 'non_sellable';
   /** Restrict results to one seller's listings, e.g. from their public profile. */
   sellerId?: string;
   /** Only cards on this wishlist of the signed-in user (applied client-side: catalog, marketplace). */

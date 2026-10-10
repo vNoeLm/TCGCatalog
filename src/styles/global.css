@@ -66,60 +66,6 @@ html[data-theme="riftbound"] {
   color-scheme: dark;
 }
 
-/* CYBERPUNK: Dark Tech Carbon/Black & Cyberpunk Neon Yellow */
-html[data-theme="cyberpunk"] {
-  /* Backgrounds: Dark Tech Black */
-  --bg-page:          #07080a;
-  --bg-page-gradient: radial-gradient(circle at 50% 0%, rgba(252, 238, 10, 0.04) 0%, transparent 50%), #07080a;
-  --bg-surface:       #0c0d12;
-  --bg-surface-2:     #13161f;
-  --bg-raised:        #1a1d29;
-  --bg-input:         #11131a;
-  --bg-header:        rgba(10, 11, 15, 0.92);
-
-  /* Borders: Cyberpunk Yellow & Dark Tech */
-  --border:           rgba(252, 238, 10, 0.22);
-  --border-subtle:    rgba(252, 238, 10, 0.1);
-  --border-hover:     rgba(252, 238, 10, 0.45);
-
-  /* Text: Tech scale with neon yellow accent */
-  --text-primary:     #f4f4f6;
-  --text-secondary:   #d1d5db;
-  --text-tertiary:    #9ca3af;
-  --text-muted:       #6b7280;
-  --text-placeholder: #525866;
-  --text-accent:      #fcee0a;
-  --text-on-accent:   #07080a;
-
-  /* Accent: Neon Yellow */
-  --accent:           #fcee0a;
-  --accent-light:     #fef08a;
-  --accent-strong:    #fcee0a;
-  --positive:         #34d399;
-  --positive-muted:   rgba(52, 211, 153, 0.12);
-  --positive-border:  rgba(52, 211, 153, 0.4);
-  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
-  --negative:         #f87171;
-  --negative-muted:   rgba(248, 113, 113, 0.12);
-  --negative-border:  rgba(248, 113, 113, 0.4);
-  --accent-muted:     rgba(252, 238, 10, 0.15);
-  --accent-border:    rgba(252, 238, 10, 0.4);
-  --accent-glow:      rgba(252, 238, 10, 0.2);
-
-  /* Brand Logo Gradient */
-  --brand-gradient:   linear-gradient(90deg, #fcee0a, #ffe600, #00f0ff);
-
-  /* Scrollbar */
-  --scrollbar-thumb:  rgba(252, 238, 10, 0.25);
-  --scrollbar-track:  #07080a;
-
-  /* Shadows */
-  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(252, 238, 10, 0.06);
-  --shadow-header:    0 1px 0 rgba(252, 238, 10, 0.15);
-
-  color-scheme: dark;
-}
-
 /* GENERIC DARK: Clean Neutral Deep Slate / Obsidian & Electric Blue */
 html[data-theme="dark"] {
   /* Backgrounds: Neutral Deep Slate / Charcoal */
@@ -251,7 +197,7 @@ html[data-theme="light"] {
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* Site Owner / Admin tags: the same gold in every theme, not the theme's accent (which is blue
-     in Dark and cyan in Cyberpunk). Only darkened on the light theme so it stays readable. */
+     in Dark). Only darkened on the light theme so it stays readable. */
   --tag-gold:         #fbbf24;
   --tag-gold-bg:      rgba(245, 158, 11, 0.16);
   --tag-gold-border:  rgba(245, 158, 11, 0.5);

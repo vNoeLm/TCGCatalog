@@ -72,13 +72,11 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
   const [tagsOpen, setTagsOpen] = useState(false);
   const [keywordsOpen, setKeywordsOpen] = useState(false);
   const [costOpen, setCostOpen] = useState(false);
-  const [eddiesOpen, setEddiesOpen] = useState(true);
   const [tagSearch, setTagSearch] = useState("");
 
 
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
-  const isCyberpunk = filters.game === 'cyberpunk';
 
   const set = (key: keyof FilterState, val: any) =>
     setFilters({ ...filters, [key]: val });
@@ -140,7 +138,6 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       overnumberedFilter: 'all',
       spFilter: 'all',
       baseSetFilter: 'all',
-      eddiableFilter: 'all',
     });
   };
 
@@ -221,7 +218,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
     !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase())
   );
 
-  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
+  const { isDark } = useSiteTheme(filters.game);
 
   const sidebarTheme = {
     container: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
@@ -345,7 +342,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
       {!isSealedCategory && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={isCyberpunk ? 'Color' : "Domain"}
+            label="Domain"
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
@@ -425,7 +422,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     : sidebarTheme.btnDefault
                 }`}
               >
-                <span>{baseSet === 'only' ? `✓ ${"Base Set Only (1 - Max)"}: ON` : "Base Set Only (1 - Max)"}</span>
+                <span className="inline-flex items-center gap-1">{baseSet === 'only' && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}{baseSet === 'only' ? "Base Set Only (1 - Max): ON" : "Base Set Only (1 - Max)"}</span>
               </button>
 
               {/* Foil Toggle */}
@@ -558,7 +555,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                   >
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs.dot }} />
                     <span className="truncate">{r}</span>
-                    {active && <span className="ml-auto text-[10px] font-bold">✓</span>}
+                    {active && <svg className="ml-auto w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}
                   </button>
                 );
               })}
@@ -592,7 +589,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
                     }`}
                   >
                     <span className="truncate">{st}</span>
-                    {active && <span className="text-[10px] font-bold">✓</span>}
+                    {active && <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>}
                   </button>
                 );
               })}
@@ -722,9 +719,9 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
       {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
       {!isSealedCategory && (
-        <div className={isCyberpunk ? `border-b ${sidebarTheme.divider} pb-2` : ""}>
+        <div>
           <SectionHeader
-            label={isCyberpunk ? ('Cost (€$)') : ('Energy Cost')}
+            label="Energy Cost"
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}
@@ -756,43 +753,6 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
         </div>
       )}
 
-      {/* 9. EDDIES (SELLABLE / NON-SELLABLE) FOR CYBERPUNK */}
-      {isCyberpunk && !isSealedCategory && (
-        <div>
-          <SectionHeader
-            label={'Eddies (Sellable)'}
-            badge={filters.eddiableFilter && filters.eddiableFilter !== 'all' ? 1 : 0}
-            open={eddiesOpen}
-            onToggle={() => setEddiesOpen(o => !o)}
-            theme={sidebarTheme}
-          />
-          {eddiesOpen && (
-            <div className="mt-1.5 flex gap-1.5">
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'sellable', label: 'Sellable (€$)' },
-                { id: 'non_sellable', label: 'Non-Sellable' },
-              ].map((opt) => {
-                const active = (filters.eddiableFilter || 'all') === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => set("eddiableFilter", opt.id as any)}
-                    className={`flex-1 py-1 px-1 text-[11px] font-bold rounded-lg border transition cursor-pointer text-center ${
-                      active
-                        ? "bg-[#fcee0a] text-black border-[#fcee0a] shadow-sm"
-                        : sidebarTheme.btnDefault
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

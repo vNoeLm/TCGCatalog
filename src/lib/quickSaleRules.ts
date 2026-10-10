@@ -13,7 +13,6 @@ import { roundHuf } from './priceSuggestion';
 /** Card types per game, as stored in cards.card_type. */
 export const CARD_TYPES_BY_GAME: Record<string, string[]> = {
   riftbound: ['Unit', 'Spell', 'Legend', 'Gear', 'Battlefield', 'Rune', 'Token'],
-  cyberpunk: ['Unit', 'Program', 'Legend', 'Gear'],
 };
 
 /**

@@ -1,14 +1,12 @@
 import React from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
-import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
   cards: CatalogCard[];
-  activeGame?: 'riftbound' | 'cyberpunk';
-  cyberpunkLegends?: CatalogCard[];
+  activeGame?: 'riftbound';
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
@@ -20,15 +18,12 @@ export function DeckPreviewColumn({
   deck,
   cards,
   activeGame = 'riftbound',
-  cyberpunkLegends = [],
   legendCard,
   championCard,
   onCardClick,
   onRemoveCard,
   isWide = true,
 }: DeckPreviewColumnProps) {
-  const isCyberpunk = activeGame === 'cyberpunk';
-
   // Group cards by ID and count how many we have total
   const getAllCardsGrouped = () => {
     const counts = new Map<string, { card: CatalogCard; qty: number }>();
@@ -41,14 +36,8 @@ export function DeckPreviewColumn({
       }
     };
 
-    if (isCyberpunk) {
-      (cyberpunkLegends.length > 0 ? cyberpunkLegends : (deck.legends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[]).forEach(l => {
-        addCardToGroup(l, 1);
-      });
-    } else {
-      if (legendCard) addCardToGroup(legendCard, 1);
-      if (championCard) addCardToGroup(championCard, 1);
-    }
+    if (legendCard) addCardToGroup(legendCard, 1);
+    if (championCard) addCardToGroup(championCard, 1);
 
     const addFromZone = (zoneMap: Record<string, number> | undefined) => {
       if (!zoneMap) return;
@@ -59,10 +48,8 @@ export function DeckPreviewColumn({
     };
 
     addFromZone(deck.mainDeck);
-    if (!isCyberpunk) {
-      addFromZone(deck.runeDeck);
-      addFromZone(deck.battlefields);
-    }
+    addFromZone(deck.runeDeck);
+    addFromZone(deck.battlefields);
     addFromZone(deck.sideboard);
 
     // Return as array
@@ -166,36 +153,6 @@ export function DeckPreviewColumn({
                   {qty}
                 </div>
               )}
-
-              {/* Cyberpunk RAM Badge on Preview */}
-              {isCyberpunk && (() => {
-                const meta = getCyberpunkMeta(card);
-                const ram = meta?.ram ?? null;
-                const col = (meta?.color || card.domain || '').trim();
-                const colHex = col === 'Red' ? '#ef4444' : col === 'Green' ? '#22c55e' : col === 'Blue' ? '#06b6d4' : col === 'Yellow' ? '#eab308' : '#94a3b8';
-                if (ram === null) return null;
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 4,
-                      left: 4,
-                      zIndex: 4,
-                      background: 'rgba(15, 23, 42, 0.92)',
-                      color: colHex,
-                      border: `1px solid ${colHex}`,
-                      borderRadius: 4,
-                      padding: '1px 4px',
-                      fontSize: 9,
-                      fontWeight: 800,
-                      fontFamily: 'monospace',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {card.card_type === 'Legend' ? `+${ram} RAM` : `${ram} RAM`}
-                  </div>
-                );
-              })()}
 
               {/* X Remove Button on TOP-RIGHT */}
               {onRemoveCard && (

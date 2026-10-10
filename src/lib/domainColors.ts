@@ -15,11 +15,6 @@ export const SINGLE_DOMAIN_MAP: Record<string, DomainStyle> = {
   chaos:     { name: 'Chaos',     key: 'chaos',     bg: 'rgba(147,51,234,0.95)',  border: 'rgba(168,85,247,1)',  text: '#ffffff', glow: 'rgba(168,85,247,0.6)' },
   order:     { name: 'Order',     key: 'order',     bg: 'rgba(234,179,8,0.95)',   border: 'rgba(234,179,8,1)',   text: '#ffffff', glow: 'rgba(234,179,8,0.6)' },
   colorless: { name: 'Colorless', key: 'colorless', bg: 'rgba(75,85,99,0.95)',    border: 'rgba(107,114,128,1)', text: '#ffffff', glow: 'rgba(107,114,128,0.4)' },
-  // Cyberpunk TCG colors
-  red:       { name: 'Red',       key: 'red',       bg: 'rgba(220,38,38,0.95)',   border: 'rgba(239,68,68,1)',   text: '#ffffff', glow: 'rgba(239,68,68,0.6)' },
-  blue:      { name: 'Blue',      key: 'blue',      bg: 'rgba(37,99,235,0.95)',   border: 'rgba(59,130,246,1)',  text: '#ffffff', glow: 'rgba(59,130,246,0.6)' },
-  green:     { name: 'Green',     key: 'green',     bg: 'rgba(22,163,74,0.95)',   border: 'rgba(34,197,94,1)',   text: '#ffffff', glow: 'rgba(34,197,94,0.6)' },
-  yellow:    { name: 'Yellow',    key: 'yellow',    bg: 'rgba(234,179,8,0.95)',   border: 'rgba(234,179,8,1)',   text: '#ffffff', glow: 'rgba(234,179,8,0.6)' },
 };
 
 /**
@@ -98,11 +93,6 @@ export const DOMAIN_STYLES: Record<string, FilterTokenStyle> = {
   Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
   Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
   Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.18)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.1)",  hoverBorder: "rgba(203,213,225,0.35)" },
-  // Cyberpunk colors
-  Red:        { dot: "#ef4444", activeBg: "rgba(239,68,68,0.25)",   border: "rgba(239,68,68,0.8)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.15)",   hoverBorder: "rgba(239,68,68,0.5)" },
-  Blue:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.25)",  border: "rgba(59,130,246,0.8)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.15)",  hoverBorder: "rgba(59,130,246,0.5)" },
-  Green:      { dot: "#22c55e", activeBg: "rgba(34,197,94,0.25)",   border: "rgba(34,197,94,0.8)", text: "#86efac", hoverBg: "rgba(34,197,94,0.15)",   hoverBorder: "rgba(34,197,94,0.5)" },
-  Yellow:     { dot: "#eab308", activeBg: "rgba(234,179,8,0.25)",   border: "rgba(234,179,8,0.8)", text: "#fde047", hoverBg: "rgba(234,179,8,0.15)",   hoverBorder: "rgba(234,179,8,0.5)" },
 };
 
 export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
@@ -111,14 +101,6 @@ export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
   Rare:            { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
   Epic:            { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
   Showcase:        { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
-  "Nova Rare":     { dot: "#06b6d4", activeBg: "rgba(6,182,212,0.25)",   border: "rgba(6,182,212,0.8)",   text: "#67e8f9", hoverBg: "rgba(6,182,212,0.15)",   hoverBorder: "rgba(6,182,212,0.5)" },
-  Secret:          { dot: "#ec4899", activeBg: "rgba(236,72,153,0.35)",  border: "rgba(236,72,153,0.9)",  text: "#ffffff", hoverBg: "rgba(236,72,153,0.2)",   hoverBorder: "rgba(236,72,153,0.6)" },
 };
 
-export const CYBERPUNK_COLOR_THEMES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-  Red:    { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', border: '#ef4444', glow: 'rgba(239, 68, 68, 0.4)' },
-  Green:  { bg: 'rgba(34, 197, 94, 0.15)', text: '#22c55e', border: '#22c55e', glow: 'rgba(34, 197, 94, 0.4)' },
-  Blue:   { bg: 'rgba(6, 182, 212, 0.15)', text: '#06b6d4', border: '#06b6d4', glow: 'rgba(6, 182, 212, 0.4)' },
-  Yellow: { bg: 'rgba(234, 179, 8, 0.15)', text: '#eab308', border: '#eab308', glow: 'rgba(234, 179, 8, 0.4)' },
-};
 

@@ -1,9 +1,8 @@
 import { supabase } from './supabase';
 import { isUnreleasedSet } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
-import { getCyberpunkMeta } from './cyberpunkCardData';
 import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
-import { OWNER_ID, SETS, CYBERPUNK_SETS, DOMAINS, CYBERPUNK_COLORS, RARITIES, CYBERPUNK_RARITIES } from './constants';
+import { OWNER_ID, DOMAINS, RARITIES } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
@@ -32,9 +31,12 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
 }
 
 // ─── Caching Layer (Memory + SessionStorage) ──────────────────────
-// Bump when the card data changes underneath (e.g. a set removed or restored), so browsers drop
-// their cached card lists on the next load instead of showing old cards for up to 20 minutes.
+// Card data changes (sets added or removed, release dates, the price sync) are noticed on their
+// own - see ensureFreshCache. Bump this only when the shape of what's cached changes in the code.
 const CACHE_VERSION = 'v30';
+const DATA_VERSION_KEY = 'tcg_card_data_version';
+/** How long a page load waits for the freshness check before using the cache anyway. */
+const DATA_VERSION_TIMEOUT_MS = 1500;
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -92,6 +94,34 @@ export function clearApiCache(): void {
   }
 }
 
+let freshnessCheck: Promise<void> | null = null;
+
+/**
+ * Once per page load: asks the server for the card data's current fingerprint
+ * (/api/card-data-version) and drops every cached list if it differs from the one the cache was
+ * filled under. Waits at most DATA_VERSION_TIMEOUT_MS; if the check fails or is slow, the cache is
+ * used as before.
+ */
+function ensureFreshCache(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (!freshnessCheck) {
+    const check = fetch('/api/card-data-version')
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => {
+        const version = typeof json?.version === 'string' ? json.version : null;
+        if (!version) return;
+        let previous: string | null = null;
+        try { previous = sessionStorage.getItem(DATA_VERSION_KEY); } catch (e) {}
+        if (previous === version) return;
+        clearApiCache();
+        try { sessionStorage.setItem(DATA_VERSION_KEY, version); } catch (e) {}
+      })
+      .catch(() => {});
+    freshnessCheck = Promise.race([check, new Promise<void>(resolve => setTimeout(resolve, DATA_VERSION_TIMEOUT_MS))]);
+  }
+  return freshnessCheck;
+}
+
 export function clearStoreCache(): void {
   for (const key of Array.from(memoryCache.keys())) {
     if (key.includes('owner_store_') || key.includes('inv_') || key.includes('card_detail_')) {
@@ -116,6 +146,7 @@ export async function fetchCardsCatalog(
 ): Promise<{ data: CatalogCard[]; count: number | null }> {
   const cacheKey = `catalog3_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<{ data: CatalogCard[]; count: number | null }>(cacheKey);
     if (cached) return cached;
   }
@@ -164,20 +195,15 @@ export async function fetchCardsCatalog(
   const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
   query = query.eq('game', targetGame);
 
-  // Validate set against active game so an incompatible set from another game never breaks results
   let validSet: string | null = null;
   if (filters.set) {
-    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
-    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
-    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
-      validSet = filters.set;
-      query = query.eq('sets.name', validSet);
-    }
+    validSet = filters.set;
+    query = query.eq('sets.name', validSet);
   }
 
   // Validate rarities against active game
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const allowedRarities = RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('rarity', cleanRarities);
@@ -202,7 +228,7 @@ export async function fetchCardsCatalog(
 
   // Validate domains against active game
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const allowedDomains = DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
@@ -271,13 +297,6 @@ export async function fetchCardsCatalog(
     mappedData = mappedData.filter(card => card.set_name === validSet);
   }
 
-  if (filters.eddiableFilter && filters.eddiableFilter !== 'all') {
-    mappedData = mappedData.filter(card => {
-      const meta = getCyberpunkMeta(card);
-      const isEddiable = Boolean(meta?.is_eddiable);
-      return filters.eddiableFilter === 'sellable' ? isEddiable : !isEddiable;
-    });
-  }
 
   const result = { data: mappedData, count: mappedData.length };
   setCached(cacheKey, result);
@@ -302,6 +321,7 @@ export async function fetchLegacyInventory(
 ): Promise<{ data: InventoryCard[]; count: number | null }> {
   const cacheKey = `legacy_inv_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}_p${page}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<{ data: InventoryCard[]; count: number | null }>(cacheKey);
     if (cached) return cached;
   }
@@ -341,14 +361,10 @@ export async function fetchLegacyInventory(
   query = query.eq('cards.game', targetGame);
 
   if (filters.set) {
-    const isInvalidForRiftbound = targetGame === 'riftbound' && CYBERPUNK_SETS.includes(filters.set);
-    const isInvalidForCyberpunk = targetGame === 'cyberpunk' && SETS.includes(filters.set);
-    if (!isInvalidForRiftbound && !isInvalidForCyberpunk) {
-      query = query.eq('cards.sets.name', filters.set);
-    }
+    query = query.eq('cards.sets.name', filters.set);
   }
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'cyberpunk' ? CYBERPUNK_RARITIES : RARITIES;
+    const allowedRarities = RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('cards.rarity', cleanRarities);
@@ -370,7 +386,7 @@ export async function fetchLegacyInventory(
     }
   }
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = targetGame === 'cyberpunk' ? CYBERPUNK_COLORS : DOMAINS;
+    const allowedDomains = DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
@@ -520,6 +536,7 @@ export async function fetchInventory(
 export async function fetchCardDetail(inventoryId: string, bypassCache = false) {
   const cacheKey = `card_detail_inv_${inventoryId}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<any>(cacheKey);
     if (cached) return cached;
   }
@@ -594,6 +611,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
 export async function fetchCardOnly(cardId: string, bypassCache = false) {
   const cacheKey = `card_only3_${cardId}`;
   if (!bypassCache) {
+    await ensureFreshCache();
     const cached = getCached<any>(cacheKey);
     if (cached) return cached;
   }

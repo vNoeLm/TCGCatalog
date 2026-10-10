@@ -124,15 +124,6 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
   const battlefields = normalizeZoneMap(deckSource.battlefields || deckSource.battlefield || deckSource.battlefieldDeck, allCards);
   const sideboard = normalizeZoneMap(deckSource.sideboard || deckSource.side || deckSource.side_deck, allCards);
 
-  let legends: string[] = [];
-  if (Array.isArray(deckSource.legends)) {
-    deckSource.legends.forEach((item: any) => {
-      const ident = typeof item === 'string' ? item : (item.id || item.name || item.card_number);
-      const c = resolveCard(ident, allCards);
-      if (c && !legends.includes(c.id)) legends.push(c.id);
-    });
-  }
-
   // Riftbound extra legends (Neeko, Blending In)
   const extraLegends: string[] = [];
   if (Array.isArray(deckSource.extraLegends)) {
@@ -143,11 +134,8 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
     });
   }
 
-  // If game is cyberpunk or we have legends array
-  const isCyberpunk = deckSource.game === 'cyberpunk' || legends.length > 0;
-
-  // If legend or champion weren't explicitly defined, try to auto-extract from main if present (for Riftbound)
-  if (!isCyberpunk && !legendId) {
+  // If legend or champion weren't explicitly defined, try to auto-extract from main if present
+  if (!legendId) {
     for (const id of Object.keys(mainDeck)) {
       const c = allCards.find(x => x.id === id);
       if (c && c.card_type === 'Legend') {
@@ -158,7 +146,7 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
     }
   }
 
-  if (!isCyberpunk && !championId) {
+  if (!championId) {
     for (const id of Object.keys(mainDeck)) {
       const c = allCards.find(x => x.id === id);
       if (c && c.card_type === 'Unit' && c.subtype === 'Champion') {
@@ -174,11 +162,10 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
   }
 
   return {
-    game: isCyberpunk ? 'cyberpunk' : (deckSource.game || 'riftbound'),
+    game: 'riftbound',
     legend: legendId,
     champion: championId,
-    legends,
-    extraLegends: isCyberpunk ? [] : extraLegends,
+    extraLegends,
     mainDeck,
     runeDeck,
     battlefields,
@@ -195,7 +182,6 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
   let currentZone: 'legend' | 'extraLegends' | 'champion' | 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard' | null = null;
   let legendId: string | null = null;
   let championId: string | null = null;
-  const legends: string[] = [];
   const extraLegends: string[] = [];
   const mainDeck: Record<string, number> = {};
   const runeDeck: Record<string, number> = {};
@@ -216,13 +202,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
       const parts = line.split(/[:\-]/);
       if (parts.length > 1 && parts[1].trim()) {
         const c = resolveCard(parts[1].trim(), allCards);
-        if (c) {
-          if (c.game === 'cyberpunk') {
-            if (!legends.includes(c.id) && legends.length < 3) legends.push(c.id);
-          } else {
-            legendId = c.id;
-          }
-        }
+        if (c) legendId = c.id;
       }
       continue;
     }
@@ -267,11 +247,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
     if (currentZone === 'extraLegends') {
       if (card.card_type === 'Legend' && !extraLegends.includes(card.id)) extraLegends.push(card.id);
     } else if (currentZone === 'legend') {
-      if (card.game === 'cyberpunk' || legends.length > 0) {
-        if (!legends.includes(card.id) && legends.length < 3) legends.push(card.id);
-      } else {
-        legendId = card.id;
-      }
+      legendId = card.id;
     } else if (currentZone === 'champion') {
       championId = card.id;
     } else if (currentZone === 'runeDeck') {
@@ -282,9 +258,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
       sideboard[card.id] = (sideboard[card.id] || 0) + qty;
     } else {
       // Auto-detect based on card type if current zone is mainDeck or not set
-      if (card.card_type === 'Legend' && (card.game === 'cyberpunk' || legends.length > 0)) {
-        if (!legends.includes(card.id) && legends.length < 3) legends.push(card.id);
-      } else if (!legendId && card.card_type === 'Legend') {
+      if (!legendId && card.card_type === 'Legend') {
         legendId = card.id;
       } else if (!championId && card.card_type === 'Unit' && card.subtype === 'Champion' && qty === 1) {
         championId = card.id;
@@ -298,14 +272,11 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
     }
   }
 
-  const isCyberpunk = legends.length > 0;
-
   return {
-    game: isCyberpunk ? 'cyberpunk' : 'riftbound',
+    game: 'riftbound',
     legend: legendId,
     champion: championId,
-    legends,
-    extraLegends: isCyberpunk ? [] : extraLegends,
+    extraLegends,
     mainDeck,
     runeDeck,
     battlefields,
@@ -392,29 +363,21 @@ function formatSimplifiedZoneMap(zoneMap: Record<string, number>, allCards: Cata
  * Formats a DeckState into a clean, minimal JSON string with card names and counts
  */
 export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckName = 'My Deck'): string {
-  const isCyberpunk = deck.game === 'cyberpunk' || (deck.legends && deck.legends.length > 0);
   const legendCard = deck.legend ? allCards.find(c => c.id === deck.legend) : null;
   const championCard = deck.champion ? allCards.find(c => c.id === deck.champion) : null;
 
   const exportObj: any = {
-    game: isCyberpunk ? 'cyberpunk' : 'riftbound',
+    game: 'riftbound',
     name: deckName,
   };
 
-  if (isCyberpunk) {
-    exportObj.legends = (deck.legends || []).map(id => {
-      const c = allCards.find(card => card.id === id);
-      return c ? c.name : id;
-    });
-  } else {
-    exportObj.legend = legendCard ? legendCard.name : deck.legend || null;
-    if (deck.extraLegends && deck.extraLegends.length > 0) {
-      exportObj.extraLegends = deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
-    }
-    exportObj.champion = championCard ? championCard.name : deck.champion || null;
-    exportObj.runeDeck = formatSimplifiedZoneMap(deck.runeDeck, allCards);
-    exportObj.battlefields = formatSimplifiedZoneMap(deck.battlefields, allCards);
+  exportObj.legend = legendCard ? legendCard.name : deck.legend || null;
+  if (deck.extraLegends && deck.extraLegends.length > 0) {
+    exportObj.extraLegends = deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
   }
+  exportObj.champion = championCard ? championCard.name : deck.champion || null;
+  exportObj.runeDeck = formatSimplifiedZoneMap(deck.runeDeck, allCards);
+  exportObj.battlefields = formatSimplifiedZoneMap(deck.battlefields, allCards);
 
   exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
   exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
@@ -427,29 +390,21 @@ export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckN
  */
 export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: CatalogCard[]): string {
   const formattedDecks = savedDecks.map(sd => {
-    const isCyberpunk = sd.deck.game === 'cyberpunk' || (sd.deck.legends && sd.deck.legends.length > 0);
     const legendCard = sd.deck.legend ? allCards.find(c => c.id === sd.deck.legend) : null;
     const championCard = sd.deck.champion ? allCards.find(c => c.id === sd.deck.champion) : null;
 
     const exportObj: any = {
-      game: isCyberpunk ? 'cyberpunk' : 'riftbound',
+      game: 'riftbound',
       name: sd.name,
     };
 
-    if (isCyberpunk) {
-      exportObj.legends = (sd.deck.legends || []).map(id => {
-        const c = allCards.find(card => card.id === id);
-        return c ? c.name : id;
-      });
-    } else {
-      exportObj.legend = legendCard ? legendCard.name : sd.deck.legend || null;
-      if (sd.deck.extraLegends && sd.deck.extraLegends.length > 0) {
-        exportObj.extraLegends = sd.deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
-      }
-      exportObj.champion = championCard ? championCard.name : sd.deck.champion || null;
-      exportObj.runeDeck = formatSimplifiedZoneMap(sd.deck.runeDeck, allCards);
-      exportObj.battlefields = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
+    exportObj.legend = legendCard ? legendCard.name : sd.deck.legend || null;
+    if (sd.deck.extraLegends && sd.deck.extraLegends.length > 0) {
+      exportObj.extraLegends = sd.deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
     }
+    exportObj.champion = championCard ? championCard.name : sd.deck.champion || null;
+    exportObj.runeDeck = formatSimplifiedZoneMap(sd.deck.runeDeck, allCards);
+    exportObj.battlefields = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
 
     exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
     exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
@@ -464,44 +419,31 @@ export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: Catalo
  */
 export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckName = 'My Deck'): string {
   const lines: string[] = [`// ${deckName}`, ''];
-  const isCyberpunk = deck.game === 'cyberpunk' || (deck.legends && deck.legends.length > 0);
 
-  if (isCyberpunk) {
-    const legendCards = (deck.legends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
-    if (legendCards.length > 0) {
-      lines.push(`// Legends (${legendCards.length})`);
-      legendCards.forEach(l => {
-        const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
-        lines.push(`1 ${l.name}${num}`);
-      });
-      lines.push('');
-    }
-  } else {
-    const legendCard = allCards.find(c => c.id === deck.legend);
-    if (legendCard) {
-      lines.push('// Legend');
-      const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
-      lines.push(`1 ${legendCard.name}${num}`);
-      lines.push('');
-    }
+  const legendCard = allCards.find(c => c.id === deck.legend);
+  if (legendCard) {
+    lines.push('// Legend');
+    const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
+    lines.push(`1 ${legendCard.name}${num}`);
+    lines.push('');
+  }
 
-    const extraLegendCards = (deck.extraLegends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
-    if (extraLegendCards.length > 0) {
-      lines.push(`// Extra Legends (${extraLegendCards.length})`);
-      extraLegendCards.forEach(l => {
-        const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
-        lines.push(`1 ${l.name}${num}`);
-      });
-      lines.push('');
-    }
+  const extraLegendCards = (deck.extraLegends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
+  if (extraLegendCards.length > 0) {
+    lines.push(`// Extra Legends (${extraLegendCards.length})`);
+    extraLegendCards.forEach(l => {
+      const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
+      lines.push(`1 ${l.name}${num}`);
+    });
+    lines.push('');
+  }
 
-    const championCard = allCards.find(c => c.id === deck.champion);
-    if (championCard) {
-      lines.push('// Champion');
-      const num = championCard.card_number ? ` (${championCard.card_number.split('/')[0]})` : '';
-      lines.push(`1 ${championCard.name}${num}`);
-      lines.push('');
-    }
+  const championCard = allCards.find(c => c.id === deck.champion);
+  if (championCard) {
+    lines.push('// Champion');
+    const num = championCard.card_number ? ` (${championCard.card_number.split('/')[0]})` : '';
+    lines.push(`1 ${championCard.name}${num}`);
+    lines.push('');
   }
 
   const formatList = (zoneMap: Record<string, number>, title: string) => {
@@ -527,10 +469,8 @@ export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckN
   };
 
   formatList(deck.mainDeck, 'Main Deck');
-  if (!isCyberpunk) {
-    formatList(deck.runeDeck, 'Rune Deck');
-    formatList(deck.battlefields, 'Battlefields');
-  }
+  formatList(deck.runeDeck, 'Rune Deck');
+  formatList(deck.battlefields, 'Battlefields');
   formatList(deck.sideboard, 'Sideboard');
 
   return lines.join('\n').trim();

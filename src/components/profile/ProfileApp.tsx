@@ -13,8 +13,7 @@ import { useSiteTheme, type ThemeMode } from '../../lib/theme';
 
 /** The color, hex codes and name each theme option shows itself by — nothing else. */
 const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
-  { mode: 'auto', name: 'Auto', hex: ['#fcee0a', '#f59e0b'] },
-  { mode: 'cyberpunk', name: 'Dark Tech', hex: ['#fcee0a'] },
+  { mode: 'auto', name: 'Auto', hex: ['#f59e0b'] },
   { mode: 'riftbound', name: 'Hextech Navy', hex: ['#f59e0b'] },
   { mode: 'dark', name: 'Midnight Slate', hex: ['#3b82f6'] },
   { mode: 'light', name: 'Ivory Parchment', hex: ['#b45309'] },
@@ -325,7 +324,7 @@ export function ProfileApp() {
                 color: 'var(--accent)',
               }}
             >
-              {effectiveTheme === 'cyberpunk' ? 'Cyberpunk Mode' : effectiveTheme === 'dark' ? 'Dark Mode' : effectiveTheme === 'light' ? 'Light Mode' : 'Riftbound Mode'}
+              {effectiveTheme === 'dark' ? 'Dark Mode' : effectiveTheme === 'light' ? 'Light Mode' : 'Riftbound Mode'}
             </span>
           </h2>
         </div>

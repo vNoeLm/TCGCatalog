@@ -1,23 +1,20 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { CatalogCard } from '../../types';
-import type { DeckState, CyberpunkRamLimits } from './useDeckBuilder';
-import { isCardRamSufficient } from './useDeckBuilder';
-import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
+import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard } from '../../lib/cardVariants';
-import { TAGS, CYBERPUNK_TAGS, sortSetNames } from '../../lib/constants';
+import { TAGS, sortSetNames } from '../../lib/constants';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
-  activeGame?: 'riftbound' | 'cyberpunk';
-  cyberpunkRamLimits?: CyberpunkRamLimits;
+  activeGame?: 'riftbound';
   allowedDomains: string[] | null;
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
-  activeZone: keyof DeckState | 'legends';
+  activeZone: keyof DeckState;
   deck: DeckState;
   onAddCard: (card: CatalogCard) => void;
   onPreviewCard: (card: CatalogCard) => void;
@@ -52,19 +49,11 @@ const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 const ZONE_TYPE_OPTIONS: Record<string, string[]> = {
   legend:      ['Legend'],
   extraLegends: ['Legend'],
-  legends:     ['Legend'],
   champion:    ['Unit'],
   mainDeck:    ['Unit', 'Spell', 'Gear'],
   sideboard:   ['Unit', 'Spell', 'Gear'],
   runeDeck:    ['Rune'],
   battlefields:['Battlefield'],
-};
-
-const CYBERPUNK_ZONE_TYPE_OPTIONS: Record<string, string[]> = {
-  legend:      ['Legend'],
-  legends:     ['Legend'],
-  mainDeck:    ['Unit', 'Gear', 'Program'],
-  sideboard:   ['Unit', 'Gear', 'Program'],
 };
 
 type TriState = 'all' | 'only' | 'none';
@@ -109,7 +98,6 @@ function CostInput({ label, value, fallback, onCommit, style }: {
 export function DeckCatalog({
   cards,
   activeGame = 'riftbound',
-  cyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 },
   allowedDomains,
   legendCard,
   championCard,
@@ -121,7 +109,6 @@ export function DeckCatalog({
   filtersSlot = null,
   onActiveFiltersCountChange,
 }: DeckCatalogProps) {
-  const isCyberpunk = activeGame === 'cyberpunk';
   const theme = {
     accent: 'var(--accent)',
     accentMuted: 'var(--accent-muted)',
@@ -147,7 +134,6 @@ export function DeckCatalog({
   const [tagSearch, setTagSearch] = useState('');
   const [keywordFilter, setKeywordFilter] = useState<string[]>([]);
   const [keywordMode, setKeywordMode] = useState<'and' | 'or'>('and');
-  const [ramFilter, setRamFilter]       = useState<string>('All');
   const [setFilter, setSetFilter]       = useState<string>('All');
   const [costMin, setCostMin]           = useState<number>(0);
   const [costMax, setCostMax]           = useState<number>(10);
@@ -311,22 +297,16 @@ export function DeckCatalog({
 
   // Domain / Color options
   const domainOptions = useMemo(() => {
-    if (isCyberpunk) {
-      return ['All', 'Red', 'Green', 'Blue', 'Yellow'];
-    }
     const base = (legendCard && allowedDomains)
       ? allowedDomains
       : ['fury', 'calm', 'mind', 'body', 'chaos', 'order'];
     return ['All', ...base, 'colorless'];
-  }, [isCyberpunk, allowedDomains, legendCard]);
+  }, [allowedDomains, legendCard]);
 
   // Available type options for current zone (only show relevant types)
   const typeOptions = useMemo(() => {
-    if (isCyberpunk) {
-      return CYBERPUNK_ZONE_TYPE_OPTIONS[activeZone] || ['Unit', 'Gear', 'Program'];
-    }
     return ZONE_TYPE_OPTIONS[activeZone] || [];
-  }, [isCyberpunk, activeZone]);
+  }, [activeZone]);
 
   const showTypeFilter = typeOptions.length > 1;
 
@@ -344,33 +324,25 @@ export function DeckCatalog({
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
       // 1. Zone validity — hard filter based on active zone
-      if (isCyberpunk) {
-        if (activeZone === 'legends' || activeZone === 'legend') {
-          if (card.card_type !== 'Legend') return false;
-        } else {
-          if (card.card_type === 'Legend') return false;
-        }
-      } else {
-        switch (activeZone) {
-          case 'legend':       if (card.card_type !== 'Legend') return false; break;
-          // Neeko's extra legends: any legend, whatever its domain (see the domain check below).
-          case 'extraLegends': if (card.card_type !== 'Legend') return false; break;
-          case 'champion':     
-            if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
-            if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
-              const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
-              if (!hasCommonTag) return false;
-            }
-            break;
-          case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
-          case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
-          case 'mainDeck':
-          case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
-        }
+      switch (activeZone) {
+        case 'legend':       if (card.card_type !== 'Legend') return false; break;
+        // Neeko's extra legends: any legend, whatever its domain (see the domain check below).
+        case 'extraLegends': if (card.card_type !== 'Legend') return false; break;
+        case 'champion':     
+          if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
+          if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
+            const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
+            if (!hasCommonTag) return false;
+          }
+          break;
+        case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
+        case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
+        case 'mainDeck':
+        case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
       }
 
-      // 2. Domain restriction from selected Legend (Riftbound only)
-      if (!isCyberpunk && allowedDomains && activeZone !== 'legend' && activeZone !== 'extraLegends') {
+      // 2. Domain restriction from selected Legend
+      if (allowedDomains && activeZone !== 'legend' && activeZone !== 'extraLegends') {
         const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
         const isColorless = cardDomains.length === 0 || cardDomains.includes('colorless');
         const matches = cardDomains.some(d => allowedDomains.includes(d));
@@ -380,7 +352,7 @@ export function DeckCatalog({
       // 2b. Signature Spells and Signature Gear only belong to their own Champion - sharing the
       // Legend's domain isn't enough (e.g. picking a Fury Legend doesn't unlock every Fury
       // champion's signature card, only the one whose Champion is actually in the deck).
-      if (!isCyberpunk && (activeZone === 'mainDeck' || activeZone === 'sideboard')) {
+      if (activeZone === 'mainDeck' || activeZone === 'sideboard') {
         const isSignatureItem = (card.card_type === 'Spell' || card.card_type === 'Gear') && (card.subtype || '').toLowerCase().includes('signature');
         if (isSignatureItem) {
           if (!championCard) return false;
@@ -413,11 +385,6 @@ export function DeckCatalog({
       // 7. Domain / Color filter chips (any of the selected)
       if (domainFilter.length > 0) {
         const matchesDomain = domainFilter.some(sel => {
-          if (isCyberpunk) {
-            const meta = getCyberpunkMeta(card);
-            const col = (meta?.color || card.domain || '').toLowerCase();
-            return col === sel.toLowerCase();
-          }
           const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
           if (sel === 'colorless') return cardDomains.length === 0 || cardDomains.includes('colorless');
           return cardDomains.includes(sel.toLowerCase());
@@ -448,20 +415,7 @@ export function DeckCatalog({
       }
 
       // 7e. Keywords (AND / OR)
-      if (!isCyberpunk && !cardMatchesKeywords(card, keywordFilter, keywordMode)) return false;
-
-      // 7b. RAM filter for Cyberpunk
-      if (isCyberpunk && ramFilter !== 'All') {
-        const meta = getCyberpunkMeta(card);
-        const ram = meta?.ram ?? 0;
-        if (ramFilter === '1' && ram !== 1) return false;
-        if (ramFilter === '2' && ram !== 2) return false;
-        if (ramFilter === '3+' && ram < 3) return false;
-        if (ramFilter === 'Within RAM') {
-          const ramCheck = isCardRamSufficient(card, cyberpunkRamLimits);
-          if (!ramCheck.sufficient) return false;
-        }
-      }
+      if (!cardMatchesKeywords(card, keywordFilter, keywordMode)) return false;
 
       // 8. Set filter
       if (setFilter !== 'All') {
@@ -475,7 +429,7 @@ export function DeckCatalog({
 
       return true;
     });
-  }, [cards, search, typeFilter, rarityFilter, domainFilter, ramFilter, cyberpunkRamLimits, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, isCyberpunk, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, championCard, activeZone]);
+  }, [cards, search, typeFilter, rarityFilter, domainFilter, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, championCard, activeZone]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];
@@ -541,7 +495,6 @@ export function DeckCatalog({
     (baseSetOnly ? 1 : 0) +
     tagFilter.length +
     keywordFilter.length +
-    (ramFilter !== 'All' ? 1 : 0) +
     (setFilter !== 'All' ? 1 : 0) +
     (costMin !== 0 || costMax !== 10 ? 1 : 0);
 
@@ -559,7 +512,6 @@ export function DeckCatalog({
     setTagSearch('');
     setKeywordFilter([]);
     setKeywordMode('and');
-    setRamFilter('All');
     setSetFilter('All');
     setCostMin(0);
     setCostMax(10);
@@ -737,27 +689,6 @@ export function DeckCatalog({
               </div>
             )}
 
-            {/* Row 3b: RAM filter chips for Cyberpunk */}
-            {isCyberpunk && (
-              <div>
-                <label style={currentLabelStyle}>RAM Requirement</label>
-                <div style={pillGrid}>
-                  {['All', '1', '2', '3+', 'Within RAM'].map(r => {
-                    const isActive = ramFilter === r;
-                    return (
-                      <button
-                        key={r}
-                        onClick={() => setRamFilter(isActive ? 'All' : r)}
-                        style={pillStyle(isActive, { color: '#fcee0a' })}
-                        title={r === 'Within RAM' ? 'Within Deck RAM' : (r === 'All' ? 'All RAM' : `${r} RAM`)}
-                      >
-                        {r === 'Within RAM' ? 'In RAM' : (r === 'All' ? 'All' : `${r} RAM`)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Row 3c: Card variants */}
             <div>
@@ -803,7 +734,7 @@ export function DeckCatalog({
                 style={{ ...currentSelectStyle, cursor: 'text', marginBottom: 6 }}
               />
               <div style={{ ...pillGrid, marginTop: 0, maxHeight: 132, overflowY: 'auto', overflowX: 'hidden' }} className="custom-scrollbar">
-                {(isCyberpunk ? CYBERPUNK_TAGS : TAGS)
+                {TAGS
                   .filter((t: string) => !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase()))
                   .map((t: string) => {
                     const isActive = tagFilter.includes(t);
@@ -822,42 +753,40 @@ export function DeckCatalog({
             </div>
 
             {/* Row 3e: Keywords with AND / OR */}
-            {!isCyberpunk && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  <label style={{ ...currentLabelStyle, marginBottom: 0 }}>Keywords {keywordFilter.length > 0 && <span style={{ color: theme.accent }}>({keywordFilter.length})</span>}</label>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Match</span>
-                    {(['and', 'or'] as const).map(m => (
-                      <button
-                        key={m}
-                        onClick={() => setKeywordMode(m)}
-                        title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
-                        style={{ ...pillStyle(keywordMode === m), width: 70 }}
-                      >
-                        {m === 'and' ? 'All (AND)' : 'Any (OR)'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ ...pillGrid, marginTop: 8 }}>
-                  {SEARCHABLE_KEYWORDS.map(k => {
-                    const isActive = keywordFilter.includes(k);
-                    return (
-                      <button
-                        key={k}
-                        onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
-                        style={pillStyle(isActive)}
-                        title={k}
-                      >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k), flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
-                      </button>
-                    );
-                  })}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ ...currentLabelStyle, marginBottom: 0 }}>Keywords {keywordFilter.length > 0 && <span style={{ color: theme.accent }}>({keywordFilter.length})</span>}</label>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Match</span>
+                  {(['and', 'or'] as const).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setKeywordMode(m)}
+                      title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
+                      style={{ ...pillStyle(keywordMode === m), width: 70 }}
+                    >
+                      {m === 'and' ? 'All (AND)' : 'Any (OR)'}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
+              <div style={{ ...pillGrid, marginTop: 8 }}>
+                {SEARCHABLE_KEYWORDS.map(k => {
+                  const isActive = keywordFilter.includes(k);
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
+                      style={pillStyle(isActive)}
+                      title={k}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k), flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Row 4: Cost range */}
             <div>
@@ -895,25 +824,9 @@ export function DeckCatalog({
     <div style={{ display: 'flex', flexDirection: 'column', height: isWide ? '100%' : 'auto' }}>
 
       {/* Legend prompt */}
-      {!isCyberpunk && !legendCard && (
+      {!legendCard && (
         <div style={{ background: 'var(--accent-muted)', border: '1px solid var(--accent-border, var(--border))', color: 'var(--text-accent)', padding: '11px 16px', borderRadius: 10, marginBottom: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
           Select your Legend first — it determines which domains you can play.
-        </div>
-      )}
-
-      {/* Cyberpunk Legend Helper Note */}
-      {isCyberpunk && (activeZone === 'legends' || activeZone === 'legend') && (
-        <div style={{
-          background: 'rgba(252, 238, 10, 0.08)',
-          border: '1px solid rgba(252, 238, 10, 0.3)',
-          borderRadius: 8,
-          padding: '8px 12px',
-          marginBottom: 10,
-          fontSize: 12,
-          color: '#fcee0a',
-          fontWeight: 600,
-        }}>
-          Choose exactly 3 unique Legends — their cumulative RAM determines which cards you can include in your deck.
         </div>
       )}
 
@@ -922,7 +835,7 @@ export function DeckCatalog({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
-            placeholder={isCyberpunk ? (activeZone === 'legends' || activeZone === 'legend' ? 'Search Legends...' : 'Search Cards...') : ((!legendCard || activeZone === 'extraLegends') ? "Search Legends…" : "Search cards…")}
+            placeholder={(!legendCard || activeZone === 'extraLegends') ? "Search Legends…" : "Search cards…"}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -980,12 +893,6 @@ export function DeckCatalog({
             const domainColor = DOMAIN_COLORS[primaryDomain] || '#334155';
             const isOwned = collection.has(card.id) || collection.has(`${card.id}_foil`);
 
-            const meta = isCyberpunk ? getCyberpunkMeta(card) : null;
-            const ram = meta?.ram ?? null;
-            const color = (meta?.color || card.domain || '').trim();
-            const colorHex = isCyberpunk ? (DOMAIN_COLORS[color] || '#38bdf8') : domainColor;
-            const ramCheck = isCyberpunk ? isCardRamSufficient(card, cyberpunkRamLimits) : { sufficient: true, cardRam: 0, cardColor: '', availableRam: 0 };
-            const hasRamIssue = isCyberpunk && activeZone !== 'legends' && activeZone !== 'legend' && !ramCheck.sufficient;
 
             return (
               <div key={card.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }} className="deck-catalog-card">
@@ -993,59 +900,16 @@ export function DeckCatalog({
                   style={{
                     position: 'relative', borderRadius: 8, overflow: 'hidden',
                     aspectRatio: '2.5/3.5',
-                    border: `1px solid ${isOwned ? 'rgba(52,211,153,0.6)' : (hasRamIssue ? 'rgba(239,68,68,0.7)' : colorHex + '55')}`,
+                    border: `1px solid ${isOwned ? 'rgba(52,211,153,0.6)' : domainColor + '55'}`,
                     boxShadow: isOwned ? '0 4px 14px rgba(52,211,153,0.15)' : '0 4px 12px rgba(0,0,0,0.3)',
                     cursor: 'pointer',
                     transform: 'translateZ(0)',
                     willChange: 'transform',
-                    opacity: hasRamIssue ? 0.82 : 1,
                   }}
                   onClick={() => handleAddCard(card)}
                   onContextMenu={e => { e.preventDefault(); onPreviewCard(card); }}
                 >
                   <img {...(card.image_path ? cardThumbProps(card.image_path, 'tile') : { src: imgSrc })} alt={card.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  
-                  {/* Cyberpunk RAM badge */}
-                  {isCyberpunk && ram !== null && (
-                    <div
-                      style={{
-                        position: 'absolute', top: 4, left: 4, zIndex: 3,
-                        background: 'rgba(15, 23, 42, 0.92)',
-                        color: colorHex,
-                        border: `1px solid ${colorHex}`,
-                        borderRadius: 4,
-                        padding: '1px 5px',
-                        fontSize: 10,
-                        fontWeight: 800,
-                        fontFamily: 'monospace',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.7)',
-                      }}
-                    >
-                      {card.card_type === 'Legend' ? `+${ram} RAM` : `${ram} RAM`}
-                    </div>
-                  )}
-
-                  {/* RAM warning banner on card face */}
-                  {hasRamIssue && (
-                    <div
-                      style={{
-                        position: 'absolute', bottom: 4, left: 4, right: 4, zIndex: 3,
-                        background: 'rgba(239, 68, 68, 0.95)',
-                        color: '#fff',
-                        borderRadius: 4,
-                        padding: '2px 4px',
-                        fontSize: 9,
-                        fontWeight: 800,
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.7)',
-                      }}
-                    >
-                      Needs {ramCheck.cardRam} {ramCheck.cardColor} RAM
-                    </div>
-                  )}
 
                   {/* Owned check badge — shows owned/in-deck counts while Owned Only is active */}
                   {isOwned && (() => {
@@ -1062,7 +926,7 @@ export function DeckCatalog({
                           }}
                           title="In your collection"
                         >
-                          ✓
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
                         </div>
                       );
                     }
@@ -1099,15 +963,9 @@ export function DeckCatalog({
                     alignItems: 'center', padding: '6px', gap: 4,
                     opacity: 0, transition: 'opacity 0.15s',
                   }}>
-                    {hasRamIssue ? (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: '#fca5a5', background: 'rgba(239,68,68,0.85)', padding: '4px 8px', borderRadius: 20, textAlign: 'center' }}>
-                        Needs {ramCheck.cardRam} {ramCheck.cardColor} RAM
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: 'rgba(99,102,241,0.85)', padding: '3px 10px', borderRadius: 20 }}>
-                        + Add
-                      </span>
-                    )}
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: 'rgba(99,102,241,0.85)', padding: '3px 10px', borderRadius: 20 }}>
+                      + Add
+                    </span>
                     <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>Right-click to preview</span>
                   </div>
                 </div>

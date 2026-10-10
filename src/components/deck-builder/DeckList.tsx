@@ -1,22 +1,18 @@
 import React, { useState } from 'react';
 import type { CatalogCard } from '../../types';
-import { isCardRamSufficient, deckExtraLegendsRequired, type DeckState, type CyberpunkRamLimits } from './useDeckBuilder';
+import { deckExtraLegendsRequired, type DeckState } from './useDeckBuilder';
 import { extraLegendsRequired, legendNameKey } from '../../lib/riftboundRules';
-import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
-import { CYBERPUNK_COLOR_THEMES } from '../../lib/domainColors';
 
 interface DeckListProps {
   deck: DeckState;
   cards: CatalogCard[];
-  activeGame?: 'riftbound' | 'cyberpunk';
-  cyberpunkRamLimits?: CyberpunkRamLimits;
-  cyberpunkLegends?: CatalogCard[];
+  activeGame?: 'riftbound';
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
-  onRemoveCard: (cardId: string, zone: keyof DeckState | 'legends') => void;
+  onRemoveCard: (cardId: string, zone: keyof DeckState) => void;
   onCardClick?: (card: CatalogCard) => void;
-  activeZone: keyof DeckState | 'legends';
-  onSetZone: (zone: keyof DeckState | 'legends') => void;
+  activeZone: keyof DeckState;
+  onSetZone: (zone: keyof DeckState) => void;
   isWide?: boolean;
 }
 
@@ -24,8 +20,6 @@ export function DeckList({
   deck,
   cards,
   activeGame = 'riftbound',
-  cyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 },
-  cyberpunkLegends = [],
   legendCard,
   championCard,
   onRemoveCard,
@@ -35,7 +29,6 @@ export function DeckList({
   isWide = true,
 }: DeckListProps) {
   const [collapsedZones, setCollapsedZones] = useState<Set<string>>(new Set());
-  const isCyberpunk = activeGame === 'cyberpunk';
 
   const toggleZone = (zone: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -55,7 +48,7 @@ export function DeckList({
   const mainCards = getCardCounts(deck.mainDeck);
 
   // Extra legends (Neeko, Blending In): how many the deck needs, which card asks, and what's chosen.
-  const extraLegendsNeeded = isCyberpunk ? 0 : deckExtraLegendsRequired(deck, cards);
+  const extraLegendsNeeded = deckExtraLegendsRequired(deck, cards);
   const extraLegendsSource = [championCard, ...mainCards.map(m => m.card)].find(c => c && extraLegendsRequired(c) > 0) || null;
   const extraLegendCards = (deck.extraLegends || []).map(id => cards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
   const extraLegendNameClash = Boolean(legendCard && extraLegendCards.some(c => legendNameKey(c.name) === legendNameKey(legendCard.name)));
@@ -63,9 +56,7 @@ export function DeckList({
   const bfCards = getCardCounts(deck.battlefields);
   const sbCards = getCardCounts(deck.sideboard);
 
-  const mainTotal = isCyberpunk
-    ? mainCards.reduce((acc, curr) => acc + curr.qty, 0)
-    : mainCards.reduce((acc, curr) => acc + curr.qty, 0) + (championCard ? 1 : 0);
+  const mainTotal = mainCards.reduce((acc, curr) => acc + curr.qty, 0) + (championCard ? 1 : 0);
   const runeTotal = runeCards.reduce((acc, curr) => acc + curr.qty, 0);
   const bfTotal = bfCards.reduce((acc, curr) => acc + curr.qty, 0);
   const sbTotal = sbCards.reduce((acc, curr) => acc + curr.qty, 0);
@@ -83,7 +74,7 @@ export function DeckList({
     max: number;
     min?: number;
     exact?: boolean;
-    zoneKey: keyof DeckState | 'legends';
+    zoneKey: keyof DeckState;
   }) => {
     let isValid = false;
     if (min !== undefined) {
@@ -170,110 +161,6 @@ export function DeckList({
     );
   };
 
-  const CyberpunkCardRow = ({ card, qty, zone }: { card: CatalogCard, qty?: number, zone: keyof DeckState | 'legends' }) => {
-    const [isHovered, setIsHovered] = useState(false);
-    const meta = getCyberpunkMeta(card);
-    const color = (meta?.color || card.domain || 'Colorless').trim();
-    const colorTheme = CYBERPUNK_COLOR_THEMES[color] || { bg: 'rgba(148,163,184,0.1)', text: '#94a3b8', border: '#64748b', glow: 'none' };
-    const ram = meta?.ram ?? null;
-    const isLegend = card.card_type === 'Legend' || zone === 'legends';
-
-    let ramError = false;
-    let requiredRam = 0;
-    let availableRam = 0;
-
-    if (!isLegend && ram !== null) {
-      const ramCheck = isCardRamSufficient(card, cyberpunkRamLimits);
-      if (!ramCheck.sufficient) {
-        ramError = true;
-        requiredRam = ramCheck.cardRam;
-        availableRam = ramCheck.availableRam;
-      }
-    }
-
-    return (
-      <div 
-        onClick={() => onCardClick?.(card)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: '7px 10px',
-          background: ramError 
-            ? (isHovered ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.08)') 
-            : (isHovered ? 'var(--accent-muted)' : 'var(--bg-surface-2)'),
-          border: ramError 
-            ? '1px solid rgba(239,68,68,0.5)' 
-            : (isHovered ? '1px solid var(--accent)' : '1px solid transparent'),
-          borderRadius: 8,
-          marginBottom: 4,
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-          boxShadow: isHovered ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-            {qty !== undefined && <span style={{ fontWeight: 800, color: 'var(--accent)', minWidth: 20 }}>{qty}x</span>}
-            
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={card.name}>
-              {card.name}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {ram !== null && (
-              <span style={{
-                fontSize: 11,
-                fontWeight: 800,
-                color: colorTheme.text,
-                background: colorTheme.bg,
-                border: `1px solid ${colorTheme.border}`,
-                padding: '1px 7px',
-                borderRadius: 4,
-                fontFamily: 'monospace',
-                whiteSpace: 'nowrap',
-              }}>
-                {isLegend ? `+${ram} RAM` : `${ram} RAM`}
-              </span>
-            )}
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemoveCard(card.id, zone);
-              }}
-              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px 6px', fontWeight: 700, borderRadius: 4 }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              title="Remove card"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {ramError && (
-          <div style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: '#ef4444',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '4px 8px',
-            background: 'rgba(239,68,68,0.15)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 6,
-          }}>
-            <span>Needs {requiredRam} {color} RAM (Deck provides {availableRam})</span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const RiftboundCardRow = ({ card, qty, zone }: { card: CatalogCard, qty?: number, zone: keyof DeckState }) => {
     const [isHovered, setIsHovered] = useState(false);
     return (
@@ -319,142 +206,6 @@ export function DeckList({
     );
   };
 
-  // ────────────────── CYBERPUNK VIEW ──────────────────
-  if (isCyberpunk) {
-    const legendCount = cyberpunkLegends.length;
-    const isLegendsComplete = legendCount === 3;
-    const isMainValid = mainTotal >= 40 && mainTotal <= 50;
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: isWide ? '100%' : 'auto', overflowY: isWide ? 'auto' : 'visible', scrollbarGutter: 'stable', paddingRight: 4 }}>
-        {/* Cyberpunk RAM HUD */}
-        <div style={{
-          background: '#111218',
-          border: '1px solid rgba(252, 238, 10, 0.3)',
-          borderRadius: 12,
-          padding: '12px',
-          marginBottom: 16,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(252,238,10,0.1)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#fcee0a' }}>
-              Cumulative RAM Limits
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-              Set by your 3 Legends
-            </span>
-          </div>
-
-          {/* 4 Color RAM Badges */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-            {(['Red', 'Green', 'Blue', 'Yellow'] as const).map(col => {
-              const val = cyberpunkRamLimits[col];
-              const theme = CYBERPUNK_COLOR_THEMES[col];
-              const isActive = val > 0;
-
-              return (
-                <div
-                  key={col}
-                  style={{
-                    background: isActive ? theme.bg : 'rgba(39, 39, 42, 0.5)',
-                    border: `1px solid ${isActive ? theme.border : 'rgba(255, 255, 255, 0.08)'}`,
-                    borderRadius: 8,
-                    padding: '6px 4px',
-                    textAlign: 'center',
-                    boxShadow: isActive ? `0 0 10px ${theme.glow}` : 'none',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <div style={{ fontSize: 10, fontWeight: 800, color: isActive ? theme.text : 'var(--text-muted)' }}>
-                    {col.toUpperCase()}
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: isActive ? '#fff' : 'rgba(255,255,255,0.3)', fontFamily: 'monospace', lineHeight: 1.2 }}>
-                    {val}
-                  </div>
-                  <div style={{ fontSize: 9, color: isActive ? theme.text : 'var(--text-muted)', fontWeight: 600 }}>
-                    RAM
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Legends Zone (Exactly 3) */}
-        <ZoneHeader
-          title="Legends (Unique)"
-          count={legendCount}
-          max={3}
-          exact
-          zoneKey="legends"
-        />
-        {!collapsedZones.has('legends') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {cyberpunkLegends.map(l => (
-              <CyberpunkCardRow key={l.id} card={l} zone="legends" />
-            ))}
-            {legendCount < 3 && (
-              <div style={{
-                color: 'var(--text-muted)',
-                fontSize: 12,
-                fontStyle: 'italic',
-                padding: '8px 10px',
-                background: 'rgba(255,255,255,0.02)',
-                borderRadius: 8,
-                border: '1px dashed var(--border)',
-                textAlign: 'center',
-              }}>
-                + Select {3 - legendCount} more unique Legend{3 - legendCount > 1 ? 's' : ''} from catalog
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Main Deck (40-50 cards) */}
-        <ZoneHeader
-          title="Main Deck"
-          count={mainTotal}
-          min={40}
-          max={50}
-          zoneKey="mainDeck"
-        />
-        {!collapsedZones.has('mainDeck') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {mainCards.map(c => (
-              <CyberpunkCardRow key={c.card.id} card={c.card} qty={c.qty} zone="mainDeck" />
-            ))}
-            {mainCards.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', padding: 8 }}>
-                Main Deck is empty. Add 40 to 50 cards within your Legends' RAM.
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sideboard (Optional, max 8) */}
-        <ZoneHeader
-          title="Sideboard"
-          count={sbTotal}
-          max={8}
-          zoneKey="sideboard"
-        />
-        {!collapsedZones.has('sideboard') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 24 }}>
-            {sbCards.map(c => (
-              <CyberpunkCardRow key={c.card.id} card={c.card} qty={c.qty} zone="sideboard" />
-            ))}
-            {sbCards.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', padding: 8 }}>
-                Empty
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ────────────────── RIFTBOUND VIEW ──────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: isWide ? '100%' : 'auto', overflowY: isWide ? 'auto' : 'visible', scrollbarGutter: 'stable', paddingRight: 4 }}>
       {/* Legend & Champion */}

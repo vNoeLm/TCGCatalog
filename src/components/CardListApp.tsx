@@ -12,8 +12,9 @@ import { gridSizeClasses } from "../lib/gridSize";
 import { useWishlists, wishlistCardIds } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, CYBERPUNK_COLORS, CYBERPUNK_TYPES, CYBERPUNK_RARITIES, CYBERPUNK_SETS, CYBERPUNK_TAGS, sortSetNames } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
+import { buildCollectionBackup, importIntoCollection } from "../lib/collectionBackup";
 import { t } from "../lib/labels";
 import { useUrlOverlay } from "../lib/useUrlOverlay";
 import {
@@ -74,7 +75,6 @@ const DEFAULT_FILTERS: FilterState = {
   altArtFilter: 'all',
   spFilter: 'all',
   baseSetFilter: 'all',
-  eddiableFilter: 'all',
 };
 
 const SORT_OPTIONS = [
@@ -108,7 +108,7 @@ export function CardListApp() {
     let initialGame = 'riftbound';
     if (typeof window !== 'undefined') {
       const savedGame = localStorage.getItem('tcg_active_game');
-      if (savedGame === 'cyberpunk' || savedGame === 'riftbound') {
+      if (savedGame === 'riftbound') {
         initialGame = savedGame;
       }
       // "Show in catalog" on a wishlist links here with ?wishlist=<id>.
@@ -1019,7 +1019,7 @@ export function CardListApp() {
     }
     const text = exportCollectionToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${totalOwnedCopies} owned cards to clipboard!`, 'success');
+    showToast(`Copied ${totalOwnedCopies} owned cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1030,7 +1030,7 @@ export function CardListApp() {
     }
     const text = exportCollectionToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied cards list to clipboard!`, 'success');
+    showToast(`Copied cards list to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1041,47 +1041,12 @@ export function CardListApp() {
     }
     const data = JSON.stringify(collection, null, 2);
     navigator.clipboard.writeText(data);
-    showToast(`✓ Copied collection JSON to clipboard!`, 'success');
+    showToast(`Copied collection JSON to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
-  // A self-describing backup: card names/numbers/sets ride alongside the raw ids so the
-  // file stays readable and can still be matched back up (via resolveCard) if ids ever
-  // don't line up on re-import, instead of being an opaque id -> quantity blob.
-  const buildCollectionBackupObject = () => {
-    const sourceCards = allCards.length ? allCards : cards;
-    const cardMap = new Map<string, CatalogCard>();
-    sourceCards.forEach(c => cardMap.set(c.id, c));
-
-    const entries: any[] = [];
-    let totalCopies = 0;
-    Object.entries(collection).forEach(([key, qty]) => {
-      if (!qty || qty <= 0) return;
-      const isFoil = key.endsWith('_foil');
-      const baseId = isFoil ? key.replace(/_foil$/, '') : key;
-      const card = cardMap.get(baseId);
-      totalCopies += qty;
-      entries.push({
-        id: baseId,
-        name: card?.name || null,
-        cardNumber: card?.card_number || null,
-        setName: card?.sets?.name || card?.set_name || null,
-        setCode: card?.sets?.code || card?.set_code || null,
-        foil: isFoil,
-        qty,
-      });
-    });
-
-    return {
-      title: 'TCG Vault - My Collection',
-      version: 1,
-      game: filters.game || 'riftbound',
-      exportedAt: new Date().toISOString(),
-      totalCopies,
-      uniqueCards: entries.length,
-      cards: entries,
-    };
-  };
+  const buildCollectionBackupObject = () =>
+    buildCollectionBackup(collection, allCards.length ? allCards : cards, filters.game || 'riftbound');
 
   const handleDownloadJson = () => {
     if (uniqueOwnedKeys.length === 0) {
@@ -1096,7 +1061,7 @@ export function CardListApp() {
     a.download = `my-collection-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('✓ Collection JSON backup downloaded!', 'success');
+    showToast('Collection JSON backup downloaded!', 'success');
     setShowExportModal(false);
   };
 
@@ -1226,7 +1191,7 @@ export function CardListApp() {
     }
     const text = exportMissingCardsToText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
+    showToast(`Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1249,7 +1214,7 @@ export function CardListApp() {
     }
     const text = exportMissingCardsToSimpleText();
     navigator.clipboard.writeText(text);
-    showToast(`✓ Copied ${missing.length} missing cards to clipboard!`, 'success');
+    showToast(`Copied ${missing.length} missing cards to clipboard!`, 'success');
     setShowExportModal(false);
   };
 
@@ -1270,7 +1235,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.txt)`, 'success');
+    showToast(`Downloaded ${missing.length} missing cards (.txt)`, 'success');
     setShowExportModal(false);
   };
 
@@ -1305,7 +1270,7 @@ export function CardListApp() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`✓ Downloaded ${missing.length} missing cards (.json)`, 'success');
+    showToast(`Downloaded ${missing.length} missing cards (.json)`, 'success');
     setShowExportModal(false);
   };
 
@@ -1351,123 +1316,17 @@ export function CardListApp() {
       return;
     }
 
-    // 1. Try parsing as JSON (array, quantity object, or a full backup file). Only the parse is
-    // guarded: an error while applying the cards must surface, not fall through to the text parser.
-    let parsed: any;
-    try {
-      parsed = JSON.parse(content.trim());
-    } catch {
-      // Not JSON, continue to text list parsing
+    const result = importIntoCollection(content, collection, allCards.length ? allCards : cards);
+    if (!result.ok) {
+      if (result.unrecognized) alert(result.error);
+      else showToast(result.error, 'error');
+      return;
     }
-    if (parsed !== undefined) {
-      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.cards)) {
-        // Full backup format (see buildCollectionBackupObject): resolve primarily by id,
-        // falling back to name/card number in case ids don't line up (e.g. a backup
-        // taken from a different environment).
-        const sourceCards = allCards.length ? allCards : cards;
-        const idSet = new Set(sourceCards.map(c => c.id));
-        const next = { ...collection };
-        let countAdded = 0;
-        parsed.cards.forEach((entry: any) => {
-          if (!entry) return;
-          const qty = typeof entry.qty === 'number' ? entry.qty : parseInt(String(entry.qty), 10);
-          if (!qty || qty <= 0) return;
-          let cardId: string | null = typeof entry.id === 'string' && idSet.has(entry.id) ? entry.id : null;
-          if (!cardId) {
-            const matched = resolveCard(entry.cardNumber || entry.name || entry.id || '', sourceCards);
-            if (matched) cardId = matched.id;
-          }
-          if (!cardId) return;
-          const key = entry.foil ? `${cardId}_foil` : cardId;
-          next[key] = (next[key] || 0) + qty;
-          countAdded += qty;
-        });
-        if (countAdded === 0) {
-          showToast(parsed.cards.length > 0 ? 'None of the cards in that backup could be matched to this catalog.' : 'That backup file has no cards in it.', 'error');
-          return;
-        }
-        commitCollection(next);
-        setShowImportModal(false);
-        setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from backup file!`, 'success');
-        return;
-      } else if (Array.isArray(parsed)) {
-        const next = { ...collection };
-        parsed.forEach((id: string) => {
-          if (typeof id === 'string' && id.trim()) {
-            const key = id.trim();
-            next[key] = (next[key] || 0) + 1;
-          }
-        });
-        if (parsed.length === 0) {
-          showToast('That JSON list is empty.', 'error');
-          return;
-        }
-        commitCollection(next);
-        setShowImportModal(false);
-        setImportText("");
-        showToast(`✓ Successfully imported ${parsed.length} entries from JSON!`, 'success');
-        return;
-      } else if (parsed && typeof parsed === 'object') {
-        const next = { ...collection };
-        let countAdded = 0;
-        Object.entries(parsed).forEach(([k, v]) => {
-          const qty = typeof v === 'number' ? v : parseInt(String(v), 10);
-          if (qty > 0) {
-            next[k] = (next[k] || 0) + qty;
-            countAdded += qty;
-          }
-        });
-        if (countAdded === 0) {
-          showToast('That JSON has no cards with a quantity greater than zero.', 'error');
-          return;
-        }
-        commitCollection(next);
-        setShowImportModal(false);
-        setImportText("");
-        showToast(`✓ Successfully imported ${countAdded} cards from JSON!`, 'success');
-        return;
-      }
-    }
-
-    // 2. Parse as text list line-by-line with multiplier support (e.g. 3x Card Name)
-    const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//') && !l.startsWith('#') && !l.startsWith('==='));
-    const sourceCards = allCards.length ? allCards : cards;
-    const addedEntries: { key: string; qty: number }[] = [];
-
-    lines.forEach(line => {
-      const matchMultiplier = line.match(/^(\d+)[xX]?\s+(.+)$/);
-      let qty = 1;
-      let cleanLine = line;
-      if (matchMultiplier) {
-        qty = parseInt(matchMultiplier[1], 10) || 1;
-        cleanLine = matchMultiplier[2].trim();
-      }
-
-      const isFoil = /\[foil\]|\(foil\)/i.test(cleanLine);
-      cleanLine = cleanLine.replace(/\[foil\]|\(foil\)/gi, '').trim();
-
-      const matched = resolveCard(cleanLine, sourceCards);
-      if (matched) {
-        const targetKey = isFoil ? `${matched.id}_foil` : matched.id;
-        addedEntries.push({ key: targetKey, qty });
-      }
-    });
-
-    if (addedEntries.length > 0) {
-      const next = { ...collection };
-      let totalAdded = 0;
-      addedEntries.forEach(({ key, qty }) => {
-        next[key] = (next[key] || 0) + qty;
-        totalAdded += qty;
-      });
-      commitCollection(next);
-      setShowImportModal(false);
-      setImportText("");
-      showToast(`✓ Successfully imported ${totalAdded} cards from text list!`, 'success');
-    } else {
-      alert("Could not recognize any valid cards in the provided input. Please check the format.");
-    }
+    commitCollection(result.next);
+    setShowImportModal(false);
+    setImportText("");
+    const from = { backup: 'cards from backup file', 'json-list': 'entries from JSON', 'json-map': 'cards from JSON', text: 'cards from text list' }[result.source];
+    showToast(`Successfully imported ${result.added} ${from}!`, 'success');
   };
 
   const handleImportFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1535,8 +1394,7 @@ export function CardListApp() {
     }
   };
 
-  const { isCyberpunk: isCyberpunkTheme, isDark } = useSiteTheme(filters.game);
-  const isCyberpunk = filters.game === 'cyberpunk';
+  const { isDark } = useSiteTheme(filters.game);
   const isRiftbound = !filters.game || filters.game === 'riftbound';
 
   const catalogTheme = {
@@ -1557,13 +1415,12 @@ export function CardListApp() {
   };
 
   const availableSets = useMemo(() => {
-    const baseSets = isCyberpunk ? CYBERPUNK_SETS : SETS;
-    const setNames = new Set(baseSets);
+    const setNames = new Set(SETS);
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
     return sortSetNames(Array.from(setNames));
-  }, [cards, isCyberpunk]);
+  }, [cards]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
@@ -1979,10 +1836,10 @@ export function CardListApp() {
           options={{
             sets: availableSets,
             wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-            rarities: isCyberpunk ? CYBERPUNK_RARITIES : RARITIES,
-            types: isCyberpunk ? CYBERPUNK_TYPES : TYPES,
-            domains: isCyberpunk ? CYBERPUNK_COLORS : DOMAINS,
-            tags: isCyberpunk ? CYBERPUNK_TAGS : TAGS,
+            rarities: RARITIES,
+            types: TYPES,
+            domains: DOMAINS,
+            tags: TAGS,
           }}
         />
       </FilterDrawer>

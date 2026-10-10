@@ -1,13 +1,11 @@
 import { extraLegendsRequired, legendNameKey } from '../../lib/riftboundRules';
 import { useState, useEffect } from 'react';
 import type { CatalogCard } from '../../types';
-import { getCyberpunkMeta } from '../../lib/cyberpunkCardData';
 
 export interface DeckState {
-  game?: 'riftbound' | 'cyberpunk';
+  game?: 'riftbound';
   legend: string | null;
   champion: string | null;
-  legends?: string[]; // Exactly 3 for Cyberpunk
   /** Riftbound: legends chosen besides the starting legend, for a card like Neeko, Blending In
    * ("choose 3 different legends in addition to your starting legend"). See deckExtraLegendsRequired. */
   extraLegends?: string[];
@@ -15,50 +13,6 @@ export interface DeckState {
   runeDeck: Record<string, number>;
   battlefields: Record<string, number>;
   sideboard: Record<string, number>;
-}
-
-export interface CyberpunkRamLimits {
-  Red: number;
-  Green: number;
-  Blue: number;
-  Yellow: number;
-}
-
-export function getDeckCyberpunkRam(legendIds: string[], allCards: CatalogCard[]): CyberpunkRamLimits {
-  const ram: CyberpunkRamLimits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
-  legendIds.forEach(id => {
-    const card = allCards.find(c => c.id === id);
-    if (!card) return;
-    const meta = getCyberpunkMeta(card);
-    const color = (meta?.color || card.domain || '').trim();
-    const val = meta?.ram ?? 0;
-    const colLower = color.toLowerCase();
-    if (colLower === 'red') ram.Red += val;
-    else if (colLower === 'green') ram.Green += val;
-    else if (colLower === 'blue') ram.Blue += val;
-    else if (colLower === 'yellow') ram.Yellow += val;
-  });
-  return ram;
-}
-
-export function isCardRamSufficient(card: CatalogCard, ramLimits: CyberpunkRamLimits): { sufficient: boolean; cardRam: number; cardColor: string; availableRam: number } {
-  const meta = getCyberpunkMeta(card);
-  const cardColor = (meta?.color || card.domain || '').trim();
-  const cardRam = meta?.ram ?? 0;
-  let availableRam = 0;
-  const colLower = cardColor.toLowerCase();
-  if (colLower === 'red') availableRam = ramLimits.Red;
-  else if (colLower === 'green') availableRam = ramLimits.Green;
-  else if (colLower === 'blue') availableRam = ramLimits.Blue;
-  else if (colLower === 'yellow') availableRam = ramLimits.Yellow;
-  else availableRam = 999;
-
-  return {
-    sufficient: cardRam <= availableRam,
-    cardRam,
-    cardColor,
-    availableRam,
-  };
 }
 
 /**
@@ -73,7 +27,6 @@ export function deckExtraLegendsRequired(deck: DeckState, allCards: CatalogCard[
 const INITIAL_DECK: DeckState = {
   legend: null,
   champion: null,
-  legends: [],
   extraLegends: [],
   mainDeck: {},
   runeDeck: {},
@@ -81,14 +34,14 @@ const INITIAL_DECK: DeckState = {
   sideboard: {},
 };
 
-export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftbound') {
+export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
   const [deck, setDeck] = useState<DeckState>(() => ({
     ...INITIAL_DECK,
     game: activeGame,
   }));
   const [loaded, setLoaded] = useState(false);
 
-  const storageKey = activeGame === 'cyberpunk' ? 'cyberpunk_deck' : 'riftbound_deck';
+  const storageKey = 'riftbound_deck';
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -99,7 +52,6 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
           ...INITIAL_DECK,
           ...parsed,
           game: activeGame,
-          legends: Array.isArray(parsed.legends) ? parsed.legends : [],
           extraLegends: Array.isArray(parsed.extraLegends) ? parsed.extraLegends : [],
         });
       } catch (e) {
@@ -118,35 +70,11 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
     }
   }, [deck, loaded, storageKey]);
 
-  const addCard = (card: CatalogCard, zone: keyof DeckState | 'legends', allCards: CatalogCard[]) => {
+  const addCard = (card: CatalogCard, zone: keyof DeckState, allCards: CatalogCard[]) => {
     setDeck(prev => {
-      // Cyberpunk Legends handling (exactly 3 unique names)
-      if (activeGame === 'cyberpunk' && (zone === 'legends' || zone === 'legend')) {
-        const currentLegends = prev.legends || [];
-        if (currentLegends.includes(card.id)) {
-          return prev; // Already in deck
-        }
-        if (currentLegends.length >= 3) {
-          alert('You can only have up to 3 Legend cards in a Cyberpunk deck. Remove one first.');
-          return prev;
-        }
-        // Unique names check
-        const existingNames = currentLegends
-          .map(id => allCards.find(c => c.id === id)?.name)
-          .filter(Boolean);
-        if (existingNames.includes(card.name)) {
-          alert(`You cannot add another Legend with the name "${card.name}". Legends must have unique names.`);
-          return prev;
-        }
-        return {
-          ...prev,
-          legends: [...currentLegends, card.id],
-        };
-      }
-
       // Riftbound extra legends (Neeko, Blending In): legends only, as many as the deck asks for,
       // and "different" - no name may match another chosen legend or the starting legend.
-      if (activeGame === 'riftbound' && zone === 'extraLegends') {
+      if (zone === 'extraLegends') {
         if (card.card_type !== 'Legend') return prev;
         const current = prev.extraLegends || [];
         if (current.includes(card.id)) return prev;
@@ -166,21 +94,11 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
       }
 
       // Riftbound Legend / Champion
-      if (activeGame === 'riftbound' && (zone === 'legend' || zone === 'champion')) {
+      if (zone === 'legend' || zone === 'champion') {
         return { ...prev, [zone]: card.id };
       }
 
-      // Cyberpunk RAM Check for mainDeck & sideboard
-      if (activeGame === 'cyberpunk') {
-        const ramLimits = getDeckCyberpunkRam(prev.legends || [], allCards);
-        const ramCheck = isCardRamSufficient(card, ramLimits);
-        if (!ramCheck.sufficient) {
-          alert(`Cannot add "${card.name}". Requires ${ramCheck.cardRam} ${ramCheck.cardColor} RAM, but your Legends only provide ${ramCheck.availableRam} ${ramCheck.cardColor} RAM.`);
-          return prev;
-        }
-      }
-      
-      const currentZoneKey = (zone === 'legends' ? 'mainDeck' : zone) as 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
+      const currentZoneKey = zone as 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
       const currentCount = prev[currentZoneKey]?.[card.id] || 0;
       
       // Total copies of this card name across all zones must not exceed 3
@@ -217,15 +135,8 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
     });
   };
 
-  const removeCard = (cardId: string, zone: keyof DeckState | 'legends') => {
+  const removeCard = (cardId: string, zone: keyof DeckState) => {
     setDeck(prev => {
-      if (activeGame === 'cyberpunk' && (zone === 'legends' || zone === 'legend')) {
-        return {
-          ...prev,
-          legends: (prev.legends || []).filter(id => id !== cardId),
-        };
-      }
-
       if (zone === 'extraLegends') {
         return { ...prev, extraLegends: (prev.extraLegends || []).filter(id => id !== cardId) };
       }
@@ -234,7 +145,7 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
         return { ...prev, [zone]: null };
       }
       
-      const currentZoneKey = (zone === 'legends' ? 'mainDeck' : zone) as 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
+      const currentZoneKey = zone as 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
       const currentCount = prev[currentZoneKey]?.[cardId] || 0;
       if (currentCount <= 1) {
         const newZone = { ...(prev[currentZoneKey] || {}) };
@@ -254,12 +165,6 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
 
   const removeCardFromAnyZone = (cardId: string) => {
     setDeck(prev => {
-      if (prev.legends && prev.legends.includes(cardId)) {
-        return {
-          ...prev,
-          legends: prev.legends.filter(id => id !== cardId),
-        };
-      }
       if (prev.extraLegends && prev.extraLegends.includes(cardId)) {
         return { ...prev, extraLegends: prev.extraLegends.filter(id => id !== cardId) };
       }
@@ -294,8 +199,7 @@ export function useDeckBuilder(activeGame: 'riftbound' | 'cyberpunk' = 'riftboun
     setDeck({
       ...INITIAL_DECK,
       ...newDeck,
-      game: newDeck.game || activeGame,
-      legends: Array.isArray(newDeck.legends) ? newDeck.legends : [],
+      game: activeGame,
       extraLegends: Array.isArray(newDeck.extraLegends) ? newDeck.extraLegends : [],
     });
   };

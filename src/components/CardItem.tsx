@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
 import { supabase, cardThumbProps } from "../lib/supabase";
-import { parseDomains } from "../lib/domainColors";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 
@@ -17,8 +16,6 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Rare:            { bg: "rgba(88, 28, 135, 0.95)", text: "#d8b4fe", glow: "rgba(168, 85, 247, 0.5)",  border: "#c084fc" },
   Epic:            { bg: "rgba(154, 52, 18, 0.95)", text: "#fb923c", glow: "rgba(249, 115, 22, 0.5)",  border: "#fb923c" },
   Showcase:        { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
-  "Nova Rare":     { bg: "rgba(6, 182, 212, 0.95)", text: "#67e8f9", glow: "rgba(6, 182, 212, 0.6)",   border: "#06b6d4" },
-  "Secret":        { bg: "rgba(236, 72, 153, 0.95)", text: "#ffffff", glow: "rgba(236, 72, 153, 0.6)", border: "#ec4899" },
 };
 
 export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) {
@@ -26,12 +23,9 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
 
 
   const isSealed = false;
-  const isCyberpunk = card.game === 'cyberpunk';
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
-  const parsedDomains = parseDomains(card.domain);
-  const domainStyle = parsedDomains[0];
-  const hoverBorder = isCyberpunk && domainStyle ? domainStyle.border : rarityStyle.border;
-  const hoverGlow = isCyberpunk && domainStyle ? domainStyle.glow : rarityStyle.glow;
+  const hoverBorder = rarityStyle.border;
+  const hoverGlow = rarityStyle.glow;
 
   const handleCardClick = () => {
     if (card.inventory_id && (card.is_marketplace_listing || card.seller_id)) {
@@ -97,7 +91,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
                 {isSealed ? 'SEALED' : card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
               </span>
               <span className="block mt-2 px-2 py-0.5 rounded-full text-xs font-bold font-mono tracking-widest" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}>
-                {card.game === 'cyberpunk' ? card.card_number : (card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`)}
+                {card.card_number?.includes('-') ? card.card_number : `${card.set_code?.toLowerCase()}-${card.card_number}`}
               </span>
             </div>
           )}

@@ -124,44 +124,13 @@ export function formatGameText(text: string | null | undefined): string {
     return pill(kw, val);
   });
 
-  // 9. Cyberpunk Curly Brace Tokens: {...}
-  // Handles {Spend} icon, {Blocker}, {Play}, {Go Solo}, {Attack}, {Defeated}, {Call}, etc.
-  const SPEND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10.382 8.478" fill="currentColor" style="width:1.2em;height:1.2em;display:inline-block;vertical-align:-0.18em;margin:0 2px;"><g><path d="M4.464,2.755V1H1v0.695h2.761v1.06H1v4.723h6.225V2.755H4.464z M6.597,6.884h-4.99V3.348h2.154v0.95H2.32 l1.826,1.826l1.798-1.798H4.472V3.348h2.125V6.884z"></path><path d="M8.336,6.816h1.046V5.77H8.336V6.816z M8.336,3.416v1.046h1.046V3.416H8.336z"></path></g></svg>`;
-  const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6.748 6.515" fill="currentColor" style="width:1em;height:1em;display:inline-block;vertical-align:-0.12em;margin:0 2px;"><path d="M3.374,1 L3.934,2.725 L5.748,2.725 L4.28,3.791 L4.841,5.515 L3.374,4.449 L1.907,5.515 L2.467,3.791 L1,2.725 L2.813,2.725Z" fill-rule="evenodd"></path></svg>`;
-
-  const CP_KEYWORD_CONFIG: Record<string, { bg: string; text: string }> = {
-    play:       { bg: '#fcee17', text: '#000000' }, // Cyberpunk Yellow
-    'go solo':  { bg: '#fcee17', text: '#000000' }, // Cyberpunk Yellow
-    call:       { bg: '#fcee17', text: '#000000' }, // Cyberpunk Yellow
-    adrenaline: { bg: '#fcee17', text: '#000000' }, // Cyberpunk Yellow
-    attack:     { bg: '#33a94c', text: '#000000' }, // Green
-    blocker:    { bg: '#ed3193', text: '#000000' }, // Magenta / Hot Pink (Cyberpunk Blocker badge)
-    quick:      { bg: '#ed3193', text: '#000000' }, // Magenta / Hot Pink
-    defeated:   { bg: '#ed1c2a', text: '#000000' }, // Red
-    defend:     { bg: '#ed1c2a', text: '#000000' }, // Red
-  };
-
-  f = f.replace(/\{([^{}]+)\}/g, (_: string, rawKey: string) => {
-    const key = rawKey.trim().toLowerCase();
-    if (key === 'spend' || key === 'spend icon' || key === 'spend-outline') {
-      return SPEND_SVG;
-    }
-    if (key === 'star') {
-      return STAR_SVG;
-    }
-    const conf = CP_KEYWORD_CONFIG[key];
-    const bg = conf ? conf.bg : '#00e5ff';
-    const textColor = conf ? conf.text : '#000000';
-    return `<span style="display:inline-flex;align-items:center;background:${bg};color:${textColor};font-weight:900;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;letter-spacing:0.06em;padding:1px 6px;clip-path:polygon(3px 0,calc(100% - 3px) 0,100% 3px,100% calc(100% - 3px),calc(100% - 3px) 100%,3px 100%,0 calc(100% - 3px),0 3px);margin:0 3px;text-transform:uppercase;vertical-align:middle;white-space:nowrap;line-height:1.3;">${rawKey.trim()}</span>`;
-  });
-
   return f;
 }
 
 /**
  * Splits a card name into primary name and secondary subtitle/title.
- * Handles both Cyberpunk and Riftbound card name formats:
- * - "Adam Smasher — Ender of Legends", "Ahri - Alluring"
+ * Handles the card name formats:
+ * - "Ahri - Alluring"
  * - "Akali, Silent", "Azir, Ascendant", "Lillia, Fae Fawn"
  */
 export function splitCardTitle(name?: string | null): { main: string; sub?: string } {
