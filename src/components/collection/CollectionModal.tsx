@@ -173,7 +173,7 @@ export function ActionRow({
 
 export type IconName =
   | 'close' | 'copy' | 'download' | 'upload' | 'cloud-up' | 'cloud-down' | 'file' | 'list' | 'code'
-  | 'cart' | 'export' | 'import' | 'trash' | 'device' | 'check' | 'user';
+  | 'cart' | 'export' | 'import' | 'trash' | 'device' | 'check' | 'user' | 'heart';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   close: <path d="M6 6l12 12M18 6L6 18" />,
@@ -192,6 +192,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   device: <><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0116 0" /></>,
+  heart: <path d="M12 20s-7.5-4.6-9.3-9.4A5 5 0 0112 6.2a5 5 0 019.3 4.4C19.5 15.4 12 20 12 20z" />,
 };
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {

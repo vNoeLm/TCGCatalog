@@ -9,7 +9,7 @@ import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { gridSizeClasses } from "../lib/gridSize";
-import { useWishlists, wishlistCardIds } from "../lib/wishlists";
+import { useWishlists, wishlistCardIds, createWishlist, MAX_WISHLIST_NAME } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
 import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames } from "../lib/constants";
@@ -177,6 +177,8 @@ export function CardListApp() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
+  const [missingWishlistName, setMissingWishlistName] = useState('');
+  const [creatingWishlist, setCreatingWishlist] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resettingCollection, setResettingCollection] = useState(false);
@@ -1216,6 +1218,30 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
+  // A ready-made name for "Create as wishlist", from the filters in use when Export opens.
+  useEffect(() => {
+    if (showExportModal) setMissingWishlistName(`Want list - ${getActiveFilterDescription()}`.slice(0, MAX_WISHLIST_NAME));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showExportModal]);
+
+  /** Saves the missing cards (as filtered right now) as a new wishlist and opens it. */
+  const handleCreateWishlistFromMissing = async () => {
+    const missing = getMissingCards();
+    const name = missingWishlistName.trim();
+    if (missing.length === 0 || !name || creatingWishlist) return;
+    const items: Record<string, number> = {};
+    // With "Foil only" on, what's missing is the foil, so that's what the list asks for.
+    missing.forEach(c => { items[showFoilOnly ? `${c.id}_foil` : c.id] = 1; });
+    setCreatingWishlist(true);
+    try {
+      const list = await createWishlist(name, filters.game || 'riftbound', items);
+      window.location.href = `/wishlists?list=${list.id}`;
+    } catch (e: any) {
+      showToast(e?.message || 'Could not create the wishlist.', 'error');
+      setCreatingWishlist(false);
+    }
+  };
+
   const handleQuickShopMissing = () => {
     if (getMissingCards().length === 0) {
       showToast('No missing cards with current filters.', 'error');
@@ -1225,39 +1251,6 @@ export function CardListApp() {
       sessionStorage.setItem('tcg_quickshop_prefill', exportMissingCardsToSimpleText());
     } catch (e) {}
     window.location.href = '/marketplace';
-  };
-
-  const handleCopyMissingSimpleText = () => {
-    const missing = getMissingCards();
-    if (missing.length === 0) {
-      showToast('No missing cards with current filters.', 'error');
-      return;
-    }
-    const text = exportMissingCardsToSimpleText();
-    navigator.clipboard.writeText(text);
-    showToast(`Copied ${missing.length} missing cards to clipboard!`, 'success');
-    setShowExportModal(false);
-  };
-
-  const handleDownloadMissingTxt = () => {
-    const missing = getMissingCards();
-    if (missing.length === 0) {
-      showToast('No missing cards with current filters.', 'error');
-      return;
-    }
-    const text = exportMissingCardsToText();
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const safeSet = (filters.set || filters.game || 'all').toLowerCase().replace(/[^a-z0-9]/g, '_');
-    link.download = `tcg_vault_missing_${safeSet}_${Date.now()}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast(`Downloaded ${missing.length} missing cards (.txt)`, 'success');
-    setShowExportModal(false);
   };
 
   const handleDownloadMissingJson = () => {
@@ -1983,12 +1976,44 @@ export function CardListApp() {
                   />
                 </section>
                 <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Wishlist</h4>
+                  {currentUser ? (
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); handleCreateWishlistFromMissing(); }}
+                      className="flex flex-col sm:flex-row gap-2 p-3 rounded-xl border"
+                      style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+                    >
+                      <span className="flex items-center gap-2 min-w-0 flex-1">
+                        <Icon name="heart" className="w-4 h-4 shrink-0" />
+                        <input
+                          type="text"
+                          value={missingWishlistName}
+                          maxLength={MAX_WISHLIST_NAME}
+                          onChange={(e) => setMissingWishlistName(e.target.value)}
+                          aria-label="Name of the new wishlist"
+                          placeholder="Wishlist name"
+                          className="flex-1 min-w-0 h-8 rounded-lg px-2.5 text-xs font-semibold border outline-none focus:border-[var(--accent)]"
+                          style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                        />
+                      </span>
+                      <button
+                        type="submit"
+                        disabled={creatingWishlist || !missingWishlistName.trim()}
+                        className="h-8 px-3 rounded-lg text-xs font-black cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                        style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                      >
+                        {creatingWishlist ? 'Creating…' : 'Create as wishlist'}
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sign in to save this list as a wishlist.</p>
+                  )}
+                </section>
+                <section>
                   <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Copy or download</h4>
                   <div className="flex flex-col gap-2">
                     <ActionRow index={0} icon="list" title="Detailed want-list" description="Grouped by set, with numbers, names and rarities" actionLabel="Copy" actionIcon="copy" onClick={handleCopyMissingText} />
-                    <ActionRow index={1} icon="list" title="Simple want-list" description="Compact, e.g. 1x Jinx [VEN-042], for Discord or trade posts" actionLabel="Copy" actionIcon="copy" onClick={handleCopyMissingSimpleText} />
-                    <ActionRow index={2} icon="file" title="Text file (.txt)" description="A formatted want-list to save on your device" actionLabel="Download" actionIcon="download" onClick={handleDownloadMissingTxt} />
-                    <ActionRow index={3} icon="code" title="JSON file (.json)" description="Structured data with card ids, numbers, sets and rarities" actionLabel="Download" actionIcon="download" onClick={handleDownloadMissingJson} />
+                    <ActionRow index={1} icon="code" title="JSON file (.json)" description="Structured data with card ids, numbers, sets and rarities" actionLabel="Download" actionIcon="download" onClick={handleDownloadMissingJson} />
                   </div>
                 </section>
               </>
@@ -2061,7 +2086,7 @@ export function CardListApp() {
         <input
           ref={importFileInputRef}
           type="file"
-          accept=".json,.txt,application/json,text/plain"
+          accept=".json,application/json"
           onChange={handleImportFileUpload}
           className="hidden"
         />
@@ -2086,7 +2111,7 @@ export function CardListApp() {
               index={currentUser ? 1 : 0}
               icon="file"
               title="From a file"
-              description="A .json backup or a .txt card list"
+              description="A collection backup (.json) from Export"
               actionLabel="Choose file"
               actionIcon="upload"
               onClick={() => importFileInputRef.current?.click()}
