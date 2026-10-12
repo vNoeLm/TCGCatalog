@@ -117,6 +117,17 @@ export async function setWishlistQuantity(id: string, cardId: string, foil: bool
   return updateWishlist(id, { items });
 }
 
+/** Adds copies to a list (an imported want-list): counts add up, each capped at 99. */
+export async function addWishlistItems(id: string, add: Record<string, number>): Promise<Wishlist> {
+  const list = (await fetchWishlists()).find((l) => l.id === id);
+  if (!list) throw new Error('That wishlist no longer exists.');
+  const items = { ...list.items };
+  for (const [key, qty] of Object.entries(add)) {
+    if (qty > 0) items[key] = Math.min(99, (items[key] || 0) + Math.floor(qty));
+  }
+  return updateWishlist(id, { items });
+}
+
 /** The base card ids a list contains (either finish). */
 export function wishlistCardIds(items: Record<string, number>): Set<string> {
   const ids = new Set<string>();

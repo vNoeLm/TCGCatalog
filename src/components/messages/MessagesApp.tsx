@@ -41,7 +41,9 @@ export function MessagesApp() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
-  const threadEndRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+  /** The conversation the thread was last scrolled for, so opening one jumps and new messages glide. */
+  const scrolledForRef = useRef<string | null>(null);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -103,9 +105,15 @@ export function MessagesApp() {
     return () => clearInterval(timer);
   }, [selectedId, loadThread]);
 
+  // Scrolls the message list itself to the newest message. (scrollIntoView also scrolled the whole
+  // page down to it, pushing the top of the site and the conversation's header off screen.)
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const el = threadRef.current;
+    if (!el) return;
+    const opened = scrolledForRef.current !== selectedId;
+    scrolledForRef.current = selectedId;
+    el.scrollTo({ top: el.scrollHeight, behavior: opened ? 'auto' : 'smooth' });
+  }, [messages, selectedId]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +299,7 @@ export function MessagesApp() {
               onChanged={() => { loadThread(selectedId); loadConversations(); }}
             />
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+            <div ref={threadRef} className="flex-1 overflow-y-auto p-4 space-y-2.5">
               {loadingThread ? (
                 <div className="text-center text-xs font-semibold py-8" style={{ color: 'var(--text-tertiary)' }}>
                   Loading…
@@ -348,7 +356,6 @@ export function MessagesApp() {
                   );
                 })
               )}
-              <div ref={threadEndRef} />
             </div>
 
             <form onSubmit={handleSend} className="flex items-center gap-2 p-3 border-t shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>

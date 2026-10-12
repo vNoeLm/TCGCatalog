@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { parseWantList } from '../../lib/wantList';
 import type { CatalogCard, FilterState } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, onSignedInUserChange } from '../../lib/auth';
@@ -12,6 +13,7 @@ import {
   renameWishlist,
   deleteWishlist,
   setWishlistQuantity,
+  addWishlistItems,
   fetchWishlistCards,
   wishlistToWantText,
   wishlistCopies,
@@ -259,6 +261,7 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
       </div>
 
       <AddCardSearch game={game} list={list} />
+      <ImportWantList game={game} list={list} />
 
       {entries.length === 0 ? (
         <p className="text-sm py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
@@ -296,6 +299,101 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
       )}
       {error && <p role="alert" className="mt-3 text-xs font-semibold" style={{ color: 'var(--negative)' }}>{error}</p>}
     </section>
+  );
+}
+
+/**
+ * Paste a want-list (the detailed one from the catalog's Export > Missing, or plain lines) or pick
+ * its JSON file, and add those cards to this list.
+ */
+function ImportWantList({ game, list }: { game: string; list: Wishlist }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ tone: 'ok' | 'error'; message: string; unmatched?: string[] } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const importText = async (content: string) => {
+    if (!content.trim()) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const { data: catalog } = await fetchCardsCatalog({ ...SEARCH_FILTERS, game }, '');
+      const parsed = parseWantList(content, catalog);
+      if (parsed.copies === 0) {
+        setResult({ tone: 'error', message: 'No cards in that list matched the catalog.', unmatched: parsed.unmatched });
+        return;
+      }
+      await addWishlistItems(list.id, parsed.items);
+      setText('');
+      setResult({
+        tone: 'ok',
+        message: `Added ${parsed.copies} ${parsed.copies === 1 ? 'card' : 'cards'} to "${list.name}".`,
+        unmatched: parsed.unmatched,
+      });
+    } catch (e: any) {
+      setResult({ tone: 'error', message: e?.message || 'Could not import that list.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    file.text().then(importText);
+    e.target.value = '';
+  };
+
+  const small = 'px-3 py-2 rounded-xl text-xs font-bold border cursor-pointer transition hover:brightness-110 disabled:opacity-50 disabled:cursor-default';
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setResult(null); }}
+        aria-expanded={open}
+        className="text-xs font-bold cursor-pointer hover:underline"
+        style={{ color: 'var(--text-accent)' }}
+      >
+        {open ? 'Hide import' : 'Import a want-list'}
+      </button>
+      {open && (
+        <div className="mt-2 rounded-xl border p-3 space-y-2" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            Paste the detailed want-list from the catalog (Export, then Missing), or any list of cards like "2x Jinx" or "OGN-042". Cards already on this list add up.
+          </p>
+          <textarea
+            rows={6}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            aria-label="Want-list to import"
+            placeholder={'1x Jinx, Demolitionist (OGN-042/298) - Rare\n2x Brazen Buccaneer\nOGN-008 [Foil]'}
+            className="w-full p-3 rounded-xl border text-xs font-mono outline-none resize-y focus:border-[var(--accent)]"
+            style={inputStyle}
+          />
+          <input ref={fileRef} type="file" accept=".json,application/json" onChange={onFile} className="hidden" />
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className={small} style={{ background: 'var(--bg-raised)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+              Choose a JSON file
+            </button>
+            <button type="button" onClick={() => importText(text)} disabled={busy || !text.trim()} className={small} style={{ background: 'var(--accent-strong)', borderColor: 'var(--accent)', color: 'var(--text-on-accent, #000)' }}>
+              {busy ? 'Adding…' : 'Add to list'}
+            </button>
+          </div>
+          {result && (
+            <div role="status" className="text-xs font-semibold" style={{ color: result.tone === 'ok' ? 'var(--positive)' : 'var(--negative)' }}>
+              {result.message}
+              {result.unmatched && result.unmatched.length > 0 && (
+                <span className="block font-normal mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Not found ({result.unmatched.length}): {result.unmatched.slice(0, 5).join(', ')}{result.unmatched.length > 5 ? ', …' : ''}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
