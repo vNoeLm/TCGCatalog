@@ -60,8 +60,10 @@ export function resolveCollectionSync(input: {
     return { action: 'merge', collection: unionMax(local, cloud) };
   }
 
-  // Both have a time: whoever changed last wins, including a deliberate reset to nothing.
-  if (Number.isFinite(time(cloudStamp)) && time(cloudStamp) > time(localStamp)) {
+  // Both have a time: whoever changed last wins, including a deliberate reset to nothing. The
+  // same time on both sides but different cards means this browser's copy fell behind after that
+  // sync (the cloud saved something since that this copy never saw), so the cloud wins that too.
+  if (Number.isFinite(time(cloudStamp)) && time(cloudStamp) >= time(localStamp)) {
     return { action: 'use-cloud', collection: cloud };
   }
   return { action: 'push-local' };
