@@ -1,4 +1,4 @@
-import { cardKey, checkPrices, norm, sameCard, type PriceCard } from './priceImport.ts';
+import { cardKey, checkPrices, hasFoilVariant, norm, sameCard, type PriceCard } from './priceImport.ts';
 
 /**
  * Card prices from Cardmarket's public price guide, in euros: the European market, which is the
@@ -38,12 +38,14 @@ export interface CardmarketLink {
 /**
  * The price to use from a guide row: the trend, which follows recent sales, and when a card sells
  * too rarely to have one (the trend is 0 on many showcase and signed cards), the 7-day average, the
- * 30-day average, the all-time average, and last the lowest current offer.
+ * 30-day average, then the all-time average. Never the lowest current offer: that is often a copy
+ * in another language or a worse condition, far below what the card goes for. A card with none of
+ * these keeps the fallback price instead.
  */
 export function guidePrice(row: GuideRow, foil: boolean): number | null {
   const fields = foil
-    ? (['trend-foil', 'avg7-foil', 'avg30-foil', 'avg-foil', 'low-foil'] as const)
-    : (['trend', 'avg7', 'avg30', 'avg', 'low'] as const);
+    ? (['trend-foil', 'avg7-foil', 'avg30-foil', 'avg-foil'] as const)
+    : (['trend', 'avg7', 'avg30', 'avg'] as const);
   for (const field of fields) {
     const value = Number(row[field]);
     if (Number.isFinite(value) && value > 0) return Math.round(value * 100) / 100;
@@ -80,7 +82,14 @@ export function planCardmarketPrices(cards: PriceCard[], links: CardmarketLink[]
     const row = byProduct.get(link.cmid);
     if (!row) continue;
     linked += 1;
-    const { normal, foil, notes } = checkPrices(card.rarity, guidePrice(row, false), guidePrice(row, true), '€');
+    // Rares, epics and showcases are only printed as foils, but the guide still has "normal" prices
+    // for them, from copies listed without the foil box ticked - often a fraction of what the card
+    // sells for (an overnumbered LeBlanc, Deceiver: €43 "normal" against a €135 foil trend). For
+    // these the foil prices are the real ones; the normal ones only stand in when there are none.
+    const single = !hasFoilVariant(card.rarity);
+    const rawNormal = single ? guidePrice(row, true) ?? guidePrice(row, false) : guidePrice(row, false);
+    const rawFoil = single ? rawNormal : guidePrice(row, true);
+    const { normal, foil, notes } = checkPrices(card.rarity, rawNormal, rawFoil, '€');
     if (notes.length) flagged.push({ card, notes });
     if (normal !== null || foil !== null) prices.set(card.id, { eur: normal, eurFoil: foil });
   }

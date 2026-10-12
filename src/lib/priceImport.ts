@@ -154,7 +154,8 @@ export const sameCard = (a: string, b: string) => {
 };
 
 // ---- prices ----------------------------------------------------------------------------------
-const hasFoilVariant = (rarity: string | null) => rarity === 'Common' || rarity === 'Uncommon';
+/** Commons and uncommons come in a normal and a foil print; every other rarity in one print only. */
+export const hasFoilVariant = (rarity: string | null) => rarity === 'Common' || rarity === 'Uncommon';
 const usable = (p: number | null): p is number => p !== null && p > MIN_PRICE_USD && p <= MAX_PRICE_USD;
 
 /**

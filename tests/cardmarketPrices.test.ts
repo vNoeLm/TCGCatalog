@@ -22,9 +22,10 @@ const LINKS: CardmarketLink[] = [
 
 const GUIDE: GuideRow[] = [
   { idProduct: 100, trend: 0.05, avg7: 0.05, 'trend-foil': 0.16, 'avg7-foil': 0.19 },
+  // A rare with no foil prices in the guide: its "normal" ones stand in.
   { idProduct: 200, trend: 20.1, avg7: 21.14, low: 17.5, 'trend-foil': 0 },
-  // Sells too rarely for a trend or averages: only the lowest offer is left.
-  { idProduct: 300, trend: 0, avg7: null, avg30: null, avg: null, low: 835, 'trend-foil': 0 },
+  // The overnumbered LeBlanc, Deceiver as the guide had it: the real sales are the foil ones.
+  { idProduct: 300, trend: 43, avg7: 66.5, low: 79, 'trend-foil': 134.98, 'avg7-foil': 121.34, 'low-foil': 79 },
 ];
 
 describe('which guide price is used', () => {
@@ -32,13 +33,12 @@ describe('which guide price is used', () => {
     expect(guidePrice(GUIDE[1], false)).toBe(20.1);
   });
 
-  it('falls back through the averages to the lowest offer', () => {
+  it('falls back through the averages', () => {
     expect(guidePrice({ idProduct: 1, trend: 0, avg7: 0, avg30: 12.345 }, false)).toBe(12.35);
-    expect(guidePrice(GUIDE[2], false)).toBe(835);
   });
 
-  it('nothing usable is no price', () => {
-    expect(guidePrice({ idProduct: 1, trend: 0, low: null }, false)).toBeNull();
+  it('never the lowest offer (often another language or a worse copy): that is no price', () => {
+    expect(guidePrice({ idProduct: 1, trend: 0, avg7: null, avg30: null, avg: null, low: 835 }, false)).toBeNull();
     expect(guidePrice(GUIDE[1], true)).toBeNull();
   });
 });
@@ -51,9 +51,17 @@ describe('pricing our cards from the guide', () => {
     expect(plan.prices.get('c-common')).toEqual({ eur: 0.05, eurFoil: 0.16 });
   });
 
-  it('a card with only one print gets that price for both', () => {
+  it('a card printed only as a foil takes the foil prices, not the much lower "normal" ones', () => {
+    expect(plan.prices.get('c-showcase')).toEqual({ eur: 134.98, eurFoil: 134.98 });
+  });
+
+  it('...and the normal prices only when the guide has no foil ones for it', () => {
     expect(plan.prices.get('c-rare')).toEqual({ eur: 20.1, eurFoil: 20.1 });
-    expect(plan.prices.get('c-showcase')).toEqual({ eur: 835, eurFoil: 835 });
+  });
+
+  it('a card with no trend or average at all is left for the fallback source', () => {
+    const lowOnly = planCardmarketPrices([CARDS[2]], LINKS, [{ idProduct: 300, trend: 0, low: 835, 'trend-foil': 0, 'low-foil': 835 }]);
+    expect(lowOnly.prices.has('c-showcase')).toBe(false);
   });
 
   it('a card without a Cardmarket id is left for the fallback source', () => {
