@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseWantList } from '../../lib/wantList';
+import { Pagination, usePagination } from '../Pagination';
 import type { CatalogCard, FilterState } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, onSignedInUserChange } from '../../lib/auth';
@@ -29,6 +30,9 @@ const SEARCH_FILTERS: FilterState = {
 };
 
 const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
+/** Cards shown per page of a list. */
+const WISHLIST_PAGE_SIZE = 25;
+
 const inputCls = 'w-full rounded-xl px-3 py-2.5 text-sm outline-none transition border focus:border-[var(--accent)]';
 const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
 
@@ -195,6 +199,17 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
     .map(([key, qty]) => ({ key, qty, foil: key.endsWith('_foil'), card: cards.get(key.replace(/_foil$/, '')) }))
     .sort((a, b) => (a.card?.card_number || '').localeCompare(b.card?.card_number || '', undefined, { numeric: true }));
 
+  // Long lists (a whole set's want-list) come a page at a time, with a filter to find a card in them.
+  const [filter, setFilter] = useState('');
+  const listTopRef = useRef<HTMLDivElement>(null);
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter((e) => (e.card?.name || '').toLowerCase().includes(q) || (e.card?.card_number || '').toLowerCase().includes(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, list.items, cards]);
+  const pager = usePagination(shown, WISHLIST_PAGE_SIZE, filter);
+
   let estimate = 0;
   let unpriced = 0;
   for (const e of entries) {
@@ -268,34 +283,51 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
           No cards yet - search above, or use the Wishlists box on any card's page.
         </p>
       ) : (
-        <ul className="space-y-2 mt-4">
-          {entries.map(({ key, qty, foil, card }) => {
-            const cardId = key.replace(/_foil$/, '');
-            const busy = busyKey === key;
-            const step = 'w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-default';
-            const stepStyle = { borderColor: 'var(--border)', background: 'var(--bg-raised)', color: 'var(--text-secondary)' };
-            return (
-              <li key={key} className="flex items-center gap-3 p-2.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                <div className="w-10 h-14 rounded-md overflow-hidden shrink-0 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}>
-                  {card?.image_path && <img {...cardThumbProps(card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <a href={`/?card=${cardId}`} className="text-sm font-bold truncate block hover:underline" style={{ color: 'var(--text-primary)' }}>
-                    {card?.name || 'Loading…'}
-                  </a>
-                  <div className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                    {card?.card_number}{foil ? ' · Foil' : ''}
+        <div ref={listTopRef} className="mt-4 scroll-mt-24">
+          {entries.length > WISHLIST_PAGE_SIZE && (
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label="Filter this list"
+              placeholder={`Filter ${entries.length} cards by name or number`}
+              className={`${inputCls} mb-3`}
+              style={inputStyle}
+            />
+          )}
+          {shown.length === 0 && (
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>No card on this list matches "{filter.trim()}".</p>
+          )}
+          <ul className="space-y-2">
+            {pager.pageItems.map(({ key, qty, foil, card }) => {
+              const cardId = key.replace(/_foil$/, '');
+              const busy = busyKey === key;
+              const step = 'w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold cursor-pointer hover:brightness-110 disabled:opacity-40 disabled:cursor-default';
+              const stepStyle = { borderColor: 'var(--border)', background: 'var(--bg-raised)', color: 'var(--text-secondary)' };
+              return (
+                <li key={key} className="flex items-center gap-3 p-2.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+                  <div className="w-10 h-14 rounded-md overflow-hidden shrink-0 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}>
+                    {card?.image_path && <img {...cardThumbProps(card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" aria-label="One fewer" className={step} style={stepStyle} disabled={busy} onClick={() => act(key, () => setWishlistQuantity(list.id, cardId, foil, qty - 1))}>−</button>
-                  <span className="w-6 text-center text-sm font-black" style={{ color: 'var(--text-primary)' }}>{qty}</span>
-                  <button type="button" aria-label="One more" className={step} style={stepStyle} disabled={busy} onClick={() => act(key, () => setWishlistQuantity(list.id, cardId, foil, qty + 1))}>+</button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="min-w-0 flex-1">
+                    <a href={`/?card=${cardId}`} className="text-sm font-bold truncate block hover:underline" style={{ color: 'var(--text-primary)' }}>
+                      {card?.name || 'Loading…'}
+                    </a>
+                    <div className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                      {card?.card_number}{foil ? ' · Foil' : ''}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button type="button" aria-label="One fewer" className={step} style={stepStyle} disabled={busy} onClick={() => act(key, () => setWishlistQuantity(list.id, cardId, foil, qty - 1))}>−</button>
+                    <span className="w-6 text-center text-sm font-black" style={{ color: 'var(--text-primary)' }}>{qty}</span>
+                    <button type="button" aria-label="One more" className={step} style={stepStyle} disabled={busy} onClick={() => act(key, () => setWishlistQuantity(list.id, cardId, foil, qty + 1))}>+</button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <Pagination state={pager} noun="cards" scrollTargetRef={listTopRef} />
+        </div>
       )}
       {error && <p role="alert" className="mt-3 text-xs font-semibold" style={{ color: 'var(--negative)' }}>{error}</p>}
     </section>
