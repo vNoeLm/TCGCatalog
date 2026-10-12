@@ -131,7 +131,7 @@ export function readPriceCsv(text: string): { rows: CsvRow[] } | { error: string
 }
 
 // ---- matching --------------------------------------------------------------------------------
-const norm = (id: string) => id.toUpperCase().replace(/\s+/g, '').replace(/\/\d+/, '').replace(/\*/g, '-STAR');
+export const norm = (id: string) => id.toUpperCase().replace(/\s+/g, '').replace(/\/\d+/, '').replace(/\*/g, '-STAR');
 
 /** "riftbound/ogn-126-298.webp" -> "OGN-126", for cards whose stored number has no set prefix. */
 function keyFromImage(imagePath: string | null): string | null {
@@ -140,14 +140,14 @@ function keyFromImage(imagePath: string | null): string | null {
   return m ? `${m[1]}-${m[2]}` : null;
 }
 
-const cardKey = (card: PriceCard): string => {
+export const cardKey = (card: PriceCard): string => {
   if (/^[A-Z]{2,4}\s*-/i.test(card.card_number)) return norm(card.card_number);
   return keyFromImage(card.image_path) || norm(card.card_number);
 };
 
 /** Compared with punctuation, case and any "(promo)" note removed, so "Akali, Silent" and "Akali - Silent" agree. */
 const nameKey = (s: string) => s.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '');
-const sameCard = (a: string, b: string) => {
+export const sameCard = (a: string, b: string) => {
   const x = nameKey(a);
   const y = nameKey(b);
   return x === y || (x.length > 3 && y.length > 3 && (x.includes(y) || y.includes(x)));
@@ -157,26 +157,31 @@ const sameCard = (a: string, b: string) => {
 const hasFoilVariant = (rarity: string | null) => rarity === 'Common' || rarity === 'Uncommon';
 const usable = (p: number | null): p is number => p !== null && p > MIN_PRICE_USD && p <= MAX_PRICE_USD;
 
-/** The dollar prices to store for one card, and anything dropped along the way. */
-function pricesFor(card: PriceCard, row: CsvRow) {
+/**
+ * The prices to store for one card from a source's normal and foil price, and anything dropped
+ * along the way. Used for the dollar prices here and for Cardmarket's euro prices
+ * (lib/cardmarketPrices.ts); the limits are close enough for either currency. `unit` only labels
+ * the notes.
+ */
+export function checkPrices(rarity: string | null, rawNormal: number | null, rawFoil: number | null, unit = '$') {
   const notes: string[] = [];
-  const normal = usable(row.normal) ? row.normal : null;
-  let foil = usable(row.foil) ? row.foil : null;
-  if (row.normal !== null && normal === null) notes.push(`normal $${row.normal} dropped (not a usable price)`);
-  if (row.foil !== null && foil === null) notes.push(`foil $${row.foil} dropped (not a usable price)`);
+  const normal = usable(rawNormal) ? rawNormal : null;
+  let foil = usable(rawFoil) ? rawFoil : null;
+  if (rawNormal !== null && normal === null) notes.push(`normal ${unit}${rawNormal} dropped (not a usable price)`);
+  if (rawFoil !== null && foil === null) notes.push(`foil ${unit}${rawFoil} dropped (not a usable price)`);
 
-  if (hasFoilVariant(card.rarity)) {
+  if (hasFoilVariant(rarity)) {
     if (foil !== null && normal !== null && foil < normal) {
-      notes.push(`foil $${foil} dropped (cheaper than the normal, $${normal})`);
+      notes.push(`foil ${unit}${foil} dropped (cheaper than the normal, ${unit}${normal})`);
       foil = null;
     }
     if (foil !== null && normal !== null && normal < CHEAP_NORMAL_USD) {
       if (foil > MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD) {
-        notes.push(`foil $${foil} dropped (over $${MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD} for a card whose normal is only $${normal})`);
+        notes.push(`foil ${unit}${foil} dropped (over ${unit}${MAX_FOIL_WHEN_NORMAL_IS_CHEAP_USD} for a card whose normal is only ${unit}${normal})`);
         foil = null;
       }
     } else if (foil !== null && normal !== null && foil / normal > MAX_FOIL_TO_NORMAL) {
-      notes.push(`foil $${foil} dropped (${Math.round(foil / normal)}x the normal, $${normal})`);
+      notes.push(`foil ${unit}${foil} dropped (${Math.round(foil / normal)}x the normal, ${unit}${normal})`);
       foil = null;
     }
     return { normal, foil, notes };
@@ -185,6 +190,11 @@ function pricesFor(card: PriceCard, row: CsvRow) {
   // One entry in the catalog: use whichever price exists, preferring the normal one.
   const only = normal ?? foil;
   return { normal: only, foil: only, notes };
+}
+
+/** The dollar prices to store for one card, and anything dropped along the way. */
+function pricesFor(card: PriceCard, row: CsvRow) {
+  return checkPrices(card.rarity, row.normal, row.foil);
 }
 
 const cents = (n: number | null | undefined) => (n === null || n === undefined ? null : Math.round(Number(n) * 100));

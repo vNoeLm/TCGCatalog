@@ -650,7 +650,7 @@ export function ListCardModal({
                     </div>
                   </dl>
                   {suggestion.referenceHuf && (
-                    <p className="text-xs text-[var(--text-muted)]">The market reference is a rough estimate from US prices.</p>
+                    <p className="text-xs text-[var(--text-muted)]">The market reference is Cardmarket's price for this card, updated daily.</p>
                   )}
                 </div>
               ) : null}

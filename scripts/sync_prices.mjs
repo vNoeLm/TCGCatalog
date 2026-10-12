@@ -1,7 +1,9 @@
 /**
- * Automatically fetches the latest Riftbound card prices from the API,
- * converts them to EUR using current exchange rates, and updates the
- * Supabase database (cards and card_price_history tables) directly.
+ * Updates the Riftbound card prices in Supabase (cards and card_price_history).
+ *
+ * Prices come from Cardmarket's public price guide, in euros (src/lib/cardmarketPrices.ts). The
+ * dotgg card API ties each card to its Cardmarket product, and its US TCGplayer price, converted
+ * to euros, is the fallback for the few cards Cardmarket has no price for.
  *
  * The matching and price-validation rules are the same ones the manual admin
  * CSV upload uses (src/lib/priceImport.ts), so the two never drift apart.
@@ -16,6 +18,7 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { planPriceImport } from '../src/lib/priceImport.ts';
+import { planCardmarketPrices, PRICE_GUIDE_URL } from '../src/lib/cardmarketPrices.ts';
 
 const apply = process.argv.includes('--apply');
 
@@ -46,6 +49,22 @@ async function fetchExchangeRates() {
   }
 }
 
+/** Cardmarket's price guide rows, or null if it can't be had (the sync then uses the fallback for every card). */
+async function fetchPriceGuide() {
+  try {
+    const res = await fetch(PRICE_GUIDE_URL, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!Array.isArray(json.priceGuides) || json.priceGuides.length < 100) throw new Error('unexpected shape');
+    return { rows: json.priceGuides, createdAt: json.createdAt || null };
+  } catch (err) {
+    console.warn(`Could not load the Cardmarket price guide (${err.message}); using the fallback prices for every card.`);
+    return null;
+  }
+}
+
+const cents = (n) => (n === null || n === undefined ? null : Math.round(Number(n) * 100));
+
 async function run() {
   console.log('Fetching latest card prices from API...');
   const apiRes = await fetch('https://api.dotgg.gg/cgfw/getcards?game=riftbound&mode=indexed');
@@ -60,6 +79,7 @@ async function run() {
   const rarityIdx = names.indexOf('rarity');
   const priceIdx = names.indexOf('price');
   const foilPriceIdx = names.indexOf('foilPrice');
+  const cmidIdx = names.indexOf('cmid');
 
   const requiredColumns = { id: idIdx, name: nameIdx, set_name: setIdx, rarity: rarityIdx, price: priceIdx, foilPrice: foilPriceIdx };
   const missingColumns = Object.entries(requiredColumns).filter(([, idx]) => idx < 0).map(([col]) => col);
@@ -80,6 +100,18 @@ async function run() {
     normal: card[priceIdx] ? parseFloat(card[priceIdx]) : null,
     foil: card[foilPriceIdx] ? parseFloat(card[foilPriceIdx]) : null,
   }));
+
+  // Each card's Cardmarket product id, which ties it to a row of the price guide.
+  const links = cmidIdx < 0 ? [] : dotgg.data.map((card) => ({
+    id: card[idIdx] || '',
+    name: card[nameIdx] || '',
+    cmid: card[cmidIdx] ? Number(card[cmidIdx]) || null : null,
+  }));
+  if (cmidIdx < 0) console.warn('The card API no longer gives Cardmarket ids; using the fallback prices for every card.');
+
+  console.log('Fetching the Cardmarket price guide...');
+  const guide = links.length ? await fetchPriceGuide() : null;
+  if (guide) console.log(`Price guide: ${guide.rows.length} products (made ${guide.createdAt}).`);
 
   console.log('Fetching exchange rates...');
   const rates = await fetchExchangeRates();
@@ -110,7 +142,6 @@ async function run() {
   const plan = planPriceImport(rows, cards, rates.usdEur, previousUsdEur);
   console.log(`Loaded ${plan.ourCards} Riftbound cards.`);
   console.log(`Matched cards: ${plan.updates.length} / ${plan.ourCards} (${plan.unmatched.length} unmatched)`);
-  console.log(`Prices with real market movement: ${plan.changes.length}`);
 
   // A schema change in the price API (renamed/reordered fields, different id/name format) would
   // otherwise silently collapse matching to near-zero while the script still exits 0 - failing
@@ -123,10 +154,40 @@ async function run() {
     );
   }
 
-  if (plan.changes.length > 0) {
+  // Cardmarket's price where it has one; the converted TCGplayer price for the rest.
+  const cm = guide ? planCardmarketPrices(cards, links, guide.rows) : { prices: new Map(), linked: 0, flagged: [] };
+  const fallbackChanged = new Set(plan.changes.map((u) => u.card.id));
+  const final = [];
+  for (const u of plan.updates) {
+    if (cm.prices.has(u.card.id)) continue;
+    final.push({ card: u.card, eur: u.eur, eurFoil: u.eurFoil, source: 'tcgplayer', moved: fallbackChanged.has(u.card.id) });
+  }
+  const cardsById = new Map(cards.map((c) => [c.id, c]));
+  const fallbackById = new Map(plan.updates.map((u) => [u.card.id, u]));
+  let finishFilled = 0;
+  for (const [id, p] of cm.prices) {
+    const card = cardsById.get(id);
+    // A finish Cardmarket has no usable price for (often a cheap foil that sold below the normal,
+    // which the checks drop) keeps the converted TCGplayer price rather than going blank.
+    const fb = fallbackById.get(id);
+    const eur = p.eur ?? fb?.eur ?? null;
+    const eurFoil = p.eurFoil ?? fb?.eurFoil ?? null;
+    if ((p.eur === null && eur !== null) || (p.eurFoil === null && eurFoil !== null)) finishFilled += 1;
+    const moved = cents(eur) !== cents(card.market_price_eur) || cents(eurFoil) !== cents(card.market_price_foil_eur);
+    final.push({ card, eur, eurFoil, source: 'cardmarket', moved });
+  }
+  const fromCardmarket = final.filter((u) => u.source === 'cardmarket').length;
+  const fromFallback = final.length - fromCardmarket;
+  const changes = final.filter((u) => u.moved);
+  console.log(`Prices: ${fromCardmarket} from Cardmarket (${cm.linked} linked), ${fromFallback} from TCGplayer (converted), ${plan.ourCards - final.length} cards without a price.`);
+  if (cm.flagged.length) console.log(`Cardmarket prices dropped by the checks: ${cm.flagged.length} cards.`);
+  if (finishFilled) console.log(`Cards with one finish filled in from TCGplayer: ${finishFilled}.`);
+  console.log(`Prices with real market movement: ${changes.length}`);
+
+  if (changes.length > 0) {
     console.log('\nSample price changes:');
-    plan.changes.slice(0, 5).forEach((u) => {
-      console.log(`  ${u.card.name} (${u.card.card_number}): €${u.card.market_price_eur ?? '-'} -> €${u.eur ?? '-'} (foil: €${u.card.market_price_foil_eur ?? '-'} -> €${u.eurFoil ?? '-'})`);
+    changes.slice(0, 8).forEach((u) => {
+      console.log(`  [${u.source}] ${u.card.name} (${u.card.card_number}): €${u.card.market_price_eur ?? '-'} -> €${u.eur ?? '-'} (foil: €${u.card.market_price_foil_eur ?? '-'} -> €${u.eurFoil ?? '-'})`);
     });
   }
 
@@ -137,12 +198,11 @@ async function run() {
   }
 
   console.log('\nApplying price updates to Supabase via apply_price_import...');
-  const changedIds = new Set(plan.changes.map((u) => u.card.id));
-  const rpcRows = plan.updates.map((u) => ({
+  const rpcRows = final.map((u) => ({
     id: u.card.id,
     eur: u.eur,
     eur_foil: u.eurFoil,
-    moved: changedIds.has(u.card.id),
+    moved: u.moved,
   }));
 
   const { data: rpcResult, error: rpcError } = await supabase.rpc('apply_price_import', {
@@ -154,7 +214,12 @@ async function run() {
     throw new Error(`Failed to apply prices: ${rpcError.message}`);
   }
 
-  console.log(`Database update complete! Updated: ${rpcResult?.updated ?? plan.updates.length} cards, Recorded in history: ${rpcResult?.recorded ?? plan.changes.length}`);
+  console.log(`Database update complete! Updated: ${rpcResult?.updated ?? final.length} cards, Recorded in history: ${rpcResult?.recorded ?? changes.length}`);
+
+  // Where the prices came from, for the "Prices from Cardmarket" note on the site.
+  await supabase
+    .from('settings')
+    .upsert({ key: 'price_sources', value: JSON.stringify({ cardmarket: fromCardmarket, tcgplayer: fromFallback, guide_created_at: guide?.createdAt || null, synced_at: new Date().toISOString() }) }, { onConflict: 'key' });
 
   // Save latest FX rates
   await supabase

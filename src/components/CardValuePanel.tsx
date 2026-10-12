@@ -128,6 +128,11 @@ export function CardValuePanel({ card }: CardValuePanelProps) {
               </dl>
             </div>
           ))}
+          <p className="text-[11px] sm:col-span-2" style={muted}>
+            Market prices are from the{' '}
+            <a href="https://www.cardmarket.com" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Cardmarket</a>{' '}
+            price guide, updated daily (a few cards it doesn't list use TCGplayer prices).
+          </p>
         </div>
       ) : (
         <div className="-mx-4 sm:-mx-5 -mb-4 sm:-mb-5">
