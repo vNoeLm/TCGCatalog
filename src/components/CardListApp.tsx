@@ -31,9 +31,10 @@ import {
   getLocalCollectionStamp,
   getLocalCollectionOwner,
   setLocalCollectionOwner,
+  readLocalCollection,
   COLLECTION_STAMP_KEY,
 } from "../lib/collectionClient";
-import { resolveCollectionSync } from "../lib/collectionSync";
+import { resolveCollectionSync, sameCollection } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
 import { hasFoilVariant } from "../lib/cardVariants";
@@ -379,8 +380,12 @@ export function CardListApp() {
     }
 
     const handleColChange = (e: Event) => {
-      const custom = e as CustomEvent<{ collection: Record<string, number> }>;
+      const custom = e as CustomEvent<{ collection: Record<string, number>; external?: boolean }>;
       if (custom.detail?.collection) {
+        // Changed in another tab: that tab saves it to the cloud, so this one counts it as synced
+        // instead of sending it again.
+        if (custom.detail.external) syncedStampRef.current = getLocalCollectionStamp();
+        collectionRef.current = custom.detail.collection;
         setCollection(custom.detail.collection);
       }
     };
@@ -404,11 +409,16 @@ export function CardListApp() {
    */
   const [cloudSyncReady, setCloudSyncReady] = useState(false);
 
-  /** Saves the collection to the cloud and records that this browser is now exactly in step with it. */
+  /**
+   * Saves the collection to the cloud and records that this browser is now exactly in step with it.
+   * What goes up is the browser's saved copy, not this tab's copy in memory: every change in any
+   * tab is saved there first, so an older tab can never send an out-of-date collection.
+   */
   const pushCollectionToCloud = async (): Promise<boolean> => {
-    const result = await saveCollectionToCloud(collectionRef.current);
+    const collection = readLocalCollection() ?? collectionRef.current;
+    const result = await saveCollectionToCloud(collection);
     if (result.error || !result.updatedAt) return false;
-    saveLocalCollection(collectionRef.current, result.updatedAt, false);
+    saveLocalCollection(collection, result.updatedAt, false);
     syncedStampRef.current = result.updatedAt;
     return true;
   };
@@ -448,6 +458,14 @@ export function CardListApp() {
         // Not being able to read the cloud copy is not the same as it being empty: change nothing.
         if (record === null) return;
 
+        // Compare the browser's saved copy (current across tabs), not this tab's copy in memory,
+        // which can be older if another tab changed the collection since this one loaded.
+        const local = readLocalCollection();
+        if (local && !sameCollection(local, collectionRef.current)) {
+          collectionRef.current = local;
+          setCollection(local);
+        }
+
         const decision = resolveCollectionSync({
           local: collectionRef.current,
           localStamp: getLocalCollectionStamp(),
@@ -479,7 +497,10 @@ export function CardListApp() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser]);
+    // Only a change of account re-runs this, not the token refresh that hands every open tab a new
+    // user object about once an hour.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   // Debounced auto-save: a change made in this browser goes up 1.5s after the last edit.
   const cloudDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -503,7 +524,7 @@ export function CardListApp() {
     return () => {
       if (cloudDebounceTimer.current) clearTimeout(cloudDebounceTimer.current);
     };
-  }, [personalCollection, currentUser, cloudSyncReady]);
+  }, [personalCollection, currentUser?.id, cloudSyncReady]);
 
   /** The price an always-list collection lists a card at (its defaults + the card's values). */
   const alwaysListPrice = (cardId: string, isFoil: boolean, defaults: ListDefaults) =>

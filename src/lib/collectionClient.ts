@@ -43,6 +43,45 @@ export function setLocalCollectionOwner(userId: string): void {
 }
 
 /**
+ * This browser's saved collection (shared by every tab), or null if there is none or it can't be
+ * read. Each tab also keeps a copy in memory; this is the one that is always current.
+ */
+export function readLocalCollection(): Record<string, number> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    const dict: Record<string, number> = {};
+    if (Array.isArray(parsed)) {
+      parsed.forEach((id) => { if (typeof id === 'string' && id.trim()) dict[id.trim()] = 1; });
+    } else if (parsed && typeof parsed === 'object') {
+      Object.entries(parsed).forEach(([k, v]) => {
+        const count = typeof v === 'number' ? v : parseInt(String(v), 10);
+        if (count > 0) dict[k] = count;
+      });
+    } else {
+      return null;
+    }
+    return dict;
+  } catch {
+    return null;
+  }
+}
+
+// Another tab changed the collection: pass it on to everything in this tab that shows or edits it,
+// marked `external` so this tab treats it as already handled (the tab that made the change saves
+// it to the cloud). Without this a tab opened earlier kept its old copy in memory, and its next save
+// put that old copy back over the newer one - which is how a move between collections got undone.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== 'tcg_user_collection') return;
+    const collection = readLocalCollection() || {};
+    window.dispatchEvent(new CustomEvent('tcg-collection-change', { detail: { collection, external: true } }));
+  });
+}
+
+/**
  * The single way this browser's collection is saved.
  *
  * Every change stamps the time it was made, which is what lets the cloud sync tell a deliberate
