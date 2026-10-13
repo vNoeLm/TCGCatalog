@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
-import { supabase, cardThumbProps } from "../lib/supabase";
+import { supabase, cardThumbProps, gridThumbSize } from "../lib/supabase";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 
@@ -8,6 +8,8 @@ interface CardItemProps {
   card: InventoryCard;
   onClick: (id: string) => void;
   gridSize?: "small" | "normal" | "large";
+  /** One of the first cards on the page: load its image right away. */
+  priority?: boolean;
 }
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
@@ -18,7 +20,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Showcase:        { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
 };
 
-export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) {
+export function CardItem({ card, onClick, gridSize = 'normal', priority = false }: CardItemProps) {
   const isSmall = gridSize === 'small';
 
 
@@ -81,7 +83,7 @@ export function CardItem({ card, onClick, gridSize = 'normal' }: CardItemProps) 
         <div className="w-full aspect-[63/88] flex items-center justify-center relative overflow-hidden border-b" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
           {card.image_path ? (
             <img
-              {...cardThumbProps(card.image_path, 'grid')}
+              {...cardThumbProps(card.image_path, gridThumbSize(gridSize), priority)}
               alt={card.name}
               className="w-full h-full object-cover relative z-[1]"
             />

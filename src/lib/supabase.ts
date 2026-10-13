@@ -26,10 +26,19 @@ export function getCardImageUrl(imagePath?: string | null): string {
 export const THUMB_VERSION = 'v1';
 const THUMB_WIDTHS = [240, 360, 480] as const;
 
-/** What each kind of tile tells the browser about how wide it will be drawn, so it picks a size. */
+/**
+ * What each kind of tile tells the browser about how wide it will be drawn, so it picks a size.
+ * The grid ones follow lib/gridSize.ts: columns of at least 140 / 190 / 260px, which on a desktop
+ * come out a little wider than that. Saying more than a tile really gets made the browser fetch the
+ * 360px thumbnail for ~185px tiles (Lighthouse: "image larger than it needs to be").
+ */
 const THUMB_SIZES = {
-  /** Catalog and marketplace grids: two across on a phone, up to ~260px on a desktop. */
-  grid: '(max-width: 640px) 46vw, 260px',
+  /** Catalog and marketplace grid, Small: three across on a phone. */
+  gridSmall: '(max-width: 640px) 31vw, 160px',
+  /** Catalog and marketplace grid, Normal: two across on a phone. */
+  grid: '(max-width: 640px) 46vw, 210px',
+  /** Catalog and marketplace grid, Large: one across on a phone. */
+  gridLarge: '(max-width: 640px) 92vw, 300px',
   /** Smaller tiles: the deck builder's card grid, deck previews. */
   tile: '160px',
   /** Icon-sized thumbnails beside a name. */
@@ -50,7 +59,16 @@ export function getCardThumbUrl(imagePath?: string | null, width: (typeof THUMB_
  * A card added before the thumbnail script has run has no thumbnail yet, so a failed load falls back
  * to the full image, once, rather than leaving a broken tile.
  */
-export function cardThumbProps(imagePath?: string | null, size: keyof typeof THUMB_SIZES = 'grid') {
+/** The thumbnail size for a catalog or marketplace grid at the viewer's chosen grid size. */
+export function gridThumbSize(gridSize: 'small' | 'normal' | 'large' = 'normal'): keyof typeof THUMB_SIZES {
+  return gridSize === 'small' ? 'gridSmall' : gridSize === 'large' ? 'gridLarge' : 'grid';
+}
+
+/**
+ * `priority`: one of the first cards on the page, likely the largest thing on screen when it loads -
+ * fetched straight away instead of waiting to be scrolled near.
+ */
+export function cardThumbProps(imagePath?: string | null, size: keyof typeof THUMB_SIZES = 'grid', priority = false) {
   if (!imagePath) return {};
   if (isAbsoluteUrl(imagePath)) return { src: imagePath };
 
@@ -59,7 +77,8 @@ export function cardThumbProps(imagePath?: string | null, size: keyof typeof THU
     src: getCardThumbUrl(imagePath, 240),
     srcSet: THUMB_WIDTHS.map((w) => `${getCardThumbUrl(imagePath, w)} ${w}w`).join(', '),
     sizes: THUMB_SIZES[size],
-    loading: 'lazy' as const,
+    loading: priority ? ('eager' as const) : ('lazy' as const),
+    fetchPriority: priority ? ('high' as const) : undefined,
     decoding: 'async' as const,
     onError: (e: SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
