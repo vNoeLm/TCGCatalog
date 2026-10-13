@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { printLanguage } from '../lib/cardPreview';
 import type { CatalogCard } from "../types";
-import { cardThumbProps } from "../lib/supabase";
+import { cardThumbProps, gridThumbSize } from "../lib/supabase";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
@@ -20,6 +20,8 @@ interface CardListItemProps {
   onToggleFoilCollected?: (e: React.MouseEvent) => void;
   onClick: (id: string) => void;
   gridSize?: "small" | "normal" | "large";
+  /** One of the first cards on the page: load its image right away. */
+  priority?: boolean;
 }
 
 const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; border: string }> = {
@@ -31,7 +33,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 };
 
 export function CardListItem(props: CardListItemProps) {
-  const { card, onClick, gridSize = 'normal' } = props;
+  const { card, onClick, gridSize = 'normal', priority = false } = props;
   const isSmall = gridSize === 'small';
 
   // Estimated value: the market reference combined with what sellers here are asking. A card with
@@ -103,7 +105,7 @@ export function CardListItem(props: CardListItemProps) {
         >
           {card.image_path ? (
             <img
-              {...cardThumbProps(card.image_path, 'grid')}
+              {...cardThumbProps(card.image_path, gridThumbSize(gridSize), priority)}
               alt={card.name}
               className="w-full h-full object-cover relative z-[1]"
               style={{

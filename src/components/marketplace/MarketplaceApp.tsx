@@ -627,23 +627,25 @@ export function MarketplaceApp() {
             </div>
           ) : view === 'cards' ? (
             <div className={`grid ${gridSizeClasses(gridSize)}`}>
-              {groupedCards.slice(0, loadMoreState.shown).map(group => (
+              {groupedCards.slice(0, loadMoreState.shown).map((group, i) => (
                 <CardGroupTile
                   key={group.card_id}
                   group={group}
                   onClick={(g) => openGroup(g.card_id)}
                   gridSize={gridSize}
+                  priority={i < 4}
                 />
               ))}
             </div>
           ) : (
             <div className={`grid ${gridSizeClasses(gridSize)}`}>
-              {sortedCards.slice(0, loadMoreState.shown).map(card => (
+              {sortedCards.slice(0, loadMoreState.shown).map((card, i) => (
                 <CardItem
                   key={card.inventory_id}
                   card={card}
                   onClick={(id) => openListing(id)}
                   gridSize={gridSize}
+                  priority={i < 4}
                 />
               ))}
             </div>

@@ -1812,7 +1812,7 @@ export function CardListApp() {
               </div>
             ) : (
               <div className={`grid ${gridSizeClasses(gridSize)}`}>
-                {paginatedCards.map((card) => (
+                {paginatedCards.map((card, i) => (
                   <CardListItem
                     key={card.id}
                     card={card}
@@ -1824,6 +1824,7 @@ export function CardListApp() {
                     onToggle={toggleOwnership}
                     onClick={() => openCard(card.id)}
                     gridSize={gridSize}
+                    priority={i < 4}
                   />
                 ))}
               </div>

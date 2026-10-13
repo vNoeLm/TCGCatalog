@@ -1,5 +1,5 @@
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
-import { cardThumbProps } from '../../lib/supabase';
+import { cardThumbProps, gridThumbSize } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 
 const fmtHuf = (n: number) =>
@@ -9,10 +9,12 @@ interface CardGroupTileProps {
   group: CardListingGroup;
   onClick: (group: CardListingGroup) => void;
   gridSize?: 'small' | 'normal' | 'large';
+  /** One of the first cards on the page: load its image right away. */
+  priority?: boolean;
 }
 
 /** One card with active listings: art, lowest/average price and how many copies are for sale. */
-export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroupTileProps) {
+export function CardGroupTile({ group, onClick, gridSize = 'normal', priority = false }: CardGroupTileProps) {
   const isSmall = gridSize === 'small';
   const card = group.representative;
   const imagePath = card.card_image_path || card.image_path;
@@ -27,7 +29,7 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal' }: CardGroup
     >
       <div className="relative w-full aspect-[63/88] overflow-hidden border-b" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
         {imagePath ? (
-          <img {...cardThumbProps(imagePath, 'grid')} alt={card.name} className="w-full h-full object-cover" loading="lazy" />
+          <img {...cardThumbProps(imagePath, gridThumbSize(gridSize), priority)} alt={card.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl font-black" style={{ color: 'var(--text-primary)' }}>
             {card.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}

@@ -12,6 +12,12 @@ export default defineConfig({
     plugins: [tailwindcss()]
   },
 
+  // The page's own styles go into the HTML instead of a separate file the browser has to fetch
+  // before it can draw anything (Lighthouse: render-blocking request).
+  build: {
+    inlineStylesheets: 'always',
+  },
+
   integrations: [react()],
   adapter: vercel()
 });
