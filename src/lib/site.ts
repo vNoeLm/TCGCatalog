@@ -1,6 +1,6 @@
 /** Who to reach and where - one place to change it once there's a business address. */
 export const CONTACT_EMAIL = 'support@tcgxchange.net';
-export const DISCORD_USERNAME = 'shebrokeme';
+export const DISCORD_USERNAME = 'vigh_noel';
 
 /** The info pages, grouped as the footer and the page sidebars show them. */
 export const LEGAL_PAGES = [

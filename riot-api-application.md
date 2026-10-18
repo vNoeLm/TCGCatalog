@@ -7,7 +7,7 @@ Fill in the [brackets], then paste each part into the matching field of the appl
 ## Name and contact
 - Name: [your full name]
 - Email: support@tcgxchange.net
-- Discord: shebrokeme
+- Discord: vigh_noel
 - Country: Hungary
 
 ## App name
