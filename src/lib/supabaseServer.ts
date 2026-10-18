@@ -46,7 +46,7 @@ function getSupabaseUrl(): string {
     (import.meta as any).env?.PUBLIC_SUPABASE_URL ||
     readKeyFromEnvFile('PUBLIC_SUPABASE_URL') ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    ''
+    'https://xtyfzkqubmzrsvduvzcl.supabase.co'
   );
 }
 
