@@ -4,6 +4,7 @@ import { supabase, cardThumbProps, gridThumbSize } from "../lib/supabase";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
+import { CountryFlag } from "./CountryFlag";
 
 interface CardItemProps {
   card: InventoryCard;
@@ -247,10 +248,11 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
         {/* Seller Info Pill */}
         <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t text-[10px]" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            <CountryFlag countryCode={card.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px] shrink-0" />
             <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center font-black text-[9px] shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
               {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
             </span>
-            <span className="font-semibold truncate max-w-[90px]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
+            <span className="font-semibold truncate max-w-[85px]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
               {card.seller_name || 'Noel :3'}
             </span>
             {card.seller_role === 'owner' ? (

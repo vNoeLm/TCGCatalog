@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CONTACT_EMAIL, DISCORD_USERNAME, LEGAL_PAGES, HELP_PAGES } from '../lib/site';
+import { TcgLogo } from './TcgLogo';
 
 type FooterLink = { label: string; href?: string };
 
@@ -63,7 +64,7 @@ const SOCIALS_SOON = [
 const iconBox = 'w-8 h-8 rounded-lg border flex items-center justify-center transition';
 
 /**
- * The site footer: what TCG Vault is, how to reach its operator, and links to every section, the
+ * The site footer: what TCG XChange is, how to reach its operator, and links to every section, the
  * guides and the legal pages. Items marked Soon are pages that don't exist yet - shown, not linked.
  */
 export function LegalFooter() {
@@ -84,9 +85,10 @@ export function LegalFooter() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-x-6 gap-y-7">
           <div className="col-span-2 md:col-span-4 lg:col-span-1 min-w-0">
-            <div className="flex items-baseline gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <TcgLogo className="w-5 h-5 shrink-0" />
               <span className="text-base font-black tracking-tight" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                TCG Vault
+                TCG XChange
               </span>
               <span className="text-[11px] font-semibold">© {new Date().getFullYear()}</span>
             </div>
@@ -159,15 +161,15 @@ export function LegalFooter() {
         <div className="mt-7 pt-5 border-t space-y-1.5" style={{ borderColor: 'var(--border)' }}>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
             <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Riftbound:</strong>{' '}
-            TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+            TCG XChange was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
             <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Magic: The Gathering:</strong>{' '}
-            Portions of TCG Vault are unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+            Portions of TCG XChange are unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
             <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>One Piece Card Game:</strong>{' '}
-            One Piece Card Game images, card text, and related marks are property of Bandai Co., Ltd. ©Eiichiro Oda/Shueisha ©Eiichiro Oda/Shueisha, Toei Animation. TCG Vault is not affiliated with or endorsed by Bandai, Shueisha, or Toei Animation.
+            One Piece Card Game images, card text, and related marks are property of Bandai Co., Ltd. ©Eiichiro Oda/Shueisha ©Eiichiro Oda/Shueisha, Toei Animation. TCG XChange is not affiliated with or endorsed by Bandai, Shueisha, or Toei Animation.
           </p>
         </div>
       </div>

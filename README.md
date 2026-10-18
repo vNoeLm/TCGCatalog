@@ -1,20 +1,20 @@
-# TCG Vault
+# TCG XChange
 
-A collection tracker, deck builder and trading marketplace for **Riftbound** and the **Cyberpunk TCG**.
+A collection tracker, deck builder and trading marketplace for **Riftbound**, **One Piece**, and **Magic: The Gathering**.
 
-The marketplace only puts buyers and sellers in touch. There are no payments: a buyer asks to hold a card, the seller accepts, and the two of them arrange the handover themselves.
+The marketplace puts buyers and sellers in touch. There are no fees or forced payment processors: a buyer asks to hold cards, the seller accepts, and the two arrange payment and delivery (domestic or international) in private messages.
 
 ## What it does
 
 - **Catalog and collection.** Browse every card, filter and search, and track how many normal and foil copies you own. Your collection is saved in the browser and synced to your account.
 - **Card scanner.** On a phone, point the camera at a card and it is recognised by its artwork and added to your collection.
 - **Deck builder.** Build and check decks, see cost curves and draw odds, import and export decklists, and publish decks for others to view.
-- **Marketplace.** Listings are grouped by card, like Cardmarket. Buyers send hold requests, chat with sellers and leave reviews.
-- **Market prices.** Sign in as the owner and go to `/admin/prices` to load market reference prices from a CSV.
+- **Marketplace.** Listings are grouped by card, like Cardmarket. Buyers send hold requests, view seller location flags and delivery scopes, chat with sellers, and leave reviews.
+- **Market prices.** Reference prices are displayed to help buyers and sellers agree on fair rates.
 
 ## Stack
 
-Astro 7 and React 19 with Tailwind CSS 4 and TypeScript. Supabase provides the database, sign-in and image storage, and the site is deployed on Vercel.
+Astro with React 19, Tailwind CSS, and TypeScript. Deployed on Cloudflare Pages/Workers with Cloudflare R2 for card imagery and Supabase for database & auth.
 
 ## Run it locally
 

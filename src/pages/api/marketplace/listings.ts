@@ -167,9 +167,8 @@ export const GET: APIRoute = async ({ url }) => {
     // Also include platform owner ID as fallback
     sellerIds.add(OWNER_ID);
 
-    // These three don't depend on each other - only on sellerIds, from the inventory query above -
-    // so they run together instead of adding up one after another.
-    const [{ data: profileRows }, { data: reviewRows }, { data: storeOrdersRow }] = await Promise.all([
+    // These queries run together concurrently
+    const [{ data: profileRows }, { data: reviewRows }, { data: storeOrdersRow }, { data: shippingRows }] = await Promise.all([
       supabaseAdmin
         .from('profiles')
         .select('id, display_name, avatar_url, role, is_admin')
@@ -180,9 +179,14 @@ export const GET: APIRoute = async ({ url }) => {
         .select('value')
         .eq('key', 'store_orders')
         .maybeSingle(),
+      supabaseAdmin
+        .from('seller_shipping')
+        .select('seller_id, options')
+        .in('seller_id', Array.from(sellerIds)),
     ]);
 
     const profileMap = new Map((profileRows || []).map(p => [p.id, p]));
+    const shippingMap = new Map((shippingRows || []).map((r: any) => [r.seller_id, r.options || {}]));
 
     const ratingsMap = new Map<string, { total: number; count: number }>();
     (reviewRows || []).forEach((r: any) => {
@@ -301,6 +305,8 @@ export const GET: APIRoute = async ({ url }) => {
         seller_id: sId,
         seller_name: resolvedSellerName,
         seller_avatar: prof?.avatar_url || null,
+        seller_country: (shippingMap.get(sId) as any)?.country || 'HU',
+        seller_ships_to: (shippingMap.get(sId) as any)?.ships_to || 'EU',
         seller_role: prof?.role || (prof?.is_admin ? 'admin' : 'user'),
         seller_rating_avg: avgRating,
         seller_rating_count: reviewCount,

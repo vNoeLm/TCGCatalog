@@ -16,8 +16,8 @@ describe('hold flow', () => {
     expect(allowedHoldActions('held', 'buyer', HANDED_OVER_AT)).toEqual(['confirm_received', 'release']);
   });
 
-  it('after handover only the buyer completes the sale - no more cancelling for them', () => {
-    expect(allowedHoldActions('handed_over', 'buyer', HANDED_OVER_AT, at(1))).toEqual(['confirm_received']);
+  it('after handover the buyer can confirm receipt or deny within the window', () => {
+    expect(allowedHoldActions('handed_over', 'buyer', HANDED_OVER_AT, at(1))).toEqual(['confirm_received', 'deny']);
   });
 
   it('the seller cannot complete a handed-over sale before the waiting period', () => {
@@ -26,7 +26,7 @@ describe('hold flow', () => {
 
   it('the seller can complete it once the buyer has been silent for the waiting period', () => {
     expect(allowedHoldActions('handed_over', 'seller', HANDED_OVER_AT, at(BUYER_CONFIRM_DAYS))).toEqual(['confirm_sale', 'release']);
-    expect(sellerCanCompleteFrom(HANDED_OVER_AT).toISOString()).toBe('2026-10-15T12:00:00.000Z');
+    expect(sellerCanCompleteFrom(HANDED_OVER_AT).toISOString()).toBe('2026-10-04T12:00:00.000Z');
   });
 
   it('finished requests allow nothing', () => {

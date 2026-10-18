@@ -211,8 +211,8 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
             Thanks for rating Order #{rev.order_number}!
           </span>
           <span className="inline-flex items-center gap-1.5 font-black" style={{ color: 'var(--text-primary)' }}>
-            <Stars value={rev.overall} size={13} />
-            <span>{rev.overall.toFixed(1)}</span>
+            <Stars value={rev.overall ?? rev.rating ?? 5} size={13} />
+            <span>{(rev.overall ?? rev.rating ?? 5).toFixed(1)}</span>
           </span>
         </div>
       ))}

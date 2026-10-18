@@ -8,6 +8,7 @@ import { PriceHistoryChart } from './PriceHistoryChart';
 import { StatBox } from '../StatBox';
 import { cartQuantityFor } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
+import { CountryFlag } from '../CountryFlag';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -199,7 +200,10 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                           </span>
                         )}
                         <div className="min-w-0">
-                          <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{rowSeller(l)}</div>
+                          <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                            <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
+                            <span className="truncate">{rowSeller(l)}</span>
+                          </div>
                           <div className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                             {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
                               <span className="font-bold" style={{ color: 'var(--text-accent)' }}>&#9733; {l.seller_rating_avg.toFixed(1)}</span>

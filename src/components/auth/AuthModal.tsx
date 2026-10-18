@@ -115,7 +115,7 @@ export function AuthModal({
         <p className="text-xs sm:text-sm text-zinc-400">
           {mode === 'signin'
             ? ('Sign in to access your order history and account')
-            : ('Join TCG Vault to manage orders and saved decks')}
+            : ('Join TCG XChange to manage orders and saved decks')}
         </p>
       </div>
 

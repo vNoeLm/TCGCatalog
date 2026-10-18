@@ -1,0 +1,163 @@
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
+
+// TCG XChange Brand Mark SVG
+// Dynamic crossing trading cards forming an 'X' with luminous amber & cyan accents
+const svgLogo = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background rounded square -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19" />
+      <stop offset="50%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <!-- Card 1: Cyan / Sapphire -->
+    <linearGradient id="cardCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="innerCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c4a6e" />
+      <stop offset="100%" stop-color="#082f49" />
+    </linearGradient>
+
+    <!-- Card 2: Gold / Amber -->
+    <linearGradient id="cardGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <linearGradient id="innerGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#78350f" />
+      <stop offset="100%" stop-color="#451a03" />
+    </linearGradient>
+
+    <!-- Central X Glow & Bevel -->
+    <linearGradient id="xGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="35%" stop-color="#fef08a" />
+      <stop offset="70%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base App Icon Container -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="506" height="506" x="3" y="3" rx="109" fill="none" stroke="#1f2937" stroke-width="6" />
+
+  <!-- Background subtle energy diamond -->
+  <path d="M 256 64 L 432 256 L 256 448 L 80 256 Z" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.15" />
+
+  <!-- Left Card (Tilted -16 deg) - Cyan Trading Card -->
+  <g transform="translate(256, 256) rotate(-16) translate(-256, -256)">
+    <!-- Card Shadow -->
+    <rect x="156" y="96" width="200" height="290" rx="18" fill="#000000" opacity="0.45" transform="translate(8, 12)" />
+    <!-- Outer Card Border -->
+    <rect x="156" y="96" width="200" height="290" rx="18" fill="url(#cardCyan)" />
+    <!-- Inner Card Frame -->
+    <rect x="166" y="106" width="180" height="270" rx="12" fill="url(#innerCyan)" />
+    <!-- Artwork window mockup -->
+    <rect x="176" y="118" width="160" height="135" rx="8" fill="#0284c7" opacity="0.35" />
+    <!-- Card bottom lines -->
+    <line x1="176" y1="272" x2="316" y2="272" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+    <line x1="176" y1="288" x2="280" y2="288" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+  </g>
+
+  <!-- Right Card (Tilted +16 deg) - Gold Trading Card -->
+  <g transform="translate(256, 256) rotate(16) translate(-256, -256)">
+    <!-- Card Shadow -->
+    <rect x="156" y="126" width="200" height="290" rx="18" fill="#000000" opacity="0.55" transform="translate(6, 10)" />
+    <!-- Outer Card Border -->
+    <rect x="156" y="126" width="200" height="290" rx="18" fill="url(#cardGold)" />
+    <!-- Inner Card Frame -->
+    <rect x="166" y="136" width="180" height="270" rx="12" fill="url(#innerGold)" />
+    <!-- Artwork window mockup -->
+    <rect x="176" y="148" width="160" height="135" rx="8" fill="#f59e0b" opacity="0.35" />
+    <!-- Card bottom lines -->
+    <line x1="176" y1="302" x2="316" y2="302" stroke="#fef08a" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+    <line x1="176" y1="318" x2="280" y2="318" stroke="#fef08a" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+  </g>
+
+  <!-- Crossing Spark / Dynamic Interchange Arrows -->
+  <!-- Top Right Arrow into Left -->
+  <path d="M 370 170 Q 390 190 350 220" fill="none" stroke="#fef08a" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <polygon points="340,225 358,212 360,228" fill="#fef08a" />
+
+  <!-- Bottom Left Arrow into Right -->
+  <path d="M 142 342 Q 122 322 162 292" fill="none" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <polygon points="172,287 154,300 152,284" fill="#38bdf8" />
+
+  <!-- Central Vibrant "X" Badge -->
+  <g filter="url(#glow)">
+    <!-- Outer glow / backing plate -->
+    <circle cx="256" cy="256" r="68" fill="#090d16" stroke="url(#cardGold)" stroke-width="5" />
+    <!-- Dynamic Sharp Bold X -->
+    <path d="M 226 210 L 256 244 L 286 210 L 306 210 L 268 256 L 308 302 L 288 302 L 256 266 L 224 302 L 204 302 L 244 256 L 206 210 Z" fill="url(#xGrad)" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" />
+  </g>
+
+  <!-- Sparkle Accents -->
+  <path d="M 256 166 L 259 176 L 269 179 L 259 182 L 256 192 L 253 182 L 243 179 L 253 176 Z" fill="#ffffff" />
+  <path d="M 388 280 L 390 286 L 396 288 L 390 290 L 388 296 L 386 290 L 380 288 L 386 286 Z" fill="#fef08a" />
+  <path d="M 124 220 L 126 226 L 132 228 L 126 230 L 124 236 L 122 230 L 116 228 L 122 226 Z" fill="#38bdf8" />
+</svg>`;
+
+async function main() {
+  const publicDir = path.resolve('public');
+
+  // 1. Save favicon.svg
+  const svgPath = path.join(publicDir, 'favicon.svg');
+  fs.writeFileSync(svgPath, svgLogo, 'utf8');
+  console.log('Created:', svgPath);
+
+  // 2. Generate PNG sizes
+  const sizes = [
+    { name: 'favicon-16x16.png', size: 16 },
+    { name: 'favicon-32x32.png', size: 32 },
+    { name: 'apple-touch-icon.png', size: 180 },
+    { name: 'android-chrome-192x192.png', size: 192 },
+    { name: 'android-chrome-512x512.png', size: 512 },
+  ];
+
+  const svgBuffer = Buffer.from(svgLogo);
+
+  for (const s of sizes) {
+    const outPath = path.join(publicDir, s.name);
+    await sharp(svgBuffer)
+      .resize(s.size, s.size)
+      .png()
+      .toFile(outPath);
+    console.log(`Generated: ${s.name} (${s.size}x${s.size})`);
+  }
+
+  // Also replace favicon.ico with 32x32 PNG buffer (browsers treat 32x32 png as valid ico)
+  const icoPath = path.join(publicDir, 'favicon.ico');
+  await sharp(svgBuffer)
+    .resize(32, 32)
+    .toFormat('png')
+    .toFile(icoPath);
+  console.log('Updated: favicon.ico');
+
+  // Update site.webmanifest
+  const manifest = {
+    name: "TCG XChange",
+    short_name: "TCG XChange",
+    icons: [
+      { src: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      { src: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" }
+    ],
+    theme_color: "#0b0f19",
+    background_color: "#0b0f19",
+    display: "standalone"
+  };
+  fs.writeFileSync(path.join(publicDir, 'site.webmanifest'), JSON.stringify(manifest, null, 2), 'utf8');
+  console.log('Updated: site.webmanifest');
+}
+
+main().catch(console.error);

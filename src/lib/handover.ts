@@ -4,7 +4,7 @@
  * the hold-request API so both agree on what each method needs.
  */
 
-export type HandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'gls' | 'posta' | 'other';
+export type HandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'gls' | 'posta' | 'dhl' | 'other';
 
 /** What the buyer has to provide for a method. */
 export type HandoverKind = 'personal' | 'locker' | 'address' | 'custom';
@@ -19,11 +19,12 @@ export interface HandoverMethod {
 
 export const HANDOVER_METHODS: HandoverMethod[] = [
   { id: 'personal', label: 'In person', kind: 'personal' },
-  { id: 'foxpost', label: 'Foxpost', kind: 'locker', finderUrl: 'https://foxpost.hu/csomagautomatak' },
-  { id: 'packeta', label: 'Packeta', kind: 'locker', finderUrl: 'https://www.packeta.hu/atvevohelyek' },
-  { id: 'gls', label: 'GLS', kind: 'address' },
-  { id: 'posta', label: 'Magyar Posta', kind: 'address' },
-  { id: 'other', label: 'Other', kind: 'custom' },
+  { id: 'foxpost', label: 'Foxpost (HU)', kind: 'locker', finderUrl: 'https://foxpost.hu/csomagautomatak' },
+  { id: 'packeta', label: 'Packeta (EU)', kind: 'locker', finderUrl: 'https://www.packeta.hu/atvevohelyek' },
+  { id: 'gls', label: 'GLS Courier', kind: 'address' },
+  { id: 'posta', label: 'National Post / Posta', kind: 'address' },
+  { id: 'dhl', label: 'DHL Express (Intl)', kind: 'address' },
+  { id: 'other', label: 'Other / Custom', kind: 'custom' },
 ];
 
 export const ALL_HANDOVER_IDS: HandoverMethodId[] = HANDOVER_METHODS.map((m) => m.id);

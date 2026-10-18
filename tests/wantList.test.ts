@@ -5,7 +5,7 @@ import { CARDS } from './fixtures';
 describe('reading a want-list into a wishlist', () => {
   it('the detailed want-list from Export > Missing', () => {
     const text = [
-      '// TCG Vault - Missing Cards / Want List (3 cards)',
+      '// TCG XChange - Missing Cards / Want List (3 cards)',
       '// Filters: All Cards',
       '// Exported: 12/10/2026',
       '',
@@ -33,7 +33,7 @@ describe('reading a want-list into a wishlist', () => {
   });
 
   it('the missing-cards JSON file: one copy of each, by id or card number', () => {
-    const file = JSON.stringify({ title: 'TCG Vault - Missing Cards', cards: [{ id: 'c-unit' }, { id: 'elsewhere', cardNumber: 'OGN-008/298', name: 'Get Excited!' }] });
+    const file = JSON.stringify({ title: 'TCG XChange - Missing Cards', cards: [{ id: 'c-unit' }, { id: 'elsewhere', cardNumber: 'OGN-008/298', name: 'Get Excited!' }] });
     expect(parseWantList(file, CARDS)).toEqual({ items: { 'c-unit': 1, 'c-spell': 1 }, copies: 2, unmatched: [] });
   });
 

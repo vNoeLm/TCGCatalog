@@ -131,8 +131,8 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 
   if (Array.isArray(body.displayed_badges)) {
-    const cleaned = Array.from(
-      new Set(
+    const cleaned: string[] = Array.from(
+      new Set<string>(
         body.displayed_badges
           .map((g: unknown) => String(g || '').toLowerCase())
           .filter((g: string) => ALLOWED_BADGE_GAMES.has(g))

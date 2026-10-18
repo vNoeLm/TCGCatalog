@@ -900,7 +900,7 @@ export function CardListApp() {
 
     const totalCopies = validEntries.reduce((sum, e) => sum + e.qty, 0);
     const lines: string[] = [
-      `// TCG Vault - My Owned Cards (${totalCopies} total copies, ${validEntries.length} unique cards)`,
+      `// TCG XChange - My Owned Cards (${totalCopies} total copies, ${validEntries.length} unique cards)`,
       `// Exported: ${new Date().toLocaleDateString()}`,
       '',
     ];
@@ -1091,7 +1091,7 @@ export function CardListApp() {
 
     const filterDesc = getActiveFilterDescription();
     const lines: string[] = [
-      `// TCG Vault - ${'Missing Cards / Want List'} (${missing.length} ${'cards'})`,
+      `// TCG XChange - ${'Missing Cards / Want List'} (${missing.length} ${'cards'})`,
       `// ${'Filters'}: ${filterDesc}`,
       `// ${'Exported'}: ${new Date().toLocaleDateString()}`,
       '',
@@ -1195,7 +1195,7 @@ export function CardListApp() {
       return;
     }
     const dataObj = {
-      title: 'TCG Vault - Missing Cards',
+      title: 'TCG XChange - Missing Cards',
       game: filters.game || 'riftbound',
       filter: getActiveFilterDescription(),
       exportedAt: new Date().toISOString(),

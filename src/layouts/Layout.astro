@@ -11,6 +11,7 @@ import { LegalFooter } from '../components/LegalFooter';
 import { BackToTop } from '../components/BackToTop';
 import { CookieConsent } from '../components/CookieConsent';
 import { MarketplaceCartDrawer } from '../components/marketplace/MarketplaceCartDrawer';
+import { TcgLogo } from '../components/TcgLogo';
 
 interface Props {
   title: string;
@@ -25,6 +26,7 @@ const pathname = Astro.url.pathname;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -80,9 +82,10 @@ const pathname = Astro.url.pathname;
     <header style="border-bottom: 1px solid var(--border); background: var(--bg-header); backdrop-filter: blur(16px);" class="sticky top-0 z-50 transition-colors duration-200">
       <div style="max-width: 1400px; margin: 0 auto; padding: 10px clamp(12px, 2.5vw, 24px);" class="flex flex-nowrap justify-between items-center gap-2 sm:gap-4">
         <div class="flex items-center gap-2 sm:gap-3.5 shrink-0">
-          <a href="/" class="flex items-center group transition" style="text-decoration: none;">
+          <a href="/" class="flex items-center gap-2 sm:gap-2.5 group transition" style="text-decoration: none;">
+            <TcgLogo className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 transition-transform group-hover:scale-105" client:load />
             <span class="text-base sm:text-xl font-black tracking-tight whitespace-nowrap text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition-colors" style="font-family: var(--font-display);">
-              TCG Vault
+              TCG XChange
             </span>
           </a>
           <div class="h-4 sm:h-5 w-px bg-[var(--border)] opacity-60" />

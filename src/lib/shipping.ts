@@ -12,7 +12,10 @@ export interface ShippingOption {
   min_order_huf: number;
 }
 
-export type ShippingSettings = Partial<Record<HandoverMethodId, ShippingOption>>;
+export type ShippingSettings = Partial<Record<HandoverMethodId, ShippingOption>> & {
+  country?: string;
+  ships_to?: 'DOMESTIC' | 'EU' | 'WORLD';
+};
 
 const MAX_HUF = 1_000_000;
 const huf = (v: unknown) => {
@@ -24,8 +27,19 @@ const huf = (v: unknown) => {
 export function normalizeShipping(raw: unknown): ShippingSettings {
   const out: ShippingSettings = {};
   if (!raw || typeof raw !== 'object') return out;
+  const obj = raw as Record<string, any>;
+  if (typeof obj.country === 'string' && obj.country.trim()) {
+    out.country = obj.country.trim().toUpperCase().slice(0, 4);
+  } else {
+    out.country = 'HU';
+  }
+  if (obj.ships_to === 'DOMESTIC' || obj.ships_to === 'EU' || obj.ships_to === 'WORLD') {
+    out.ships_to = obj.ships_to;
+  } else {
+    out.ships_to = 'EU';
+  }
   for (const m of HANDOVER_METHODS) {
-    const o = (raw as Record<string, any>)[m.id];
+    const o = obj[m.id];
     if (!o || typeof o !== 'object') continue;
     out[m.id] = { enabled: Boolean(o.enabled), price_huf: huf(o.price_huf), min_order_huf: huf(o.min_order_huf) };
   }

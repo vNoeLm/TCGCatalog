@@ -1,5 +1,5 @@
 /**
- * Permanently removes cards from TCG Vault - their database rows and their images in storage.
+ * Permanently removes cards from TCG XChange - their database rows and their images in storage.
  *
  * Default selection: the Cyberpunk game (all its sets), the Radiance set and the Chinese prints.
  * With --all: every card except the demo set (code DEMO) - take the real card data off the server

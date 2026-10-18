@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { HANDOVER_METHODS, type HandoverMethodId } from '../../lib/handover';
 import { describeOption, shippingOption, type ShippingSettings } from '../../lib/shipping';
 import { fetchShippingSettings, saveShippingSettings } from '../../lib/shippingClient';
+import { COUNTRIES, SHIPPING_SCOPES, type ShippingScope } from '../../lib/countries';
+import { CountryFlag } from '../CountryFlag';
 
 const KIND_HINT: Record<string, string> = {
   personal: 'Meet up',
@@ -25,7 +27,10 @@ export function ShippingSettingsPanel({ sellerId, onToast }: { sellerId: string;
     fetchShippingSettings([sellerId]).then((map) => {
       // Never set up: start from what buyers get today - everything on, free, no minimum.
       const current = map[sellerId];
-      const start: ShippingSettings = {};
+      const start: ShippingSettings = {
+        country: current?.country || 'HU',
+        ships_to: current?.ships_to || 'EU',
+      };
       HANDOVER_METHODS.forEach((m) => { start[m.id] = shippingOption(current, m.id); });
       setSettings(start);
       setLoaded(true);
@@ -81,6 +86,60 @@ export function ShippingSettingsPanel({ sellerId, onToast }: { sellerId: string;
         What each way of getting cards to a buyer costs them, and the smallest order you'll do it for. These apply to all your
         listings - a listing still only offers the methods you picked when you listed it.
       </p>
+
+      {/* Seller Location & Delivery Scope */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+        <div>
+          <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            Seller Location (Where you are based)
+          </label>
+          <div className="flex items-center gap-2.5">
+            <CountryFlag countryCode={settings.country || 'HU'} className="w-6 h-4.5 rounded-[2px]" />
+            <select
+              value={settings.country || 'HU'}
+              onChange={(e) => {
+                setSettings((s) => ({ ...s!, country: e.target.value }));
+                setDirty(true);
+              }}
+              className="flex-1 h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
+              style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} ({c.localName})
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            Your country's flag is shown next to your name on all marketplace cards.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            Shipping Destination Scope
+          </label>
+          <select
+            value={settings.ships_to || 'EU'}
+            onChange={(e) => {
+              setSettings((s) => ({ ...s!, ships_to: e.target.value as ShippingScope }));
+              setDirty(true);
+            }}
+            className="w-full h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+          >
+            {SHIPPING_SCOPES.map((sc) => (
+              <option key={sc.id} value={sc.id}>
+                {sc.label} — {sc.desc}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            Shows buyers what countries you ship to.
+          </p>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-2">
         {HANDOVER_METHODS.map((m) => {

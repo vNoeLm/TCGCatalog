@@ -20,7 +20,7 @@ export interface CollectionBackupEntry {
 }
 
 export interface CollectionBackup {
-  title: 'TCG Vault - My Collection';
+  title: 'TCG XChange - My Collection' | 'TCG Vault - My Collection';
   version: 1;
   game: string;
   exportedAt: string;
@@ -61,7 +61,7 @@ export function buildCollectionBackup(
   });
 
   return {
-    title: 'TCG Vault - My Collection',
+    title: 'TCG XChange - My Collection',
     version: 1,
     game: game || 'riftbound',
     exportedAt: now.toISOString(),

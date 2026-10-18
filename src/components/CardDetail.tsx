@@ -28,6 +28,8 @@ import { useUrlOverlay } from '../lib/useUrlOverlay';
 import { HANDOVER_METHODS, listingHandoverIds } from '../lib/handover';
 import { describeOption, shippingOption, type ShippingSettings } from '../lib/shipping';
 import { fetchShippingSettings } from '../lib/shippingClient';
+import { CountryFlag } from './CountryFlag';
+import { describeShippingScope } from '../lib/countries';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -1209,6 +1211,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-4 h-3 rounded-[2px]" />
                     {data?.seller_id ? (
                       <a
                         href={`/user?id=${data.seller_id}`}
@@ -1241,7 +1244,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       );
                     })()}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-tertiary)' }}>
                     {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
                       <>
                         <div className="flex items-center gap-1 font-bold" style={{ color: 'var(--text-accent)' }}>
@@ -1258,6 +1261,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         New Seller (No ratings yet)
                       </span>
                     )}
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1 text-[11px]">
+                      <span>Ships from</span>
+                      <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-3 h-2 rounded-[2px]" />
+                      <span>({describeShippingScope(data?.seller_ships_to || sellerShipping?.ships_to, data?.seller_country || sellerShipping?.country)})</span>
+                    </span>
                   </div>
                 </div>
               </div>

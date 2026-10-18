@@ -38,6 +38,8 @@ describe('cleaning stored settings', () => {
       pigeon: { enabled: true, price_huf: 1, min_order_huf: 1 },
     });
     expect(clean).toEqual({
+      country: 'HU',
+      ships_to: 'EU',
       foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
       gls: { enabled: true, price_huf: 1_000_000, min_order_huf: 0 },
     });

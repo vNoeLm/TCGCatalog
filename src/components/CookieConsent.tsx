@@ -55,7 +55,7 @@ export function CookieConsent() {
         <div className="min-w-0">
           <h2 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>Cookies and local storage</h2>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            TCG Vault uses strictly necessary browser storage for your sign-in session, collection, cart, and theme. There are no ads or analytics trackers.
+            TCG XChange uses strictly necessary browser storage for your sign-in session, collection, cart, and theme. There are no ads or analytics trackers.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button

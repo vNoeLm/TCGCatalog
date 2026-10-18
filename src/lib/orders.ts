@@ -460,7 +460,8 @@ export async function fetchStoreOrders(): Promise<Order[]> {
 
   try {
     if (typeof window !== 'undefined') {
-      (await fetchVisibleOrders()).forEach((o: Order) => {
+      const res = await fetchVisibleOrders();
+      (res.orders || []).forEach((o: Order) => {
         const key = o.order_number || o.id;
         if (key) storeMap.set(key, o);
       });

@@ -11,18 +11,18 @@ Fill in the [brackets], then paste each part into the matching field of the appl
 - Country: Hungary
 
 ## App name
-TCG Vault
+TCG XChange
 
 ## Description of the App
 
-TCG Vault is a free web app for Riftbound players and collectors. It helps them keep track of the cards they own, build decks, and trade physical cards with other players. It's a fan project run by one person.
+TCG XChange is a free web app for Riftbound players and collectors. It helps them keep track of the cards they own, build decks, and trade physical cards with other players. It's a fan project run by one person.
 
 **Use case**
 
 - **Card library:** every Riftbound card, with its official text, searchable and filterable by set, domain, type, rarity, cost and keywords.
 - **Collection tracker:** players mark how many copies of each card they own, normal and foil separately, and see what they're missing from each set. A binder view shows which page and pocket each card goes in. Collections can be split into named lists (for example "Personal" and "Trade binder").
 - **Deckbuilder:** builds decks under the official deck-building rules, with no custom formats, ban lists or balance changes. Decks can be kept private or shared with a link.
-- **Physical card trading:** players list physical cards they own. Buyers send a hold request, the two players agree on payment and handover (in person or by post) in private messages, and both rate each other afterwards. TCG Vault takes no fees, handles no payments and shows no ads; it only puts collectors in touch with each other.
+- **Physical card trading:** players list physical cards they own. Buyers send a hold request, the two players agree on payment and handover (in person or by post) in private messages, and both rate each other afterwards. TCG XChange takes no fees, handles no payments and shows no ads; it only puts collectors in touch with each other.
 
 **How it delivers on that use case / user flow**
 

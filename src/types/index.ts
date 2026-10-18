@@ -59,6 +59,8 @@ export interface InventoryCard {
   views?: number;
   clicks?: number;
   seller_badge?: string;
+  seller_country?: string;
+  seller_ships_to?: string;
 }
 
 export interface CatalogCard {
@@ -237,6 +239,7 @@ export interface TradeReview {
   direction: 'buyer_to_seller' | 'seller_to_buyer';
   /** Average of the category scores, 1.0 - 5.0. */
   rating: number;
+  overall?: number;
   /** Per-category stars; null on reviews from before categories. */
   scores: Record<string, number> | null;
   comment: string | null;
