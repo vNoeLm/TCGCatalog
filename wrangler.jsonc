@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tcg-vault",
+  "compatibility_date": "2026-10-18",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "vars": {
+    "PUBLIC_IMAGE_CDN_URL": "https://pub-fc12cf26538b49798ca89e43c2bf3c4a.r2.dev",
+    "PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_TqJ7KlZZFfTouv3xkudHQg_QcY2frPO",
+    "PUBLIC_SUPABASE_URL": "https://xtyfzkqubmzrsvduvzcl.supabase.co",
+    "R2_BUCKET_NAME": "tcg-cards"
+  }
+}
