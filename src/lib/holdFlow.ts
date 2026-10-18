@@ -14,39 +14,58 @@
  * they never answer, the seller can complete it after the waiting period.
  */
 
-export type HoldStatus = 'pending' | 'held' | 'handed_over' | 'completed' | 'cancelled' | 'rejected';
+export type HoldStatus = 'pending' | 'held' | 'handed_over' | 'buyer_received' | 'completed' | 'cancelled' | 'rejected';
 
 export type HoldAction =
   | 'hold'              // seller accepts the request and reserves the card
   | 'reject'            // seller turns the request down
   | 'release'           // either side cancels (see allowedHoldActions for when)
   | 'mark_handed_over'  // seller met up / sent the package
-  | 'confirm_received'  // buyer has the card - completes the sale
-  | 'confirm_sale';     // seller completes it after the buyer stayed silent past the waiting period
+  | 'confirm_received'  // buyer has the card (moves held -> buyer_received, or completes if already handed_over)
+  | 'confirm_sale'      // OKs handover/receipt, or completes after 3-day timeout of silence
+  | 'deny';             // either side denies handover / receipt within the 3-day window
 
 export type HoldRole = 'seller' | 'buyer';
 
-/** How long a buyer has to confirm a handed-over card before the seller may complete the sale. */
-export const BUYER_CONFIRM_DAYS = 14;
+/** How many days either party has to confirm or deny before the order auto-completes. */
+export const CONFIRM_TIMEOUT_DAYS = 3;
+export const BUYER_CONFIRM_DAYS = CONFIRM_TIMEOUT_DAYS;
 
 /** Requests that still need someone to act. */
-export const OPEN_HOLD_STATUSES: readonly string[] = ['pending', 'held', 'handed_over'];
+export const OPEN_HOLD_STATUSES: readonly string[] = ['pending', 'held', 'handed_over', 'buyer_received'];
 
-/** When a handed-over request becomes completable by the seller (`updatedAt` is the handover time -
- *  nothing else changes a request while it's handed over). */
+/** When a one-sided confirmed request auto-completes (`updatedAt` is the confirmation time). */
+export function canAutoCompleteFrom(updatedAt: string): Date {
+  return new Date(new Date(updatedAt).getTime() + CONFIRM_TIMEOUT_DAYS * 24 * 60 * 60 * 1000);
+}
+
+export function isPastConfirmTimeout(updatedAt: string, now = Date.now()): boolean {
+  const t = new Date(updatedAt).getTime();
+  if (isNaN(t)) return false;
+  return now >= t + CONFIRM_TIMEOUT_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export function sellerCanCompleteFrom(updatedAt: string): Date {
-  return new Date(new Date(updatedAt).getTime() + BUYER_CONFIRM_DAYS * 24 * 60 * 60 * 1000);
+  return canAutoCompleteFrom(updatedAt);
 }
 
 export function allowedHoldActions(status: string, role: HoldRole, updatedAt: string, now = Date.now()): HoldAction[] {
+  const timedOut = isPastConfirmTimeout(updatedAt, now);
   switch (status) {
     case 'pending':
       return role === 'seller' ? ['hold', 'reject'] : ['release'];
     case 'held':
       return role === 'seller' ? ['mark_handed_over', 'release'] : ['confirm_received', 'release'];
     case 'handed_over':
-      if (role === 'buyer') return ['confirm_received'];
-      return now >= sellerCanCompleteFrom(updatedAt).getTime() ? ['confirm_sale', 'release'] : ['release'];
+      if (role === 'buyer') {
+        return ['confirm_received', 'deny'];
+      }
+      return timedOut ? ['confirm_sale', 'release'] : ['release'];
+    case 'buyer_received':
+      if (role === 'seller') {
+        return ['confirm_sale', 'deny'];
+      }
+      return timedOut ? ['confirm_sale', 'release'] : [];
     default:
       return [];
   }

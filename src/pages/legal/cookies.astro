@@ -4,43 +4,75 @@ import { CONTACT_EMAIL } from '../../lib/site';
 ---
 
 <DocLayout
-  title="Cookie notice"
-  lead="TCG Vault sets no tracking or advertising cookies. It keeps a few things in your browser's storage so the site works."
+  title="Cookie & Browser Storage Notice"
+  titleHu="Süti (Cookie) és Helyi Tárolási Tájékoztató"
+  lead="TCG Vault sets no tracking or advertising cookies. It stores only strictly necessary functional data in your browser so the site works."
+  leadHu="A TCG Vault nem használ reklám- vagy viselkedéskövető sütiket (cookie-kat). Kizárólag a működéshez feltétlenül szükséges adatokat tárolja a böngésződ helyi tárhelyében."
   group="legal"
-  updated="5 October 2026"
+  updated="18 October 2026"
+  updatedHu="2026. október 18."
 >
-  <h2>What's stored in your browser</h2>
-  <p>
-    Instead of cookies, the site uses your browser's local storage. Everything there is needed for a feature you use, and
-    none of it is shared with advertisers or used to follow you around the web.
-  </p>
-  <table>
-    <thead>
-      <tr><th>What</th><th>Why</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Sign-in session</td><td>Keeps you signed in (set by our sign-in provider, Supabase).</td></tr>
-      <tr><td>Your collection</td><td>The cards you track, so it works without an account and loads fast with one.</td></tr>
-      <tr><td>Theme and active game</td><td>Remembers the look and the game you picked.</td></tr>
-      <tr><td>Marketplace cart</td><td>The cards you added, until you send the request.</td></tr>
-      <tr><td>Delivery details</td><td>Your shipping address or parcel locker, so you don't retype it. It only leaves this device when you send a hold request.</td></tr>
-      <tr><td>Draft decks and filters</td><td>Deck builder drafts and catalog preferences.</td></tr>
-      <tr><td>This notice</td><td>Remembers that you have seen the cookie notice.</td></tr>
-    </tbody>
-  </table>
+  <div class="lang-hu">
+    <h2>1. Mit tárolunk a böngésződben? (Ekertv. 15/A. §)</h2>
+    <p>
+      Hagyományos követő sütik helyett a TCG Vault a böngésződ helyi tárhelyét (<code>localStorage</code> és <code>sessionStorage</code>) használja. Minden itt tárolt elem a választott funkciók működéséhez feltétlenül szükséges, és semmilyen adatot nem osztunk meg hirdetési hálózatokkal.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Tárolt adat</th><th>Cél és jogalap</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Bejelentkezési munkamenet</td><td>Bejelentkezve tart a fiókodban (a hitelesítési szolgáltató, a Supabase állítja be; működéshez elengedhetetlen).</td></tr>
+        <tr><td>Saját gyűjtemény (<code>tcg_collection</code>)</td><td>Az általad bejelölt kártyák tárolása, hogy regisztráció nélkül is működjön a gyűjteménykezelő, és azonnal betöltsön.</td></tr>
+        <tr><td>Téma és nyelvi beállítás</td><td>Megjegyzi a választott megjelenési témát (Riftbound, Dark, Light) és a jogi dokumentumok nyelvét.</td></tr>
+        <tr><td>Piactéri kosár (<code>tcg-cart</code>)</td><td>A kosárba helyezett kártyák megőrzése a foglalási kérelem elküldéséig.</td></tr>
+        <tr><td>Szállítási adatok (<code>tcg_checkout_delivery</code>)</td><td>A korábban megadott szállítási címed vagy csomagautomatád megjegyzése ezen az eszközön, hogy ne kelljen újra begépelned. Kizárólag akkor hagyja el az eszközödet, amikor foglalási kérelmet küldesz egy eladónak.</td></tr>
+        <tr><td>Pakli piszkozatok és szűrők</td><td>A Deck Builder piszkozatok és a katalógus szűrőbeállításainak megjegyzése.</td></tr>
+        <tr><td>Tájékoztató elfogadása</td><td>Megjegyzi, hogy bezártad a süti tájékoztató sávot.</td></tr>
+      </tbody>
+    </table>
 
-  <h2>Third parties</h2>
-  <p>
-    Some Riftbound icons come from Riot Games' servers. Loading them tells those servers your IP address, but they set no
-    cookies through this site. The fonts are served by TCG Vault itself. There are no analytics, advertising or social media trackers.
-  </p>
+    <h2>2. Harmadik felek</h2>
+    <p>
+      Egyes Riftbound ikonok a Riot Games szervereiről töltődnek be, amelyek a letöltéskor látják az IP-címedet, de nem helyeznek el követő sütiket az oldalon. A betűtípusokat közvetlenül a TCG Vault saját szervere szolgálja ki (nem használunk Google Fonts külső hívást), és nem futtatunk analitikai vagy közösségi média követőkódokat.
+    </p>
 
-  <h2>Clearing it</h2>
-  <p>
-    You can delete this data at any time in your browser's settings (site data / storage). Clearing it signs you out and
-    removes anything that was only stored on this device, such as a collection you never synced to an account. Because all of
-    it is needed for the site to work, there are no settings to switch individual parts off.
-  </p>
+    <h2>3. Hogyan törölheted a helyi adatokat?</h2>
+    <p>
+      A böngésződ beállításaiban (Webhelyadatok / Helyi tárhely törlése) bármikor törölheted ezeket az adatokat. A törlés kijelentkeztet a fiókodból, és eltávolítja a felhőbe nem szinkronizált helyi gyűjteményt.
+    </p>
+    <p>Kérdés esetén: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. A személyes adatok kezeléséről részletesen az <a href="/legal/privacy">Adatkezelési tájékoztatóban</a> olvashatsz.</p>
+  </div>
 
-  <p>Questions: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. More about personal data in the <a href="/legal/privacy">privacy notice</a>.</p>
+  <div class="lang-en">
+    <h2>1. What Is Stored in Your Browser</h2>
+    <p>
+      Instead of tracking cookies, TCG Vault uses your browser's local storage (<code>localStorage</code> and <code>sessionStorage</code>). Every entry stored there is strictly necessary for a feature you explicitly use, and none of it is shared with advertisers or used to track you across the web.
+    </p>
+    <table>
+      <thead>
+        <tr><th>What</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Sign-in session</td><td>Keeps you signed in (set by our authentication provider, Supabase).</td></tr>
+        <tr><td>Your collection (<code>tcg_collection</code>)</td><td>The cards you track, so it works without an account and loads fast with one.</td></tr>
+        <tr><td>Theme &amp; language preference</td><td>Remembers the visual theme and legal document language you picked.</td></tr>
+        <tr><td>Marketplace cart (<code>tcg-cart</code>)</td><td>The cards you added to your cart until you send a hold request.</td></tr>
+        <tr><td>Delivery details (<code>tcg_checkout_delivery</code>)</td><td>Your shipping address or parcel locker so you do not have to retype it. It only leaves your device when you submit a hold request.</td></tr>
+        <tr><td>Draft decks &amp; filters</td><td>Deck builder drafts and catalog filter preferences.</td></tr>
+        <tr><td>This notice</td><td>Remembers that you have acknowledged the storage notice.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>2. Third Parties</h2>
+    <p>
+      Some Riftbound icons come from Riot Games' servers. Loading them reveals your IP address to those servers, but they set no cookies through this site. Fonts are self-hosted by TCG Vault, and there are no analytics, advertising, or social media trackers.
+    </p>
+
+    <h2>3. Clearing Browser Storage</h2>
+    <p>
+      You can delete this data at any time in your browser's settings (Site Data / Storage). Clearing it signs you out and removes anything stored only on this device (such as an unsynced local collection).
+    </p>
+    <p>Questions: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. For more on personal data, see the <a href="/legal/privacy">Privacy notice</a>.</p>
+  </div>
 </DocLayout>

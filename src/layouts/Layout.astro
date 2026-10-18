@@ -51,8 +51,27 @@ const pathname = Astro.url.pathname;
           } catch (e) {}
           // The old Cyberpunk ("Dark Tech") theme is gone too: that choice falls back to the default.
           if (override === 'cyberpunk') { localStorage.removeItem('tcg_theme_override'); override = null; }
-          var theme = (override === 'riftbound' || override === 'dark' || override === 'light') ? override : 'riftbound';
-          document.documentElement.setAttribute('data-theme', theme);
+          if (override === 'custom') {
+            document.documentElement.setAttribute('data-theme', 'custom');
+            try {
+              var customRaw = localStorage.getItem('tcg_custom_theme');
+              if (customRaw) {
+                var c = JSON.parse(customRaw);
+                var root = document.documentElement;
+                if (c.bgPage) root.style.setProperty('--custom-bg-page', c.bgPage);
+                if (c.bgSurface) root.style.setProperty('--custom-bg-surface', c.bgSurface);
+                if (c.bgSurface2) root.style.setProperty('--custom-bg-surface-2', c.bgSurface2);
+                if (c.accent) root.style.setProperty('--custom-accent', c.accent);
+                if (c.textPrimary) root.style.setProperty('--custom-text-primary', c.textPrimary);
+                if (c.border) root.style.setProperty('--custom-border', c.border);
+              }
+            } catch (e) {}
+          } else {
+            var theme = (override === 'riftbound' || override === 'dark' || override === 'light')
+              ? override
+              : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'riftbound');
+            document.documentElement.setAttribute('data-theme', theme);
+          }
         } catch (e) {}
       })();
     </script>

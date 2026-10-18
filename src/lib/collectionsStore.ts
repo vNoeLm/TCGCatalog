@@ -107,16 +107,23 @@ export async function createCollection(name: string, alwaysList = false, listDef
 
 export async function updateCollection(
   id: string,
-  patch: { name?: string; always_list?: boolean; list_defaults?: ListDefaults },
+  patch: { name?: string; always_list?: boolean; list_defaults?: ListDefaults; recalculate_prices?: boolean },
   prices?: Record<string, number>
-): Promise<NamedCollection> {
+): Promise<{ collection: NamedCollection; sync?: { listed: number; cardsListed: number; skippedUnpriced: number } | null }> {
   await flushPending(id);
-  const json = await api<{ collection: NamedCollection }>('/api/collections', {
+  const json = await api<{ collection: NamedCollection; sync?: { listed: number; cardsListed: number; skippedUnpriced: number } | null }>('/api/collections', {
     method: 'PATCH',
     body: JSON.stringify({ id, ...patch, prices }),
   });
   replaceCollection(json.collection);
-  return json.collection;
+  return { collection: json.collection, sync: json.sync };
+}
+
+export async function recalculateCollectionPrices(
+  id: string,
+  prices: Record<string, number>
+): Promise<{ collection: NamedCollection; sync?: { listed: number; cardsListed: number; skippedUnpriced: number } | null }> {
+  return updateCollection(id, { recalculate_prices: true }, prices);
 }
 
 export async function deleteCollection(id: string): Promise<void> {
@@ -152,7 +159,7 @@ function applyLocally(id: string, change: (cards: Record<string, number>) => Rec
 
 /**
  * +n / -n copies of one card (key: "<card id>" or "<card id>_foil"). `price` is what the card lists
- * at if the collection is always-list and this adds it to the market.
+ * at if the collection is always-list and this adds it to the market (0 when skip_unpriced skips it).
  */
 export function changeCollectionCard(id: string, key: string, delta: number, price?: number | null) {
   if (!delta) return;
@@ -165,7 +172,10 @@ export function changeCollectionCard(id: string, key: string, delta: number, pri
   const p = pending.get(id) || { deltas: {}, prices: {}, timer: null };
   p.deltas[key] = (p.deltas[key] || 0) + delta;
   const cardId = key.replace(/_foil$/, '');
-  if (price && price > 0) p.prices[cardId] = price;
+  if (price !== undefined && price !== null && price >= 0) {
+    p.prices[key] = price;
+    if (!(cardId in p.prices) || !key.endsWith('_foil')) p.prices[cardId] = price;
+  }
   if (p.timer) clearTimeout(p.timer);
   p.timer = setTimeout(() => { void flushPending(id); }, 500);
   pending.set(id, p);

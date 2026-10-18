@@ -432,53 +432,103 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 };
 
-// DELETE: Remove an order or purge all test orders
+// DELETE: Remove one or more orders (by orderNumber comma list) or purge all test orders
 export const DELETE: APIRoute = async ({ request }) => {
   try {
     const caller = await getRequestUser(request);
     if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
-    if (!caller.isAdmin) return jsonResponse({ success: false, error: 'Forbidden: admin access required.' }, 403);
 
-    const client = getSupabaseClient(request);
     const url = new URL(request.url);
-    const orderNumber = url.searchParams.get('orderNumber');
-    const purgeAll = url.searchParams.get('all') === 'true' || orderNumber === 'all';
+    const orderNumberParam = url.searchParams.get('orderNumber') || '';
+    const purgeAll = url.searchParams.get('all') === 'true' || orderNumberParam === 'all';
+    const scope = url.searchParams.get('scope') || (caller.isAdmin ? 'global' : 'mine');
+
+    const isUsersOrder = (o: Order) => {
+      if (o.user_id && o.user_id === caller.user.id) return true;
+      const email = caller.user.email?.toLowerCase();
+      if (email && o.customer_info?.email && o.customer_info.email.toLowerCase() === email) return true;
+      return false;
+    };
 
     if (purgeAll) {
-      const saved = await saveStoredOrders([], client);
+      if (scope === 'global' && caller.isAdmin) {
+        await saveStoredOrders([], supabaseAdmin);
+        try {
+          await supabaseAdmin.from('orders').delete().neq('order_number', '__dummy__');
+        } catch (e) {}
+      } else {
+        const currentOrders = await getStoredOrders(supabaseAdmin);
+        const remaining = currentOrders.filter(o => !isUsersOrder(o));
+        await saveStoredOrders(remaining, supabaseAdmin);
+        try {
+          await supabaseAdmin.from('orders').delete().eq('user_id', caller.user.id);
+        } catch (e) {}
+      }
+
       try {
-        await client.from('orders').delete().neq('order_number', '__dummy__');
+        await supabaseAdmin.auth.admin.updateUserById(caller.user.id, {
+          user_metadata: {
+            ...(caller.user.user_metadata || {}),
+            saved_orders: [],
+          },
+        });
       } catch (e) {}
 
-      return new Response(JSON.stringify({ success: true, purged: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ success: true, purged: true });
     }
 
-    if (!orderNumber) {
-      return new Response(JSON.stringify({ success: false, error: 'orderNumber parameter required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const targets = orderNumberParam
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (targets.length === 0) {
+      return jsonResponse({ success: false, error: 'orderNumber parameter required' }, 400);
     }
 
-    const currentOrders = await getStoredOrders(client);
-    const filtered = currentOrders.filter(o => o.order_number !== orderNumber);
-    const saved = await saveStoredOrders(filtered, client);
+    const targetSet = new Set(targets);
+    const currentOrders = await getStoredOrders(supabaseAdmin);
+
+    // Non-admins can only delete orders belonging to their own account/email
+    const removableSet = new Set<string>();
+    for (const num of targetSet) {
+      const found = currentOrders.find(o => o.order_number === num || o.id === num);
+      if (caller.isAdmin || !found || isUsersOrder(found)) {
+        removableSet.add(num);
+      }
+    }
+
+    if (removableSet.size === 0) {
+      return jsonResponse({ success: false, error: 'Forbidden: you can only delete your own orders.' }, 403);
+    }
+
+    const filtered = currentOrders.filter(
+      o => !removableSet.has(o.order_number) && (!o.id || !removableSet.has(o.id))
+    );
+    const saved = await saveStoredOrders(filtered, supabaseAdmin);
 
     try {
-      await client.from('orders').delete().eq('order_number', orderNumber);
+      await supabaseAdmin.from('orders').delete().in('order_number', [...removableSet]);
     } catch (e) {}
 
-    return new Response(JSON.stringify({ success: saved }), {
-      status: saved ? 200 : 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // Also clean caller's user_metadata.saved_orders so deleted orders don't resurrect on reload
+    try {
+      const existingMeta = caller.user.user_metadata || {};
+      if (Array.isArray(existingMeta.saved_orders)) {
+        const nextSaved = existingMeta.saved_orders.filter(
+          (o: any) => !removableSet.has(o?.order_number) && !removableSet.has(o?.id)
+        );
+        await supabaseAdmin.auth.admin.updateUserById(caller.user.id, {
+          user_metadata: {
+            ...existingMeta,
+            saved_orders: nextSaved,
+          },
+        });
+      }
+    } catch (e) {}
+
+    return jsonResponse({ success: saved, deleted: [...removableSet] }, saved ? 200 : 500);
   } catch (err: any) {
-    return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ success: false, error: err?.message || 'Server error' }, 500);
   }
 };

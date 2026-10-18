@@ -26,7 +26,7 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 // had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
 // their 150px floors, so Description effectively vanished into Condition and the row still didn't
 // fit, forcing the whole thing to scroll horizontally.
-const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(150px,1.1fr)_minmax(0,1.5fr)_minmax(150px,auto)_56px_100px_68px]';
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(160px,1fr)_minmax(200px,2.4fr)_minmax(130px,auto)_64px_115px_auto]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -83,13 +83,13 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
     <div
       onClick={onClose}
       data-state={entered ? 'open' : 'closed'}
-      style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12, overflowY: 'auto', overscrollBehavior: 'contain' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 'clamp(8px, 1.2vw, 20px)', overflowY: 'auto', overscrollBehavior: 'contain' }}
       className="tv-overlay"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         data-state={entered ? 'open' : 'closed'}
-        className="tv-modal-panel w-full max-w-5xl 2xl:max-w-[1400px] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        className="tv-modal-panel w-full h-full max-w-none relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
       >
         <button
@@ -101,23 +101,19 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="flex-1 min-h-0 overflow-y-auto min-[1550px]:overflow-hidden min-[1550px]:flex min-[1550px]:flex-row custom-scrollbar">
-         <div className="min-[1550px]:w-[44%] min-[1550px]:shrink-0 min-[1550px]:overflow-y-auto min-[1550px]:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:flex lg:flex-row custom-scrollbar">
+         <div className="lg:w-[380px] xl:w-[440px] 2xl:w-[500px] lg:shrink-0 lg:overflow-y-auto lg:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex gap-4 sm:gap-6 p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
               {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
             </div>
-            <div className="min-w-0 flex-1 pr-8 [container-type:inline-size]">
+            <div className="min-w-0 flex-1 pr-8 lg:pr-2 [container-type:inline-size]">
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
               {sub && <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
                 {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
               </p>
 
-              {/* 4 columns needs real room per box - not just for the "Average"/"Listings" labels,
-                  but for a HUF price value at this font size ("83 800 Ft" is 9 characters). Gated
-                  on this column's own width (the narrower half of a two-panel modal, not the
-                  viewport), so it falls back to 2x2 instead of squeezing the values. */}
               <div className="grid grid-cols-2 @[420px]:grid-cols-4 gap-2 mt-4">
                 {[
                   { label: 'Lowest', value: group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A', accent: true },
@@ -134,15 +130,12 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity }} />
          </div>
 
-         <div className="min-[1550px]:flex-1 min-[1550px]:min-w-0 min-[1550px]:overflow-y-auto custom-scrollbar">
-          {/* pr-14 always, not just at the width the panels go side-by-side: the close button is
-              absolutely positioned over the whole modal, so this row needs room clear of it in
-              every layout - it used to collide with "N shown" below 1550px. */}
-          <div className="flex items-center gap-2 flex-wrap pl-4 sm:pl-6 pr-14 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+         <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar flex flex-col">
+          <div className="flex items-center gap-2 flex-wrap pl-4 sm:pl-6 pr-14 py-3 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ListingSort)}
-              className="h-8 px-2 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              className="h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
             >
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
@@ -153,7 +146,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
-                className="h-8 px-2 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                className="h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
               >
                 <option value="All">All conditions</option>
                 {conditions.map(c => <option key={c} value={c}>{c}</option>)}
@@ -172,14 +165,14 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{visible.length} shown</span>
           </div>
 
-          <div className="px-2 sm:px-4 py-2 [container-type:inline-size]">
-            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} gap-x-3 px-2 sm:px-3 pb-2 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <div className="px-3 sm:px-4 py-2 [container-type:inline-size] flex-1">
+            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} gap-x-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
               <div>Seller</div>
               <div>Description</div>
               <div>Condition</div>
               <div className="text-right">Amount</div>
               <div className="text-right">Price</div>
-              <div />
+              <div className="w-[68px]" />
             </div>
             {visible.length === 0 ? (
               <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
@@ -190,7 +183,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   return (
                     <div
                       key={l.inventory_id}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-3 gap-y-1.5 px-2 sm:px-3 py-2.5 rounded-xl hover:brightness-95 transition`}
+                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-3 @[720px]:gap-x-5 gap-y-1.5 px-3 py-3 rounded-xl hover:brightness-95 transition`}
                       style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
                     >
                       <a
@@ -216,21 +209,18 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         </div>
                       </a>
 
-                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-snug">
+                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed">
                         {(() => {
                           const description = getListingDescription(l.notes);
                           if (!description) {
                             return <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
                           }
                           return (
-                            // The column header says "Description" at 720px+, but below that this
-                            // sits under the Condition badges with nothing else marking it as the
-                            // seller's own note rather than more card info - hence the icon.
                             <span className="flex items-start gap-1.5">
                               <svg className="w-3 h-3 mt-0.5 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
                                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                               </svg>
-                              <span className="line-clamp-2 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
+                              <span className="line-clamp-3 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
                             </span>
                           );
                         })()}
@@ -253,11 +243,11 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
                       {/* What's left to add - copies already in the buyer's cart are taken off. */}
                       <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</div>
-                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
+                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right whitespace-nowrap">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
                       <button
                         type="button"
                         onClick={() => onSelectListing(l.inventory_id)}
-                        className="order-3 @[720px]:order-6 px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition"
+                        className="order-3 @[720px]:order-6 w-[68px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition text-center justify-self-end"
                         style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
                       >
                         View

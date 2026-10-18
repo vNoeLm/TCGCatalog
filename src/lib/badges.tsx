@@ -40,6 +40,8 @@ export interface SellerTier {
 export function formatGameTitle(game: string): string {
   const g = (game || 'riftbound').toLowerCase();
   if (g === 'riftbound') return 'Riftbound';
+  if (g === 'mtg') return 'MTG';
+  if (g === 'onepiece') return 'One Piece';
   return g.charAt(0).toUpperCase() + g.slice(1);
 }
 
@@ -60,6 +62,16 @@ export const RARITY_DIFFICULTY_WEIGHT: Record<string, number> = {
   showcase: 4,
   secret: 4,
   'nova rare': 6,
+  // Magic: The Gathering
+  mythic: 4,
+  special: 3,
+  bonus: 3,
+  // One Piece Card Game
+  leader: 2,
+  promo: 2,
+  'super rare': 3,
+  'secret rare': 4,
+  'treasure rare': 5,
 };
 /** A rarity this table doesn't name (a new one added later, or another game entirely) is treated
  * as moderately hard rather than silently as free (0) or as hard as the rarest known tier. */
@@ -110,9 +122,7 @@ export function getCollectorTier(
   const gameTitle = formatGameTitle(game);
   const total = Math.max(1, totalInGameCount);
   const owned = Math.max(0, ownedInGameCount);
-  const percentage = Math.min(100, Math.max(0, Math.round(
-    weightedPercentage !== undefined ? weightedPercentage : (owned / total) * 100
-  )));
+  const percentage = Math.min(100, Math.max(0, Math.round((owned / total) * 100)));
 
   if (percentage >= 100) {
     return {
@@ -153,12 +163,12 @@ export function getCollectorTier(
       minPercentage: 90,
       nextTierMin: 100,
       color: '#fbbf24',
-      bg: 'rgba(245, 158, 11, 0.2)',
-      border: 'rgba(245, 158, 11, 0.5)',
+      bg: isLight ? '#18181b' : 'rgba(245, 158, 11, 0.2)',
+      border: isLight ? '#f59e0b' : 'rgba(245, 158, 11, 0.5)',
       badgeStyle: {
-        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(234, 179, 8, 0.2) 100%)',
-        borderColor: 'rgba(245, 158, 11, 0.5)',
-        color: isLight ? '#a16207' : '#fde047',
+        background: isLight ? '#18181b' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(234, 179, 8, 0.2) 100%)',
+        borderColor: isLight ? '#f59e0b' : 'rgba(245, 158, 11, 0.5)',
+        color: '#fde047',
         boxShadow: '0 0 14px rgba(245, 158, 11, 0.25)',
       },
     };
@@ -203,12 +213,12 @@ export function getCollectorTier(
       minPercentage: 50,
       nextTierMin: 75,
       color: '#facc15',
-      bg: 'rgba(250, 204, 21, 0.15)',
-      border: 'rgba(250, 204, 21, 0.4)',
+      bg: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.15)',
+      border: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.4)',
       badgeStyle: {
-        background: 'rgba(250, 204, 21, 0.15)',
-        borderColor: 'rgba(250, 204, 21, 0.4)',
-        color: isLight ? '#a16207' : '#fde047',
+        background: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.15)',
+        borderColor: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.4)',
+        color: '#fde047',
       },
     };
   }
@@ -288,7 +298,7 @@ export function getCollectorTier(
  * Calculates a seller tier based on the number of completed, distinct sales
  * (orders), not total units/cards sold — a buyer purchasing many cards in a
  * single order should not by itself vault a seller to the top tier.
- * Sellers with >= 1 completed sale receive the "Verified Seller" badge.
+ * Sellers with >= 1 completed sale receive the "Active Seller" badge.
  *
  * The site owner earns tiers the same way everyone else does; `isOwner` is
  * carried through only so the UI can render a separate "Site Owner" tag.
@@ -337,12 +347,12 @@ export function getSellerTier(
       ratingAvg,
       isOwner,
       color: '#facc15',
-      bg: 'rgba(250, 204, 21, 0.18)',
-      border: 'rgba(250, 204, 21, 0.45)',
+      bg: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.18)',
+      border: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.45)',
       badgeStyle: {
-        background: 'rgba(250, 204, 21, 0.18)',
-        borderColor: 'rgba(250, 204, 21, 0.45)',
-        color: isLight ? '#a16207' : '#fef08a',
+        background: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.18)',
+        borderColor: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.45)',
+        color: '#fef08a',
       },
     };
   }
@@ -394,7 +404,7 @@ export function getSellerTier(
   if (sold >= 1) {
     return {
       tier: 1,
-      nameEn: 'Verified Seller',
+      nameEn: 'Active Seller',
       icon: '★',
       iconType: 'verified',
       salesCount: sold,

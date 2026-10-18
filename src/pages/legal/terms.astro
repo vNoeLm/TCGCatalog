@@ -4,99 +4,203 @@ import { CONTACT_EMAIL } from '../../lib/site';
 ---
 
 <DocLayout
-  title="Terms of Service"
-  lead="The rules for using TCG Vault and its marketplace. By using the site you agree to them."
+  title="Terms of Service & Legal Disclosure"
+  titleHu="Általános Szerződési Feltételek (ÁSZF) és Impresszum"
+  lead="The rules for using TCG Vault and its peer-to-peer marketplace, including mandatory service provider and consumer protection disclosures under Hungarian and EU law."
+  leadHu="A TCG Vault gyűjteménykezelő és közösségi piactér használatának feltételei, valamint a magyar és európai uniós jogszabályok által előírt szolgáltatói adatok (Impresszum) és fogyasztóvédelmi tájékoztatás."
   group="legal"
-  updated="5 October 2026"
+  updated="18 October 2026"
+  updatedHu="2026. október 18."
 >
-  <p class="doc-note">
-    In short: TCG Vault helps collectors find each other and keep track of trades. It is not a shop. Buyers and sellers deal
-    with each other directly, and TCG Vault is not a party to their trades.
-  </p>
+  <div class="lang-hu">
+    <p class="doc-note">
+      <strong>Röviden:</strong> A TCG Vault egy ingyenes gyűjteménykezelő, pakliépítő és közösségi apróhirdetési/piactér felület (közvetítő szolgáltató). A TCG Vault nem webáruház: a kártyák adásvétele közvetlenül a felhasználók (a vevő és az eladó) között jön létre, a fizetés és az átadás pedig közvetlenül köztük zajlik.
+    </p>
 
-  <h2>1. Who runs TCG Vault</h2>
-  <p>
-    TCG Vault is a free fan project run by a private individual. Contact: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-  </p>
+    <h2>1. Impresszum és Szolgáltatói adatok (Ekertv. 4. §)</h2>
+    <p>
+      Az elektronikus kereskedelmi szolgáltatások, valamint az információs társadalommal összefüggő szolgáltatások egyes kérdéseiről szóló <strong>2001. évi CVIII. törvény (Ekertv.) 4. §</strong> alapján a szolgáltató és a tárhelyszolgáltatók adatai:
+    </p>
+    <ul>
+      <li><strong>A felület üzemeltetője (Szolgáltató):</strong> Magánszemély (nem üzletszerű közösségi rajongói projekt üzemeltetője)</li>
+      <li><strong>Közvetlen elektronikus elérhetőség és DSA kapcsolattartási pont:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>A szolgáltatás jellege:</strong> Ingyenes online gyűjteménykezelő és közvetítő szolgáltatás (online piactér).</li>
+    </ul>
 
-  <h2>2. Your account</h2>
-  <ul>
-    <li>You need to be at least 16 to create an account.</li>
-    <li>Use a display name that doesn't impersonate anyone, and keep your password to yourself. You are responsible for what happens on your account.</li>
-    <li>One person, one account. Using extra accounts to review yourself, inflate sales or get around a ban is not allowed.</li>
-  </ul>
+    <h3>Tárhelyszolgáltatók (Hosting &amp; adatbázis infrastruktúra)</h3>
+    <ul>
+      <li>
+        <strong>Webtárhely és szerveroldali futtatókörnyezet:</strong> Vercel Inc. (Székhely: 440 N Barranca Ave #4133, Covina, CA 91723, Amerikai Egyesült Államok; Európai Uniós szerverrégió: Frankfurt, Németország; Weboldal: <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">vercel.com</a>; E-mail: <code>privacy@vercel.com</code>).
+      </li>
+      <li>
+        <strong>Adatbázis, hitelesítés és képtárhely:</strong> Supabase Inc. (Székhely: 970 Toa Payoh North #07-04, Singapore 318992; Európai Uniós adatbázis-régió: Frankfurt, Németország / AWS eu-central-1; Weboldal: <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">supabase.com</a>; E-mail: <code>support@supabase.io</code>).
+      </li>
+    </ul>
 
-  <h2>3. How the marketplace works</h2>
-  <ol>
-    <li>A buyer requests a hold on one or more cards and chooses a handover method.</li>
-    <li>The seller accepts or rejects the request. Accepting reserves the cards for that buyer.</li>
-    <li>The two agree on payment and handover in Messages. TCG Vault does not process payments or hold money.</li>
-    <li>The seller marks the cards as handed over (met up or sent).</li>
-    <li>The buyer confirms they received them, which completes the sale. If the buyer doesn't respond within 14 days of handover, the seller can complete it.</li>
-  </ol>
-  <p>
-    See the <a href="/help/shipping">shipping &amp; handover guide</a> and the <a href="/help/selling">seller guidelines</a> for
-    the practical side.
-  </p>
+    <h2>2. A piactér jogállása és kötelező fogyasztóvédelmi tájékoztatás (45/2014. Korm. rendelet 11. §)</h2>
+    <p>
+      A fogyasztó és a vállalkozás közötti szerződések részletes szabályairól szóló <strong>45/2014. (II. 26.) Korm. rendelet 11. §-a</strong> alapján az online piactéren történő foglalás (Hold Request) előtt az alábbi kötelező tájékoztatást nyújtjuk:
+    </p>
+    <ul>
+      <li>
+        <strong>Az eladók jogállása (Magánszemély vs. Hivatalos Üzlet):</strong> Amennyiben egy eladó profilján és hirdetésén nem szerepel kifejezetten a <strong>„Verified Store” (Hivatalos Üzlet / Vállalkozás)</strong> jelölés, az eladó <strong>magánszemélyként</strong> (nem vállalkozásként) hirdet.
+      </li>
+      <li>
+        <strong>A 14 napos elállási jog hiánya magánszemély eladóknál:</strong> Magánszemély eladótól történő vásárlás esetén a szerződés két magánszemély között (C2C) jön létre a Polgári Törvénykönyvről szóló <strong>2013. évi V. törvény (Ptk.)</strong> szabályai szerint. Ilyen esetben a vevőt <strong>NEM illeti meg</strong> a fogyasztó és vállalkozás közötti szerződésekre vonatkozó uniós és magyar fogyasztóvédelmi jogszabályokban biztosított <strong>14 napos indokolás nélküli elállási jog</strong>, sem a vállalkozásokra irányadó kellékszavatossági/fogyasztói vélelem.
+      </li>
+      <li>
+        <strong>Szerződő felek és felelősségmegosztás:</strong> Az adásvételi szerződés kizárólag az eladó és a vevő között jön létre. A TCG Vault nem szerződő fél, nem szed jutalékot, nem kezel pénzt, és a kártyák átadásáért, meglétéért, állapotáért, valamint a vételár megfizetéséért kizárólag az ügyletben részt vevő eladó és vevő felel.
+      </li>
+    </ul>
 
-  <h2>4. If you sell</h2>
-  <ul>
-    <li>Only list cards you own and can hand over. Describe them honestly: the right card, version, finish and condition, with real photos where you add them.</li>
-    <li>The price, shipping costs and minimum order you set are what the buyer agrees to; don't add charges afterwards.</li>
-    <li>Answer hold requests promptly, and hand over what you agreed to, the way you agreed to.</li>
-    <li>Only mark a hold as handed over once you have actually met up or sent the cards.</li>
-  </ul>
+    <h2>3. Regisztráció és felhasználói fiók</h2>
+    <ul>
+      <li>Fiók létrehozásához legalább a <strong>16. életévedet</strong> be kell töltened.</li>
+      <li>Egy személy kizárólag egy fiókot használhat. Tilos több fiókot létrehozni saját magad értékelésére, az eladási számok mesterséges növelésére vagy kitiltás megkerülésére.</li>
+      <li>A megjelenített neved nem keltheti más személy vagy hivatalos üzlet látszatát. A jelszavad biztonságos megőrzéséért te felelsz.</li>
+    </ul>
 
-  <h2>5. If you buy</h2>
-  <ul>
-    <li>Only request holds you intend to complete, and pay as agreed with the seller.</li>
-    <li>Confirm you received the cards once you have them, and don't confirm before.</li>
-    <li>If something is wrong, talk to the seller first in Messages. If you can't sort it out, email us.</li>
-  </ul>
+    <h2>4. Hogyan működik az adásvétel és a foglalás (Hold Request)</h2>
+    <ol>
+      <li>A vevő a kosárban kiválasztja a kártyákat és az átvételi/szállítási módot, majd foglalási kérelmet (<em>Hold Request</em>) küld az eladónak.</li>
+      <li>Az eladó elfogadja vagy elutasítja a kérelmet. Elfogadáskor a rendszer a kártyákat a vevő részére lefoglalja.</li>
+      <li>A felek a belső <strong>Messages (Üzenetek)</strong> felületen egyeztetik a fizetést (pl. készpénz személyes átvételnél vagy közvetlen banki átutalás) és a szállítást. A TCG Vault nem végez pénzforgalmi szolgáltatást.</li>
+      <li>Az átadás vagy feladás után az eladó <em>Mark handed over</em> (Átadva/Feladva) állapotra állítja a rendelést.</li>
+      <li>A kártyák megérkezésekor a vevő a <em>Confirm received</em> gombbal visszaigazolja az átvételt, amivel az ügylet lezárul. Ha a vevő az átadástól számított 14 napon belül nem jelez vissza és problémát sem jelez, az eladó lezárhatja az ügyletet.</li>
+    </ol>
+    <p>
+      A gyakorlati tudnivalókat a <a href="/help/shipping">Szállítási és átadási útmutató</a>, valamint az <a href="/help/selling">Eladói útmutató</a> tartalmazza.
+    </p>
 
-  <h2>6. Not allowed</h2>
-  <ul>
-    <li>Counterfeit or proxy cards sold as real, and anything you don't own.</li>
-    <li>Scams, fake listings, payment fraud, or using the site to move money for others.</li>
-    <li>Harassment, threats, hate speech, or spam in messages, reviews or profiles.</li>
-    <li>Fake or traded reviews, and reviews used to pressure the other person.</li>
-    <li>Scraping the site, overloading it, or trying to get into accounts or data that aren't yours.</li>
-  </ul>
+    <h2>5. Szabályok eladóknak és adózási figyelemfelhívás</h2>
+    <ul>
+      <li>Csak olyan eredeti kártyát hirdess meg, amely a tulajdonodban és birtokodban van. A kártya kiadását, verzióját, foil jellegét és állapotát (Mint, Near Mint, Lightly Played stb.) a valóságnak megfelelően add meg.</li>
+      <li>A meghirdetett ár és az általad beállított szállítási díj a vevő által elfogadott végösszeg; utólagos rejtett költséget nem számíthatsz fel.</li>
+      <li><strong>Adózási tájékoztatás:</strong> Magánszemélyként a saját gyűjteményből származó ingó vagyontárgyak eseti értékesítése Magyarországon az SZJA törvény szerinti értékhatárig (évi 600 000 Ft bevételig, illetve 200 000 Ft jövedelemig) adómentes. Amennyiben üzletszerűen, rendszeres haszonszerzés céljából értékesítesz, saját felelősséged a megfelelő vállalkozási forma (pl. egyéni vállalkozás) megléte és a számlaadási kötelezettség teljesítése.</li>
+    </ul>
 
-  <h2>7. Reviews</h2>
-  <p>
-    After a completed trade, each side can rate the other once. Reviews should describe that trade honestly. We may remove
-    reviews that break these terms.
-  </p>
+    <h2>6. Szabályok vevőknek</h2>
+    <ul>
+      <li>Csak olyan kártyára küldj foglalási kérelmet, amelyet ténylegesen meg kívánsz vásárolni, és a megbeszélt határidőben fizesd ki / vedd át.</li>
+      <li>Csak akkor igazold vissza a kártyák megérkezését, amikor azokat ténylegesen átvetted és ellenőrizted.</li>
+    </ul>
 
-  <h2>8. Your content</h2>
-  <p>
-    You keep the rights to the photos and text you post. By posting them you let TCG Vault show them on the site for as long
-    as they are up. Don't post anything you don't have the right to share.
-  </p>
+    <h2>7. Rangsorolás és értékelések átláthatósága</h2>
+    <ul>
+      <li><strong>Keresési és listázási sorrend:</strong> A piactéren és a katalógusban a találatok kizárólag a felhasználó által kiválasztott objektív szempontok (pl. legolcsóbb ár, kártyaszám, ritkaság, mennyiség, név) szerint rendeződnek. A TCG Vault nem alkalmaz fizetett kiemelést vagy rejtett algoritmikus előnyben részesítést.</li>
+      <li><strong>Értékelések (Reviews) hitelessége:</strong> Értékelést kizárólag olyan regisztrált felhasználók írhatnak egymásról, akik között a TCG Vault rendszerében igazoltan lezárult adásvétel (teljesített Hold Request) jött létre, ügyletenként legfeljebb egy alkalommal.</li>
+    </ul>
 
-  <h2>9. Prices and card data</h2>
-  <p>
-    Market prices and estimated values are approximate and for reference only. Card information comes from public sources
-    and may contain mistakes.
-  </p>
+    <h2>8. Tiltott tevékenységek és bejelentési eljárás (DSA 16. cikk)</h2>
+    <p>Tilos a felületen:</p>
+    <ul>
+      <li>Hamisítványok, proxy kártyák eredetiként történő árusítása, vagy olyan tétel hirdetése, amely nincs a birtokodban;</li>
+      <li>Csalás, megtévesztő hirdetés, zaklatás, fenyegetés, gyűlöletbeszéd vagy kéretlen reklám (spam);</li>
+      <li>Hamis értékelések adása, illetve az oldal automatizált letöltése (scraping) vagy túlterhelése.</li>
+    </ul>
+    <p>
+      <strong>Jogellenes tartalom bejelentése (Notice &amp; Action):</strong> Amennyiben hamisított kártyát, csalást, szerzői jogsértést vagy más jogellenes tartalmat észlelsz, bejelentésedet a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címre küldheted meg a hirdetés vagy profil megjelölésével és az indoklással. Az üzemeltető a bejelentést megvizsgálja, és indokolt esetben a tartalmat eltávolítja vagy a szabályszegő fiókot felfüggeszti, amelyről az érintetteket indoklással tájékoztatja.
+    </p>
 
-  <h2>10. Suspension and deletion</h2>
-  <p>
-    We may hide listings, remove content, or suspend or delete accounts that break these terms or put other users at risk.
-    You can ask us to delete your account at any time.
-  </p>
+    <h2>9. Felelősségkorlátozás, panaszkezelés és irányadó jog</h2>
+    <ul>
+      <li>A TCG Vault „jelen állapotában” (<em>as-is</em>), ingyenesen érhető el. A piaci irányárak (Cardmarket / TCGplayer adatok alapján) kizárólag tájékoztató jellegűek.</li>
+      <li>A jelen ÁSZF-re és a szolgáltatásra a <strong>magyar jog</strong> (különösen a Ptk. és az Ekertv.) az irányadó.</li>
+      <li>Panaszaiddal vagy kérdéseiddel elsődlegesen a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címen fordulhatsz hozzánk. Fogyasztói jogvita esetén a lakóhelyed szerint illetékes <strong>Békéltető Testülethez</strong> (<a href="https://bekeltetes.hu" target="_blank" rel="noopener noreferrer">bekeltetes.hu</a>) vagy a területileg illetékes fogyasztóvédelmi hatósághoz (kormányhivatalhoz) fordulhatsz.</li>
+    </ul>
+  </div>
 
-  <h2>11. No guarantees</h2>
-  <p>
-    TCG Vault is provided as it is, for free. We do our best to keep it running and your data safe, but we can't promise it
-    will always be available or error-free. We are not responsible for trades between users, including payments, deliveries,
-    the condition of cards, or losses that come from them, except where the law says we must be.
-  </p>
+  <div class="lang-en">
+    <p class="doc-note">
+      <strong>In short:</strong> TCG Vault is a free collection tracker, deck builder, and peer-to-peer (C2C) marketplace platform (intermediary service). It is not a webshop: buyers and sellers trade directly with each other, and TCG Vault is not a party to their contracts or payments.
+    </p>
 
-  <h2>12. Changes and governing law</h2>
-  <p>
-    We may update these terms; the date at the top shows the latest version, and we will mention important changes on the site.
-    These terms are governed by Hungarian law. Nothing here takes away rights you have as a consumer where you live.
-  </p>
+    <h2>1. Service Provider Disclosure / Impresszum (Hungarian E-Commerce Act CVIII of 2001, Section 4)</h2>
+    <ul>
+      <li><strong>Operator (Service Provider):</strong> Private individual operating TCG Vault as a free, non-commercial community project.</li>
+      <li><strong>Direct Contact &amp; EU DSA Single Point of Contact:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>Service Nature:</strong> Free online collection management tool and intermediary peer-to-peer marketplace.</li>
+    </ul>
+
+    <h3>Hosting &amp; Infrastructure Providers</h3>
+    <ul>
+      <li>
+        <strong>Web Hosting &amp; Serverless Runtime:</strong> Vercel Inc. (440 N Barranca Ave #4133, Covina, CA 91723, USA; EU server region: Frankfurt, Germany; Website: <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">vercel.com</a>; Email: <code>privacy@vercel.com</code>).
+      </li>
+      <li>
+        <strong>Database, Authentication &amp; File Storage:</strong> Supabase Inc. (970 Toa Payoh North #07-04, Singapore 318992; EU database region: Frankfurt, Germany / AWS eu-central-1; Website: <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">supabase.com</a>; Email: <code>support@supabase.io</code>).
+      </li>
+    </ul>
+
+    <h2>2. Marketplace Role &amp; Mandatory Consumer Disclosures (Gov. Decree 45/2014, Section 11)</h2>
+    <p>
+      In accordance with Section 11 of Hungarian Government Decree 45/2014 (II. 26.) and the EU Omnibus Directive on online marketplaces, buyers are informed prior to submitting a hold request that:
+    </p>
+    <ul>
+      <li>
+        <strong>Seller Status (Private Individual vs. Verified Store):</strong> Unless a seller is explicitly marked with a <strong>"Verified Store"</strong> badge, the seller is acting as a <strong>private individual (<em>magánszemély</em>)</strong> and not as a business/trader.
+      </li>
+      <li>
+        <strong>No Statutory 14-Day Withdrawal Right Against Private Sellers:</strong> When purchasing from a private individual, the sales contract is concluded between two private individuals (C2C) under the Hungarian Civil Code (Act V of 2013 — Ptk.). Consequently, <strong>EU and Hungarian consumer protection rights applicable only against businesses — including the statutory 14-day right of withdrawal without reason — do NOT apply</strong> to the transaction.
+      </li>
+      <li>
+        <strong>Contractual Responsibility:</strong> The sales contract is formed exclusively between the seller and the buyer. TCG Vault is not a party to the sale, charges no commission, does not process or hold payments, and bears no liability for payment, shipping, or card condition between users.
+      </li>
+    </ul>
+
+    <h2>3. Your Account</h2>
+    <ul>
+      <li>You must be at least <strong>16 years old</strong> to create an account.</li>
+      <li>One person, one account. Creating extra accounts to review yourself, inflate sales numbers, or bypass a suspension is prohibited.</li>
+      <li>Use a display name that does not impersonate another person or store, and keep your password secure.</li>
+    </ul>
+
+    <h2>4. How Marketplace Trades Work</h2>
+    <ol>
+      <li>A buyer adds cards to their cart, selects a handover method, and submits a hold request.</li>
+      <li>The seller accepts or rejects the request. Accepting reserves the cards for that buyer.</li>
+      <li>Both parties agree on payment (e.g., cash in person or direct bank transfer) and handover details in <strong>Messages</strong>. TCG Vault does not process payments or hold funds.</li>
+      <li>Once the cards have been handed over or shipped, the seller marks the order as <em>Handed over</em>.</li>
+      <li>The buyer confirms receipt once the cards arrive, completing the trade. If the buyer does not respond within 14 days of handover and raises no issue, the seller may mark the trade completed.</li>
+    </ol>
+    <p>
+      See the <a href="/help/shipping">Shipping &amp; handover guide</a> and <a href="/help/selling">Seller guidelines</a> for practical details.
+    </p>
+
+    <h2>5. Rules for Sellers &amp; Tax Notice</h2>
+    <ul>
+      <li>Only list authentic cards that you own and physically have ready to hand over. Describe the set, version, finish, and condition accurately, with real photos where applicable.</li>
+      <li>The listing price and shipping fees you configure are the total price the buyer agrees to; do not add hidden charges afterwards.</li>
+      <li><strong>Hungarian Tax Notice:</strong> Under Hungarian personal income tax law (SZJA), occasional sales of personal movable property by private individuals are tax-exempt up to 600,000 HUF gross revenue (or 200,000 HUF profit) per calendar year. Sellers trading regularly for business profit (<em>üzletszerűen</em>) are solely responsible for registering as a business/sole proprietor and issuing tax-compliant invoices.</li>
+    </ul>
+
+    <h2>6. Rules for Buyers</h2>
+    <ul>
+      <li>Only request holds you genuinely intend to complete, and pay as agreed with the seller.</li>
+      <li>Confirm receipt only after you have received and inspected the cards.</li>
+    </ul>
+
+    <h2>7. Ranking &amp; Review Transparency</h2>
+    <ul>
+      <li><strong>Search &amp; Sort Ranking:</strong> Catalog and marketplace results are ordered strictly by the user-selected sort mode (e.g., Lowest Price, Card Number, Rarity, Quantity, Name). There are no paid placements or hidden ranking boosts.</li>
+      <li><strong>Review Authenticity:</strong> Reviews can only be submitted by the actual buyer and seller of a trade that was marked completed on TCG Vault, limited to one review per party per completed order.</li>
+    </ul>
+
+    <h2>8. Prohibited Conduct &amp; Notice-and-Action (EU DSA Art. 16)</h2>
+    <ul>
+      <li>Counterfeit or proxy cards sold as authentic, or listing items you do not possess;</li>
+      <li>Scams, payment fraud, harassment, threats, hate speech, or spam;</li>
+      <li>Fake or coerced reviews, scraping, or attempting to compromise accounts or infrastructure.</li>
+    </ul>
+    <p>
+      <strong>Reporting Illegal Content (Notice &amp; Action):</strong> Anyone may report counterfeit listings, scams, copyright infringement, or illegal content by emailing <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with a link/description of the content and the reason for the report. We review reports promptly and may remove listings or suspend accounts that violate these terms or applicable law, notifying affected users with the reasons for the decision.
+    </p>
+
+    <h2>9. Disclaimers, Dispute Resolution &amp; Governing Law</h2>
+    <ul>
+      <li>TCG Vault is provided "as is" and free of charge. Market reference prices (from Cardmarket / TCGplayer) are estimates for informational purposes only.</li>
+      <li>These terms are governed by <strong>Hungarian law</strong> (in particular Act V of 2013 on the Civil Code and Act CVIII of 2001 on Electronic Commerce).</li>
+      <li>For complaints or questions, contact <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Consumers in Hungary may also contact the competent Conciliation Board (<a href="https://bekeltetes.hu" target="_blank" rel="noopener noreferrer">bekeltetes.hu</a>) or consumer protection authority.</li>
+    </ul>
+  </div>
 </DocLayout>

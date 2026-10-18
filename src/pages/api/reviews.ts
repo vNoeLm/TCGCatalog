@@ -162,3 +162,49 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonResponse({ success: false, error: err?.message || 'Server error' }, 500);
   }
 };
+
+// DELETE ?id=<review_id> - admins can delete any review; users can delete their own review
+export const DELETE: APIRoute = async ({ url, request }) => {
+  try {
+    const caller = await getRequestUser(request);
+    if (!caller) return jsonResponse({ success: false, error: 'Unauthorized' }, 401);
+    const id = url.searchParams.get('id');
+    if (!id) return jsonResponse({ success: false, error: 'Review id is required.' }, 400);
+
+    if (!caller.isAdmin) {
+      const { data: existing } = await supabaseAdmin
+        .from('user_reviews')
+        .select('reviewer_id')
+        .eq('id', id)
+        .maybeSingle();
+      if (!existing || existing.reviewer_id !== caller.user.id) {
+        return jsonResponse({ success: false, error: 'Forbidden' }, 403);
+      }
+    }
+
+    await Promise.allSettled([
+      supabaseAdmin.from('user_reviews').delete().eq('id', id),
+      supabaseAdmin.from('seller_reviews').delete().eq('id', id),
+    ]);
+
+    const { data: blob } = await supabaseAdmin.from('settings').select('value').eq('key', 'seller_reviews').maybeSingle();
+    if (blob?.value) {
+      try {
+        const parsed = typeof blob.value === 'string' ? JSON.parse(blob.value) : blob.value;
+        if (Array.isArray(parsed)) {
+          const next = parsed.filter((r: any) => r?.id !== id);
+          if (next.length !== parsed.length) {
+            await supabaseAdmin.from('settings').upsert({ key: 'seller_reviews', value: JSON.stringify(next) });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return jsonResponse({ success: true, deletedId: id });
+  } catch (err: any) {
+    return jsonResponse({ success: false, error: err?.message || 'Server error' }, 500);
+  }
+};
+

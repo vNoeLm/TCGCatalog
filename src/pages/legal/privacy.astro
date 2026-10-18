@@ -4,77 +4,196 @@ import { CONTACT_EMAIL } from '../../lib/site';
 ---
 
 <DocLayout
-  title="Privacy notice"
-  lead="What TCG Vault stores about you, who can see it, and what you can ask us to do with it."
+  title="Privacy Notice (GDPR)"
+  titleHu="Adatkezelési Tájékoztató (GDPR)"
+  lead="What personal data TCG Vault processes, on what legal basis, who can see it, and how you can exercise your GDPR rights."
+  leadHu="Milyen személyes adatokat kezel a TCG Vault, milyen jogalapon, kik férhetnek hozzá, és hogyan gyakorolhatod a GDPR szerinti jogaidat."
   group="legal"
-  updated="5 October 2026"
+  updated="18 October 2026"
+  updatedHu="2026. október 18."
 >
-  <p class="doc-note">
-    TCG Vault is a fan project run by a private individual, not a company. For anything in this notice, email
-    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-  </p>
+  <div class="lang-hu">
+    <p class="doc-note">
+      A TCG Vault egy magánszemély által üzemeltetett, ingyenes közösségi projekt. Adatkezelési kérdésekben vagy kérelmekkel (hozzáférés, helyesbítés, törlés) bármikor írhatsz a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címre.
+    </p>
 
-  <h2>1. Using the site without an account</h2>
-  <p>
-    You can browse the catalog, track a collection and build decks without signing up. That data stays in your browser
-    (see the <a href="/legal/cookies">cookie notice</a>) and is never sent to us.
-  </p>
+    <h2>1. Az Adatkezelő adatai</h2>
+    <ul>
+      <li><strong>Adatkezelő:</strong> A TCG Vault magánszemély üzemeltetője</li>
+      <li><strong>Kapcsolattartási e-mail:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>Irányadó jogszabályok:</strong> Az Európai Parlament és a Tanács (EU) 2016/679 rendelete (<strong>GDPR</strong>), valamint az információs önrendelkezési jogról és az információszabadságról szóló <strong>2011. évi CXII. törvény (Infotv.)</strong>.</li>
+    </ul>
 
-  <h2>2. What we store when you have an account</h2>
-  <ul>
-    <li><strong>Account</strong>: your email address, a password (stored only as a secure hash by our sign-in provider), your display name and profile picture, and when you joined.</li>
-    <li><strong>Your collection</strong>: the cards you track, synced to your account so it follows you between devices, plus a backup if you save one.</li>
-    <li><strong>Decks and wishlists</strong>: decks you save, and wishlists. Decks you publish are public; everything else is only yours.</li>
-    <li><strong>Seller settings</strong>: Quick List rules and shipping options.</li>
-    <li><strong>Marketplace</strong>: your listings and their photos, hold requests you send or receive, the handover details on them (for example your name, phone number, address or parcel locker), the messages you exchange about a trade, completed orders, and the reviews you give and receive.</li>
-    <li><strong>Usage counts</strong>: how often a listing is viewed or clicked (shown to its seller), and search terms typed into the catalog or marketplace, stored without your account attached.</li>
-  </ul>
+    <h2>2. Az oldal használata regisztráció nélkül</h2>
+    <p>
+      Fiók létrehozása nélkül is böngészheted a katalógust, vezetheted a gyűjteményedet és építhetsz paklikat. Ezek az adatok kizárólag a saját böngésződ helyi tárhelyében (<code>localStorage</code>) maradnak (lásd a <a href="/legal/cookies">Süti tájékoztatót</a>), és nem kerülnek továbbításra a szervereinkre.
+    </p>
 
-  <h2>3. Who can see what</h2>
-  <ul>
-    <li><strong>Everyone</strong>: your display name and picture, your public profile (member since, sales and purchases made, seller and buyer ratings, reviews), your listings, and decks you published.</li>
-    <li><strong>The other person in a trade</strong>: your hold request, the handover details you entered for it, and your messages. Delivery details are only sent to the seller you are buying from.</li>
-    <li><strong>Only you</strong>: your email address, collection, saved decks, wishlists and settings.</li>
-    <li><strong>The site operator</strong> can access the database to run and fix the site, and does so only when needed.</li>
-  </ul>
+    <h2>3. Regisztrált felhasználókról kezelt adatok, célok és jogalapok</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Kezelt adatkör</th>
+          <th>Az adatkezelés célja</th>
+          <th>Jogalap (GDPR 6. cikk)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fiókadatok:</strong> e-mail cím, jelszó (kizárólag titkosított hash formájában), megjelenített név, profilkép, regisztráció ideje.</td>
+          <td>Felhasználói fiók biztosítása, beléptetés, profil megjelenítése.</td>
+          <td>Szerződés teljesítése — GDPR 6. cikk (1) b) pont</td>
+        </tr>
+        <tr>
+          <td><strong>Gyűjtemény, paklik és kívánságlisták:</strong> rögzített kártyák, mentett gyűjtemények, automatikus listázási és szállítási beállítások.</td>
+          <td>Eszközök közötti felhőalapú szinkronizálás és piactéri hirdetések kezelése.</td>
+          <td>Szerződés teljesítése — GDPR 6. cikk (1) b) pont</td>
+        </tr>
+        <tr>
+          <td><strong>Piactéri ügyletek és üzenetek:</strong> meghirdetett kártyák, fotók, foglalási kérelmek (<em>Hold Request</em>), szállítási/átvételi adatok (név, telefonszám, lakcím vagy csomagautomata), üzenetváltások, értékelések.</td>
+          <td>A vevő és az eladó közötti kapcsolatfelvétel, átadás lebonyolítása és a közösségi bizalom (értékelések) fenntartása.</td>
+          <td>Szerződés teljesítése — GDPR 6. cikk (1) b) pont; jogos érdek (visszaélések megelőzése) — GDPR 6. cikk (1) f) pont</td>
+        </tr>
+        <tr>
+          <td><strong>Technikai és statisztikai adatok:</strong> hirdetések megtekintési/kattintási száma, fiókhoz nem kötött keresési kifejezések, rövid távú szervernaplók (IP-cím).</td>
+          <td>Az oldal biztonságos működtetése, hibakeresés és anonim keresleti statisztika megjelenítése az eladóknak.</td>
+          <td>Jogos érdek — GDPR 6. cikk (1) f) pont</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Nem értékesítünk személyes adatokat, nem jelenítünk meg reklámokat, és nem használunk harmadik féltől származó hirdetési vagy viselkedéskövető kódokat.</p>
 
-  <h2>4. Why we use it (legal basis)</h2>
-  <ul>
-    <li>To provide the account, collection sync and marketplace you asked for (performance of a contract).</li>
-    <li>To keep the site secure and working, and to show sellers anonymous demand statistics (legitimate interest).</li>
-  </ul>
-  <p>We do not sell your data, show ads, or use analytics or advertising trackers.</p>
+    <h2>4. Kik láthatják az adataidat?</h2>
+    <ul>
+      <li><strong>Nyilvános adatok:</strong> a megjelenített neved, profilképed, regisztrációd ideje, lezárt eladásaid és vásárlásaid darabszáma, szöveges és csillagos értékeléseid, aktív hirdetéseid, valamint a nyilvánossá tett paklijaid.</li>
+      <li><strong>Az ügylet másik résztvevője (eladó / vevő):</strong> a foglalási kérelmed, az ahhoz megadott szállítási/átvételi adataid (név, telefonszám, cím vagy csomagautomata) és a közös üzenetváltásaitok. A szállítási adatokat kizárólag az az eladó látja, akitől az adott kártyákat megrendelted.</li>
+      <li><strong>Kizárólag te:</strong> az e-mail címed, a privát gyűjteményed, privát paklijaid és kívánságlistáid.</li>
+    </ul>
 
-  <h2>5. Services we rely on</h2>
-  <ul>
-    <li><strong>Supabase</strong> (database, sign-in and image storage, hosted in the EU).</li>
-    <li><strong>Vercel</strong> (hosting; our server code runs in Frankfurt). Like any host, it keeps short-lived technical logs such as IP addresses.</li>
-    <li><strong>Riot Games' content servers</strong>: some Riftbound icons are loaded from Riot, which also sees your IP address.</li>
-  </ul>
-  <p>Links to other sites (Cardmarket, Foxpost, Packeta) only take you there; their own privacy policies apply.</p>
+    <h2>5. Adatfeldolgozók (Tárhely és infrastruktúra)</h2>
+    <ul>
+      <li><strong>Supabase Inc.</strong> (970 Toa Payoh North #07-04, Singapore 318992) — adatbázis, hitelesítés és képtárhely. Az adatok tárolása az <strong>Európai Unióban (Frankfurt, Németország)</strong> történik.</li>
+      <li><strong>Vercel Inc.</strong> (440 N Barranca Ave #4133, Covina, CA 91723, USA) — webtárhely és szerveroldali futtatókörnyezet (EU régió: <strong>Frankfurt, Németország</strong>). Rövid élettartamú technikai biztonsági naplókat (pl. IP-cím) kezel.</li>
+      <li><strong>Scryfall, LLC</strong> (<code>cards.scryfall.io</code>) — a Magic: The Gathering kártyák illusztrációi közvetlenül a Scryfall tartalomszolgáltató hálózatáról (CDN) töltődnek be, a kártyák megtekintésekor a böngésződ közvetlenül a Scryfall szervereihez kapcsolódik.</li>
+      <li><strong>Külső játékkártya- és képtartalmi kiszolgálók (CDN-ek)</strong> — egyes külső TCG kártyaképek (pl. One Piece Card Game) és a Riftbound játékelem-ikonok (Riot Games Inc.) közvetlenül a hivatalos vagy közösségi tartalomszolgáltató szerverekről töltődnek be, így a böngésződ csatlakozásakor az adott szerverek látják a technikai HTTP kérésadatokat (IP-cím, böngészőazonosító).</li>
+    </ul>
+    <p>Külső weboldalakra (Cardmarket, Foxpost, Packeta) mutató hivatkozások megnyitásakor az adott szolgáltató saját adatkezelési tájékoztatója érvényes.</p>
 
-  <h2>6. How long we keep it</h2>
-  <p>
-    As long as you have an account. If you ask us to delete it, we delete your account and the personal data linked to it
-    within 30 days. Data kept only in your browser stays there until you clear it or use Reset in the Catalog.
-  </p>
+    <h2>6. Adatmegőrzési idő</h2>
+    <ul>
+      <li><strong>Fiók- és gyűjteményadatok:</strong> a felhasználói fiókod fennállásáig. Ha kéred a fiókod törlését, a fiókodat és a hozzá kapcsolódó személyes adatokat legfeljebb <strong>30 napon belül</strong> töröljük.</li>
+      <li><strong>Lezárt piactéri ügyletek és értékelések:</strong> fióktörlés esetén a másik fél ügylettörténetének és a közösségi értékelések sértetlenségének megőrzése érdekében a lezárt rendelésekben a személyes szállítási adatokat töröljük/anonimizáljuk.</li>
+    </ul>
 
-  <h2>7. Your rights</h2>
-  <p>Under the GDPR you can ask us to:</p>
-  <ul>
-    <li>show you the data we hold about you, or give you a copy (you can also export your collection yourself from the Catalog);</li>
-    <li>correct it (you can change your display name and picture in your profile);</li>
-    <li>delete it, or restrict or object to how we use it.</li>
-  </ul>
-  <p>
-    Email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and we will reply within 30 days. If you are not happy with
-    the answer, you can complain to the Hungarian data protection authority (NAIH, <a href="https://naih.hu" rel="noopener noreferrer" target="_blank">naih.hu</a>)
-    or the authority where you live.
-  </p>
+    <h2>7. Az érintettek jogai és jogorvoslat (NAIH)</h2>
+    <p>A GDPR 15–21. cikkei alapján jogosult vagy:</p>
+    <ul>
+      <li><strong>hozzáférést</strong> kérni a rólad kezelt személyes adatokhoz, és másolatot kérni azokról (a gyűjteményedet közvetlenül a Katalógusból is exportálhatod JSON/TXT formátumban);</li>
+      <li>kérni adataid <strong>helyesbítését</strong> (a nevedet és profilképedet a Profil oldalon magad is módosíthatod);</li>
+      <li>kérni adataid <strong>törlését</strong> („elfeledtetéshez való jog”) vagy az adatkezelés <strong>korlátozását</strong>;</li>
+      <li><strong>adathordozhatósághoz</strong> való jogodat gyakorolni, illetve <strong>tiltakozni</strong> a jogos érdeken alapuló adatkezelés ellen.</li>
+    </ul>
+    <p>
+      Kérelmedet a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címre küldheted, amelyre legfeljebb <strong>30 napon belül</strong> válaszolunk.
+    </p>
+    <p>
+      <strong>Felügyeleti hatóság és jogorvoslat:</strong> Amennyiben úgy ítéled meg, hogy a személyes adataid kezelése sérti a GDPR vagy az Infotv. előírásait, panasszal fordulhatsz a <strong>Nemzeti Adatvédelmi és Információszabadság Hatósághoz (NAIH)</strong>:
+    </p>
+    <ul>
+      <li><strong>Székhely:</strong> 1055 Budapest, Falk Miksa utca 9-11. (Postacím: 1363 Budapest, Pf. 9.)</li>
+      <li><strong>E-mail:</strong> <code>ugyfelszolgalat@naih.hu</code></li>
+      <li><strong>Weboldal:</strong> <a href="https://naih.hu" target="_blank" rel="noopener noreferrer">https://naih.hu</a></li>
+    </ul>
+    <p>Emellett jogosult vagy a lakóhelyed vagy tartózkodási helyed szerint illetékes törvényszék előtt bírósági eljárást is indítani.</p>
+  </div>
 
-  <h2>8. Age</h2>
-  <p>You need to be at least 16 to create an account.</p>
+  <div class="lang-en">
+    <p class="doc-note">
+      TCG Vault is a free community project run by a private individual. For any privacy questions or GDPR requests (access, correction, deletion), email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+    </p>
 
-  <h2>9. Changes</h2>
-  <p>If this notice changes in a way that matters, the date at the top changes and we will mention it on the site.</p>
+    <h2>1. Data Controller</h2>
+    <ul>
+      <li><strong>Controller:</strong> Private individual operating TCG Vault</li>
+      <li><strong>Contact Email:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>Applicable Law:</strong> EU General Data Protection Regulation (<strong>GDPR</strong> — Regulation (EU) 2016/679) and Hungarian Act CXII of 2011 on the Right of Informational Self-Determination and on Freedom of Information (<strong>Infotv.</strong>).</li>
+    </ul>
+
+    <h2>2. Using the Site Without an Account</h2>
+    <p>
+      You can browse the catalog, track a collection, and build decks without signing up. That data stays in your browser's local storage (see the <a href="/legal/cookies">Cookie notice</a>) and is never transmitted to our servers.
+    </p>
+
+    <h2>3. Data We Process When You Have an Account, Purposes &amp; Legal Bases</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Category of Data</th>
+          <th>Purpose</th>
+          <th>Legal Basis (GDPR Art. 6)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Account data:</strong> email address, password (stored only as a secure hash by our auth provider), display name, avatar, join date.</td>
+          <td>Providing your account, sign-in, and public profile.</td>
+          <td>Performance of a contract — Art. 6(1)(b)</td>
+        </tr>
+        <tr>
+          <td><strong>Collections, decks &amp; wishlists:</strong> tracked cards, named collections, auto-list and shipping settings.</td>
+          <td>Cloud sync across devices and managing marketplace listings.</td>
+          <td>Performance of a contract — Art. 6(1)(b)</td>
+        </tr>
+        <tr>
+          <td><strong>Marketplace trades &amp; messages:</strong> listings, photos, hold requests, delivery details (name, phone number, address or parcel locker), trade messages, completed orders, reviews.</td>
+          <td>Connecting buyers and sellers, facilitating handover, and maintaining community trust via trade reviews.</td>
+          <td>Performance of a contract — Art. 6(1)(b); Legitimate interest (fraud prevention) — Art. 6(1)(f)</td>
+        </tr>
+        <tr>
+          <td><strong>Technical &amp; usage counts:</strong> listing view/click counters, anonymous catalog search terms, short-lived server logs (IP address).</td>
+          <td>Keeping the platform secure and showing sellers anonymous demand statistics.</td>
+          <td>Legitimate interest — Art. 6(1)(f)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>We do not sell your personal data, display advertisements, or use third-party advertising or behavioral tracking scripts.</p>
+
+    <h2>4. Who Can See What</h2>
+    <ul>
+      <li><strong>Public:</strong> your display name, avatar, member-since date, completed sales/purchases counts, ratings, reviews, active listings, and published decks.</li>
+      <li><strong>Your counterparty in a trade:</strong> your hold request, the delivery/handover details you entered for it, and your messages. Delivery details are only shared with the specific seller you are ordering from.</li>
+      <li><strong>Only you:</strong> your email address, private collections, private decks, and wishlists.</li>
+    </ul>
+
+    <h2>5. Data Processors &amp; Infrastructure</h2>
+    <ul>
+      <li><strong>Supabase Inc.</strong> (970 Toa Payoh North #07-04, Singapore 318992) — database, authentication, and image storage, hosted in the <strong>European Union (Frankfurt, Germany)</strong>.</li>
+      <li><strong>Vercel Inc.</strong> (440 N Barranca Ave #4133, Covina, CA 91723, USA) — web hosting and serverless functions running in <strong>Frankfurt, Germany</strong>; processes short-lived technical logs including IP addresses.</li>
+      <li><strong>Scryfall, LLC</strong> (<code>cards.scryfall.io</code>) — card illustrations for Magic: The Gathering are served directly from Scryfall's content delivery network, meaning your browser connects to Scryfall when viewing MTG cards.</li>
+      <li><strong>External Card &amp; Image Content Delivery Networks (CDNs)</strong> — certain external card artwork (e.g. One Piece Card Game) and game glyphs (Riot Games Inc.) are fetched directly from external game or community content servers, which receive standard HTTP connection data (IP address, user-agent) to deliver the image.</li>
+    </ul>
+
+    <h2>6. Retention Periods</h2>
+    <ul>
+      <li><strong>Account &amp; collection data:</strong> retained for as long as you maintain an account. If you request account deletion, your account and linked personal data are deleted within <strong>30 days</strong>.</li>
+      <li><strong>Completed trade records:</strong> when an account is deleted, personal shipping details on past orders are removed/anonymized while preserving aggregate trade history for the counterparty.</li>
+    </ul>
+
+    <h2>7. Your GDPR Rights &amp; Supervisory Authority (NAIH)</h2>
+    <p>Under Articles 15–21 of the GDPR, you have the right to request:</p>
+    <ul>
+      <li><strong>Access</strong> to and a copy of the personal data we hold about you (you can also export your collection directly from the Catalog);</li>
+      <li><strong>Rectification</strong> of inaccurate data;</li>
+      <li><strong>Erasure</strong> ("right to be forgotten") or <strong>restriction</strong> of processing;</li>
+      <li><strong>Data portability</strong> and the right to <strong>object</strong> to processing based on legitimate interest.</li>
+    </ul>
+    <p>
+      Send requests to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and we will respond within <strong>30 days</strong>. You also have the right to lodge a complaint with the Hungarian data protection authority:
+    </p>
+    <ul>
+      <li><strong>Authority:</strong> Nemzeti Adatvédelmi és Információszabadság Hatóság (<strong>NAIH</strong>)</li>
+      <li><strong>Address:</strong> 1055 Budapest, Falk Miksa utca 9-11., Hungary</li>
+      <li><strong>Email:</strong> <code>ugyfelszolgalat@naih.hu</code> — <strong>Website:</strong> <a href="https://naih.hu" target="_blank" rel="noopener noreferrer">https://naih.hu</a></li>
+    </ul>
+  </div>
 </DocLayout>

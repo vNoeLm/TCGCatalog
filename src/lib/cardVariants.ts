@@ -1,4 +1,4 @@
-﻿import type { FilterState } from '../types';
+import type { FilterState } from '../types';
 
 export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean }) => {
   if (card.is_foil) return true;
@@ -6,13 +6,20 @@ export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean
 };
 
 export const isOvernumbered = (card: { card_number?: string | null }) => {
-  if (!card.card_number || !card.card_number.includes('/')) return false;
-  const parts = card.card_number.split('/');
-  if (parts.length < 2) return false;
-  const numMatch = parts[0].match(/\d+/);
-  const denMatch = parts[1].match(/\d+/);
-  if (numMatch && denMatch) {
-    return parseInt(numMatch[0], 10) > parseInt(denMatch[0], 10);
+  if (!card.card_number) return false;
+  if (card.card_number.includes('/')) {
+    const parts = card.card_number.split('/');
+    if (parts.length < 2) return false;
+    const numMatch = parts[0].match(/\d+/);
+    const denMatch = parts[1].match(/\d+/);
+    if (numMatch && denMatch) {
+      return parseInt(numMatch[0], 10) > parseInt(denMatch[0], 10);
+    }
+    return false;
+  }
+  const radMatch = card.card_number.match(/^RAD-(\d+)/i);
+  if (radMatch) {
+    return parseInt(radMatch[1], 10) > 167;
   }
   return false;
 };
@@ -60,17 +67,58 @@ export const isToken = (card: { card_number?: string | null; card_type?: string 
   );
 };
 
-export const isAltArt = (card: { card_number?: string | null; subtype?: string | null; tags?: any }) => {
-  if (isSp(card)) return true;
+export const isAltArt = (card: { card_number?: string | null; subtype?: string | null; tags?: any; rarity?: string | null; card_type?: string | null; name?: string | null }) => {
+  if (isOvernumbered(card) || isSigned(card) || isSp(card)) return false;
   if (!card.card_number) return false;
-  const numPart = card.card_number.split('/')[0];
-  const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
+  const numPart = card.card_number.split('/')[0].replace(/^[a-z]+-/i, '');
+  const hasSuffix = /^\d+-?[ab](?:-P)?$/i.test(numPart);
   const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
   const isAltTag = Array.isArray(card.tags) && card.tags.some((t: any) => String(t).toLowerCase().includes('alt') || String(t).toLowerCase().includes('alternate'));
   return Boolean(hasSuffix || isAltSubtype || isAltTag);
 };
 
-export const isBaseSetCard = (card: { card_number?: string | null; subtype?: string | null; card_type?: string | null; tags?: any; name?: string | null }) => {
+/**
+ * Granular rarity score for sorting:
+ * Overnumbered Signature (110) > Signed (105) > Overnumbered (100) > SP (90) > Alt Art (80) > Showcase (75)
+ * > Epic (50) > Rare (40) > Uncommon (30) > Common (20) > Token / Basic (10).
+ */
+export const getCardRarityRank = (card: {
+  rarity?: string | null;
+  card_number?: string | null;
+  subtype?: string | null;
+  tags?: any;
+  card_type?: string | null;
+  name?: string | null;
+}): number => {
+  const over = isOvernumbered(card);
+  const signed = isSigned(card);
+  if (over && signed) return 110;
+  if (signed) return 105;
+  if (over) return 100;
+  if (isSp(card)) return 90;
+  if (isAltArt(card)) return 80;
+  if (card.rarity === 'Showcase') return 75;
+  if (card.rarity === 'Epic') return 50;
+  if (card.rarity === 'Rare') return 40;
+  if (card.rarity === 'Uncommon') return 30;
+  if (card.rarity === 'Common') return 20;
+  return 10;
+};
+
+export const compareCardsByRarity = (
+  a: { rarity?: string | null; card_number?: string | null; subtype?: string | null; tags?: any; card_type?: string | null; name?: string | null },
+  b: { rarity?: string | null; card_number?: string | null; subtype?: string | null; tags?: any; card_type?: string | null; name?: string | null },
+  direction: 'desc' | 'asc' = 'desc'
+): number => {
+  const rA = getCardRarityRank(a);
+  const rB = getCardRarityRank(b);
+  if (rA !== rB) {
+    return direction === 'desc' ? rB - rA : rA - rB;
+  }
+  return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+};
+
+export const isBaseSetCard = (card: { card_number?: string | null; subtype?: string | null; card_type?: string | null; tags?: any; name?: string | null; rarity?: string | null }) => {
   if (isOvernumbered(card)) return false;
   if (isSigned(card)) return false;
   if (isSp(card)) return false;
@@ -87,6 +135,11 @@ export const isBaseSetCard = (card: { card_number?: string | null; subtype?: str
     if (denVal > 0 && numVal >= 1 && numVal <= denVal) {
       return true;
     }
+  }
+  const radMatch = card.card_number?.match(/^RAD-(\d+)$/i);
+  if (radMatch) {
+    const numVal = parseInt(radMatch[1], 10);
+    return numVal >= 1 && numVal <= 167;
   }
   return false;
 };

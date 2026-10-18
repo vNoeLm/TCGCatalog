@@ -1,16 +1,135 @@
 import { useState, useEffect } from 'react';
 
-export type ThemeMode = 'auto' | 'riftbound' | 'dark' | 'light';
-export type ActiveTheme = 'riftbound' | 'dark' | 'light';
+export type ThemeMode = 'auto' | 'riftbound' | 'dark' | 'light' | 'custom';
+export type ActiveTheme = 'riftbound' | 'dark' | 'light' | 'custom';
 
 export const THEME_OVERRIDE_KEY = 'tcg_theme_override';
 export const ACTIVE_GAME_KEY = 'tcg_active_game';
+export const CUSTOM_THEME_STORAGE_KEY = 'tcg_custom_theme';
+
+export interface CustomThemeConfig {
+  bgPage: string;
+  bgSurface: string;
+  bgSurface2: string;
+  accent: string;
+  textPrimary: string;
+  border?: string;
+}
+
+export const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
+  bgPage: '#0b0f19',
+  bgSurface: '#121826',
+  bgSurface2: '#1a2336',
+  accent: '#a855f7',
+  textPrimary: '#f8fafc',
+  border: 'rgba(168, 85, 247, 0.3)',
+};
+
+export const CUSTOM_PRESETS: { name: string; config: CustomThemeConfig }[] = [
+  {
+    name: 'Neon Cyber',
+    config: {
+      bgPage: '#080811',
+      bgSurface: '#111222',
+      bgSurface2: '#181932',
+      accent: '#06b6d4',
+      textPrimary: '#f0fdfa',
+      border: 'rgba(6, 182, 212, 0.35)',
+    },
+  },
+  {
+    name: 'Amethyst Vault',
+    config: {
+      bgPage: '#0d0a1a',
+      bgSurface: '#17122c',
+      bgSurface2: '#221b3e',
+      accent: '#a855f7',
+      textPrimary: '#faf5ff',
+      border: 'rgba(168, 85, 247, 0.35)',
+    },
+  },
+  {
+    name: 'Emerald Core',
+    config: {
+      bgPage: '#06120d',
+      bgSurface: '#0c2218',
+      bgSurface2: '#133224',
+      accent: '#10b981',
+      textPrimary: '#ecfdf5',
+      border: 'rgba(16, 185, 129, 0.35)',
+    },
+  },
+  {
+    name: 'Crimson Sunset',
+    config: {
+      bgPage: '#12070a',
+      bgSurface: '#200e14',
+      bgSurface2: '#2e141c',
+      accent: '#f43f5e',
+      textPrimary: '#fff1f2',
+      border: 'rgba(244, 63, 94, 0.35)',
+    },
+  },
+  {
+    name: 'Solar Flare',
+    config: {
+      bgPage: '#130d04',
+      bgSurface: '#241a08',
+      bgSurface2: '#33250c',
+      accent: '#f59e0b',
+      textPrimary: '#fffbeb',
+      border: 'rgba(245, 158, 11, 0.35)',
+    },
+  },
+];
+
+export function getCustomTheme(): CustomThemeConfig {
+  if (typeof window === 'undefined') return DEFAULT_CUSTOM_THEME;
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_CUSTOM_THEME, ...parsed };
+      }
+    }
+  } catch (e) {}
+  return DEFAULT_CUSTOM_THEME;
+}
+
+export function applyCustomThemeStyles(config: CustomThemeConfig = getCustomTheme()) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (config.bgPage) root.style.setProperty('--custom-bg-page', config.bgPage);
+  if (config.bgSurface) root.style.setProperty('--custom-bg-surface', config.bgSurface);
+  if (config.bgSurface2) root.style.setProperty('--custom-bg-surface-2', config.bgSurface2);
+  if (config.accent) root.style.setProperty('--custom-accent', config.accent);
+  if (config.textPrimary) root.style.setProperty('--custom-text-primary', config.textPrimary);
+  if (config.border) {
+    root.style.setProperty('--custom-border', config.border);
+  } else {
+    root.style.removeProperty('--custom-border');
+  }
+}
+
+export function saveCustomTheme(config: Partial<CustomThemeConfig>): CustomThemeConfig {
+  const current = getCustomTheme();
+  const updated: CustomThemeConfig = { ...current, ...config };
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {}
+    applyCustomThemeStyles(updated);
+    window.dispatchEvent(new CustomEvent('tcg-custom-theme-change', { detail: updated }));
+  }
+  return updated;
+}
 
 export function getThemeOverride(): ThemeMode {
   if (typeof window === 'undefined') return 'auto';
   try {
     const saved = localStorage.getItem(THEME_OVERRIDE_KEY) as ThemeMode;
-    if (saved === 'riftbound' || saved === 'dark' || saved === 'light' || saved === 'auto') {
+    if (saved === 'riftbound' || saved === 'dark' || saved === 'light' || saved === 'custom' || saved === 'auto') {
       return saved;
     }
   } catch (e) {}
@@ -26,9 +145,24 @@ export function getActiveGame(): string {
   }
 }
 
-export function getEffectiveTheme(_activeGame?: string): ActiveTheme {
+export function getEffectiveTheme(activeGame?: string): ActiveTheme {
   const override = getThemeOverride();
-  return override === 'auto' ? 'riftbound' : override;
+  if (override === 'custom') return 'custom';
+  if (override === 'light') return 'light';
+  if (override === 'dark') return 'dark';
+  if (override === 'riftbound') return 'riftbound';
+
+  // 'auto' mode: dynamically respects OS prefers-color-scheme
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light';
+    }
+  }
+  // Dark preference or default fallback:
+  if (activeGame && activeGame !== 'riftbound') {
+    return 'dark';
+  }
+  return 'riftbound';
 }
 
 export function applySiteTheme(activeGame?: string): ActiveTheme {
@@ -36,6 +170,9 @@ export function applySiteTheme(activeGame?: string): ActiveTheme {
   const effective = getEffectiveTheme(activeGame);
   try {
     document.documentElement.setAttribute('data-theme', effective);
+    if (effective === 'custom') {
+      applyCustomThemeStyles();
+    }
     window.dispatchEvent(
       new CustomEvent('tcg-theme-change', {
         detail: {
@@ -64,6 +201,7 @@ export function useSiteTheme(cardGame?: string): {
   isRiftbound: boolean;
   isDark: boolean;
   isLight: boolean;
+  isCustom: boolean;
 } {
   const [themeMode, setModeState] = useState<ThemeMode>(() => getThemeOverride());
   const [theme, setTheme] = useState<ActiveTheme>(() => getEffectiveTheme(cardGame));
@@ -72,6 +210,9 @@ export function useSiteTheme(cardGame?: string): {
     const current = getEffectiveTheme(cardGame);
     setTheme(current);
     setModeState(getThemeOverride());
+    if (current === 'custom') {
+      applyCustomThemeStyles();
+    }
 
     const handleThemeChange = (e: Event) => {
       const custom = e as CustomEvent<{ theme: ActiveTheme; override: ThemeMode }>;
@@ -92,22 +233,55 @@ export function useSiteTheme(cardGame?: string): {
       setTheme(effective);
       if (typeof document !== 'undefined') {
         document.documentElement.setAttribute('data-theme', effective);
+        if (effective === 'custom') {
+          applyCustomThemeStyles();
+        }
+      }
+    };
+
+    const handleCustomThemeChange = () => {
+      if (getThemeOverride() === 'custom') {
+        applyCustomThemeStyles();
+      }
+    };
+
+    // Auto mode listener for system dark/light switch
+    const mediaQuery = typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-color-scheme: light)')
+      : null;
+
+    const handleMediaChange = () => {
+      if (getThemeOverride() === 'auto') {
+        const nextEffective = getEffectiveTheme(cardGame);
+        setTheme(nextEffective);
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', nextEffective);
+        }
       }
     };
 
     window.addEventListener('tcg-theme-change', handleThemeChange);
     window.addEventListener('tcg-game-change', handleGameChange);
+    window.addEventListener('tcg-custom-theme-change', handleCustomThemeChange);
+    if (mediaQuery && mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    }
 
     return () => {
       window.removeEventListener('tcg-theme-change', handleThemeChange);
       window.removeEventListener('tcg-game-change', handleGameChange);
+      window.removeEventListener('tcg-custom-theme-change', handleCustomThemeChange);
+      if (mediaQuery && mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      }
     };
   }, [cardGame]);
 
   const updateMode = (mode: ThemeMode) => {
     setThemeOverride(mode);
     setModeState(mode);
-    setTheme(getEffectiveTheme(cardGame));
+    const nextTheme = getEffectiveTheme(cardGame);
+    setTheme(nextTheme);
   };
 
   return {
@@ -117,5 +291,6 @@ export function useSiteTheme(cardGame?: string): {
     isRiftbound: theme === 'riftbound',
     isDark: theme === 'dark',
     isLight: theme === 'light',
+    isCustom: theme === 'custom',
   };
 }

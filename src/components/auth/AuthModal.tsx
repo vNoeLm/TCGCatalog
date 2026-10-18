@@ -21,6 +21,7 @@ export function AuthModal({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -46,6 +47,11 @@ export function AuthModal({
 
     if (!email.trim() || !password.trim()) {
       setErrorMsg('Please provide both email and password.');
+      return;
+    }
+
+    if (mode === 'signup' && !acceptedTerms) {
+      setErrorMsg('Please accept the Terms of Service (ÁSZF) and Privacy Notice to create an account.');
       return;
     }
 
@@ -170,6 +176,28 @@ export function AuthModal({
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
           />
         </div>
+
+        {mode === 'signup' && (
+          <label className="flex items-start gap-2.5 text-xs text-zinc-400 leading-relaxed cursor-pointer select-none mt-0.5">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              required
+              className="mt-0.5 rounded border-zinc-700 bg-zinc-950 accent-emerald-500 cursor-pointer"
+            />
+            <span>
+              I am at least 16 years old and I accept the{' '}
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-zinc-200 underline hover:text-white">
+                Terms of Service (ÁSZF)
+              </a>{' '}
+              and acknowledge the{' '}
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-zinc-200 underline hover:text-white">
+                Privacy Notice (Adatkezelési tájékoztató)
+              </a>.
+            </span>
+          </label>
+        )}
 
         <button
           type="submit"

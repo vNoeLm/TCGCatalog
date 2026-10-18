@@ -52,15 +52,17 @@ export function generateOrderNumber(): string {
  * The orders the server says the signed-in user can see (their own, or all for an admin). The
  * server checks who is asking; orders are not readable straight from the database.
  */
-async function fetchVisibleOrders(): Promise<Order[]> {
-  if (typeof window === 'undefined') return [];
+async function fetchVisibleOrders(): Promise<{ ok: boolean; orders: Order[] }> {
+  if (typeof window === 'undefined') return { ok: false, orders: [] };
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
-  if (!token) return [];
+  if (!token) return { ok: false, orders: [] };
   const res = await fetch('/api/orders', { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) return [];
+  if (!res.ok) return { ok: false, orders: [] };
   const json = await res.json().catch(() => null);
-  return json?.success && Array.isArray(json.orders) ? json.orders : [];
+  return json?.success && Array.isArray(json.orders)
+    ? { ok: true, orders: json.orders }
+    : { ok: false, orders: [] };
 }
 
 /**
@@ -127,36 +129,45 @@ export async function fetchUserOrders(): Promise<Order[]> {
 
   // Sync latest statuses from store_orders in Supabase settings
   try {
-    {
-      const allStoreOrders: Order[] = await fetchVisibleOrders();
-      if (Array.isArray(allStoreOrders)) {
-        allStoreOrders.forEach(stOrd => {
-          const key = stOrd.order_number || stOrd.id;
-          if (user) {
-            const isMyUserId = stOrd.user_id === user.id;
-            const isMyEmail = Boolean(user.email && stOrd.customer_info?.email && stOrd.customer_info.email.toLowerCase() === user.email.toLowerCase());
-            if (isMyUserId || isMyEmail) {
-              const existing = orderMap.get(key) || stOrd;
-              const isPaid = stOrd.payment_status === 'paid' || existing.payment_status === 'paid';
-              const resolvedPaymentStatus = isPaid ? 'paid' : (stOrd.payment_status || existing.payment_status);
-              const resolvedStatus = isPaid && (stOrd.status === 'Pending' || existing.status === 'Pending')
-                ? 'Processing'
-                : (stOrd.status !== 'Pending' ? stOrd.status : existing.status);
-
-              orderMap.set(key, {
-                ...existing,
-                ...stOrd,
-                user_id: user.id,
-                payment_status: resolvedPaymentStatus,
-                status: resolvedStatus,
-              });
-            }
-          } else if (orderMap.has(key)) {
-            const existing = orderMap.get(key)!;
-            orderMap.set(key, { ...existing, ...stOrd });
-          }
-        });
+    const { ok: serverOk, orders: allStoreOrders } = await fetchVisibleOrders();
+    if (serverOk && user) {
+      const serverKeys = new Set(allStoreOrders.map(o => o.order_number || o.id).filter(Boolean));
+      const now = Date.now();
+      for (const [key, ord] of orderMap.entries()) {
+        const ageMs = now - new Date(ord.created_at || 0).getTime();
+        // If order is older than 30s and no longer exists on the server, it was deleted
+        if (!serverKeys.has(key) && ageMs > 30_000) {
+          orderMap.delete(key);
+        }
       }
+    }
+    if (Array.isArray(allStoreOrders)) {
+      allStoreOrders.forEach(stOrd => {
+        const key = stOrd.order_number || stOrd.id;
+        if (user) {
+          const isMyUserId = stOrd.user_id === user.id;
+          const isMyEmail = Boolean(user.email && stOrd.customer_info?.email && stOrd.customer_info.email.toLowerCase() === user.email.toLowerCase());
+          if (isMyUserId || isMyEmail) {
+            const existing = orderMap.get(key) || stOrd;
+            const isPaid = stOrd.payment_status === 'paid' || existing.payment_status === 'paid';
+            const resolvedPaymentStatus = isPaid ? 'paid' : (stOrd.payment_status || existing.payment_status);
+            const resolvedStatus = isPaid && (stOrd.status === 'Pending' || existing.status === 'Pending')
+              ? 'Processing'
+              : (stOrd.status !== 'Pending' ? stOrd.status : existing.status);
+
+            orderMap.set(key, {
+              ...existing,
+              ...stOrd,
+              user_id: user.id,
+              payment_status: resolvedPaymentStatus,
+              status: resolvedStatus,
+            });
+          }
+        } else if (orderMap.has(key)) {
+          const existing = orderMap.get(key)!;
+          orderMap.set(key, { ...existing, ...stOrd });
+        }
+      });
     }
   } catch (e) {
     console.warn('Could not sync store_orders latest statuses:', e);
@@ -827,13 +838,82 @@ export async function updateOrderPayment(
 }
 
 /**
+ * Delete one or more orders by order_number from server, user_metadata, and localStorage.
+ */
+export async function deleteOrders(orderNumbers: string[]): Promise<{ success: boolean; error?: string }> {
+  const clean = orderNumbers.map(s => s.trim()).filter(Boolean);
+  if (clean.length === 0) return { success: true };
+  const targetSet = new Set(clean);
+
+  try {
+    const user = await getCurrentUser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (sessionData?.session?.access_token) {
+      headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+    }
+
+    const res = await fetch(`/api/orders?orderNumber=${encodeURIComponent(clean.join(','))}`, {
+      method: 'DELETE',
+      headers,
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || json?.success === false) {
+      return { success: false, error: json?.error || 'Could not delete order.' };
+    }
+
+    if (typeof window !== 'undefined') {
+      const keysToClean = [ORDERS_STORAGE_KEY];
+      if (user?.id) keysToClean.push(`${ORDERS_STORAGE_KEY}_${user.id}`);
+      for (const k of keysToClean) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const next = parsed.filter((o: any) => !targetSet.has(o?.order_number) && !targetSet.has(o?.id));
+              localStorage.setItem(k, JSON.stringify(next));
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (user?.user_metadata?.saved_orders && Array.isArray(user.user_metadata.saved_orders)) {
+      try {
+        const nextSaved = user.user_metadata.saved_orders.filter(
+          (o: any) => !targetSet.has(o?.order_number) && !targetSet.has(o?.id)
+        );
+        await supabase.auth.updateUser({
+          data: { saved_orders: nextSaved },
+        });
+      } catch {}
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tcg-orders-changed'));
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to delete order.' };
+  }
+}
+
+export async function deleteOrder(orderNumber: string): Promise<{ success: boolean; error?: string }> {
+  return deleteOrders([orderNumber]);
+}
+
+/**
  * Completely purge all test orders from Cloud DB, localStorage, and User Auth Metadata.
  */
-export async function purgeAllOrders(): Promise<{ success: boolean; error?: string }> {
+export async function purgeAllOrders(scope: 'mine' | 'global' = 'mine'): Promise<{ success: boolean; error?: string }> {
   try {
+    const user = await getCurrentUser();
     // 1. Wipe local device storage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ORDERS_STORAGE_KEY);
+      if (user?.id) localStorage.removeItem(`${ORDERS_STORAGE_KEY}_${user.id}`);
     }
 
     // 2. Call DELETE /api/orders?all=true with auth header
@@ -843,20 +923,9 @@ export async function purgeAllOrders(): Promise<{ success: boolean; error?: stri
       headers['Authorization'] = `Bearer ${sessionData.session.access_token}`;
     }
 
-    await fetch('/api/orders?all=true', { method: 'DELETE', headers }).catch(() => null);
+    await fetch(`/api/orders?all=true&scope=${scope}`, { method: 'DELETE', headers }).catch(() => null);
 
-    // 3. Directly clear settings.store_orders
-    try {
-      await supabase.from('settings').upsert({ key: 'store_orders', value: '[]' });
-    } catch (e) {}
-
-    // 4. Directly clear public.orders if table exists
-    try {
-      await supabase.from('orders').delete().neq('order_number', '__dummy__');
-    } catch (e) {}
-
-    // 5. Clear current user saved_orders in auth metadata
-    const user = await getCurrentUser();
+    // 3. Clear current user saved_orders in auth metadata
     if (user) {
       try {
         await supabase.auth.updateUser({
@@ -868,7 +937,7 @@ export async function purgeAllOrders(): Promise<{ success: boolean; error?: stri
       } catch (e) {}
     }
 
-    // 6. Notify application
+    // 4. Notify application
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('tcg-orders-changed'));
     }

@@ -147,6 +147,7 @@ async function loadProfile(user: AuthUser): Promise<UserProfile> {
     email: user.email || null,
     display_name: dbDisplayName || (user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || splitEmail(user.email || 'User')),
     avatar_url: dbAvatarUrl || (user.user_metadata?.avatar_url || user.user_metadata?.picture || null),
+    banner_url: user.user_metadata?.banner_url || null,
     role,
     is_admin: isPlatformAdmin,
     is_owner: isPlatformOwner,
@@ -204,14 +205,97 @@ export async function updateProfile(updates: Partial<UserProfile>) {
   if (updates.avatar_url !== undefined) {
     authData.avatar_url = updates.avatar_url;
   }
+  if (updates.banner_url !== undefined) {
+    authData.banner_url = updates.banner_url;
+  }
 
-  // Update Supabase Auth user metadata
+  // 1. Update public.profiles + auth.users + user_banners via server API
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (token) {
+    try {
+      await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          display_name: updates.display_name,
+          avatar_url: updates.avatar_url,
+          banner_url: updates.banner_url,
+        }),
+      });
+    } catch {}
+  }
+
+  // 2. Refresh local Supabase Auth session metadata
   const { data: authResult, error: authError } = await supabase.auth.updateUser({
     data: authData,
   });
   forgetCurrentUser();
+  cachedOwnerProfile = null;
 
   return { data: authResult, error: authError };
+}
+
+/**
+ * Compresses any user-selected image file client-side to a 160x160 center-cropped WebP (~6–12 KB)
+ * and uploads it to `avatars/<userId>.webp` (overwriting any previous custom avatar).
+ */
+export async function uploadCustomAvatar(file: File): Promise<{ avatar_url: string }> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const size = 160;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas not supported'));
+        return;
+      }
+      // Center-crop square
+      const minSide = Math.min(img.width, img.height);
+      const sx = Math.floor((img.width - minSide) / 2);
+      const sy = Math.floor((img.height - minSide) / 2);
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+      let out = canvas.toDataURL('image/webp', 0.82);
+      if (!out.startsWith('data:image/webp')) {
+        out = canvas.toDataURL('image/jpeg', 0.82);
+      }
+      resolve(out);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Could not read image file.'));
+    };
+    img.src = objectUrl;
+  });
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) throw new Error('Not signed in.');
+
+  const res = await fetch('/api/profile', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ dataUrl }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error || 'Avatar upload failed.');
+  }
+  await supabase.auth.updateUser({ data: { avatar_url: json.avatar_url } }).catch(() => null);
+  forgetCurrentUser();
+  cachedOwnerProfile = null;
+  return { avatar_url: json.avatar_url };
 }
 
 // ─── Cloud Saved Decks ──────────────────────────────────────────────

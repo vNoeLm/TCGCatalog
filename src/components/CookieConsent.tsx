@@ -55,23 +55,30 @@ export function CookieConsent() {
         <div className="min-w-0">
           <h2 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>Cookies and local storage</h2>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            TCG Vault keeps your collection, theme and sign-in in your browser so the site works. There are no ads and no tracking.
+            TCG Vault uses strictly necessary browser storage for your sign-in session, collection, cart, and theme. There are no ads or analytics trackers.
           </p>
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={accept}
               className="px-4 h-9 rounded-xl text-xs font-black cursor-pointer transition"
               style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}
             >
-              Accept
+              Got it
             </button>
             <a
               href="/legal/cookies"
               className="text-xs font-bold underline underline-offset-2 cursor-pointer"
               style={{ color: 'var(--text-tertiary)' }}
             >
-              Cookie notice
+              Cookies (Sütik)
+            </a>
+            <a
+              href="/legal/privacy"
+              className="text-xs font-bold underline underline-offset-2 cursor-pointer"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Privacy (Adatkezelés)
             </a>
           </div>
         </div>

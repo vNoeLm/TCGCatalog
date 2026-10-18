@@ -120,75 +120,121 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
-/* IVORY PARCHMENT: Warm off-white & antique gold — the one light theme */
+/* IVORY PARCHMENT: Warm off-white & rose — the light theme */
 html[data-theme="light"] {
-  /* Backgrounds: warm ivory, not stark white */
-  --bg-page:          #faf7f0;
-  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(217, 119, 6, 0.06) 0%, rgba(250, 247, 240, 0) 55%), #faf7f0;
+  /* Backgrounds: warm parchment beige page so crisp white containers clearly stand out */
+  --bg-page:          #f3ede2;
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(244, 63, 94, 0.06) 0%, rgba(243, 237, 226, 0) 55%), #f3ede2;
   --bg-surface:       #ffffff;
-  --bg-surface-2:     #f4efe4;
-  --bg-raised:        #ece4d3;
+  --bg-surface-2:     #ede6d8;
+  --bg-raised:        #e2d9c8;
   --bg-input:         #ffffff;
-  --bg-header:        rgba(255, 253, 248, 0.92);
+  --bg-header:        rgba(255, 253, 248, 0.94);
 
-  /* Borders: neutral ink, not tinted — light mode reads cleanest that way */
-  --border:           rgba(24, 24, 27, 0.12);
-  --border-subtle:    rgba(24, 24, 27, 0.07);
-  --border-hover:     rgba(24, 24, 27, 0.24);
+  /* Banner overlay in light mode: warm translucent veil so banner art stays clearly visible */
+  --banner-overlay:   linear-gradient(110deg, rgba(243, 237, 226, 0.62) 0%, rgba(243, 237, 226, 0.28) 52%, rgba(243, 237, 226, 0.38) 100%);
+
+  /* Borders: stronger neutral ink so cards, panels, and sub-containers are clearly defined */
+  --border:           rgba(24, 24, 27, 0.22);
+  --border-subtle:    rgba(24, 24, 27, 0.14);
+  --border-hover:     rgba(225, 29, 72, 0.55);
 
   /* Text: black ink throughout - grey on ivory is hard to read. Hierarchy comes from size and
      weight instead. Only placeholders stay lighter, so an empty field doesn't look filled in. */
   --text-primary:     #0a0a0a;
-  --text-secondary:   #121212;
-  --text-tertiary:    #1a1a1a;
-  --text-muted:       #262626;
-  --text-placeholder: #8c8577;
+  --text-secondary:   #18181b;
+  --text-tertiary:    #27272a;
+  --text-muted:       #3f3f46;
+  --text-placeholder: #78716c;
   /* Accent text is ink too: the accent colour is carried by fills and borders, never by small text. */
   --text-accent:      #0a0a0a;
   --text-on-accent:   #0a0a0a;
 
-  /* Accent: rose pink - amber/gold read as brown on the ivory background */
+  /* Accent: rose pink */
   --accent:           #e11d48;
   --accent-light:     #fb7185;
-  /* Brighter than --accent on purpose: --accent/--text-accent has to stay dark enough to read as
-     small text on white, which makes it look muddy as a big solid button fill. A filled button's
-     text is the dark --text-on-accent instead, so the fill itself is free to be this much brighter
-     - a brighter rose than --accent, with dark text on it. */
   --accent-strong:    #fb7185;
   --positive:         #047857;
-  --positive-muted:   rgba(4, 120, 87, 0.10);
-  --positive-border:  rgba(4, 120, 87, 0.35);
-  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
+  --positive-muted:   rgba(4, 120, 87, 0.12);
+  --positive-border:  rgba(4, 120, 87, 0.38);
   --negative:         #b91c1c;
-  --negative-muted:   rgba(185, 28, 28, 0.10);
-  --negative-border:  rgba(185, 28, 28, 0.35);
+  --negative-muted:   rgba(185, 28, 28, 0.12);
+  --negative-border:  rgba(185, 28, 28, 0.38);
   /* Selected / active: a soft rose wash with a rose edge. */
-  --accent-muted:     rgba(244, 63, 94, 0.13);
-  --accent-border:    rgba(225, 29, 72, 0.45);
-  --accent-glow:      rgba(244, 63, 94, 0.2);
+  --accent-muted:     rgba(244, 63, 94, 0.15);
+  --accent-border:    rgba(225, 29, 72, 0.50);
+  --accent-glow:      rgba(244, 63, 94, 0.24);
 
   /* Brand Logo Gradient */
   --brand-gradient:   linear-gradient(90deg, #9f1239, #e11d48, #fb7185);
 
   /* Scrollbar */
-  --scrollbar-thumb:  rgba(24, 24, 27, 0.18);
-  --scrollbar-track:  #f4efe4;
+  --scrollbar-thumb:  rgba(24, 24, 27, 0.24);
+  --scrollbar-track:  #ede6d8;
 
-  /* Shadows: an actual shadow (not a glow) is what reads as depth on a light surface */
-  --shadow-card:      0 8px 24px rgba(24, 24, 27, 0.10), 0 1px 2px rgba(24, 24, 27, 0.06);
-  --shadow-header:    0 1px 0 rgba(24, 24, 27, 0.08);
+  /* Shadows: crisp elevation shadow so containers pop against the beige page */
+  --shadow-card:      0 6px 20px rgba(24, 24, 27, 0.12), 0 1px 3px rgba(24, 24, 27, 0.08);
+  --shadow-header:    0 1px 0 rgba(24, 24, 27, 0.14);
 
   color-scheme: light;
+}
+
+/* CUSTOM THEME: User-customized palette configured in Profile > Custom Studio */
+html[data-theme="custom"] {
+  --bg-page:          var(--custom-bg-page, #0b0f19);
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, color-mix(in srgb, var(--custom-accent, #a855f7) 22%, transparent) 0%, var(--custom-bg-page, #0b0f19) 65%), var(--custom-bg-page, #0b0f19);
+  --bg-surface:       var(--custom-bg-surface, #131b2e);
+  --bg-surface-2:     var(--custom-bg-surface-2, #1a253c);
+  --bg-raised:        color-mix(in srgb, var(--custom-bg-surface-2, #1a253c) 80%, var(--custom-accent, #a855f7) 20%);
+  --bg-input:         var(--custom-bg-surface, #131b2e);
+  --bg-header:        color-mix(in srgb, var(--custom-bg-page, #0b0f19) 92%, transparent);
+
+  /* Borders */
+  --border:           var(--custom-border, color-mix(in srgb, var(--custom-accent, #a855f7) 28%, transparent));
+  --border-subtle:    color-mix(in srgb, var(--custom-border, var(--custom-accent, #a855f7)) 50%, transparent);
+  --border-hover:     var(--custom-accent, #a855f7);
+
+  /* Text */
+  --text-primary:     var(--custom-text-primary, #f8fafc);
+  --text-secondary:   color-mix(in srgb, var(--custom-text-primary, #f8fafc) 78%, transparent);
+  --text-tertiary:    color-mix(in srgb, var(--custom-text-primary, #f8fafc) 58%, transparent);
+  --text-muted:       color-mix(in srgb, var(--custom-text-primary, #f8fafc) 42%, transparent);
+  --text-placeholder: color-mix(in srgb, var(--custom-text-primary, #f8fafc) 30%, transparent);
+  --text-accent:      var(--custom-accent, #a855f7);
+  --text-on-accent:   #ffffff;
+
+  /* Accent */
+  --accent:           var(--custom-accent, #a855f7);
+  --accent-light:     color-mix(in srgb, var(--custom-accent, #a855f7) 75%, #ffffff);
+  --accent-strong:    var(--custom-accent, #a855f7);
+  --positive:         #34d399;
+  --positive-muted:   rgba(52, 211, 153, 0.12);
+  --positive-border:  rgba(52, 211, 153, 0.4);
+  --negative:         #f87171;
+  --negative-muted:   rgba(248, 113, 113, 0.12);
+  --negative-border:  rgba(248, 113, 113, 0.4);
+  --accent-muted:     color-mix(in srgb, var(--custom-accent, #a855f7) 16%, transparent);
+  --accent-border:    color-mix(in srgb, var(--custom-accent, #a855f7) 45%, transparent);
+  --accent-glow:      color-mix(in srgb, var(--custom-accent, #a855f7) 28%, transparent);
+
+  /* Brand Logo Gradient */
+  --brand-gradient:   linear-gradient(90deg, var(--custom-text-primary, #f8fafc), var(--custom-accent, #a855f7));
+
+  /* Scrollbar */
+  --scrollbar-thumb:  color-mix(in srgb, var(--custom-accent, #a855f7) 35%, transparent);
+  --scrollbar-track:  var(--custom-bg-page, #0b0f19);
+
+  /* Shadows */
+  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.65), 0 0 16px color-mix(in srgb, var(--custom-accent, #a855f7) 12%, transparent);
+  --shadow-header:    0 1px 0 var(--border, rgba(168, 85, 247, 0.28));
+
+  color-scheme: dark;
 }
 
 /* ─────────────────────────────────────────────
    BASE
 ───────────────────────────────────────────── */
 :root {
-  /* Space the layout already spends before a page's own content: the sticky header. Pages that
-     fill the viewport subtract this instead of a hand-tuned number, so they fit without scrolling
-     (the footer sits after them, in the page flow). --header-h is measured live by Layout.astro,
-     since the header's height changes with width. */
   --page-chrome-h: var(--header-h, 55px);
 
   /* Motion: strong custom eases - the built-in CSS ones read as weak/mushy on UI. */
@@ -196,16 +242,15 @@ html[data-theme="light"] {
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Site Owner / Admin tags: the same gold in every theme, not the theme's accent (which is blue
-     in Dark). Only darkened on the light theme so it stays readable. */
+  /* Site Owner / Admin tags: true bright gold in every theme (never muddy brown). */
   --tag-gold:         #fbbf24;
   --tag-gold-bg:      rgba(245, 158, 11, 0.16);
   --tag-gold-border:  rgba(245, 158, 11, 0.5);
 }
 html[data-theme="light"] {
-  --tag-gold:         #78350f;
-  --tag-gold-bg:      rgba(234, 179, 8, 0.24);
-  --tag-gold-border:  rgba(161, 98, 7, 0.55);
+  --tag-gold:         #fbbf24;
+  --tag-gold-bg:      #18181b;
+  --tag-gold-border:  #f59e0b;
 }
 
 /* Destructive / reset buttons: the theme's red, in every theme. */
@@ -217,23 +262,20 @@ html[data-theme="light"] {
 
 /* ─────────────────────────────────────────────
    LIGHT THEME SAFETY NET
-   Plenty of components still hard-code colours picked for a dark background: pastel status text
-   (amber-300, rose-400...), grey text (zinc-400), and the odd dark panel or input (bg-zinc-900).
-   On the ivory theme those read as washed-out pastel or grey-on-beige. These map them to dark
-   ink of the same hue, and the dark surfaces to the light theme's own. Elements that sit on a
-   genuinely dark background of their own (a bg-black label over card art, a -950 toast) keep
-   their light text.
+   Maps dark-mode utility classes to crisp, readable light-mode equivalents without turning
+   yellow/amber into muddy brown.
 ───────────────────────────────────────────── */
 html[data-theme="light"] .text-red-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-red-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-red-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #991b1b; }
 html[data-theme="light"] .text-red-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-red-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #b91c1c; }
 html[data-theme="light"] .text-rose-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-rose-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-rose-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #9f1239; }
 html[data-theme="light"] .text-rose-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-rose-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #be123c; }
-html[data-theme="light"] .text-amber-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #92400e; }
-html[data-theme="light"] .text-amber-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #b45309; }
-html[data-theme="light"] .text-yellow-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #854d0e; }
-html[data-theme="light"] .text-yellow-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #a16207; }
-html[data-theme="light"] .text-orange-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #9a3412; }
-html[data-theme="light"] .text-orange-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #c2410c; }
+/* Amber & yellow text in light mode: use the theme's crisp ink / rose accent or vibrant gold — never muddy brown */
+html[data-theme="light"] .text-amber-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-amber-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: var(--text-primary); }
+html[data-theme="light"] .text-amber-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-amber-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: var(--accent); }
+html[data-theme="light"] .text-yellow-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-yellow-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: var(--text-primary); }
+html[data-theme="light"] .text-yellow-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-yellow-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #f59e0b; }
+html[data-theme="light"] .text-orange-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-orange-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #c2410c; }
+html[data-theme="light"] .text-orange-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-orange-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #ea580c; }
 html[data-theme="light"] .text-emerald-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-emerald-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-emerald-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #065f46; }
 html[data-theme="light"] .text-emerald-400:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-emerald-400:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #047857; }
 html[data-theme="light"] .text-green-100:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-100:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-green-200:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-200:hover:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .text-green-300:not([class*="bg-black"]):not([class*="-950/9"]), html[data-theme="light"] .hover\:text-green-300:hover:not([class*="bg-black"]):not([class*="-950/9"]) { color: #166534; }
@@ -264,47 +306,64 @@ html[data-theme="light"] .hover\:text-zinc-100:hover:not([class*="bg-black"]):no
 html[data-theme="light"] :is(.bg-zinc-800, .bg-zinc-900, .bg-slate-800, .bg-slate-900) { background-color: var(--bg-surface-2); }
 html[data-theme="light"] :is(.bg-zinc-950, .bg-slate-950) { background-color: var(--bg-input); }
 html[data-theme="light"] :is(.bg-zinc-800\/60, .bg-zinc-950\/60) { background-color: var(--bg-surface-2); }
+html[data-theme="light"] :is(.bg-black\/20, .bg-black\/30, .bg-black\/40, .bg-white\/5, .bg-white\/\[0\.03\]):not(.fixed):not(.inset-0) { background-color: var(--bg-surface-2); }
 html[data-theme="light"] :is(.hover\:bg-zinc-700:hover, .hover\:bg-zinc-900\/50:hover) { background-color: var(--bg-raised); }
-html[data-theme="light"] :is(.border-zinc-700, .border-zinc-800, .border-slate-700, .border-slate-800) { border-color: var(--border); }
+html[data-theme="light"] :is(.border-zinc-700, .border-zinc-800, .border-slate-700, .border-slate-800, .border-white\/5, .border-white\/10, .border-white\/15, .border-white\/20) { border-color: var(--border) !important; }
 html[data-theme="light"] .placeholder\:text-zinc-500::placeholder { color: var(--text-placeholder); }
 
 /* ─────────────────────────────────────────────
    HOVER FEEDBACK
-   Same idea as the press-feedback rule below, for hover: a large share of clickable elements in
-   this codebase have no hover treatment at all, and several that do are subtle enough to be easy
-   to miss. `filter: brightness()` is additive rather than a color override - it composes with
-   whatever a button already does on hover (or does nothing else) instead of fighting it, so this
-   is safe to apply globally. Gated behind (hover: hover) so a tap on touch doesn't leave a button
-   looking "stuck" lit until the next unrelated tap.
+   Stronger, unmistakable hover feedback across all clickable buttons, links, pills, and cards.
 ───────────────────────────────────────────── */
+.cursor-pointer,
+button:not(:disabled),
+a[href],
+[role="button"] {
+  transition:
+    transform 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    border-color 150ms var(--ease-out),
+    filter 150ms var(--ease-out),
+    background-color 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
 @media (hover: hover) and (pointer: fine) {
-  /* a[href] too: a real link is always clickable by definition (native pointer cursor, no class
-     needed), so it's covered even on the ~40 links in this codebase that never bothered adding
-     `cursor-pointer` themselves. */
-  .cursor-pointer:hover, a[href]:hover {
-    filter: brightness(1.08);
+  .cursor-pointer:hover:not(:disabled),
+  button:hover:not(:disabled),
+  a[href]:hover {
+    filter: brightness(1.16) saturate(1.06);
   }
-  html[data-theme="light"] .cursor-pointer:hover, html[data-theme="light"] a[href]:hover {
-    filter: brightness(0.94);
+  html[data-theme="light"] .cursor-pointer:hover:not(:disabled),
+  html[data-theme="light"] button:hover:not(:disabled),
+  html[data-theme="light"] a[href]:hover {
+    filter: brightness(0.93) contrast(1.04);
+  }
+
+  /* Bordered buttons, pills, and clickable cards get a clear border highlight + subtle lift */
+  button.border:hover:not(:disabled),
+  a.border[href]:hover,
+  .cursor-pointer.border:hover:not(:disabled) {
+    border-color: var(--border-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px var(--accent-glow);
   }
 }
-/* Not gated behind prefers-reduced-motion: a brightness/lighting change isn't movement, and that
-   preference is about dropping motion, not the color/opacity feedback that aids comprehension. */
 
 /* ─────────────────────────────────────────────
    PRESS FEEDBACK
-   Nearly every clickable element in this codebase already marks itself with `cursor-pointer`
-   (285 occurrences vs. 283 <button> tags) - piggybacking on that gives instant, consistent
-   press feedback everywhere at once, instead of one more class to remember on every new button.
-   `:active` only fires on a real press (touch or mouse), so it needs no hover-media gating.
-   Browsers already exclude disabled form controls from :active, so disabled buttons are unaffected.
 ───────────────────────────────────────────── */
-.cursor-pointer:active {
-  transform: scale(0.97);
+.cursor-pointer:active:not(:disabled),
+button:active:not(:disabled) {
+  transform: scale(0.97) !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  .cursor-pointer:active {
-    transform: none;
+  .cursor-pointer:active:not(:disabled),
+  button:active:not(:disabled),
+  button.border:hover:not(:disabled),
+  a.border[href]:hover,
+  .cursor-pointer.border:hover:not(:disabled) {
+    transform: none !important;
   }
 }
 
@@ -524,18 +583,45 @@ input[type="number"] {
   appearance: textfield;
 }
 
-/* Remove default range appearance */
-input[type="range"] {
+/* Remove default range appearance on custom dual-thumb sliders */
+input[type="range"]:not(.tv-range-slider) {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
 }
-input[type="range"]::-webkit-slider-thumb {
+input[type="range"]:not(.tv-range-slider)::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 1px;
   height: 1px;
   opacity: 0;
+}
+
+/* Standard single-thumb range sliders (e.g. Banner Blur %) */
+input[type="range"].tv-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--border) !important;
+}
+input[type="range"].tv-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--accent-strong);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+input[type="range"].tv-range-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--accent-strong);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
 }
 
 input::placeholder, textarea::placeholder {

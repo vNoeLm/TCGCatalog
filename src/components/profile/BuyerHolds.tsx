@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, cardThumbProps } from '../../lib/supabase';
 import { allowedHoldActions, OPEN_HOLD_STATUSES, type HoldAction } from '../../lib/holdFlow';
-import { HOLD_ACTION_LABEL, HOLD_STATUS_LABEL, PRIMARY_HOLD_ACTIONS, holdStepText, performHoldAction } from '../../lib/holdClient';
+import { getHoldActionLabel, HOLD_STATUS_LABEL, PRIMARY_HOLD_ACTIONS, holdStepText, performHoldAction } from '../../lib/holdClient';
 import { handoverLabel } from '../../lib/handover';
 import type { HoldRequestItem } from '../../types';
 
@@ -75,7 +75,7 @@ export function BuyerHolds({ userId }: { userId: string }) {
   const act = async (h: BuyerHold, action: HoldAction) => {
     setBusyId(h.id);
     try {
-      const error = await performHoldAction(h.id, action);
+      const error = await performHoldAction(h.id, action, h.status);
       if (error && error !== 'cancelled') alert(error);
       // A completed hold becomes an order - Order History reloads when it hears this.
       if (!error && action === 'confirm_received') window.dispatchEvent(new CustomEvent('tcg-orders-changed'));
@@ -99,7 +99,7 @@ export function BuyerHolds({ userId }: { userId: string }) {
           const shipping = Number(h.shipping_huf) || 0;
           const total = items.reduce((s, it) => s + (it.price_huf || 0) * (it.quantity || 1), 0) + shipping;
           const actions = allowedHoldActions(h.status, 'buyer', h.updated_at);
-          const stepIndex = STEPS.indexOf(h.status as typeof STEPS[number]);
+          const stepIndex = h.status === 'buyer_received' ? 3 : STEPS.indexOf(h.status as typeof STEPS[number]);
           return (
             <div key={h.id} className="rounded-2xl border p-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
               <div className="grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
@@ -158,11 +158,15 @@ export function BuyerHolds({ userId }: { userId: string }) {
                       disabled={busyId === h.id}
                       onClick={() => act(h, a)}
                       className="h-9 px-3.5 rounded-xl text-xs font-bold border cursor-pointer transition whitespace-nowrap disabled:opacity-50 disabled:cursor-default"
-                      style={PRIMARY_HOLD_ACTIONS.includes(a)
-                        ? { background: 'var(--accent-strong)', borderColor: 'transparent', color: 'var(--text-on-accent, #000)' }
-                        : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                      style={
+                        a === 'deny'
+                          ? { background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }
+                          : PRIMARY_HOLD_ACTIONS.includes(a)
+                          ? { background: 'var(--accent-strong)', borderColor: 'transparent', color: 'var(--text-on-accent, #000)' }
+                          : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                      }
                     >
-                      {HOLD_ACTION_LABEL[a]}
+                      {getHoldActionLabel(a, h.status, 'buyer')}
                     </button>
                   ))}
                   {h.conversation_id && (

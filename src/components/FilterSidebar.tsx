@@ -77,6 +77,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
 
   const isSealedCategory = filters.category === 'sealed';
   const isRiftbound = !filters.game || filters.game === 'riftbound';
+  const isOnePiece = filters.game === 'onepiece';
 
   const set = (key: keyof FilterState, val: any) =>
     setFilters({ ...filters, [key]: val });
@@ -338,11 +339,11 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
         </div>
       )}
 
-      {/* 3. DOMAIN SECTION (Default OPEN) - Balanced 3-Column Micro Grid */}
-      {!isSealedCategory && (
+      {/* 3. DOMAIN / COLOR SECTION (Riftbound / One Piece, Default OPEN) - Balanced 3-Column Micro Grid */}
+      {!isSealedCategory && (isRiftbound || isOnePiece) && options.domains && options.domains.length > 0 && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label="Domain"
+            label={isOnePiece ? "Color" : "Domain"}
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}
@@ -717,11 +718,11 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
         </div>
       )}
 
-      {/* 8. ENERGY COST SECTION (Default COLLAPSED) */}
+      {/* 8. ENERGY / COST SECTION (Default COLLAPSED) */}
       {!isSealedCategory && (
         <div>
           <SectionHeader
-            label="Energy Cost"
+            label={isOnePiece ? "Cost" : isRiftbound ? "Energy Cost" : "Mana Value"}
             badge={costActiveCount}
             open={costOpen}
             onToggle={() => setCostOpen(o => !o)}

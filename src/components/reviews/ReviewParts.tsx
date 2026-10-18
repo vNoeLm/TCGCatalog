@@ -83,7 +83,7 @@ export function ReputationBreakdown({ direction, rep, emptyText }: { direction: 
   );
 }
 
-export function ReviewCard({ review }: { review: TradeReview }) {
+export function ReviewCard({ review, onDelete }: { review: TradeReview; onDelete?: (id: string) => void }) {
   const cats = review.scores ? categoriesFor(review.direction).filter((c) => review.scores?.[c.key]) : [];
   return (
     <div className="rounded-xl p-3 sm:p-4 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
@@ -97,10 +97,22 @@ export function ReviewCard({ review }: { review: TradeReview }) {
             </span>
           )}
           <span className="text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--text-secondary)' }}>
-            {review.reviewer_name || (review.direction === 'buyer_to_seller' ? 'Verified buyer' : 'Verified seller')}
+            {review.reviewer_name || (review.direction === 'buyer_to_seller' ? 'Buyer' : 'Seller')}
           </span>
         </a>
-        <Stars value={review.rating} size={13} />
+        <div className="flex items-center gap-2">
+          <Stars value={review.rating} size={13} />
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(review.id)}
+              title="Delete review"
+              className="px-2 py-0.5 rounded-md text-[10px] font-bold border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition"
+            >
+              Delete
+            </button>
+          )}
+        </div>
       </div>
       {cats.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-1.5">

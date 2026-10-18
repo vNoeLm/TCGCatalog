@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { cardThumbProps } from '../../lib/supabase';
+import { cardThumbProps, supabase } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchReputation } from '../../lib/reviews';
 import { ReputationBreakdown, ReviewCard, Stars } from '../reviews/ReviewParts';
 import { getSellerTier, getCollectorTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
+import { BannerContainerBackground } from './AvatarBannerModal';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
-import { getCurrentUser } from '../../lib/auth';
+import { getCurrentUser, getCurrentProfile } from '../../lib/auth';
 import type { SellerProfileSummary, UserReputation } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -17,6 +18,7 @@ const DOMAIN_COLORS: Record<string, string> = {
 export function PublicProfileApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SellerProfileSummary | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [reputation, setReputation] = useState<UserReputation | null>(null);
   const [reviewTab, setReviewTab] = useState<'buyer_to_seller' | 'seller_to_buyer'>('buyer_to_seller');
@@ -25,27 +27,17 @@ export function PublicProfileApp() {
   const isLightTheme = useSiteTheme().theme === 'light';
   // Viewing your own profile: say so, with a way back to the editable one.
   const [isMe, setIsMe] = useState(false);
+  const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
     if (id) getCurrentUser().then(u => setIsMe(Boolean(u && u.id === id)));
+    getCurrentProfile()
+      .then(p => setViewerIsAdmin(Boolean(p && (p.is_admin || p.role === 'admin' || p.role === 'owner'))))
+      .catch(() => {});
   }, []);
 
-  // Which game's collector badge to show - the site's globally active game, same as everywhere
-  // else (Catalog, Binder), not something this page picks on its own.
-  const [activeGame, setActiveGame] = useState(() => {
-    if (typeof window === 'undefined') return 'riftbound';
-    return 'riftbound';
-  });
+  const [displayedBadges, setDisplayedBadges] = useState<string[]>(['riftbound']);
   const [collectionStatsByGame, setCollectionStatsByGame] = useState<Record<string, { owned: number; total: number; weightedPercentage: number }>>({});
-
-  useEffect(() => {
-    const onGameChange = (e: Event) => {
-      const detail = (e as CustomEvent<{ game: string }>).detail;
-      if (detail?.game === 'riftbound') setActiveGame(detail.game);
-    };
-    window.addEventListener(EVENTS.GAME_CHANGE, onGameChange);
-    return () => window.removeEventListener(EVENTS.GAME_CHANGE, onGameChange);
-  }, []);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
@@ -57,17 +49,18 @@ export function PublicProfileApp() {
 
     (async () => {
       try {
-        // None of these depend on each other, so they all go out at once - the listings and the
-        // collection stats used to wait for the first three, then for each other.
         const getJson = (url: string) => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
-        const [sum, revs, publicDecks, listingsJson, statsJson] = await Promise.all([
+        const [sum, revs, publicDecks, listingsJson, statsJson, profileJson] = await Promise.all([
           fetchSellerRatingSummary(id),
           fetchReputation(id),
           fetchPublicDecksForUser(id),
           getJson(`/api/marketplace/listings?seller_id=${id}`),
           getJson(`/api/profile/collection-stats?user_id=${id}`),
+          getJson(`/api/profile?id=${encodeURIComponent(id)}`),
         ]);
         setSummary(sum);
+        if (profileJson?.banner_url) setBannerUrl(profileJson.banner_url);
+        if (Array.isArray(profileJson?.displayed_badges)) setDisplayedBadges(profileJson.displayed_badges);
         setReputation(revs);
         // Open on whichever side they've actually been rated in.
         if (revs.as_seller.count === 0 && revs.as_buyer.count > 0) setReviewTab('seller_to_buyer');
@@ -119,10 +112,13 @@ export function PublicProfileApp() {
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
   const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
-  const gameStats = collectionStatsByGame[activeGame];
-  const collectorTier: CollectorTier | null = gameStats
-    ? getCollectorTier(gameStats.owned, gameStats.total, activeGame, isLightTheme, gameStats.weightedPercentage)
-    : null;
+  const collectorTiers: CollectorTier[] = displayedBadges
+    .map((game) => {
+      const gameStats = collectionStatsByGame[game];
+      if (!gameStats) return null;
+      return getCollectorTier(gameStats.owned, gameStats.total, game, isLightTheme, gameStats.weightedPercentage);
+    })
+    .filter((b): b is CollectorTier => Boolean(b));
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
     ? new Date(summary.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
@@ -153,20 +149,22 @@ export function PublicProfileApp() {
 
       {/* Identity */}
       <div
-        className="rounded-2xl p-6 sm:p-7 mb-6 border"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-card)' }}
+        className="relative rounded-2xl mb-6 border overflow-hidden"
+        style={{ borderColor: 'var(--border)', boxShadow: 'var(--shadow-card)' }}
       >
+        <BannerContainerBackground bannerUrl={bannerUrl} isLightTheme={isLightTheme} />
+        <div className="relative z-10 p-6 sm:p-7">
         <div className="flex items-center gap-4 sm:gap-5 flex-wrap">
           {summary.avatar_url ? (
             <img
               src={summary.avatar_url}
               alt={displayName}
-              className="w-16 h-16 rounded-2xl object-cover border-2 shrink-0"
+              className="w-16 h-16 rounded-2xl object-cover border-2 shrink-0 bg-zinc-950 shadow-md"
               style={{ borderColor: tier.color }}
             />
           ) : (
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 shrink-0"
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 shrink-0 shadow-md"
               style={{ background: 'var(--bg-surface-2)', borderColor: tier.color, color: 'var(--accent)' }}
             >
               {displayName[0].toUpperCase()}
@@ -186,16 +184,17 @@ export function PublicProfileApp() {
                 <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
                 <span>{tier.nameEn}</span>
               </span>
-              {collectorTier && (
+              {collectorTiers.map((ct) => (
                 <span
+                  key={ct.game}
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
-                  style={collectorTier.badgeStyle}
-                  title={`${collectorTier.nameEn} (${collectorTier.ownedCount}/${collectorTier.totalCount} cards)`}
+                  style={ct.badgeStyle}
+                  title={`${ct.nameEn} (${ct.ownedCount.toLocaleString()}/${ct.totalCount.toLocaleString()} cards)`}
                 >
-                  <BadgeIconSvg iconType={collectorTier.iconType} className="w-3 h-3" />
-                  <span>{collectorTier.nameEn}</span>
+                  <BadgeIconSvg iconType={ct.iconType} className="w-3 h-3" />
+                  <span>{ct.nameEn}</span>
                 </span>
-              )}
+              ))}
             </div>
 
             <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
@@ -256,6 +255,7 @@ export function PublicProfileApp() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -407,7 +407,29 @@ export function PublicProfileApp() {
             </div>
           );
         }
-        return <div className="space-y-3">{list.map(rev => <ReviewCard key={rev.id} review={rev} />)}</div>;
+        const handleDeleteReview = viewerIsAdmin
+          ? async (reviewId: string) => {
+              if (!window.confirm('Delete this review permanently?')) return;
+              try {
+                const token = (await supabase.auth.getSession()).data.session?.access_token;
+                const res = await fetch(`/api/reviews?id=${encodeURIComponent(reviewId)}`, {
+                  method: 'DELETE',
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (res.ok && userId) {
+                  const [sum, revs] = await Promise.all([
+                    fetchSellerRatingSummary(userId),
+                    fetchReputation(userId, true),
+                  ]);
+                  if (sum) setSummary(sum);
+                  setReputation(revs);
+                }
+              } catch {
+                // ignore
+              }
+            }
+          : undefined;
+        return <div className="space-y-3">{list.map(rev => <ReviewCard key={rev.id} review={rev} onDelete={handleDeleteReview} />)}</div>;
       })()}
     </div>
   );

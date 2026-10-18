@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import type { CatalogCard, FilterState, UserProfile } from "../types";
+import { supabase } from "../lib/supabase";
+import { isUnreleasedSet } from "../lib/cardPreview";
 import { FilterSidebar } from "./FilterSidebar";
 import { CardListItem } from "./CardListItem";
 import { CollectionValueChip } from "./CollectionValueChip";
 import { CardPreviewOverlay } from "./CardPreviewOverlay";
 import { CollectionModal, ActionRow, Icon } from "./collection/CollectionModal";
-import { QuickSalePreviewModal } from "./collection/QuickSalePreviewModal";
 import { CardScannerModal } from "./CardScannerModal";
 import { fetchCardsCatalog } from "../lib/api";
 import { gridSizeClasses } from "../lib/gridSize";
 import { useWishlists, wishlistCardIds, createWishlist, MAX_WISHLIST_NAME } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames } from "../lib/constants";
+import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames, MTG_RARITIES, MTG_TYPES, ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS } from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { buildCollectionBackup, importIntoCollection } from "../lib/collectionBackup";
 import { t } from "../lib/labels";
@@ -37,7 +38,16 @@ import {
 import { resolveCollectionSync, sameCollection } from "../lib/collectionSync";
 import { useSiteTheme } from "../lib/theme";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
-import { hasFoilVariant } from "../lib/cardVariants";
+import {
+  hasFoilVariant as sharedHasFoilVariant,
+  isOvernumbered,
+  isSigned,
+  isSp,
+  isToken,
+  isAltArt,
+  isBaseSetCard,
+  compareCardsByRarity,
+} from "../lib/cardVariants";
 import { FilterDrawer } from "./FilterDrawer";
 import { countActiveFilters } from "../lib/activeFilterCount";
 import { useCollectionsStore, activeNamedCollection, changeCollectionCard, setCollectionCards, onCollectionsMessage } from "../lib/collectionsStore";
@@ -47,14 +57,6 @@ import type { ListDefaults, NamedCollection } from "../lib/collectionDefaults";
 import { CollectionSwitcher } from "./collection/CollectionSwitcher";
 import { ManageCollectionsModal } from "./collection/ManageCollectionsModal";
 import { MoveCardsModal } from "./collection/MoveCardsModal";
-
-const RARITY_WEIGHTS: Record<string, number> = {
-  'Common': 1,
-  'Uncommon': 2,
-  'Rare': 3,
-  'Epic': 5,
-  'Showcase': 7,
-};
 
 const DEFAULT_FILTERS: FilterState = {
   category: "singles",
@@ -166,6 +168,26 @@ export function CardListApp() {
   const lastLoggedSearchRef = useRef<string>('');
 
   const [isInitialized, setIsInitialized] = useState(false);
+  const [allSetsForGame, setAllSetsForGame] = useState<string[]>([]);
+
+  useEffect(() => {
+    const g = filters.game || 'riftbound';
+    if (g === 'riftbound') {
+      setAllSetsForGame(SETS);
+    } else {
+      supabase
+        .from('sets')
+        .select('name, release_date')
+        .eq('game', g)
+        .order('release_date', { ascending: false })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const released = data.filter(s => !isUnreleasedSet(s.release_date));
+            setAllSetsForGame(released.map(s => s.name));
+          }
+        });
+    }
+  }, [filters.game]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
@@ -175,7 +197,6 @@ export function CardListApp() {
   // The open card lives in the URL (?card=) - Back closes it, and the link can be shared.
   const [selectedCardId, openCard, closeCard] = useUrlOverlay('card');
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showQuickSalePreview, setShowQuickSalePreview] = useState(false);
   const [exportTab, setExportTab] = useState<'owned' | 'missing'>('owned');
   const [missingWishlistName, setMissingWishlistName] = useState('');
   const [creatingWishlist, setCreatingWishlist] = useState(false);
@@ -231,7 +252,7 @@ export function CardListApp() {
 
   // Lock background scroll when any modal or mobile drawer is open
   useEffect(() => {
-    const isModalOpen = showExportModal || showQuickSalePreview || showImportModal || showResetConfirm || showMobileFilters || Boolean(selectedCardId);
+    const isModalOpen = showExportModal || showImportModal || showResetConfirm || showMobileFilters || Boolean(selectedCardId);
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -240,7 +261,7 @@ export function CardListApp() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showExportModal, showQuickSalePreview, showImportModal, showResetConfirm, showMobileFilters, selectedCardId]);
+  }, [showExportModal, showImportModal, showResetConfirm, showMobileFilters, selectedCardId]);
 
   // Restore state from session storage & localStorage on mount
   useEffect(() => {
@@ -535,7 +556,9 @@ export function CardListApp() {
     const prices: Record<string, number> = {};
     for (const key of Object.keys(cardsMap)) {
       const { cardId, isFoil } = parseCollectionKey(key);
-      prices[cardId] = alwaysListPrice(cardId, isFoil, defaults);
+      const p = alwaysListPrice(cardId, isFoil, defaults);
+      prices[key] = p;
+      if (!(cardId in prices) || !isFoil) prices[cardId] = p;
     }
     return prices;
   };
@@ -675,93 +698,7 @@ export function CardListApp() {
   }, [filters, searchQuery]);
 
   const hasFoilVariant = (card: CatalogCard) => {
-    return card.card_type !== 'Rune' && (card.rarity === 'Common' || card.rarity === 'Uncommon');
-  };
-
-  const isOvernumbered = (card: CatalogCard) => {
-    if (!card.card_number || !card.card_number.includes('/')) return false;
-    const parts = card.card_number.split('/');
-    if (parts.length < 2) return false;
-    const numMatch = parts[0].match(/\d+/);
-    const denMatch = parts[1].match(/\d+/);
-    if (numMatch && denMatch) {
-      return parseInt(numMatch[0], 10) > parseInt(denMatch[0], 10);
-    }
-    return false;
-  };
-
-  const isSigned = (card: CatalogCard) => {
-    const num = (card.card_number || '').toUpperCase();
-    const sub = (card.subtype || '').toLowerCase().trim();
-    const tags = Array.isArray(card.tags) ? card.tags.map(t => String(t).toLowerCase().trim()) : [];
-    const name = (card.name || '').toLowerCase();
-
-    return Boolean(
-      name.includes('signature') ||
-      name.includes('(signed)') ||
-      num.includes('*') ||
-      num.includes('★') ||
-      num.includes('STAR') ||
-      sub === 'signed' ||
-      tags.includes('signed') ||
-      tags.includes('star')
-    );
-  };
-
-  const isSp = (card: CatalogCard) => {
-    const num = (card.card_number || '').toUpperCase();
-    const sub = (card.subtype || '').toUpperCase().trim();
-    const tags = Array.isArray(card.tags) ? card.tags.map(t => String(t).toUpperCase().trim()) : [];
-    return Boolean(
-      num.includes('-SP') ||
-      num.includes('SP/') ||
-      num.startsWith('SP') ||
-      sub === 'SP' ||
-      tags.includes('SP')
-    );
-  };
-
-  const isToken = (card: CatalogCard) => {
-    const num = (card.card_number || '').toUpperCase();
-    const type = (card.card_type || '').toLowerCase();
-    const sub = (card.subtype || '').toLowerCase();
-    return Boolean(
-      type === 'token' ||
-      sub === 'token' ||
-      num.includes('-T') ||
-      num.startsWith('T-')
-    );
-  };
-
-  const isAltArt = (card: CatalogCard) => {
-    if (isSp(card)) return true;
-    if (!card.card_number) return false;
-    const numPart = card.card_number.split('/')[0];
-    const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
-    const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
-    const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
-    return Boolean(hasSuffix || isAltSubtype || isAltTag);
-  };
-
-  const isBaseSetCard = (card: CatalogCard) => {
-    if (isOvernumbered(card)) return false;
-    if (isSigned(card)) return false;
-    if (isSp(card)) return false;
-    if (isToken(card)) return false;
-    if (isAltArt(card)) return false;
-
-    if (card.card_number && card.card_number.includes('/')) {
-      const parts = card.card_number.split('/');
-      const mainNumStr = parts[0].replace(/^[a-z]+-/i, '').trim();
-      const match = mainNumStr.match(/^(\d+)$/);
-      if (!match) return false;
-      const numVal = parseInt(match[1], 10);
-      const denVal = parseInt(parts[1]?.match(/\d+/)?.[0] || '0', 10);
-      if (denVal > 0 && numVal >= 1 && numVal <= denVal) {
-        return true;
-      }
-    }
-    return false;
+    return card.card_type !== 'Rune' && sharedHasFoilVariant(card);
   };
 
   const showFoilOnly = !!filters.foilFilter;
@@ -859,13 +796,11 @@ export function CardListApp() {
       if (sortMode === 'Card Number (Desc)' || (sortMode as any) === 'Number (Desc)') {
         return (b.card_number||'').localeCompare((a.card_number||''), undefined, { numeric: true });
       }
-      if (sortMode === 'Rarity (High to Low)' || sortMode === 'Rarity (Low to High)') {
-        const wA = RARITY_WEIGHTS[a.rarity] || 0;
-        const wB = RARITY_WEIGHTS[b.rarity] || 0;
-        if (wA !== wB) {
-          return sortMode === 'Rarity (High to Low)' ? wB - wA : wA - wB;
-        }
-        return (a.card_number||'').localeCompare((b.card_number||''), undefined, { numeric: true });
+      if (sortMode === 'Rarity (High to Low)') {
+        return compareCardsByRarity(a, b, 'desc');
+      }
+      if (sortMode === 'Rarity (Low to High)') {
+        return compareCardsByRarity(a, b, 'asc');
       }
       return 0;
     });
@@ -1410,6 +1345,7 @@ export function CardListApp() {
 
   const { isDark } = useSiteTheme(filters.game);
   const isRiftbound = !filters.game || filters.game === 'riftbound';
+  const isOnePiece = filters.game === 'onepiece';
 
   const catalogTheme = {
     containerClass: "bg-[var(--bg-surface)]/95 border border-[var(--border)] shadow-[var(--shadow-card)]",
@@ -1429,12 +1365,12 @@ export function CardListApp() {
   };
 
   const availableSets = useMemo(() => {
-    const setNames = new Set(SETS);
+    const setNames = new Set(allSetsForGame.length > 0 ? allSetsForGame : (isRiftbound ? SETS : []));
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
-    return sortSetNames(Array.from(setNames));
-  }, [cards]);
+    return isRiftbound ? sortSetNames(Array.from(setNames)) : Array.from(setNames);
+  }, [cards, allSetsForGame, isRiftbound]);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: "clamp(16px,3vw,32px) clamp(16px,3vw,24px)" }}>
@@ -1507,18 +1443,22 @@ export function CardListApp() {
                   </button>
 
                   {sortAnim.rendered && (
-                    <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto`}>
-                      {SORT_OPTIONS.map(({ mode, labelKey }) => {
+                    <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-56 rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 overflow-hidden max-h-80 overflow-y-auto`}>
+                      {SORT_OPTIONS.map(({ mode, labelKey }, idx) => {
                         const isSelected = sortMode === mode;
+                        const isLighterPair = Math.floor(idx / 2) % 2 === 0;
+                        const isPairEnd = idx % 2 === 1 && idx < SORT_OPTIONS.length - 1;
                         return (
                           <button
                             key={mode}
                             type="button"
                             onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
                             className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                              isPairEnd ? 'border-b border-[var(--border-subtle)]' : ''
+                            } ${
                               isSelected
                                 ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] font-bold'
-                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
+                                : `${isLighterPair ? 'bg-[var(--bg-surface-2)]' : 'bg-[var(--bg-input)]'} text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]`
                             }`}
                           >
                             <span>{t(labelKey as any)}</span>
@@ -1594,18 +1534,22 @@ export function CardListApp() {
                     </button>
 
                     {sortAnim.rendered && (
-                      <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-full rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 py-1 overflow-hidden max-h-80 overflow-y-auto`}>
-                        {SORT_OPTIONS.map(({ mode, labelKey }) => {
+                      <div data-state={sortAnim.state} className={`tv-popover tv-origin-top-right absolute right-0 mt-1.5 w-full rounded-xl ${catalogTheme.sortMenuClass} backdrop-blur-md z-50 overflow-hidden max-h-80 overflow-y-auto`}>
+                        {SORT_OPTIONS.map(({ mode, labelKey }, idx) => {
                           const isSelected = sortMode === mode;
+                          const isLighterPair = Math.floor(idx / 2) % 2 === 0;
+                          const isPairEnd = idx % 2 === 1 && idx < SORT_OPTIONS.length - 1;
                           return (
                             <button
                               key={mode}
                               type="button"
                               onClick={() => { setSortMode(mode as any); setSortOpen(false); }}
                               className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                                isPairEnd ? 'border-b border-[var(--border-subtle)]' : ''
+                              } ${
                                 isSelected
                                   ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] font-bold'
-                                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]'
+                                  : `${isLighterPair ? 'bg-[var(--bg-surface-2)]' : 'bg-[var(--bg-input)]'} text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]`
                               }`}
                             >
                               <span>{t(labelKey as any)}</span>
@@ -1718,31 +1662,13 @@ export function CardListApp() {
                   From 768px each group is `display: contents`, so the buttons line up in one row
                   in their original order. */}
               <div className="flex flex-col gap-1.5 md:flex-row md:items-center w-full xl:w-auto">
-                <div className="grid grid-cols-2 gap-1.5 md:contents">
-                  <a
-                    href="/deck-builder"
-                    title="Open Deck Builder"
-                    className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
-                  >
-                    Deck Builder
-                  </a>
-                  <button
-                    onClick={() => {
-                      if (activeNamed?.always_list) {
-                        showToast(`"${activeNamed.name}" already lists everything in it automatically.`, 'info');
-                        return;
-                      }
-                      setShowQuickSalePreview(true);
-                    }}
-                    title={'Quick List based on your rules'}
-                    className="md:order-5 md:flex-1 xl:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition cursor-pointer whitespace-nowrap shadow-sm"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                    Quick List
-                  </button>
-                </div>
+                <a
+                  href="/deck-builder"
+                  title="Open Deck Builder"
+                  className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
+                >
+                  Deck Builder
+                </a>
 
                 {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
                     same card data, so they live here as catalog actions rather than their own nav
@@ -1851,10 +1777,10 @@ export function CardListApp() {
           options={{
             sets: availableSets,
             wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-            rarities: RARITIES,
-            types: TYPES,
-            domains: DOMAINS,
-            tags: TAGS,
+            rarities: isRiftbound ? RARITIES : isOnePiece ? ONEPIECE_RARITIES : MTG_RARITIES,
+            types: isRiftbound ? TYPES : isOnePiece ? ONEPIECE_TYPES : MTG_TYPES,
+            domains: isRiftbound ? DOMAINS : isOnePiece ? ONEPIECE_COLORS : [],
+            tags: isRiftbound ? TAGS : [],
           }}
         />
       </FilterDrawer>
@@ -2041,18 +1967,6 @@ export function CardListApp() {
         cards={allCards.length ? allCards : cards}
         game={filters.game || 'riftbound'}
         onChangeCount={(card, isFoil, delta) => updateCardCount(card.id, isFoil, delta)}
-      />
-
-      {/* Quick List Preview Modal */}
-      {/* QuickSalePreviewModal handles its own open/close transition internally (isOpen) -
-          wrapping it in another `{showQuickSalePreview && (...)}` here would unmount it the
-          instant isOpen goes false, before its own exit transition gets to play. */}
-      <QuickSalePreviewModal
-        isOpen={showQuickSalePreview}
-        onClose={() => setShowQuickSalePreview(false)}
-        ownedCards={Object.entries(collection).map(([id, count]) => ({ cardId: id, count }))}
-        allCards={allCards}
-        sourceCollectionId={activeNamed?.id ?? null}
       />
 
       <MoveCardsModal

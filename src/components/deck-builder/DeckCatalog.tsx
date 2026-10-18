@@ -5,7 +5,7 @@ import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
-import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard } from '../../lib/cardVariants';
+import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard, compareCardsByRarity } from '../../lib/cardVariants';
 import { TAGS, sortSetNames } from '../../lib/constants';
 
 interface DeckCatalogProps {
@@ -463,20 +463,10 @@ export function DeckCatalog({
           return a.name.localeCompare(b.name);
         case 'Name (Z to A)':
           return b.name.localeCompare(a.name);
-        case 'Rarity (High to Low)': {
-          const order: Record<string, number> = { Showcase: 5, Epic: 4, Rare: 3, Uncommon: 2, Common: 1 };
-          const rA = order[a.rarity || ''] || 0;
-          const rB = order[b.rarity || ''] || 0;
-          if (rA !== rB) return rB - rA;
-          return a.name.localeCompare(b.name);
-        }
-        case 'Rarity (Low to High)': {
-          const order: Record<string, number> = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Showcase: 5 };
-          const rA = order[a.rarity || ''] || 0;
-          const rB = order[b.rarity || ''] || 0;
-          if (rA !== rB) return rA - rB;
-          return a.name.localeCompare(b.name);
-        }
+        case 'Rarity (High to Low)':
+          return compareCardsByRarity(a, b, 'desc');
+        case 'Rarity (Low to High)':
+          return compareCardsByRarity(a, b, 'asc');
         default:
           return 0;
       }

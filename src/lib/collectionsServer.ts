@@ -56,6 +56,8 @@ interface ListingRow {
   card_id: string;
   is_foil: boolean;
   quantity: number;
+  price_huf?: number;
+  condition?: string;
   status: string;
   notes: string;
 }
@@ -64,7 +66,7 @@ interface ListingRow {
 async function listingsOf(collectionId: string): Promise<Map<string, ListingRow>> {
   const { data } = await supabaseAdmin
     .from('inventory')
-    .select('id, card_id, is_foil, quantity, status, notes')
+    .select('id, card_id, is_foil, quantity, price_huf, condition, status, notes')
     .like('notes', `%"collection_id":"${collectionId}"%`);
   const map = new Map<string, ListingRow>();
   for (const row of (data || []) as ListingRow[]) {
@@ -110,28 +112,35 @@ export interface SyncResult {
   /** Cards whose count was raised back to what open holds have reserved, with that minimum. */
   clamped: Record<string, number>;
   listed: number;
+  cardsListed: number;
+  skippedUnpriced: number;
 }
 
 /**
  * Brings an always-list collection's listings in line with its counts, for `keys` (or every card it
- * has or has listed). `prices` gives the price for a card that needs a new listing; without one the
- * collection's fixed price is used. Existing listings keep their price.
+ * has or has listed). `prices` gives the price for a card (0 means unpriced & skip_unpriced active).
+ * When `recalculatePrices` is true, existing listings also have their price_huf, condition, and
+ * handover_methods updated to match the collection's defaults and current market prices.
  */
 export async function syncAlwaysList(
   sellerId: string,
   coll: NamedCollection,
   keys: string[] | null,
-  prices: Record<string, number> = {}
+  prices: Record<string, number> = {},
+  recalculatePrices = false
 ): Promise<SyncResult> {
   const listings = await listingsOf(coll.id);
   const allKeys = keys ?? [...new Set([...Object.keys(coll.cards), ...listings.keys()])];
   const reserved = await reservedByListing(sellerId, [...listings.values()].map((l) => l.id));
   const defaults: ListDefaults = coll.list_defaults;
+  const keepCopies = Math.max(0, Math.round(defaults.keep_copies || 0));
 
   const cards = { ...coll.cards };
   const clamped: Record<string, number> = {};
   const toInsert: any[] = [];
   let listed = 0;
+  let cardsListed = 0;
+  let skippedUnpriced = 0;
 
   for (const key of allKeys) {
     const { cardId, isFoil } = parseCollectionKey(key);
@@ -143,26 +152,53 @@ export async function syncAlwaysList(
       cards[key] = held;
       clamped[key] = held;
     }
-    const available = count - held;
+
+    const rawPrice = key in prices ? prices[key] : (cardId in prices ? prices[cardId] : undefined);
+    const isSkippedUnpriced = defaults.price_mode !== 'fixed' && defaults.skip_unpriced && (rawPrice !== undefined ? rawPrice <= 0 : false);
+
+    let available = Math.max(0, count - keepCopies - held);
+    if (isSkippedUnpriced) {
+      if (available > 0) skippedUnpriced += 1;
+      available = 0;
+    }
+
+    const targetPrice = Math.max(1, Math.round(Number(rawPrice) || defaults.base_price_huf));
 
     if (listing) {
       if (available > 0) {
-        if (listing.quantity !== available || listing.status !== 'In Stock') {
+        if (recalculatePrices) {
+          let nextNotes = listing.notes;
+          try {
+            const parsedNotes = JSON.parse(listing.notes || '{}');
+            parsedNotes.handover_methods = defaults.handover_methods;
+            nextNotes = JSON.stringify(parsedNotes);
+          } catch {}
+          await supabaseAdmin
+            .from('inventory')
+            .update({
+              quantity: available,
+              status: 'In Stock',
+              price_huf: targetPrice,
+              condition: defaults.condition,
+              notes: nextNotes,
+            })
+            .eq('id', listing.id);
+        } else if (listing.quantity !== available || listing.status !== 'In Stock') {
           await supabaseAdmin.from('inventory').update({ quantity: available, status: 'In Stock' }).eq('id', listing.id);
         }
         listed += available;
+        cardsListed += 1;
       } else if (held > 0) {
         if (listing.quantity !== 0) await supabaseAdmin.from('inventory').update({ quantity: 0, status: 'Reserved' }).eq('id', listing.id);
       } else if (listing.status !== 'Archived' || listing.quantity !== 0) {
         await retireListing(listing.id);
       }
     } else if (available > 0) {
-      const price = Math.max(1, Math.round(Number(prices[cardId]) || defaults.base_price_huf));
       toInsert.push({
         card_id: cardId,
         condition: defaults.condition,
         is_foil: isFoil,
-        price_huf: price,
+        price_huf: targetPrice,
         quantity: available,
         status: 'In Stock',
         notes: JSON.stringify({
@@ -176,6 +212,7 @@ export async function syncAlwaysList(
         }),
       });
       listed += available;
+      cardsListed += 1;
     }
   }
 
@@ -185,7 +222,7 @@ export async function syncAlwaysList(
     }
   }
   if (Object.keys(clamped).length) await saveCollectionCards(sellerId, coll.id, cards);
-  return { clamped, listed };
+  return { clamped, listed, cardsListed, skippedUnpriced };
 }
 
 /** Turning "always list" off: take down what the collection listed, apart from copies buyers are holding. */

@@ -4,75 +4,126 @@ import { CONTACT_EMAIL } from '../../lib/site';
 ---
 
 <DocLayout
-  title="Shipping & handover guide"
+  title="Shipping & Handover Guide"
+  titleHu="Szállítási és Átadási Útmutató"
   lead="How cards get from seller to buyer on TCG Vault: the handover methods, what they cost, how to pack, and how a trade is completed."
+  leadHu="Hogyan jutnak el a kártyák az eladótól a vevőig a TCG Vaulton: átvételi módok, szállítási díjak, biztonságos csomagolás és az adásvétel menete."
   group="help"
-  updated="5 October 2026"
+  updated="18 October 2026"
+  updatedHu="2026. október 18."
 >
-  <h2>The steps of a trade</h2>
-  <ol>
-    <li><strong>Request.</strong> The buyer adds cards to the cart, picks a handover method and sends a hold request. The cards are set aside right away.</li>
-    <li><strong>Accept.</strong> The seller accepts (the cards are reserved for that buyer) or rejects it. Either side can still cancel at this point.</li>
-    <li><strong>Arrange.</strong> Payment and the details of the handover are agreed in Messages.</li>
-    <li><strong>Hand over.</strong> After meeting up or posting the cards, the seller presses <em>Mark handed over</em>. From here the buyer can no longer cancel.</li>
-    <li><strong>Confirm.</strong> The buyer presses <em>I received it</em>, in Messages or under My holds in their profile. That completes the sale, and both sides can rate each other.</li>
-  </ol>
-  <p class="doc-note">
-    If the buyer doesn't confirm within 14 days of handover, the seller can complete the sale themselves. So buyers: confirm
-    when your cards arrive, and message the seller straight away if something is wrong.
-  </p>
+  <div class="lang-hu">
+    <h2>Az adásvétel lépései</h2>
+    <ol>
+      <li><strong>Foglalási kérelem (Request).</strong> A vevő kosárba teszi a kártyákat, kiválasztja az átvételi/szállítási módot, és elküldi a foglalási kérelmet (<em>Hold Request</em>).</li>
+      <li><strong>Elfogadás (Accept).</strong> Az eladó elfogadja (a kártyák a vevő nevére lefoglalódnak) vagy elutasítja a kérelmet. Ebben a szakaszban még bármelyik fél visszamondhatja a foglalást.</li>
+      <li><strong>Egyeztetés (Arrange).</strong> A fizetés módját és az átadás részleteit a felek a <strong>Messages (Üzenetek)</strong> felületen beszélik meg.</li>
+      <li><strong>Átadás / Feladás (Hand over).</strong> Személyes átadás vagy a csomag feladása után az eladó megnyomja a <em>Mark handed over</em> gombot. Ettől a ponttól a vevő már nem törölheti egyoldalúan a rendelést.</li>
+      <li><strong>Átvétel visszaigazolása (Confirm).</strong> A kártyák megérkezésekor a vevő megnyomja az <em>I received it</em> gombot az Üzenetekben vagy a Profilján. Ezzel az ügylet lezárul, és mindkét fél értékelheti egymást.</li>
+    </ol>
+    <p class="doc-note">
+      Ha a vevő az átadástól számított 14 napon belül nem igazolja vissza az átvételt és problémát sem jelez, az eladó maga is lezárhatja az ügyletet.
+    </p>
 
-  <h2>Handover methods</h2>
-  <table>
-    <thead><tr><th>Method</th><th>How it works</th><th>The buyer provides</th></tr></thead>
-    <tbody>
-      <tr><td>In person</td><td>Meet up and swap the cards. Time and place are agreed in Messages.</td><td>Nothing up front</td></tr>
-      <tr><td>Foxpost</td><td>Parcel locker delivery.</td><td>Name, phone, locker</td></tr>
-      <tr><td>Packeta</td><td>Pickup point or locker delivery.</td><td>Name, phone, pickup point</td></tr>
-      <tr><td>GLS</td><td>Courier delivery to an address.</td><td>Name, phone, address</td></tr>
-      <tr><td>Magyar Posta</td><td>Post to an address.</td><td>Name, phone, address</td></tr>
-      <tr><td>Other</td><td>Anything else the two of you agree on.</td><td>A short description</td></tr>
-    </tbody>
-  </table>
-  <p>
-    Each listing shows the methods its seller offers. In the cart you can only pick a method that every card from that seller
-    was listed with. Your delivery details are only sent to the seller you are buying from, and are remembered on your device
-    for next time.
-  </p>
+    <h2>Átvételi és szállítási módok</h2>
+    <table>
+      <thead><tr><th>Mód</th><th>Hogyan működik</th><th>A vevő által megadandó adat</th></tr></thead>
+      <tbody>
+        <tr><td>In person (Személyes átvétel)</td><td>Személyes találkozó; a helyszínt és időpontot az Üzenetekben egyeztetitek.</td><td>Előre semmi</td></tr>
+        <tr><td>Foxpost</td><td>Csomagautomata kézbesítés.</td><td>Név, telefonszám, automata neve/kódja</td></tr>
+        <tr><td>Packeta</td><td>Átvételi pont vagy Z-Box csomagautomata.</td><td>Név, telefonszám, átvételi pont</td></tr>
+        <tr><td>GLS</td><td>Házhozszállítás futárszolgálattal.</td><td>Név, telefonszám, lakcím</td></tr>
+        <tr><td>Magyar Posta (MPL)</td><td>Postai kézbesítés címre.</td><td>Név, telefonszám, lakcím</td></tr>
+        <tr><td>Other (Egyéb)</td><td>Bármilyen egyéb, közösen megbeszélt átvételi mód.</td><td>Rövid leírás</td></tr>
+      </tbody>
+    </table>
 
-  <h2>Shipping prices and minimum orders</h2>
-  <p>
-    Sellers set a price and an optional minimum order for each method in Seller Hub &gt; Shipping. For example: in person free,
-    Foxpost 1 500 Ft for orders from 5 000 Ft, GLS 2 500 Ft.
-  </p>
-  <ul>
-    <li>The card window shows a listing's methods and prices under its price.</li>
-    <li>In the cart, a method whose minimum you haven't reached shows how much more you need to add; it can't be picked until you do.</li>
-    <li>The shipping price is added to the total in the cart and on the order, and is part of what you agree to pay.</li>
-  </ul>
+    <h2>Szállítási díjak és minimum rendelési érték</h2>
+    <p>
+      Az eladók a <strong>Seller Hub &gt; Shipping</strong> menüpontban állíthatják be az egyes szállítási módok díját és az esetleges minimum rendelési összeget (pl. személyes átvétel ingyenes, Foxpost 1 500 Ft 5 000 Ft feletti rendeléstől).
+    </p>
 
-  <h2>Packing cards to post</h2>
-  <ul>
-    <li>Put each card in a <strong>penny sleeve</strong>, then valuable cards in a <strong>toploader</strong> or semi-rigid holder.</li>
-    <li>Close the toploader with a bit of low-tack tape or put it in a team bag, so cards can't slide out.</li>
-    <li>Sandwich everything between two pieces of stiff cardboard, larger than the cards.</li>
-    <li>Use a <strong>padded envelope or a small box</strong>, never a plain letter envelope - letter sorting machines bend cards.</li>
-    <li>For bigger orders, pack in a box and fill the gaps so nothing moves.</li>
-    <li>Share the tracking number with the buyer in Messages.</li>
-  </ul>
+    <h2>Kártyák biztonságos csomagolása postázáshoz</h2>
+    <ul>
+      <li>Minden kártyát tegyél <strong>penny sleeve</strong>-be (kártyavédő fóliába), az értékesebb lapokat pedig <strong>toploaderbe</strong> vagy félkemény tokba.</li>
+      <li>A toploader tetejét zárd le könnyen eltávolítható maszkolószalaggal (painter's tape) vagy tedd team bagbe, hogy a kártya ne csúszhasson ki.</li>
+      <li>A kártyákat fogd közre két erős kartonlap közé.</li>
+      <li><strong>Légpárnás borítékot vagy kis dobozt</strong> használj — sima papírborítékban a postai válogatógépek meghajlíthatják a lapokat.</li>
+      <li>A csomagkövetési számot (tracking number) küldd el a vevőnek az Üzenetekben.</li>
+    </ul>
 
-  <h2>Meeting in person</h2>
-  <ul>
-    <li>Meet somewhere public and busy - a game store, a mall, a station - during the day.</li>
-    <li>Look the cards over before paying, and count cash or check the bank transfer arrived before handing them over.</li>
-    <li>Bring sleeves or a toploader for valuable cards.</li>
-    <li>Keep the arrangements in Messages, so there is a record if something goes wrong.</li>
-  </ul>
+    <h2>Ha probléma merül fel</h2>
+    <p>
+      Először mindig az eladóval/vevővel egyeztess az Üzenetekben. Ha nem sikerül megoldani a helyzetet, írj a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címre a rendelés adataival.
+    </p>
+  </div>
 
-  <h2>If something goes wrong</h2>
-  <p>
-    Message the other person first - most problems are a late parcel or a misunderstanding. If you can't sort it out, email
-    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with the order number. TCG Vault doesn't handle payments, so it
-    can't refund you, but it can step in on accounts that break the <a href="/legal/terms">terms</a>.
-  </p>
+  <div class="lang-en">
+    <h2>The steps of a trade</h2>
+    <ol>
+      <li><strong>Request.</strong> The buyer adds cards to the cart, picks a handover method and sends a hold request. The cards are set aside right away.</li>
+      <li><strong>Accept.</strong> The seller accepts (the cards are reserved for that buyer) or rejects it. Either side can still cancel at this point.</li>
+      <li><strong>Arrange.</strong> Payment and the details of the handover are agreed in Messages.</li>
+      <li><strong>Hand over.</strong> After meeting up or posting the cards, the seller presses <em>Mark handed over</em>. From here the buyer can no longer cancel.</li>
+      <li><strong>Confirm.</strong> The buyer presses <em>I received it</em>, in Messages or under My holds in their profile. That completes the sale, and both sides can rate each other.</li>
+    </ol>
+    <p class="doc-note">
+      If the buyer doesn't confirm within 14 days of handover, the seller can complete the sale themselves. So buyers: confirm
+      when your cards arrive, and message the seller straight away if something is wrong.
+    </p>
+
+    <h2>Handover methods</h2>
+    <table>
+      <thead><tr><th>Method</th><th>How it works</th><th>The buyer provides</th></tr></thead>
+      <tbody>
+        <tr><td>In person</td><td>Meet up and swap the cards. Time and place are agreed in Messages.</td><td>Nothing up front</td></tr>
+        <tr><td>Foxpost</td><td>Parcel locker delivery.</td><td>Name, phone, locker</td></tr>
+        <tr><td>Packeta</td><td>Pickup point or locker delivery.</td><td>Name, phone, pickup point</td></tr>
+        <tr><td>GLS</td><td>Courier delivery to an address.</td><td>Name, phone, address</td></tr>
+        <tr><td>Magyar Posta</td><td>Post to an address.</td><td>Name, phone, address</td></tr>
+        <tr><td>Other</td><td>Anything else the two of you agree on.</td><td>A short description</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Each listing shows the methods its seller offers. In the cart you can only pick a method that every card from that seller
+      was listed with. Your delivery details are only sent to the seller you are buying from, and are remembered on your device
+      for next time.
+    </p>
+
+    <h2>Shipping prices and minimum orders</h2>
+    <p>
+      Sellers set a price and an optional minimum order for each method in Seller Hub &gt; Shipping. For example: in person free,
+      Foxpost 1 500 Ft for orders from 5 000 Ft, GLS 2 500 Ft.
+    </p>
+    <ul>
+      <li>The card window shows a listing's methods and prices under its price.</li>
+      <li>In the cart, a method whose minimum you haven't reached shows how much more you need to add; it can't be picked until you do.</li>
+      <li>The shipping price is added to the total in the cart and on the order, and is part of what you agree to pay.</li>
+    </ul>
+
+    <h2>Packing cards to post</h2>
+    <ul>
+      <li>Put each card in a <strong>penny sleeve</strong>, then valuable cards in a <strong>toploader</strong> or semi-rigid holder.</li>
+      <li>Close the toploader with a bit of low-tack tape or put it in a team bag, so cards can't slide out.</li>
+      <li>Sandwich everything between two pieces of stiff cardboard, larger than the cards.</li>
+      <li>Use a <strong>padded envelope or a small box</strong>, never a plain letter envelope - letter sorting machines bend cards.</li>
+      <li>For bigger orders, pack in a box and fill the gaps so nothing moves.</li>
+      <li>Share the tracking number with the buyer in Messages.</li>
+    </ul>
+
+    <h2>Meeting in person</h2>
+    <ul>
+      <li>Meet somewhere public and busy - a game store, a mall, a station - during the day.</li>
+      <li>Look the cards over before paying, and count cash or check the bank transfer arrived before handing them over.</li>
+      <li>Bring sleeves or a toploader for valuable cards.</li>
+      <li>Keep the arrangements in Messages, so there is a record if something goes wrong.</li>
+    </ul>
+
+    <h2>If something goes wrong</h2>
+    <p>
+      Message the other person first - most problems are a late parcel or a misunderstanding. If you can't sort it out, email
+      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with the order number. TCG Vault doesn't handle payments, so it
+      can't refund you, but it can step in on accounts that break the <a href="/legal/terms">terms</a>.
+    </p>
+  </div>
 </DocLayout>

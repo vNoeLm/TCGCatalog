@@ -550,6 +550,17 @@ export function MarketplaceCartDrawer() {
                   </div>
                 )}
 
+                <div
+                  className="mb-3 p-2.5 rounded-lg border text-[10px] leading-relaxed"
+                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+                >
+                  <strong style={{ color: 'var(--text-secondary)' }}>Peer-to-peer trade (Magánszemélyek közötti adásvétel):</strong>{' '}
+                  Unless marked as a Verified Store, sellers are private individuals (<em>magánszemélyek</em>). Your purchase contract is formed directly with the seller, and statutory EU/Hungarian consumer rights (such as the 14-day right of withdrawal / <em>14 napos elállási jog</em>) do not apply to private sales.{' '}
+                  <a href="/legal/terms" className="underline font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    Terms (ÁSZF)
+                  </a>
+                </div>
+
                 <button
                   type="submit"
                   disabled={submitting}

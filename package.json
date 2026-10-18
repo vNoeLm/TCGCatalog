@@ -15,8 +15,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^14.4.0",
     "@astrojs/react": "^6.0.2",
     "@astrojs/vercel": "^11.0.5",
+    "@aws-sdk/client-s3": "^3.1152.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/space-grotesk": "^5.3.0",
     "@supabase/supabase-js": "^2.112.1",
@@ -27,7 +29,8 @@
     "dotenv": "^17.4.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "wrangler": "^4.151.1"
   },
   "devDependencies": {
     "playwright": "^1.62.1",
