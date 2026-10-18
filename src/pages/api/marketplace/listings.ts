@@ -388,8 +388,8 @@ export const POST: APIRoute = async ({ request }) => {
         email: user.email,
         display_name: displayName,
         avatar_url: user.user_metadata?.avatar_url || null,
-        role: user.email === 'vnoel05@gmail.com' ? 'owner' : 'user',
-        is_admin: user.email === 'vnoel05@gmail.com',
+        role: (user.email === 'vnoel05@gmail.com' || user.email === 'support@tcgxchange.net') ? 'owner' : 'user',
+        is_admin: user.email === 'vnoel05@gmail.com' || user.email === 'support@tcgxchange.net',
       });
     }
 

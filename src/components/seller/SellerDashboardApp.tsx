@@ -160,7 +160,7 @@ export function SellerDashboardApp() {
         const json = await res.json();
         const allOrders: Order[] = json.orders || [];
         // Filter orders that belong to this seller
-        const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com';
+        const isOwner = profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com' || profile?.email === 'support@tcgxchange.net';
         const mySales = allOrders.filter(o => {
           if (o.seller_id === targetUid) return true;
           if (isOwner && (!o.seller_id || o.seller_id === 'platform-owner' || o.seller_id === targetUid)) return true;
@@ -521,7 +521,7 @@ export function SellerDashboardApp() {
   };
 
   // Calculated Statistics
-  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com' || profile?.email === 'support@tcgxchange.net');
   // Only holds still awaiting action belong on the Holds tab — once a request is
   // completed the card is sold and the record lives in Sales History instead.
   const activeHoldRequests = useMemo(() => {

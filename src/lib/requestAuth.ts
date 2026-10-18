@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import { supabaseAdmin } from './supabaseServer';
 
-const OWNER_EMAIL = 'vnoel05@gmail.com';
+const OWNER_EMAILS = ['vnoel05@gmail.com', 'support@tcgxchange.net'];
 
 export interface RequestUser {
   user: User;
@@ -23,7 +23,7 @@ export async function getRequestUser(request: Request): Promise<RequestUser | nu
   if (error || !data?.user) return null;
 
   const user = data.user;
-  if (user.email === OWNER_EMAIL) return { user, isAdmin: true };
+  if (user.email && OWNER_EMAILS.includes(user.email)) return { user, isAdmin: true };
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')

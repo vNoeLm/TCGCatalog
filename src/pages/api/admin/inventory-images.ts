@@ -16,7 +16,7 @@ async function verifyAdminUser(request: Request) {
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return null;
 
-  if (user.email === 'vnoel05@gmail.com') return user;
+  if (user.email === 'vnoel05@gmail.com' || user.email === 'support@tcgxchange.net') return user;
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')

@@ -6,7 +6,7 @@ Fill in the [brackets], then paste each part into the matching field of the appl
 
 ## Name and contact
 - Name: [your full name]
-- Email: vnoel05@gmail.com
+- Email: support@tcgxchange.net
 - Discord: shebrokeme
 - Country: Hungary
 
@@ -56,12 +56,12 @@ We may later want to add a small shop to the site that sells sealed Riftbound pr
 Would an integrated store like that be acceptable for an app using the Riot API, and is there anything we would need to do differently (for example, keeping the shop on a separate page or domain from the API-powered card library)? We'd rather ask now than add it without your agreement.
 
 ## Where the project will be distributed
-On the web, at [your public URL]. It's free and has no app store listing.
+On the web, at https://tcgxchange.net. It's free and has no app store listing.
 
 ## Platforms
 Web browser (desktop and mobile), as a responsive website.
 
 ## URL where the App can be accessed
-[your public URL]
+https://tcgxchange.net
 
 The catalog, card details, deck browser and marketplace can be viewed without an account. Collection syncing, deck saving and trading need a free account.

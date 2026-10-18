@@ -366,7 +366,7 @@ export function ProfileApp() {
     };
   }, []);
 
-  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com');
+  const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com' || profile?.email === 'support@tcgxchange.net');
   const isLightTheme = effectiveTheme === 'light';
   // The same rating the public profile uses, so the seller badge here matches what others see.
   const [sellerRatingAvg, setSellerRatingAvg] = useState<number | null>(null);

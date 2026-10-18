@@ -128,6 +128,7 @@ async function loadProfile(user: AuthUser): Promise<UserProfile> {
   }
 
   const isPlatformOwner = user.email === 'vnoel05@gmail.com' ||
+                          user.email === 'support@tcgxchange.net' ||
                           user.app_metadata?.role === 'owner' ||
                           user.user_metadata?.role === 'owner' ||
                           dbRole === 'owner';
@@ -182,7 +183,7 @@ export async function getStoreOwnerProfile(): Promise<UserProfile> {
 
   cachedOwnerProfile = {
     id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
-    email: 'vnoel05@gmail.com',
+    email: 'support@tcgxchange.net',
     display_name: 'Noel :3',
     avatar_url: null,
     role: 'owner',
