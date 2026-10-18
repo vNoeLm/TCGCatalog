@@ -616,9 +616,9 @@ export function MessagesApp() {
                     void submitDraft();
                   }
                 }}
-                placeholder="Write a message… (Enter to send, Shift+Enter for new line)"
+                placeholder="Write a message…"
                 maxLength={1000}
-                className="flex-1 border rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--accent)] transition resize-none leading-snug"
+                className="flex-1 border rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--accent)] transition resize-none leading-snug overflow-y-hidden"
                 style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)', maxHeight: 130 }}
               />
               <button

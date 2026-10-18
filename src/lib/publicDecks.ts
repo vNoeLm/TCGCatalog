@@ -1,10 +1,11 @@
 import { supabase } from './supabase';
 import type { DeckState } from '../components/deck-builder/useDeckBuilder';
+import type { GameId } from './deckRules';
 
 export interface PublicDeckSummary {
   id: string;
   name: string;
-  game: 'riftbound';
+  game: GameId;
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -22,7 +23,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
-export async function publishDeck(name: string, game: 'riftbound', deck: DeckState): Promise<{ success: boolean; error?: string; deck?: PublicDeckSummary }> {
+export async function publishDeck(name: string, game: GameId, deck: DeckState): Promise<{ success: boolean; error?: string; deck?: PublicDeckSummary }> {
   const headers = await authHeaders();
   if (!headers.Authorization) {
     return { success: false, error: 'No active user session. Please sign in again.' };

@@ -2,6 +2,7 @@ import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import type { SavedDeck } from './useSavedDecks';
 import { formatCleanCardNumber } from '../../lib/formatGameText';
+import { toGameId, type GameId } from '../../lib/deckRules';
 
 export type ImportResult =
   | { type: 'single'; name: string; deck: DeckState }
@@ -102,12 +103,14 @@ function normalizeZoneMap(rawMap: any, allCards: CatalogCard[]): Record<string, 
 /**
  * Normalizes any raw deck-like object into a valid DeckState
  */
-export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState {
+export function normalizeDeckState(raw: any, allCards: CatalogCard[], defaultGame: GameId = 'riftbound'): DeckState {
   const deckSource = raw?.deck || raw;
+  const game = toGameId(raw?.game || deckSource?.game || defaultGame);
 
   let legendId: string | null = null;
-  if (deckSource.legend) {
-    const ident = typeof deckSource.legend === 'string' ? deckSource.legend : (deckSource.legend.id || deckSource.legend.name || deckSource.legend.card_number);
+  const legendIdent = deckSource.legend ?? deckSource.leader;
+  if (legendIdent) {
+    const ident = typeof legendIdent === 'string' ? legendIdent : (legendIdent.id || legendIdent.name || legendIdent.card_number);
     const c = resolveCard(ident, allCards);
     if (c) legendId = c.id;
   }
@@ -138,7 +141,7 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
   if (!legendId) {
     for (const id of Object.keys(mainDeck)) {
       const c = allCards.find(x => x.id === id);
-      if (c && c.card_type === 'Legend') {
+      if (c && (c.card_type === 'Legend' || c.card_type === 'Leader')) {
         legendId = c.id;
         delete mainDeck[id];
         break;
@@ -146,7 +149,7 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
     }
   }
 
-  if (!championId) {
+  if (!championId && game === 'riftbound') {
     for (const id of Object.keys(mainDeck)) {
       const c = allCards.find(x => x.id === id);
       if (c && c.card_type === 'Unit' && c.subtype === 'Champion') {
@@ -162,7 +165,7 @@ export function normalizeDeckState(raw: any, allCards: CatalogCard[]): DeckState
   }
 
   return {
-    game: 'riftbound',
+    game,
     legend: legendId,
     champion: championId,
     extraLegends,
@@ -196,6 +199,15 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
       currentZone = 'extraLegends';
       continue;
     }
+    if (/^(\/\/|#|\[)?\s*(leaders?|leader\s*card)/i.test(lower)) {
+      currentZone = 'legend';
+      const parts = line.split(/[:\-]/);
+      if (parts.length > 1 && parts[1].trim()) {
+        const c = resolveCard(parts[1].trim(), allCards);
+        if (c) legendId = c.id;
+      }
+      continue;
+    }
     if (/^(\/\/|#|\[)?\s*legends?/i.test(lower)) {
       currentZone = 'legend';
       // If line contains card name after colon: "Legend: Blind Monk"
@@ -215,7 +227,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
       }
       continue;
     }
-    if (/^(\/\/|#|\[)?\s*(main|main\s*deck|units|spells|programs|gears|deck)/i.test(lower)) {
+    if (/^(\/\/|#|\[)?\s*(main|main\s*deck|units|spells|programs|gears|characters|events|stages|creatures|spells|deck)/i.test(lower)) {
       currentZone = 'mainDeck';
       continue;
     }
@@ -258,7 +270,7 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
       sideboard[card.id] = (sideboard[card.id] || 0) + qty;
     } else {
       // Auto-detect based on card type if current zone is mainDeck or not set
-      if (!legendId && card.card_type === 'Legend') {
+      if (!legendId && (card.card_type === 'Legend' || card.card_type === 'Leader')) {
         legendId = card.id;
       } else if (!championId && card.card_type === 'Unit' && card.subtype === 'Champion' && qty === 1) {
         championId = card.id;
@@ -272,8 +284,23 @@ function parseTextDecklist(text: string, allCards: CatalogCard[]): DeckState {
     }
   }
 
+  // Detect game from cards if not explicitly set
+  let detectedGame: GameId = 'riftbound';
+  const allCardIds = [legendId, championId, ...extraLegends, ...Object.keys(mainDeck), ...Object.keys(runeDeck), ...Object.keys(battlefields), ...Object.keys(sideboard)];
+  for (const id of allCardIds) {
+    const c = allCards.find(x => x.id === id);
+    if (c?.game === 'onepiece' || c?.card_type === 'Leader') {
+      detectedGame = 'onepiece';
+      break;
+    }
+    if (c?.game === 'mtg') {
+      detectedGame = 'mtg';
+      break;
+    }
+  }
+
   return {
-    game: 'riftbound',
+    game: detectedGame,
     legend: legendId,
     champion: championId,
     extraLegends,
@@ -365,22 +392,33 @@ function formatSimplifiedZoneMap(zoneMap: Record<string, number>, allCards: Cata
 export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckName = 'My Deck'): string {
   const legendCard = deck.legend ? allCards.find(c => c.id === deck.legend) : null;
   const championCard = deck.champion ? allCards.find(c => c.id === deck.champion) : null;
+  const game = toGameId(deck.game);
 
   const exportObj: any = {
-    game: 'riftbound',
+    game,
     name: deckName,
   };
 
-  exportObj.legend = legendCard ? legendCard.name : deck.legend || null;
-  if (deck.extraLegends && deck.extraLegends.length > 0) {
-    exportObj.extraLegends = deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+  if (game === 'onepiece') {
+    exportObj.leader = legendCard ? legendCard.name : deck.legend || null;
+    exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+  } else if (game === 'mtg') {
+    exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+    if (deck.sideboard && Object.keys(deck.sideboard).length > 0) {
+      exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
+    }
+  } else {
+    // Riftbound
+    exportObj.legend = legendCard ? legendCard.name : deck.legend || null;
+    if (deck.extraLegends && deck.extraLegends.length > 0) {
+      exportObj.extraLegends = deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+    }
+    exportObj.champion = championCard ? championCard.name : deck.champion || null;
+    exportObj.runeDeck = formatSimplifiedZoneMap(deck.runeDeck, allCards);
+    exportObj.battlefields = formatSimplifiedZoneMap(deck.battlefields, allCards);
+    exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+    exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
   }
-  exportObj.champion = championCard ? championCard.name : deck.champion || null;
-  exportObj.runeDeck = formatSimplifiedZoneMap(deck.runeDeck, allCards);
-  exportObj.battlefields = formatSimplifiedZoneMap(deck.battlefields, allCards);
-
-  exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
-  exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
 
   return JSON.stringify(exportObj, null, 2);
 }
@@ -392,22 +430,32 @@ export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: Catalo
   const formattedDecks = savedDecks.map(sd => {
     const legendCard = sd.deck.legend ? allCards.find(c => c.id === sd.deck.legend) : null;
     const championCard = sd.deck.champion ? allCards.find(c => c.id === sd.deck.champion) : null;
+    const game = toGameId(sd.deck.game);
 
     const exportObj: any = {
-      game: 'riftbound',
+      game,
       name: sd.name,
     };
 
-    exportObj.legend = legendCard ? legendCard.name : sd.deck.legend || null;
-    if (sd.deck.extraLegends && sd.deck.extraLegends.length > 0) {
-      exportObj.extraLegends = sd.deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+    if (game === 'onepiece') {
+      exportObj.leader = legendCard ? legendCard.name : sd.deck.legend || null;
+      exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+    } else if (game === 'mtg') {
+      exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+      if (sd.deck.sideboard && Object.keys(sd.deck.sideboard).length > 0) {
+        exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
+      }
+    } else {
+      exportObj.legend = legendCard ? legendCard.name : sd.deck.legend || null;
+      if (sd.deck.extraLegends && sd.deck.extraLegends.length > 0) {
+        exportObj.extraLegends = sd.deck.extraLegends.map(id => allCards.find(c => c.id === id)?.name || id);
+      }
+      exportObj.champion = championCard ? championCard.name : sd.deck.champion || null;
+      exportObj.runeDeck = formatSimplifiedZoneMap(sd.deck.runeDeck, allCards);
+      exportObj.battlefields = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
+      exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+      exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
     }
-    exportObj.champion = championCard ? championCard.name : sd.deck.champion || null;
-    exportObj.runeDeck = formatSimplifiedZoneMap(sd.deck.runeDeck, allCards);
-    exportObj.battlefields = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
-
-    exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
-    exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
     return exportObj;
   });
 
@@ -419,32 +467,7 @@ export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: Catalo
  */
 export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckName = 'My Deck'): string {
   const lines: string[] = [`// ${deckName}`, ''];
-
-  const legendCard = allCards.find(c => c.id === deck.legend);
-  if (legendCard) {
-    lines.push('// Legend');
-    const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
-    lines.push(`1 ${legendCard.name}${num}`);
-    lines.push('');
-  }
-
-  const extraLegendCards = (deck.extraLegends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
-  if (extraLegendCards.length > 0) {
-    lines.push(`// Extra Legends (${extraLegendCards.length})`);
-    extraLegendCards.forEach(l => {
-      const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
-      lines.push(`1 ${l.name}${num}`);
-    });
-    lines.push('');
-  }
-
-  const championCard = allCards.find(c => c.id === deck.champion);
-  if (championCard) {
-    lines.push('// Champion');
-    const num = championCard.card_number ? ` (${championCard.card_number.split('/')[0]})` : '';
-    lines.push(`1 ${championCard.name}${num}`);
-    lines.push('');
-  }
+  const game = toGameId(deck.game);
 
   const formatList = (zoneMap: Record<string, number>, title: string) => {
     const entries = Object.entries(zoneMap || {});
@@ -468,10 +491,51 @@ export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckN
     lines.push('');
   };
 
-  formatList(deck.mainDeck, 'Main Deck');
-  formatList(deck.runeDeck, 'Rune Deck');
-  formatList(deck.battlefields, 'Battlefields');
-  formatList(deck.sideboard, 'Sideboard');
+  const legendCard = allCards.find(c => c.id === deck.legend);
+
+  if (game === 'onepiece') {
+    if (legendCard) {
+      lines.push('// Leader');
+      const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
+      lines.push(`1 ${legendCard.name}${num}`);
+      lines.push('');
+    }
+    formatList(deck.mainDeck, 'Main Deck');
+  } else if (game === 'mtg') {
+    formatList(deck.mainDeck, 'Main Deck');
+    formatList(deck.sideboard, 'Sideboard');
+  } else {
+    // Riftbound
+    if (legendCard) {
+      lines.push('// Legend');
+      const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
+      lines.push(`1 ${legendCard.name}${num}`);
+      lines.push('');
+    }
+
+    const extraLegendCards = (deck.extraLegends || []).map(id => allCards.find(c => c.id === id)).filter(Boolean) as CatalogCard[];
+    if (extraLegendCards.length > 0) {
+      lines.push(`// Extra Legends (${extraLegendCards.length})`);
+      extraLegendCards.forEach(l => {
+        const num = l.card_number ? ` (${l.card_number.split('/')[0]})` : '';
+        lines.push(`1 ${l.name}${num}`);
+      });
+      lines.push('');
+    }
+
+    const championCard = allCards.find(c => c.id === deck.champion);
+    if (championCard) {
+      lines.push('// Champion');
+      const num = championCard.card_number ? ` (${championCard.card_number.split('/')[0]})` : '';
+      lines.push(`1 ${championCard.name}${num}`);
+      lines.push('');
+    }
+
+    formatList(deck.mainDeck, 'Main Deck');
+    formatList(deck.runeDeck, 'Rune Deck');
+    formatList(deck.battlefields, 'Battlefields');
+    formatList(deck.sideboard, 'Sideboard');
+  }
 
   return lines.join('\n').trim();
 }

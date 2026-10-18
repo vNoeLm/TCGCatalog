@@ -18,6 +18,7 @@ import {
 } from '../../lib/binderLayout';
 import { EVENTS, sortSetNames } from '../../lib/constants';
 import { useCollectionsStore, activeNamedCollection } from '../../lib/collectionsStore';
+import { getActiveGame } from '../../lib/theme';
 
 const DEFAULT_FILTERS: FilterState = {
   category: 'singles',
@@ -185,7 +186,7 @@ function BinderPocketTile({
 }
 
 export function BinderApp() {
-  const [activeGame, setActiveGame] = useState<'riftbound'>('riftbound');
+  const [activeGame, setActiveGame] = useState<string>(() => getActiveGame());
   const [cards, setCards] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableSets, setAvailableSets] = useState<string[]>([]);
@@ -203,9 +204,10 @@ export function BinderApp() {
   useEffect(() => {
     const handleGameChange = (e: Event) => {
       const detail = (e as CustomEvent<{ game: string }>).detail;
-      if (detail?.game === 'riftbound') {
+      if (detail?.game) {
         setActiveGame(detail.game);
         setSelectedSet('');
+        setAvailableSets([]);
       }
     };
     window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);

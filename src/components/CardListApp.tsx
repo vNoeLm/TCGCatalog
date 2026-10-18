@@ -981,28 +981,6 @@ export function CardListApp() {
     setShowExportModal(false);
   };
 
-  const handleCopySimpleText = () => {
-    if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.', 'error');
-      return;
-    }
-    const text = exportCollectionToSimpleText();
-    navigator.clipboard.writeText(text);
-    showToast(`Copied cards list to clipboard!`, 'success');
-    setShowExportModal(false);
-  };
-
-  const handleCopyJson = () => {
-    if (uniqueOwnedKeys.length === 0) {
-      showToast('Collection is empty.', 'error');
-      return;
-    }
-    const data = JSON.stringify(collection, null, 2);
-    navigator.clipboard.writeText(data);
-    showToast(`Copied collection JSON to clipboard!`, 'success');
-    setShowExportModal(false);
-  };
-
   const buildCollectionBackupObject = () =>
     buildCollectionBackup(collection, allCards.length ? allCards : cards, filters.game || 'riftbound');
 
@@ -1214,7 +1192,7 @@ export function CardListApp() {
     const link = document.createElement('a');
     link.href = url;
     const safeSet = (filters.set || filters.game || 'all').toLowerCase().replace(/[^a-z0-9]/g, '_');
-    link.download = `tcg_vault_missing_${safeSet}_${Date.now()}.json`;
+    link.download = `tcg_xchange_missing_${safeSet}_${Date.now()}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1859,10 +1837,8 @@ export function CardListApp() {
             <section>
               <h4 className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>Copy or download</h4>
               <div className="flex flex-col gap-2">
-                <ActionRow index={0} icon="list" title="Formatted card list" description="Grouped by set, with quantities, numbers and foil tags" actionLabel="Copy" actionIcon="copy" onClick={handleCopyCollectionText} />
-                <ActionRow index={1} icon="list" title="Simple card names" description="Compact, e.g. 3x Jinx, Demolitionist [Foil]" actionLabel="Copy" actionIcon="copy" onClick={handleCopySimpleText} />
-                <ActionRow index={2} icon="file" title="Collection file (JSON)" description="A full backup to keep, or to import in another browser" actionLabel="Download" actionIcon="download" onClick={handleDownloadJson} />
-                <ActionRow index={3} icon="code" title="Raw JSON" description="A compact id and quantity map to paste into Import" actionLabel="Copy" actionIcon="copy" onClick={handleCopyJson} />
+                <ActionRow index={0} icon="list" title="Detailed card list" description="Grouped by set, with quantities, numbers and foil tags" actionLabel="Copy" actionIcon="copy" onClick={handleCopyCollectionText} />
+                <ActionRow index={1} icon="code" title="JSON file (.json)" description="A full backup to keep, or to import in another browser" actionLabel="Download" actionIcon="download" onClick={handleDownloadJson} />
               </div>
             </section>
           </div>

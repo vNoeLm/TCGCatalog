@@ -8,6 +8,7 @@ import { useUrlOverlay } from '../../lib/useUrlOverlay';
 import { fetchCardsCatalog } from '../../lib/api';
 import { fetchDeckById, type PublicDeckSummary } from '../../lib/publicDecks';
 import { useSavedDecks } from '../deck-builder/useSavedDecks';
+import { toGameId, defaultZone, type GameId } from '../../lib/deckRules';
 
 const DEFAULT_FILTERS = {
   set: "", rarities: [], type: "", domains: [], tags: [], costMin: 1, costMax: 10, stockStatus: "Any",
@@ -23,7 +24,8 @@ export function DeckViewApp() {
   // In the URL (?card=), so Back closes the preview and it can be shared.
   const [previewCardId, openPreview, closePreview] = useUrlOverlay('card');
   const showPreview = (card: CatalogCard) => openPreview(card.id);
-  const { saveDeck } = useSavedDecks((deckRow?.game as any) || 'riftbound');
+  const activeGame: GameId = toGameId(deckRow?.game);
+  const { saveDeck } = useSavedDecks(activeGame);
 
   useEffect(() => {
     // Deliberately not "id" -- CardDetail (rendered below on card click) falls back to
@@ -37,6 +39,7 @@ export function DeckViewApp() {
       const row = await fetchDeckById(id);
       if (!row) { setNotFound(true); setLoading(false); return; }
       setDeckRow(row);
+      setActiveZone(defaultZone(row.game));
       const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: row.game }, '', true);
       setCards(data || []);
       setLoading(false);
@@ -97,7 +100,7 @@ export function DeckViewApp() {
           <DeckPreviewColumn
             deck={deck}
             cards={cards}
-            activeGame={(deckRow.game as any) || 'riftbound'}
+            activeGame={activeGame}
             legendCard={legendCard}
             championCard={championCard}
             onCardClick={showPreview}
@@ -108,7 +111,7 @@ export function DeckViewApp() {
           <DeckList
             deck={deck}
             cards={cards}
-            activeGame={(deckRow.game as any) || 'riftbound'}
+            activeGame={activeGame}
             legendCard={legendCard}
             championCard={championCard}
             onRemoveCard={() => {}}

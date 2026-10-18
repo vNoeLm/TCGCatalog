@@ -29,6 +29,8 @@ export function CollectionSettingsPanel({
   const [newDefaults, setNewDefaults] = useState<ListDefaults>(DEFAULT_LIST_DEFAULTS);
   const [creating, setCreating] = useState(false);
   const [recalculatingAll, setRecalculatingAll] = useState(false);
+  // The create form stays folded away until asked for - it's rarely used and took a lot of room.
+  const [showCreate, setShowCreate] = useState(false);
 
   const alwaysListedCollections = store.collections.filter((c) => c.always_list && Object.keys(c.cards).length > 0);
 
@@ -70,6 +72,7 @@ export function CollectionSettingsPanel({
       setNewAlwaysList(true);
       setNewDefaults(DEFAULT_LIST_DEFAULTS);
       onToast(`Created "${coll.name}". Open the Catalog to add cards to it.`);
+      setShowCreate(false);
       onChanged?.();
     } catch (err: any) {
       onToast(err.message || 'Failed to create collection');
@@ -92,7 +95,7 @@ export function CollectionSettingsPanel({
         className="rounded-2xl border p-5"
         style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+        <div className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${showCreate ? 'mb-4' : ''}`}>
           <div className="min-w-0">
             <h2 className="text-base font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
               <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -121,6 +124,18 @@ export function CollectionSettingsPanel({
                 <span>{recalculatingAll ? 'Recalculating all…' : 'Recalculate all prices'}</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setShowCreate((v) => !v)}
+              aria-expanded={showCreate}
+              className="h-9 px-3.5 rounded-xl border text-xs font-bold inline-flex items-center justify-center gap-1.5 shrink-0 transition cursor-pointer"
+              style={{ background: showCreate ? 'var(--accent-muted)' : 'var(--bg-surface-2)', borderColor: showCreate ? 'var(--accent-border)' : 'var(--border)', color: showCreate ? 'var(--text-accent)' : 'var(--text-primary)' }}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {showCreate ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M12 5v14M5 12h14" />}
+              </svg>
+              <span>{showCreate ? 'Cancel' : 'New collection'}</span>
+            </button>
             <a
               href="/"
               className="h-9 px-3.5 rounded-xl border text-xs font-bold inline-flex items-center justify-center gap-1.5 shrink-0 transition"
@@ -134,6 +149,7 @@ export function CollectionSettingsPanel({
           </div>
         </div>
 
+        {showCreate && (
         <form
           onSubmit={handleCreate}
           className="rounded-xl border p-4"
@@ -178,6 +194,7 @@ export function CollectionSettingsPanel({
           </label>
           {newAlwaysList && <DefaultsEditor value={newDefaults} onChange={setNewDefaults} />}
         </form>
+        )}
       </div>
 
       {/* Existing Collections */}

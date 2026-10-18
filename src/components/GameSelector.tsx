@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { GAMES, STORAGE_KEYS, EVENTS } from '../lib/constants';
 import { applySiteTheme } from '../lib/theme';
 import { useExitTransition } from '../lib/useExitTransition';
@@ -16,6 +16,16 @@ export function GameSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownAnim = useExitTransition(isOpen, 200);
+  // On a narrow phone the menu can run past the right edge (which makes the whole page zoom out),
+  // so shift it left by however much it overflows.
+  const [menuShift, setMenuShift] = useState(0);
+  useLayoutEffect(() => {
+    if (!isOpen || !dropdownRef.current) return;
+    const rect = dropdownRef.current.getBoundingClientRect();
+    const menuWidth = Math.min(224, window.innerWidth - 16);
+    const overflow = rect.left + menuWidth - (window.innerWidth - 8);
+    setMenuShift(overflow > 0 ? -Math.min(overflow, Math.max(0, rect.left - 8)) : 0);
+  }, [isOpen]);
 
   useEffect(() => {
 
@@ -113,10 +123,11 @@ export function GameSelector() {
       {dropdownAnim.rendered && (
         <div
           data-state={dropdownAnim.state}
-          className="tv-popover tv-origin-top-left absolute left-0 mt-1.5 w-56 rounded-xl border shadow-2xl z-50 py-1 overflow-hidden backdrop-blur-md"
+          className="tv-popover tv-origin-top-left absolute left-0 mt-1.5 w-56 max-w-[calc(100vw-1rem)] rounded-xl border shadow-2xl z-50 py-1 overflow-hidden backdrop-blur-md"
           style={{
             background: 'var(--bg-surface)',
             borderColor: 'var(--border)',
+            left: menuShift,
           }}
         >
           <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-b" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-subtle)' }}>

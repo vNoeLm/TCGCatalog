@@ -314,7 +314,7 @@ export function ProfileApp() {
           .then(r => (r.ok ? r.json() : null))
           .then(j => {
             if (j?.success) {
-              if (j.banner_url !== undefined) setBannerUrl(j.banner_url);
+              if (j.banner_url) setBannerUrl(j.banner_url);
               if (j.avatar_url) setProfile(prev => (prev ? { ...prev, avatar_url: j.avatar_url } : prev));
               if (Array.isArray(j.displayed_badges)) {
                 setDisplayedBadges(j.displayed_badges);
@@ -734,7 +734,7 @@ export function ProfileApp() {
     >
       {/* Tab bar inside the single container, matching Seller Hub tab feel */}
       <div
-        className="flex items-center gap-1 overflow-x-auto border-b pb-3 mb-4"
+        className="flex items-center gap-1 overflow-x-auto border-b pt-1.5 pb-3 px-1 -mx-1 mb-4"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
         <button
@@ -858,9 +858,9 @@ export function ProfileApp() {
       >
         <BannerContainerBackground bannerUrl={bannerUrl} isLightTheme={isLightTheme} />
 
-        <div className="relative z-10 p-5 sm:p-7">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-5">
-            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left min-w-0 sm:flex-1">
+        <div className="relative z-10 p-3.5 sm:p-7">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 sm:gap-5">
+            <div className="flex flex-row items-center gap-3 sm:gap-5 text-left min-w-0 sm:flex-1">
               <button
                 type="button"
                 onClick={() => setShowAppearanceModal(true)}
@@ -871,12 +871,12 @@ export function ProfileApp() {
                   <img
                     src={profile.avatar_url}
                     alt={profile.display_name || 'User'}
-                    className="w-24 h-24 sm:w-20 sm:h-20 rounded-full object-cover shrink-0 bg-zinc-950 shadow-md"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shrink-0 bg-zinc-950 shadow-md"
                     style={{ border: '2px solid var(--border)' }}
                   />
                 ) : (
                   <div
-                    className="w-24 h-24 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-4xl sm:text-3xl font-black border shrink-0"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-black border shrink-0"
                     style={{
                       background: 'var(--bg-surface-2)',
                       borderColor: 'var(--border)',
@@ -898,9 +898,9 @@ export function ProfileApp() {
               </button>
 
               <div className="min-w-0">
-                <div className="flex items-center justify-center sm:justify-start gap-2.5">
+                <div className="flex items-center justify-start gap-2.5">
                   {isEditing ? (
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-2 items-center">
+                    <div className="flex flex-wrap justify-start gap-2 items-center">
                       <input
                         type="text"
                         value={displayName}
@@ -945,7 +945,7 @@ export function ProfileApp() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap justify-center sm:justify-start">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap justify-start">
                       <h1 className="text-2xl font-black break-words min-w-0" style={{ color: 'var(--text-primary)' }}>
                         {profile.display_name || 'Valued Collector'}
                       </h1>
@@ -991,7 +991,7 @@ export function ProfileApp() {
                 <div className="text-xs sm:text-sm font-mono mt-1 break-all" style={{ color: 'var(--text-tertiary)' }}>
                   {profile.email}
                 </div>
-                <div className="mt-3 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <div className="mt-2 sm:mt-3 flex items-center justify-start gap-1.5 sm:gap-2 flex-wrap">
                   {profile.is_admin || profile.role === 'admin' ? (
                     <span
                       className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
@@ -1057,10 +1057,10 @@ export function ProfileApp() {
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
+            <div className="grid grid-cols-2 sm:flex sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
               <a
                 href={`/user?id=${profile.id}`}
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
                 style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
                 title="See your profile the way other collectors see it - ratings, sales, purchases and reviews"
               >
@@ -1072,7 +1072,7 @@ export function ProfileApp() {
               </a>
               <a
                 href="/seller"
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
                 style={{
                   background: 'var(--bg-surface-2)',
                   borderColor: 'var(--border)',
@@ -1087,7 +1087,7 @@ export function ProfileApp() {
               {(isOwner || profile.is_admin) && (
                 <a
                   href="/admin"
-                  className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-black transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                  className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
                   style={{
                     background: 'var(--tag-gold-bg)',
                     borderColor: 'var(--tag-gold-border)',
@@ -1102,7 +1102,7 @@ export function ProfileApp() {
               )}
               <button
                 onClick={handleSignOut}
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer border inline-flex items-center justify-center gap-1.5 hover:brightness-110"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border inline-flex items-center justify-center gap-1.5 hover:brightness-110"
                 style={{
                   background: 'var(--negative-muted)',
                   borderColor: 'var(--negative-border)',

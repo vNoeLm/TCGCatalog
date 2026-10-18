@@ -1,9 +1,10 @@
 import { extraLegendsRequired, legendNameKey } from '../../lib/riftboundRules';
+import { gameStorageKey, hasZone, maxCopies, type GameId } from '../../lib/deckRules';
 import { useState, useEffect } from 'react';
 import type { CatalogCard } from '../../types';
 
 export interface DeckState {
-  game?: 'riftbound';
+  game?: GameId;
   legend: string | null;
   champion: string | null;
   /** Riftbound: legends chosen besides the starting legend, for a card like Neeko, Blending In
@@ -34,14 +35,18 @@ const INITIAL_DECK: DeckState = {
   sideboard: {},
 };
 
-export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
+export function useDeckBuilder(activeGame: GameId = 'riftbound') {
   const [deck, setDeck] = useState<DeckState>(() => ({
     ...INITIAL_DECK,
     game: activeGame,
   }));
-  const [loaded, setLoaded] = useState(false);
+  // The storage key whose deck is currently in state. When the game changes, state still holds
+  // the previous game's deck until the load effect swaps it in; `loaded` stays false meanwhile so
+  // the save effect can never write the old game's deck under the new game's key.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
-  const storageKey = 'riftbound_deck';
+  const storageKey = gameStorageKey(activeGame, 'deck');
+  const loaded = loadedKey === storageKey;
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -61,7 +66,7 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
     } else {
       setDeck({ ...INITIAL_DECK, game: activeGame });
     }
-    setLoaded(true);
+    setLoadedKey(storageKey);
   }, [activeGame, storageKey]);
 
   useEffect(() => {
@@ -72,6 +77,10 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
 
   const addCard = (card: CatalogCard, zone: keyof DeckState, allCards: CatalogCard[]) => {
     setDeck(prev => {
+      // Zones this game doesn't have (e.g. runes in Magic) take nothing. Extra legends is a
+      // Riftbound-only extra slot rather than a regular zone.
+      if (zone === 'extraLegends' ? activeGame !== 'riftbound' : !hasZone(activeGame, zone as string)) return prev;
+
       // Riftbound extra legends (Neeko, Blending In): legends only, as many as the deck asks for,
       // and "different" - no name may match another chosen legend or the starting legend.
       if (zone === 'extraLegends') {
@@ -93,7 +102,7 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
         return { ...prev, extraLegends: [...current, card.id] };
       }
 
-      // Riftbound Legend / Champion
+      // Riftbound Legend / Champion, One Piece Leader (the legend slot)
       if (zone === 'legend' || zone === 'champion') {
         return { ...prev, [zone]: card.id };
       }
@@ -101,7 +110,7 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
       const currentZoneKey = zone as 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
       const currentCount = prev[currentZoneKey]?.[card.id] || 0;
       
-      // Total copies of this card name across all zones must not exceed 3
+      // Total copies of this card name across all zones must not exceed the game's limit
       let totalCopies = 0;
       
       const champ = allCards.find(x => x.id === prev.champion);
@@ -120,8 +129,9 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
       countZone(prev.battlefields);
       countZone(prev.sideboard);
 
-      if (totalCopies >= 3 && card.card_type !== 'Rune') {
-        alert('You can only have up to 3 copies of any unique card name per deck.');
+      const limit = maxCopies(activeGame, card);
+      if (totalCopies >= limit) {
+        alert(`You can only have up to ${limit} copies of any unique card name per deck.`);
         return prev;
       }
 
@@ -134,6 +144,7 @@ export function useDeckBuilder(activeGame: 'riftbound' = 'riftbound') {
       };
     });
   };
+
 
   const removeCard = (cardId: string, zone: keyof DeckState) => {
     setDeck(prev => {

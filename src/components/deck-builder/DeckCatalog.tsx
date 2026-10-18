@@ -6,11 +6,12 @@ import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard, compareCardsByRarity } from '../../lib/cardVariants';
-import { TAGS, sortSetNames } from '../../lib/constants';
+import { TAGS, sortSetNames, ONEPIECE_COLORS, ONEPIECE_RARITIES, MTG_RARITIES } from '../../lib/constants';
+import { maxCopies, zoneRule, type GameId } from '../../lib/deckRules';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
-  activeGame?: 'riftbound';
+  activeGame?: GameId;
   allowedDomains: string[] | null;
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
@@ -36,24 +37,38 @@ const DOMAIN_COLORS: Record<string, string> = {
   Green:     '#22c55e',
   Blue:      '#06b6d4',
   Yellow:    '#eab308',
+  Purple:    '#a855f7',
+  Black:     '#71717a',
   red:       '#ef4444',
   green:     '#22c55e',
   blue:      '#06b6d4',
   yellow:    '#eab308',
+  purple:    '#a855f7',
+  black:     '#71717a',
 };
 
 // Ordered rarity list for display
 const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];
 
-// Zone-aware type options (only show types valid for each zone)
-const ZONE_TYPE_OPTIONS: Record<string, string[]> = {
-  legend:      ['Legend'],
-  extraLegends: ['Legend'],
-  champion:    ['Unit'],
-  mainDeck:    ['Unit', 'Spell', 'Gear'],
-  sideboard:   ['Unit', 'Spell', 'Gear'],
-  runeDeck:    ['Rune'],
-  battlefields:['Battlefield'],
+// Zone-aware type options per game
+const GAME_ZONE_TYPE_OPTIONS: Record<GameId, Record<string, string[]>> = {
+  riftbound: {
+    legend:      ['Legend'],
+    extraLegends: ['Legend'],
+    champion:    ['Unit'],
+    mainDeck:    ['Unit', 'Spell', 'Gear'],
+    sideboard:   ['Unit', 'Spell', 'Gear'],
+    runeDeck:    ['Rune'],
+    battlefields:['Battlefield'],
+  },
+  onepiece: {
+    legend:      ['Leader'],
+    mainDeck:    ['Character', 'Event', 'Stage'],
+  },
+  mtg: {
+    mainDeck:    ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'],
+    sideboard:   ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'],
+  },
 };
 
 type TriState = 'all' | 'only' | 'none';
@@ -219,11 +234,17 @@ export function DeckCatalog({
   }, [cards, collectionQty]);
 
   // How many copies of a card NAME are already placed anywhere in the deck
-  // (champion slot + every zone), mirroring the count useDeckBuilder's addCard uses.
+  // (legend/leader + champion slot + every zone), mirroring the count useDeckBuilder's addCard uses.
   const getDeckCopies = useCallback((name: string): number => {
     let total = 0;
     const champ = cards.find(c => c.id === deck.champion);
     if (champ && champ.name === name) total += 1;
+    const legend = cards.find(c => c.id === deck.legend);
+    if (legend && legend.name === name) total += 1;
+    (deck.extraLegends || []).forEach(id => {
+      const el = cards.find(c => c.id === id);
+      if (el && el.name === name) total += 1;
+    });
 
     const countZone = (zoneMap: Record<string, number> | undefined) => {
       if (!zoneMap) return;
@@ -239,12 +260,10 @@ export function DeckCatalog({
     return total;
   }, [cards, deck]);
 
-  // Legends/Champions only ever occupy a single deck slot no matter how many
-  // prints of that name exist, so owning 2 art variants still means a max of 1
-  // usable copy — everything else keeps the normal 3-copy deckbuilding cap.
-  const getMaxCopiesAllowed = (card: CatalogCard): number => {
-    return (card.card_type === 'Legend' || card.card_type === 'Champion') ? 1 : 3;
-  };
+  // Max copies allowed by game rules
+  const getMaxCopiesAllowed = useCallback((card: CatalogCard): number => {
+    return maxCopies(activeGame, card);
+  }, [activeGame]);
 
   // How many copies of this EXACT print (not every print sharing the name) the
   // user owns, so two different art variants of the same card don't show each
@@ -271,7 +290,8 @@ export function DeckCatalog({
 
   const handleAddCard = useCallback((card: CatalogCard) => {
     if (onlyOwned && card.card_type !== 'Rune') {
-      const owned = Math.min(getOwnedCopies(card.name), getMaxCopiesAllowed(card));
+      const maxAllowed = getMaxCopiesAllowed(card);
+      const owned = Math.min(getOwnedCopies(card.name), maxAllowed);
       const inDeck = getDeckCopies(card.name);
       if (inDeck >= owned) {
         alert(`You only own ${owned} cop${owned === 1 ? 'y' : 'ies'} of "${card.name}". Turn off "Owned Only" to add more than you have.`);
@@ -279,7 +299,7 @@ export function DeckCatalog({
       }
     }
     onAddCard(card);
-  }, [onlyOwned, getOwnedCopies, getDeckCopies, onAddCard]);
+  }, [onlyOwned, getOwnedCopies, getDeckCopies, getMaxCopiesAllowed, onAddCard]);
 
   // Derive available sets from cards
   const availableSets = useMemo(() => {
@@ -297,24 +317,33 @@ export function DeckCatalog({
 
   // Domain / Color options
   const domainOptions = useMemo(() => {
+    if (activeGame === 'onepiece') {
+      return ['All', ...ONEPIECE_COLORS];
+    }
     const base = (legendCard && allowedDomains)
       ? allowedDomains
       : ['fury', 'calm', 'mind', 'body', 'chaos', 'order'];
     return ['All', ...base, 'colorless'];
-  }, [allowedDomains, legendCard]);
+  }, [allowedDomains, legendCard, activeGame]);
 
   // Available type options for current zone (only show relevant types)
   const typeOptions = useMemo(() => {
-    return ZONE_TYPE_OPTIONS[activeZone] || [];
-  }, [activeZone]);
+    const opts = GAME_ZONE_TYPE_OPTIONS[activeGame]?.[activeZone];
+    if (opts) return opts;
+    const rule = zoneRule(activeGame, activeZone as string);
+    return rule?.types || [];
+  }, [activeGame, activeZone]);
 
   const showTypeFilter = typeOptions.length > 1;
 
   // Available rarities sorted in defined order
   const rarityOptions = useMemo(() => {
     const present = new Set(cards.map(c => c.rarity).filter(Boolean));
-    return RARITY_ORDER.filter(r => present.has(r));
-  }, [cards]);
+    const order = activeGame === 'mtg' ? MTG_RARITIES : activeGame === 'onepiece' ? ONEPIECE_RARITIES : RARITY_ORDER;
+    const ordered = order.filter(r => present.has(r));
+    const extras = Array.from(present).filter(r => !order.includes(r));
+    return [...ordered, ...extras];
+  }, [cards, activeGame]);
 
   // Number of cards in current catalog/zone that are owned
   const ownedInCatalogCount = useMemo(() => {
@@ -324,35 +353,47 @@ export function DeckCatalog({
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
       // 1. Zone validity — hard filter based on active zone
-      switch (activeZone) {
-        case 'legend':       if (card.card_type !== 'Legend') return false; break;
-        // Neeko's extra legends: any legend, whatever its domain (see the domain check below).
-        case 'extraLegends': if (card.card_type !== 'Legend') return false; break;
-        case 'champion':     
-          if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
-          if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
-            const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
-            if (!hasCommonTag) return false;
-          }
-          break;
-        case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
-        case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
-        case 'mainDeck':
-        case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
+      if (activeGame === 'onepiece') {
+        if (activeZone === 'legend' && card.card_type !== 'Leader') return false;
+        if (activeZone === 'mainDeck' && !['Character', 'Event', 'Stage'].includes(card.card_type)) return false;
+      } else if (activeGame === 'mtg') {
+        // MTG cards in mainDeck or sideboard: all types allowed
+      } else {
+        // Riftbound
+        switch (activeZone) {
+          case 'legend':       if (card.card_type !== 'Legend') return false; break;
+          // Neeko's extra legends: any legend, whatever its domain (see the domain check below).
+          case 'extraLegends': if (card.card_type !== 'Legend') return false; break;
+          case 'champion':     
+            if (card.card_type !== 'Unit' || card.subtype !== 'Champion') return false; 
+            if (legendCard && legendCard.tags && legendCard.tags.length > 0) {
+              const hasCommonTag = card.tags && card.tags.some((t: string) => legendCard.tags.includes(t));
+              if (!hasCommonTag) return false;
+            }
+            break;
+          case 'runeDeck':     if (card.card_type !== 'Rune') return false; break;
+          case 'battlefields': if (card.card_type !== 'Battlefield') return false; break;
+          case 'mainDeck':
+          case 'sideboard':    if (!['Unit', 'Spell', 'Gear', 'Token'].includes(card.card_type)) return false; break;
+        }
       }
 
-      // 2. Domain restriction from selected Legend
+      // 2. Domain / Color restriction from selected Legend / Leader
       if (allowedDomains && activeZone !== 'legend' && activeZone !== 'extraLegends') {
-        const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
+        const cardDomains = (card.domain || '').toLowerCase().split(/[,/]/).map(d => d.trim()).filter(Boolean);
         const isColorless = cardDomains.length === 0 || cardDomains.includes('colorless');
-        const matches = cardDomains.some(d => allowedDomains.includes(d));
-        if (!isColorless && !matches) return false;
+        const matches = cardDomains.some(d => allowedDomains.some(ad => ad.toLowerCase() === d));
+        if (activeGame === 'onepiece') {
+          if (!matches) return false;
+        } else if (activeGame === 'riftbound') {
+          if (!isColorless && !matches) return false;
+        }
       }
 
       // 2b. Signature Spells and Signature Gear only belong to their own Champion - sharing the
       // Legend's domain isn't enough (e.g. picking a Fury Legend doesn't unlock every Fury
       // champion's signature card, only the one whose Champion is actually in the deck).
-      if (activeZone === 'mainDeck' || activeZone === 'sideboard') {
+      if (activeGame === 'riftbound' && (activeZone === 'mainDeck' || activeZone === 'sideboard')) {
         const isSignatureItem = (card.card_type === 'Spell' || card.card_type === 'Gear') && (card.subtype || '').toLowerCase().includes('signature');
         if (isSignatureItem) {
           if (!championCard) return false;
@@ -385,7 +426,7 @@ export function DeckCatalog({
       // 7. Domain / Color filter chips (any of the selected)
       if (domainFilter.length > 0) {
         const matchesDomain = domainFilter.some(sel => {
-          const cardDomains = (card.domain || '').toLowerCase().split(',').map(d => d.trim()).filter(Boolean);
+          const cardDomains = (card.domain || '').toLowerCase().split(/[,/]/).map(d => d.trim()).filter(Boolean);
           if (sel === 'colorless') return cardDomains.length === 0 || cardDomains.includes('colorless');
           return cardDomains.includes(sel.toLowerCase());
         });
@@ -429,7 +470,7 @@ export function DeckCatalog({
 
       return true;
     });
-  }, [cards, search, typeFilter, rarityFilter, domainFilter, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, championCard, activeZone]);
+  }, [cards, search, typeFilter, rarityFilter, domainFilter, altArtFilter, overnumberedFilter, signedFilter, spFilter, baseSetOnly, tagFilter, keywordFilter, keywordMode, setFilter, costMin, costMax, onlyOwned, collection, allowedDomains, legendCard, championCard, activeZone, activeGame]);
 
   const sortedCards = useMemo(() => {
     const list = [...filteredCards];
@@ -656,10 +697,10 @@ export function DeckCatalog({
               </div>
             </div>
 
-            {/* Row 3: Domain chips (hidden for legend/rune/battlefield zones) */}
-            {!['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
+            {/* Row 3: Domain / Color chips (hidden for MTG or legend/rune/battlefield zones) */}
+            {activeGame !== 'mtg' && !['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
-                <label style={currentLabelStyle}>Domain</label>
+                <label style={currentLabelStyle}>{activeGame === 'onepiece' ? 'Color' : 'Domain'}</label>
                 <div style={pillGrid}>
                   {domainOptions.map(d => {
                     const isActive = d === 'All' ? domainFilter.length === 0 : domainFilter.includes(d);
@@ -713,70 +754,74 @@ export function DeckCatalog({
               </div>
             </div>
 
-            {/* Row 3d: Tags */}
-            <div>
-              <label style={currentLabelStyle}>Tags {tagFilter.length > 0 && <span style={{ color: theme.accent }}>({tagFilter.length})</span>}</label>
-              <input
-                type="text"
-                value={tagSearch}
-                onChange={e => setTagSearch(e.target.value)}
-                placeholder="Search tags..."
-                style={{ ...currentSelectStyle, cursor: 'text', marginBottom: 6 }}
-              />
-              <div style={{ ...pillGrid, marginTop: 0, maxHeight: 132, overflowY: 'auto', overflowX: 'hidden' }} className="custom-scrollbar">
-                {TAGS
-                  .filter((t: string) => !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase()))
-                  .map((t: string) => {
-                    const isActive = tagFilter.includes(t);
+            {/* Row 3d: Tags (Riftbound only) */}
+            {activeGame === 'riftbound' && (
+              <div>
+                <label style={currentLabelStyle}>Tags {tagFilter.length > 0 && <span style={{ color: theme.accent }}>({tagFilter.length})</span>}</label>
+                <input
+                  type="text"
+                  value={tagSearch}
+                  onChange={e => setTagSearch(e.target.value)}
+                  placeholder="Search tags..."
+                  style={{ ...currentSelectStyle, cursor: 'text', marginBottom: 6 }}
+                />
+                <div style={{ ...pillGrid, marginTop: 0, maxHeight: 132, overflowY: 'auto', overflowX: 'hidden' }} className="custom-scrollbar">
+                  {TAGS
+                    .filter((t: string) => !tagSearch.trim() || t.toLowerCase().includes(tagSearch.trim().toLowerCase()))
+                    .map((t: string) => {
+                      const isActive = tagFilter.includes(t);
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => setTagFilter(isActive ? tagFilter.filter(x => x !== t) : [...tagFilter, t])}
+                          style={pillStyle(isActive)}
+                          title={t}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Row 3e: Keywords with AND / OR (Riftbound only) */}
+            {activeGame === 'riftbound' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <label style={{ ...currentLabelStyle, marginBottom: 0 }}>Keywords {keywordFilter.length > 0 && <span style={{ color: theme.accent }}>({keywordFilter.length})</span>}</label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Match</span>
+                    {(['and', 'or'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setKeywordMode(m)}
+                        title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
+                        style={{ ...pillStyle(keywordMode === m), width: 70 }}
+                      >
+                        {m === 'and' ? 'All (AND)' : 'Any (OR)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ ...pillGrid, marginTop: 8 }}>
+                  {SEARCHABLE_KEYWORDS.map(k => {
+                    const isActive = keywordFilter.includes(k);
                     return (
                       <button
-                        key={t}
-                        onClick={() => setTagFilter(isActive ? tagFilter.filter(x => x !== t) : [...tagFilter, t])}
+                        key={k}
+                        onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
                         style={pillStyle(isActive)}
-                        title={t}
+                        title={k}
                       >
-                        {t}
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k), flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
                       </button>
                     );
                   })}
-              </div>
-            </div>
-
-            {/* Row 3e: Keywords with AND / OR */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ ...currentLabelStyle, marginBottom: 0 }}>Keywords {keywordFilter.length > 0 && <span style={{ color: theme.accent }}>({keywordFilter.length})</span>}</label>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Match</span>
-                  {(['and', 'or'] as const).map(m => (
-                    <button
-                      key={m}
-                      onClick={() => setKeywordMode(m)}
-                      title={m === 'and' ? 'Cards must have every selected keyword' : 'Cards may have any selected keyword'}
-                      style={{ ...pillStyle(keywordMode === m), width: 70 }}
-                    >
-                      {m === 'and' ? 'All (AND)' : 'Any (OR)'}
-                    </button>
-                  ))}
                 </div>
               </div>
-              <div style={{ ...pillGrid, marginTop: 8 }}>
-                {SEARCHABLE_KEYWORDS.map(k => {
-                  const isActive = keywordFilter.includes(k);
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => setKeywordFilter(isActive ? keywordFilter.filter(x => x !== k) : [...keywordFilter, k])}
-                      style={pillStyle(isActive)}
-                      title={k}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: keywordSolidColor(k), flexShrink: 0 }} />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{k}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            )}
 
             {/* Row 4: Cost range */}
             <div>

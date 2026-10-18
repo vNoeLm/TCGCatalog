@@ -2,11 +2,12 @@ import React from 'react';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
+import type { GameId } from '../../lib/deckRules';
 
 interface DeckPreviewColumnProps {
   deck: DeckState;
   cards: CatalogCard[];
-  activeGame?: 'riftbound';
+  activeGame?: GameId;
   legendCard: CatalogCard | null;
   championCard: CatalogCard | null;
   onCardClick: (card: CatalogCard) => void;
@@ -37,6 +38,10 @@ export function DeckPreviewColumn({
     };
 
     if (legendCard) addCardToGroup(legendCard, 1);
+    (deck.extraLegends || []).forEach(id => {
+      const c = cards.find(x => x.id === id);
+      if (c) addCardToGroup(c, 1);
+    });
     if (championCard) addCardToGroup(championCard, 1);
 
     const addFromZone = (zoneMap: Record<string, number> | undefined) => {

@@ -73,7 +73,16 @@ export const GET: APIRoute = async ({ url }) => {
     loadDisplayedBadgesMap(),
   ]);
 
-  const rawBanner = banners[userId] || null;
+  let rawBanner: string | null = banners[userId] || null;
+  if (!rawBanner) {
+    // Banners set before the shared map existed (or whose map write failed) only live in the
+    // account metadata - fall back to it so the banner follows the account to every device.
+    try {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const metaBanner = authUser?.user?.user_metadata?.banner_url;
+      if (typeof metaBanner === 'string' && metaBanner.trim()) rawBanner = metaBanner.trim();
+    } catch {}
+  }
   const displayedBadges = Array.isArray(badgesMap[userId])
     ? badgesMap[userId].filter((g) => ALLOWED_BADGE_GAMES.has(g))
     : ['riftbound'];

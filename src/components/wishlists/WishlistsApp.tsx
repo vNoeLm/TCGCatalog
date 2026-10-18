@@ -7,7 +7,7 @@ import { getCurrentProfile, onSignedInUserChange } from '../../lib/auth';
 import { fetchCardsCatalog } from '../../lib/api';
 import { hasFoilVariant } from '../../lib/cardVariants';
 import { useCardValueData, valueOfCard } from '../../lib/cardValues';
-import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
+import { STORAGE_KEYS, EVENTS, GAMES } from '../../lib/constants';
 import {
   useWishlists,
   createWishlist,
@@ -97,7 +97,10 @@ export function WishlistsApp() {
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 'clamp(16px,3vw,32px) clamp(16px,3vw,24px)' }}>
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>Wishlists</h1>
+        <h1 className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
+          Wishlists{' '}
+          <span style={{ color: 'var(--text-accent)' }}>for {GAMES.find((g) => g.id === game)?.name || game}</span>
+        </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
           Lists of cards you want. Filter the catalog or marketplace by one, or hand it to Quick Shop to find the cheapest copies.
         </p>

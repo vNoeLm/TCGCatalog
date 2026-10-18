@@ -15,6 +15,10 @@ import { exportDeckToText, exportDeckToJson, exportSavedDecksToJson } from './de
 import { Modal } from '../ui/Modal';
 import { publishDeck, setDeckVisibility, deletePublishedDeck, fetchMyDecks, type PublicDeckSummary } from '../../lib/publicDecks';
 
+import { getActiveGame } from '../../lib/theme';
+import { EVENTS } from '../../lib/constants';
+import { toGameId, gameStorageKey, defaultZone, hasZone, type GameId } from '../../lib/deckRules';
+
 const BREAKPOINT = 1100;
 
 const DEFAULT_FILTERS = {
@@ -129,7 +133,18 @@ export function DeckBuilderApp() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const activeGame = 'riftbound' as const;
+  const [activeGame, setActiveGame] = useState<GameId>(() => toGameId(getActiveGame()));
+
+  useEffect(() => {
+    const handleGameChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ game: string }>).detail;
+      if (detail?.game) {
+        setActiveGame(toGameId(detail.game));
+      }
+    };
+    window.addEventListener(EVENTS.GAME_CHANGE, handleGameChange);
+    return () => window.removeEventListener(EVENTS.GAME_CHANGE, handleGameChange);
+  }, []);
 
   const { deck, addCard, removeCard, removeCardFromAnyZone, clearDeck, loadDeck, loaded } = useDeckBuilder(activeGame);
   const { savedDecks, saveDeck, updateDeck, deleteDeck, importDeck, loaded: savedDecksLoaded } = useSavedDecks(activeGame);
@@ -137,7 +152,7 @@ export function DeckBuilderApp() {
   // creating a copy. Cleared when the deck is emptied or the game changes. Persisted per game
   // (like the working deck itself) so a page refresh doesn't lose the association and silently
   // turn every future Save into a duplicate instead of an overwrite.
-  const loadedDeckIdStorageKey = 'riftbound_loaded_deck_id';
+  const loadedDeckIdStorageKey = gameStorageKey(activeGame, 'loaded_deck_id');
   const [loadedSavedDeckId, setLoadedSavedDeckId] = useState<string | null>(null);
   const [loadedSavedDeckIdReady, setLoadedSavedDeckIdReady] = useState(false);
 
@@ -156,7 +171,14 @@ export function DeckBuilderApp() {
 
   const [saveMode, setSaveMode] = useState<'update' | 'new'>('update');
   const loadedSavedDeck = savedDecks.find(d => d.id === loadedSavedDeckId) || null;
-  const [activeZone, setActiveZone] = useState<keyof DeckState>('legend');
+  const [activeZone, setActiveZone] = useState<keyof DeckState>(() => defaultZone(activeGame));
+
+  // Reset active zone if it doesn't belong to the current game
+  useEffect(() => {
+    if (!hasZone(activeGame, activeZone as string)) {
+      setActiveZone(defaultZone(activeGame));
+    }
+  }, [activeGame, activeZone]);
 
   // Left column shows either the deck preview or the catalog filters. The filter panel itself
   // is owned by DeckCatalog and portaled into this slot so its state stays next to the catalog logic.
@@ -267,7 +289,7 @@ export function DeckBuilderApp() {
     }
     setPublishingSavedDeckId(sd.id);
     try {
-      const result = await publishDeck(sd.name, 'riftbound', sd.deck);
+      const result = await publishDeck(sd.name, sd.deck.game || activeGame, sd.deck);
       if (result.success) {
         refreshPublishedDecks();
         alert(`"${sd.name}" is now public on your profile!`);
@@ -773,15 +795,20 @@ export function DeckBuilderApp() {
           {savedDecks.map(sd => {
             const lCard = cards.find(c => c.id === sd.deck.legend);
             const cCard = cards.find(c => c.id === sd.deck.champion);
-            const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=Unknown`;
+            const firstMainId = Object.keys(sd.deck.mainDeck || {})[0];
+            const fallbackCard = cards.find(c => c.id === firstMainId);
+            const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=Deck`;
+            const primaryCard = lCard || fallbackCard;
+            const primaryImg = primaryCard?.image_path ? getCardImageUrl(primaryCard.image_path) : fallback;
             const domains = lCard?.domain ? lCard.domain.split(',').map(d => d.trim().toLowerCase()) : [];
+            const isOnePiece = (sd.deck.game || activeGame) === 'onepiece';
 
             return (
               <div key={sd.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-zinc-950/60 rounded-xl border border-zinc-800">
                 <div className="flex items-center gap-4">
                   <div className="flex relative">
                     <div className="w-14 h-20 rounded-lg overflow-hidden z-10 border border-zinc-700 shadow-md">
-                      <img src={lCard?.image_path ? getCardImageUrl(lCard.image_path) : fallback} alt="Legend" className="w-full h-full object-cover" />
+                      <img src={primaryImg} alt={primaryCard?.name || "Deck"} className="w-full h-full object-cover" />
                     </div>
                     {cCard && (
                       <div className="w-14 h-20 rounded-lg overflow-hidden -ml-6 z-0 border border-zinc-700 shadow-md">
@@ -802,8 +829,11 @@ export function DeckBuilderApp() {
                     </div>
                     <div className="text-xs text-zinc-500 mb-1">{new Date(sd.createdAt).toLocaleDateString(undefined)}</div>
                     <div className="text-xs text-zinc-400 space-y-0.5">
-                      {lCard && <div><span className="text-zinc-500">Legend:</span> {lCard.name}</div>}
+                      {lCard && <div><span className="text-zinc-500">{isOnePiece ? 'Leader:' : 'Legend:'}</span> {lCard.name}</div>}
                       {cCard && <div><span className="text-zinc-500">Champion:</span> {cCard.name}</div>}
+                      {!lCard && !cCard && (
+                        <div><span className="text-zinc-500">Cards:</span> {Object.values(sd.deck.mainDeck || {}).reduce((a, b) => a + b, 0)}</div>
+                      )}
                     </div>
                   </div>
                 </div>

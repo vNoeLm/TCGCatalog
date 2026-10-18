@@ -24,6 +24,7 @@ export function PublicProfileApp() {
   const [reviewTab, setReviewTab] = useState<'buyer_to_seller' | 'seller_to_buyer'>('buyer_to_seller');
   const [decks, setDecks] = useState<PublicDeckSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contentTab, setContentTab] = useState<'sale' | 'decks'>('sale');
   const isLightTheme = useSiteTheme().theme === 'light';
   // Viewing your own profile: say so, with a way back to the editable one.
   const [isMe, setIsMe] = useState(false);
@@ -153,7 +154,7 @@ export function PublicProfileApp() {
         style={{ borderColor: 'var(--border)', boxShadow: 'var(--shadow-card)' }}
       >
         <BannerContainerBackground bannerUrl={bannerUrl} isLightTheme={isLightTheme} />
-        <div className="relative z-10 p-6 sm:p-7">
+        <div className="relative z-10 p-4 sm:p-7">
         <div className="flex items-center gap-4 sm:gap-5 flex-wrap">
           {summary.avatar_url ? (
             <img
@@ -259,11 +260,31 @@ export function PublicProfileApp() {
         </div>
       </div>
 
-      {/* Listings — a single entry point into the Marketplace, filtered to this seller,
-          rather than duplicating the marketplace's own card grid here. */}
-      <h2 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
-        Cards for sale
-      </h2>
+      {/* Cards for sale / Decks - tabs, opening on the cards. Decks matter less, so they stay tucked away. */}
+      <div className="flex items-center gap-1.5 mb-4" role="tablist" aria-label="Profile content">
+        {([
+          ['sale', 'Cards for sale', listings.length],
+          ['decks', 'Decks', decks.length],
+        ] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={contentTab === key}
+            onClick={() => setContentTab(key)}
+            className="h-9 px-4 rounded-xl text-xs font-black border cursor-pointer transition inline-flex items-center gap-2"
+            style={contentTab === key
+              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
+              : { background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+          >
+            <span>{label}</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {contentTab === 'sale' && (
+      <>
       {listings.length === 0 ? (
         <div
           className="p-10 text-center rounded-2xl border mb-8"
@@ -311,11 +332,11 @@ export function PublicProfileApp() {
           </svg>
         </a>
       )}
+      </>
+      )}
 
-      {/* Decks — decks this collector has published publicly from the Deck Builder */}
-      <h2 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>
-        Decks ({decks.length})
-      </h2>
+      {contentTab === 'decks' && (
+      <>
       {decks.length === 0 ? (
         <div
           className="p-10 text-center rounded-2xl border mb-8"
@@ -360,6 +381,8 @@ export function PublicProfileApp() {
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* Reviews - how sellers rated them as a buyer, and buyers rated them as a seller */}

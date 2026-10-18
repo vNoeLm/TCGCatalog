@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { DeckState } from './useDeckBuilder';
 import type { CatalogCard } from '../../types';
 import { parseDeckInput, type ImportResult } from './deckSerializer';
+import { gameStorageKey, type GameId } from '../../lib/deckRules';
 
 export interface SavedDeck {
   id: string;
@@ -10,10 +11,12 @@ export interface SavedDeck {
   createdAt: number;
 }
 
-export function useSavedDecks(activeGame: 'riftbound' = 'riftbound') {
+export function useSavedDecks(activeGame: GameId = 'riftbound') {
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const storageKey = 'riftbound_saved_decks';
+  // Key whose decks are currently in state; see useDeckBuilder for why this isn't a boolean.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const storageKey = gameStorageKey(activeGame, 'saved_decks');
+  const loaded = loadedKey === storageKey;
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -27,7 +30,7 @@ export function useSavedDecks(activeGame: 'riftbound' = 'riftbound') {
     } else {
       setSavedDecks([]);
     }
-    setLoaded(true);
+    setLoadedKey(storageKey);
   }, [activeGame, storageKey]);
 
   useEffect(() => {
@@ -35,6 +38,7 @@ export function useSavedDecks(activeGame: 'riftbound' = 'riftbound') {
       localStorage.setItem(storageKey, JSON.stringify(savedDecks));
     }
   }, [savedDecks, loaded, storageKey]);
+
 
   const saveDeck = (name: string, deck: DeckState) => {
     const newDeck: SavedDeck = {
