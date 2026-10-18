@@ -15,7 +15,9 @@ const cleanPrices = (v: unknown): Record<string, number> => {
   if (v && typeof v === 'object') {
     for (const [k, n] of Object.entries(v as Record<string, unknown>)) {
       const price = Math.round(Number(n));
-      if (/^[0-9a-f-]{36}$/i.test(k) && Number.isFinite(price) && price > 0) out[k] = Math.min(price, 10_000_000);
+      if (/^[0-9a-f-]{36}(_foil)?$/i.test(k) && Number.isFinite(price) && price >= 0) {
+        out[k] = Math.min(price, 10_000_000);
+      }
     }
   }
   return out;
@@ -68,9 +70,9 @@ export const POST: APIRoute = async ({ request }) => {
   return jsonResponse({ success: true, collection: rowToCollection(data) }, 201);
 };
 
-// PATCH { id, name?, always_list?, list_defaults?, prices? }: rename or change how it lists.
+// PATCH { id, name?, always_list?, list_defaults?, prices?, recalculate_prices? }: rename or change how it lists.
 // Switching "always list" on lists every card in it (prices: the browser's suggestion per card);
-// switching it off takes those listings down.
+// switching it off takes those listings down; recalculate_prices updates all existing listings.
 export const PATCH: APIRoute = async ({ request }) => {
   const caller = await getRequestUser(request);
   if (!caller) return jsonResponse({ success: false, error: 'Sign in to use collections.' }, 401);
@@ -101,8 +103,9 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   let after = rowToCollection(data);
   let sync = null;
-  if (turningOn) {
-    sync = await syncAlwaysList(caller.user.id, after, null, cleanPrices(body.prices));
+  if (turningOn || (after.always_list && (body.recalculate_prices || body.list_defaults !== undefined))) {
+    const recalc = Boolean(body.recalculate_prices || (!turningOn && body.list_defaults !== undefined));
+    sync = await syncAlwaysList(caller.user.id, after, null, cleanPrices(body.prices), recalc);
     after = (await loadCollection(caller.user.id, coll.id)) || after;
   } else if (turningOff) {
     await unlistCollection(caller.user.id, coll.id);

@@ -11,6 +11,7 @@ import {
 import {
   createCollection,
   deleteCollection,
+  recalculateCollectionPrices,
   setActiveCollection,
   updateCollection,
   useCollectionsStore,
@@ -21,13 +22,13 @@ const inputCls = 'w-full h-9 rounded-lg px-3 text-xs font-semibold border outlin
 const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
 const labelCls = 'text-[10px] font-bold uppercase tracking-wider';
 
-/** How an always-list collection lists its cards: condition, price and delivery methods. */
-function DefaultsEditor({ value, onChange }: { value: ListDefaults; onChange: (v: ListDefaults) => void }) {
+/** How an always-list collection lists its cards: condition, price, stock rules, and delivery methods. */
+export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onChange: (v: ListDefaults) => void }) {
   const set = (patch: Partial<ListDefaults>) => onChange({ ...value, ...patch });
   const adaptive = value.price_mode !== 'fixed';
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
   return (
-    <div className="grid grid-cols-2 gap-2.5 mt-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
       <label className="flex flex-col gap-1">
         <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Condition</span>
         <select value={value.condition} onChange={(e) => set({ condition: e.target.value })} className={inputCls} style={inputStyle}>
@@ -35,30 +36,102 @@ function DefaultsEditor({ value, onChange }: { value: ListDefaults; onChange: (v
         </select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Price</span>
+        <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Pricing mode</span>
         <select value={value.price_mode} onChange={(e) => set({ price_mode: e.target.value as ListDefaults['price_mode'] })} className={inputCls} style={inputStyle}>
           <option value="market">Market price</option>
           <option value="estimate">Estimated value</option>
           <option value="fixed">One fixed price</option>
         </select>
       </label>
-      <label className="flex flex-col gap-1">
-        <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{adaptive ? 'If no price data (Ft)' : 'Fixed price (Ft)'}</span>
-        <input type="number" min={1} value={value.base_price_huf} onChange={(e) => set({ base_price_huf: Math.max(1, num(e.target.value)) })} className={inputCls} style={inputStyle} />
-      </label>
+
       {adaptive ? (
-        <label className="flex flex-col gap-1">
-          <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Adjust (%)</span>
-          <input type="number" min={-90} max={500} value={value.price_adjust_pct} onChange={(e) => set({ price_adjust_pct: Math.round(Number(e.target.value) || 0) })} className={inputCls} style={inputStyle} />
-        </label>
-      ) : <span />}
-      {adaptive && (
-        <label className="flex flex-col gap-1">
-          <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Never below (Ft)</span>
-          <input type="number" min={0} value={value.min_price_huf} onChange={(e) => set({ min_price_huf: num(e.target.value) })} className={inputCls} style={inputStyle} />
+        <>
+          <label className="flex flex-col gap-1">
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>If no price data</span>
+            <select
+              value={value.skip_unpriced ? 'skip' : 'fallback'}
+              onChange={(e) => set({ skip_unpriced: e.target.value === 'skip' })}
+              className={inputCls}
+              style={inputStyle}
+            >
+              <option value="skip">Never list (skip card)</option>
+              <option value="fallback">Use fallback price (Ft)</option>
+            </select>
+          </label>
+          {!value.skip_unpriced ? (
+            <label className="flex flex-col gap-1">
+              <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Fallback price (Ft)</span>
+              <input
+                type="number"
+                min={1}
+                value={value.base_price_huf}
+                onChange={(e) => set({ base_price_huf: Math.max(1, num(e.target.value)) })}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </label>
+          ) : (
+            <div className="flex flex-col justify-end pb-1">
+              <span className="text-[11px] leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+                Cards without market or estimated price data will stay private and won't be listed.
+              </span>
+            </div>
+          )}
+          <label className="flex flex-col gap-1">
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Adjust price (%)</span>
+            <input
+              type="number"
+              min={-90}
+              max={500}
+              value={value.price_adjust_pct}
+              onChange={(e) => set({ price_adjust_pct: Math.round(Number(e.target.value) || 0) })}
+              className={inputCls}
+              style={inputStyle}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Never list below (Ft)</span>
+            <input
+              type="number"
+              min={0}
+              value={value.min_price_huf}
+              onChange={(e) => set({ min_price_huf: num(e.target.value) })}
+              className={inputCls}
+              style={inputStyle}
+            />
+          </label>
+        </>
+      ) : (
+        <label className="flex flex-col gap-1 sm:col-span-2">
+          <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Fixed price per copy (Ft)</span>
+          <input
+            type="number"
+            min={1}
+            value={value.base_price_huf}
+            onChange={(e) => set({ base_price_huf: Math.max(1, num(e.target.value)) })}
+            className={inputCls}
+            style={inputStyle}
+          />
         </label>
       )}
-      <div className="col-span-2 flex flex-col gap-1">
+
+      <label className="flex flex-col gap-1 sm:col-span-2">
+        <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Keep copies unlisted (per card)</span>
+        <select
+          value={String(value.keep_copies || 0)}
+          onChange={(e) => set({ keep_copies: Math.max(0, Math.min(99, Number(e.target.value) || 0)) })}
+          className={inputCls}
+          style={inputStyle}
+        >
+          <option value="0">0 — List all copies</option>
+          <option value="1">1 — Keep 1 copy (list 2nd+)</option>
+          <option value="2">2 — Keep 2 copies (list 3rd+)</option>
+          <option value="3">3 — Keep playset of 3 (list 4th+)</option>
+          <option value="4">4 — Keep 4 copies (list 5th+)</option>
+        </select>
+      </label>
+
+      <div className="sm:col-span-2 flex flex-col gap-1">
         <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Delivery methods</span>
         <div className="flex flex-wrap gap-1.5">
           {HANDOVER_METHODS.map((m) => {
@@ -83,27 +156,32 @@ function DefaultsEditor({ value, onChange }: { value: ListDefaults; onChange: (v
           })}
         </div>
       </div>
-      <p className="col-span-2 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-        Applies to cards this collection lists from now on. Change a listed card's price or details in Seller Hub.
+      <p className="sm:col-span-2 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+        Saving updates your collection rules and syncs active listings. Use <strong>Recalculate Prices</strong> anytime to refresh all listed cards to the latest market prices.
       </p>
     </div>
   );
 }
 
-function CollectionRow({
+export function CollectionRow({
   coll,
   pricesFor,
   onToast,
+  onChanged,
+  navigateOnOpen,
 }: {
   coll: NamedCollection;
-  pricesFor: (coll: NamedCollection, defaults: ListDefaults) => Record<string, number>;
+  pricesFor: (coll: NamedCollection, defaults: ListDefaults) => Promise<Record<string, number>> | Record<string, number>;
   onToast: (msg: string, type?: 'success' | 'error') => void;
+  onChanged?: () => void;
+  navigateOnOpen?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(coll.name);
   const [alwaysList, setAlwaysList] = useState(coll.always_list);
   const [defaults, setDefaults] = useState<ListDefaults>(coll.list_defaults);
   const [busy, setBusy] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
     setName(coll.name);
@@ -112,25 +190,59 @@ function CollectionRow({
   }, [coll.id, coll.name, coll.always_list, coll.list_defaults]);
 
   const copies = countOf(coll.cards);
+  const uniqueCards = Object.values(coll.cards).filter((n) => (n || 0) > 0).length;
 
   const save = async () => {
     const turningOn = alwaysList && !coll.always_list;
     const turningOff = !alwaysList && coll.always_list;
-    if (turningOn && copies > 0 && !confirm(`List all ${copies} copies in "${name}" on the marketplace now? From then on, adding or removing a copy here changes the listing.`)) return;
+    if (turningOn && copies > 0 && !confirm(`List eligible copies in "${name}" on the marketplace now? From then on, adding or removing a copy here updates the listing automatically.`)) return;
     if (turningOff && !confirm(`Take everything "${coll.name}" listed off the marketplace? Copies buyers are holding stay until those holds are done.`)) return;
     setBusy(true);
     try {
-      await updateCollection(
+      const prices = alwaysList ? await pricesFor(coll, defaults) : undefined;
+      const res = await updateCollection(
         coll.id,
         { name, always_list: alwaysList, list_defaults: defaults },
-        turningOn ? pricesFor(coll, defaults) : undefined
+        prices
       );
-      onToast(turningOn ? `"${name}" is now listed on the marketplace.` : 'Collection saved.', 'success');
+      if (turningOn) {
+        const skippedMsg = res.sync?.skippedUnpriced ? ` (${res.sync.skippedUnpriced} unpriced skipped)` : '';
+        onToast(`"${name}" is now listed on the marketplace${skippedMsg}.`, 'success');
+      } else {
+        onToast('Collection settings saved and listings updated.', 'success');
+      }
       setEditing(false);
+      onChanged?.();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
     } catch (e: any) {
       onToast(e.message, 'error');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    if (!coll.always_list) return;
+    setRecalculating(true);
+    try {
+      const targetDefaults = editing ? defaults : coll.list_defaults;
+      const prices = await pricesFor(coll, targetDefaults);
+      const res = await recalculateCollectionPrices(coll.id, prices);
+      const listedCount = res.sync?.listed ?? 0;
+      const cardsCount = res.sync?.cardsListed ?? 0;
+      const skippedCount = res.sync?.skippedUnpriced ?? 0;
+      const skippedSuffix = skippedCount > 0 ? ` (${skippedCount} unpriced card${skippedCount === 1 ? '' : 's'} skipped)` : '';
+      onToast(`Recalculated "${coll.name}": ${listedCount} cop${listedCount === 1 ? 'y' : 'ies'} across ${cardsCount} card${cardsCount === 1 ? '' : 's'} updated${skippedSuffix}.`, 'success');
+      onChanged?.();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      }
+    } catch (e: any) {
+      onToast(e.message || 'Failed to recalculate prices', 'error');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -141,27 +253,94 @@ function CollectionRow({
     try {
       await deleteCollection(coll.id);
       onToast(`Deleted "${coll.name}".`, 'success');
+      onChanged?.();
     } catch (e: any) {
       onToast(e.message, 'error');
       setBusy(false);
     }
   };
 
+  const handleOpen = () => {
+    setActiveCollection(coll.id);
+    if (navigateOnOpen && typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  };
+
   return (
-    <div className="rounded-xl border p-3" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border p-3.5" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+      <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{coll.name}</div>
-          <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-            {copies} cop{copies === 1 ? 'y' : 'ies'}{coll.always_list ? ' · always listed' : ''}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{coll.name}</span>
+            {coll.always_list ? (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border"
+                style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }}
+              >
+                Always listed
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+              >
+                Private
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            <span>{copies} cop{copies === 1 ? 'y' : 'ies'} ({uniqueCards} unique)</span>
+            {coll.always_list && (
+              <span>
+                · {coll.list_defaults.condition} ·{' '}
+                {coll.list_defaults.price_mode === 'market'
+                  ? `Market price${coll.list_defaults.price_adjust_pct ? ` (${coll.list_defaults.price_adjust_pct > 0 ? '+' : ''}${coll.list_defaults.price_adjust_pct}%)` : ''}`
+                  : coll.list_defaults.price_mode === 'estimate'
+                    ? `Estimated value${coll.list_defaults.price_adjust_pct ? ` (${coll.list_defaults.price_adjust_pct > 0 ? '+' : ''}${coll.list_defaults.price_adjust_pct}%)` : ''}`
+                    : `${coll.list_defaults.base_price_huf.toLocaleString('hu-HU')} Ft fixed`}
+                {coll.list_defaults.price_mode !== 'fixed' && coll.list_defaults.skip_unpriced ? ' · Skip unpriced' : ''}
+                {coll.list_defaults.keep_copies > 0 ? ` · Keep ${coll.list_defaults.keep_copies}` : ''}
+              </span>
+            )}
           </div>
         </div>
-        <button type="button" onClick={() => { setActiveCollection(coll.id); }} className="h-8 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-          Open
-        </button>
-        <button type="button" onClick={() => setEditing((e) => !e)} className="h-8 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-          {editing ? 'Close' : 'Edit'}
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+          {coll.always_list && copies > 0 && (
+            <button
+              type="button"
+              onClick={handleRecalculate}
+              disabled={recalculating || busy}
+              title="Recalculate and update all active listings in this collection using current market prices and rules"
+              className="h-8 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer transition inline-flex items-center gap-1.5 disabled:opacity-50"
+              style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-accent)' }}
+            >
+              <svg className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              <span>{recalculating ? 'Recalculating…' : 'Recalculate prices'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="h-8 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer transition"
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+          >
+            {navigateOnOpen ? 'Open in Catalog' : 'Open'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing((e) => !e)}
+            className="h-8 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer transition"
+            style={editing
+              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
+              : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+          >
+            {editing ? 'Close' : 'Settings'}
+          </button>
+        </div>
       </div>
 
       {editing && (
@@ -174,7 +353,7 @@ function CollectionRow({
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={alwaysList} onChange={(e) => setAlwaysList(e.target.checked)} className="mt-0.5" />
             <span>
-              <span className="block text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Always list</span>
+              <span className="block text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Always list on Marketplace</span>
               <span className="block text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                 Everything in this collection is for sale: adding a copy lists it (or adds to the listing's stock), removing one takes it off,
                 and a sale takes it out of the collection.
@@ -183,19 +362,36 @@ function CollectionRow({
           </label>
           {alwaysList && <DefaultsEditor value={defaults} onChange={setDefaults} />}
 
-          <div className="flex items-center justify-between gap-2">
-            <button type="button" onClick={remove} disabled={busy} className="tv-btn-danger h-9 px-3 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <button type="button" onClick={remove} disabled={busy || recalculating} className="tv-btn-danger h-9 px-3 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50">
               Delete
             </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy || !name.trim()}
-              className="h-9 px-4 rounded-lg text-xs font-black cursor-pointer disabled:opacity-50"
-              style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
-            >
-              {busy ? 'Saving…' : 'Save'}
-            </button>
+            <div className="flex items-center gap-2">
+              {coll.always_list && copies > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRecalculate}
+                  disabled={recalculating || busy}
+                  className="h-9 px-3 rounded-lg border text-xs font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  <svg className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                  <span>{recalculating ? 'Recalculating…' : 'Recalculate prices'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={save}
+                disabled={busy || recalculating || !name.trim()}
+                className="h-9 px-4 rounded-lg text-xs font-black cursor-pointer disabled:opacity-50"
+                style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+              >
+                {busy ? 'Saving…' : 'Save & apply'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -216,7 +412,7 @@ export function ManageCollectionsModal({
   open: boolean;
   onClose: () => void;
   /** Suggested listing prices for every card in a collection, for switching "always list" on. */
-  pricesFor: (coll: NamedCollection, defaults: ListDefaults) => Record<string, number>;
+  pricesFor: (coll: NamedCollection, defaults: ListDefaults) => Promise<Record<string, number>> | Record<string, number>;
   onToast: (msg: string, type?: 'success' | 'error') => void;
 }) {
   const store = useCollectionsStore();
@@ -289,3 +485,4 @@ export function ManageCollectionsModal({
     </CollectionModal>
   );
 }
+

@@ -7,6 +7,8 @@ import { PriceHistoryChart } from './marketplace/PriceHistoryChart';
 interface CardValuePanelProps {
   card: {
     id: string;
+    name?: string | null;
+    game?: string | null;
     rarity?: string | null;
     market_price_eur?: number | null;
     market_price_foil_eur?: number | null;
@@ -25,6 +27,11 @@ const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
 export function CardValuePanel({ card }: CardValuePanelProps) {
   const values = useCardValueData();
   const [tab, setTab] = useState<'value' | 'graph'>('value');
+  const game = (card.game || 'riftbound').toLowerCase();
+  const cmSlug = game === 'mtg' ? 'Magic' : game === 'onepiece' ? 'OnePiece' : 'Riftbound';
+  const cmUrl = card.name
+    ? `https://www.cardmarket.com/en/${cmSlug}/Products/Search?searchString=${encodeURIComponent(card.name)}`
+    : `https://www.cardmarket.com/en/${cmSlug}`;
 
   const finishes = hasFoilVariant(card)
     ? [{ label: 'Normal', foil: false }, { label: 'Foil', foil: true }]
@@ -129,9 +136,24 @@ export function CardValuePanel({ card }: CardValuePanelProps) {
             </div>
           ))}
           <p className="text-[11px] sm:col-span-2" style={muted}>
-            Market prices are from the{' '}
-            <a href="https://www.cardmarket.com" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Cardmarket</a>{' '}
-            price guide, updated daily (a few cards it doesn't list use TCGplayer prices).
+            {game === 'mtg' ? (
+              <>
+                Market prices are from{' '}
+                <a href={cmUrl} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Cardmarket</a>{' '}
+                (via <a href="https://scryfall.com" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Scryfall</a> EUR market data).
+              </>
+            ) : game === 'onepiece' ? (
+              <>
+                Market reference prices are converted from TCGplayer / OPTCG market data (compare European listings on{' '}
+                <a href={cmUrl} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Cardmarket One Piece</a>).
+              </>
+            ) : (
+              <>
+                Market prices are from the{' '}
+                <a href={cmUrl} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Cardmarket</a>{' '}
+                price guide, updated daily (a few cards it doesn't list use TCGplayer prices).
+              </>
+            )}
           </p>
         </div>
       ) : (

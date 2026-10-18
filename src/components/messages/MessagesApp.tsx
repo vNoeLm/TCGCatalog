@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getCurrentProfile } from '../../lib/auth';
 import { cardThumbProps } from '../../lib/supabase';
 import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
@@ -6,22 +6,63 @@ import { AuthModal } from '../auth/AuthModal';
 import { HoldPanel } from './HoldPanel';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
 
-/** Vertical padding around the page; also subtracted when sizing the inbox to the viewport. */
-const PAGE_PAD_Y = 'clamp(16px,3vw,32px)';
+/** Compact vertical padding around the page so the chat container gets maximum height. */
+const PAGE_PAD_Y = 'clamp(10px, 1.5vw, 18px)';
 
 const THREAD_POLL_MS = 20000; // active thread: fairly responsive without needing websockets
 const INBOX_POLL_MS = 60000; // conversation list, while just browsing it
 
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/** Readable day header for grouping messages by date ("Today", "Yesterday", "15 Oct 2026"). */
+function formatDayHeader(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  if (isSameDay(d, now)) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(d, yesterday)) return 'Yesterday';
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+/** Exact clock time ("14:32") plus relative hint if within the last hour. */
+function formatMessageTime(iso: string): string {
+  const d = new Date(iso);
+  const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  if (mins < 1) return `${timeStr} · just now`;
+  if (mins < 60) return `${timeStr} · ${mins}m ago`;
+  return timeStr;
+}
+
+/** Sidebar timestamp: clock time if today, "Yesterday", weekday if <7d, or short date. */
+function formatSidebarTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  if (isSameDay(d, now)) {
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(d, yesterday)) return 'Yesterday';
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays < 7) {
+    return d.toLocaleDateString('en-GB', { weekday: 'short' });
+  }
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 export function MessagesApp() {
@@ -35,6 +76,8 @@ export function MessagesApp() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [inboxFilter, setInboxFilter] = useState<'all' | 'unread' | 'holds'>('all');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingThread, setLoadingThread] = useState(false);
@@ -42,6 +85,7 @@ export function MessagesApp() {
   const [sending, setSending] = useState(false);
 
   const threadRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   /** The conversation the thread was last scrolled for, so opening one jumps and new messages glide. */
   const scrolledForRef = useRef<string | null>(null);
 
@@ -105,8 +149,7 @@ export function MessagesApp() {
     return () => clearInterval(timer);
   }, [selectedId, loadThread]);
 
-  // Scrolls the message list itself to the newest message. (scrollIntoView also scrolled the whole
-  // page down to it, pushing the top of the site and the conversation's header off screen.)
+  // Scrolls the message list itself to the newest message.
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
@@ -115,12 +158,14 @@ export function MessagesApp() {
     el.scrollTo({ top: el.scrollHeight, behavior: opened ? 'auto' : 'smooth' });
   }, [messages, selectedId]);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitDraft = async () => {
     if (!selectedId || !draft.trim() || sending) return;
     setSending(true);
     const body = draft;
     setDraft('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
     const { message, error } = await sendMessage(selectedId, body);
     if (message) {
       setMessages((prev) => [...prev, message]);
@@ -133,6 +178,28 @@ export function MessagesApp() {
     }
     setSending(false);
   };
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitDraft();
+  };
+
+  const filteredConversations = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return conversations.filter((c) => {
+      if (inboxFilter === 'unread' && c.unread_count <= 0) return false;
+      if (inboxFilter === 'holds' && !c.has_open_request) return false;
+      if (!q) return true;
+      return (
+        c.counterpart_name?.toLowerCase().includes(q) ||
+        c.card_name?.toLowerCase().includes(q) ||
+        c.last_message?.toLowerCase().includes(q)
+      );
+    });
+  }, [conversations, searchQuery, inboxFilter]);
+
+  const unreadTotal = useMemo(() => conversations.reduce((s, c) => s + (c.unread_count > 0 ? 1 : 0), 0), [conversations]);
+  const openHoldsTotal = useMemo(() => conversations.reduce((s, c) => s + (c.has_open_request ? 1 : 0), 0), [conversations]);
 
   if (loading) {
     return (
@@ -173,208 +240,398 @@ export function MessagesApp() {
   const selected = conversations.find((c) => c.conversation_id === selectedId) || null;
 
   return (
-    <div style={{ maxWidth: 1600, margin: '0 auto', padding: `${PAGE_PAD_Y} clamp(16px,3vw,24px)` }}>
-      <h1 className="text-2xl font-black mb-5" style={{ color: 'var(--text-primary)' }}>
-        Messages
-      </h1>
-
+    <div style={{ maxWidth: 1600, margin: '0 auto', padding: `${PAGE_PAD_Y} clamp(12px,2.5vw,24px)` }}>
       <div
-        className="rounded-2xl border overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr]"
+        className="rounded-2xl border overflow-hidden grid grid-cols-1 md:grid-cols-[340px_1fr]"
         style={{
           background: 'var(--bg-surface)',
           borderColor: 'var(--border)',
-          // Fills what's left of the viewport: the layout chrome, the page's own padding, and the
-          // title block (2rem line + 1.25rem margin) all come off the top.
-          height: `calc(100dvh - var(--page-chrome-h) - 2 * ${PAGE_PAD_Y} - 3.25rem)`,
-          minHeight: 500,
+          height: `calc(100dvh - var(--page-chrome-h) - 2 * ${PAGE_PAD_Y})`,
+          minHeight: 540,
         }}
       >
-        {/* Conversation list */}
+        {/* Conversation list sidebar */}
         <div
-          className={`${selectedId ? 'hidden md:block' : 'block'} border-r overflow-y-auto flex flex-col`}
+          className={`${selectedId ? 'hidden md:flex' : 'flex'} border-r flex-col min-h-0`}
           style={{ borderColor: 'var(--border-subtle)' }}
         >
-          {loadingConversations ? (
-            <div className="p-6 text-center text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>
-              Loading conversations…
-            </div>
-          ) : conversations.length === 0 ? (
-            <div className="p-6 text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              No conversations yet. Requesting or receiving a hold on a marketplace card starts a thread here.
-            </div>
-          ) : (
-            conversations.map((c) => (
-              <button
-                key={c.conversation_id}
-                type="button"
-                onClick={() => setSelectedId(c.conversation_id)}
-                className="w-full flex items-center gap-3 p-3.5 text-left border-b transition hover:bg-white/[0.03] cursor-pointer"
-                style={{
-                  borderColor: 'var(--border-subtle)',
-                  background: selectedId === c.conversation_id ? 'var(--accent-muted)' : undefined,
-                }}
+          {/* Sidebar search & filters */}
+          <div className="p-3 border-b flex flex-col gap-2 shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
+            <div className="relative">
+              <svg
+                className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: 'var(--text-tertiary)' }}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border relative" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {c.image_path ? (
-                    <img {...cardThumbProps(c.image_path, 'avatar')} alt={c.card_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[9px] font-mono text-zinc-500">TCG</span>
-                  )}
-                  {c.has_open_request && (
-                    <span
-                      className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2"
-                      style={{ background: '#f59e0b', borderColor: 'var(--bg-surface)' }}
-                      title="Open hold request"
-                    />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                      {c.counterpart_name}
-                    </span>
-                    {c.last_message_at && (
-                      <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>
-                        {timeAgo(c.last_message_at)}
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search user, card, or message…"
+                className="w-full h-9 pl-8 pr-3 rounded-xl text-xs font-semibold border outline-none focus:border-[var(--accent)] transition"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {([
+                { id: 'all' as const, label: 'All', count: conversations.length },
+                { id: 'unread' as const, label: 'Unread', count: unreadTotal },
+                { id: 'holds' as const, label: 'Open Holds', count: openHoldsTotal },
+              ]).map((f) => {
+                const active = inboxFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setInboxFilter(f.id)}
+                    className="flex-1 h-7 px-2 rounded-lg text-[11px] font-bold border transition cursor-pointer flex items-center justify-center gap-1"
+                    style={
+                      active
+                        ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
+                        : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                    }
+                  >
+                    <span>{f.label}</span>
+                    {f.count > 0 && (
+                      <span className="text-[10px] font-black opacity-80">({f.count})</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Thread list */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingConversations ? (
+              <div className="p-6 text-center text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                Loading conversations…
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="p-6 text-center text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                {conversations.length === 0
+                  ? 'No conversations yet. Requesting or receiving a hold on a marketplace card starts a thread here.'
+                  : 'No conversations match your filter.'}
+              </div>
+            ) : (
+              filteredConversations.map((c) => {
+                const isSelected = selectedId === c.conversation_id;
+                const hasUnread = c.unread_count > 0;
+                return (
+                  <button
+                    key={c.conversation_id}
+                    type="button"
+                    onClick={() => setSelectedId(c.conversation_id)}
+                    className="w-full flex items-center gap-3 p-3.5 text-left border-b transition cursor-pointer"
+                    style={{
+                      borderColor: 'var(--border-subtle)',
+                      background: isSelected ? 'var(--accent-muted)' : undefined,
+                      borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                    }}
+                  >
+                    <div
+                      className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-zinc-950 flex items-center justify-center border relative"
+                      style={{ borderColor: isSelected ? 'var(--accent-border)' : 'var(--border)' }}
+                    >
+                      {c.image_path ? (
+                        <img {...cardThumbProps(c.image_path, 'avatar')} alt={c.card_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] font-mono text-zinc-400">TCG</span>
+                      )}
+                      {c.has_open_request && (
+                        <span
+                          className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2"
+                          style={{ background: 'var(--accent)', borderColor: 'var(--bg-surface)' }}
+                          title="Open hold request"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[13px] font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                          {c.counterpart_name}
+                        </span>
+                        {c.last_message_at && (
+                          <span
+                            className="text-[11px] font-semibold shrink-0"
+                            style={{ color: hasUnread ? 'var(--text-accent)' : 'var(--text-tertiary)' }}
+                            title={new Date(c.last_message_at).toLocaleString('en-GB', { hour12: false })}
+                          >
+                            {formatSidebarTime(c.last_message_at)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs font-semibold truncate mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        {c.card_name}
+                      </div>
+                      <div
+                        className={`text-xs truncate mt-0.5 ${hasUnread ? 'font-bold' : 'font-normal'}`}
+                        style={{ color: hasUnread ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+                      >
+                        {c.last_message || 'No messages yet'}
+                      </div>
+                    </div>
+                    {hasUnread && (
+                      <span
+                        className="shrink-0 min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center"
+                        style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                      >
+                        {c.unread_count}
                       </span>
                     )}
-                  </div>
-                  <div className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
-                    {c.card_name}
-                  </div>
-                  <div className="text-[11px] truncate mt-0.5" style={{ color: c.unread_count > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                    {c.last_message || 'No messages yet'}
-                  </div>
-                </div>
-                {c.unread_count > 0 && (
-                  <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center bg-amber-500 text-zinc-950">
-                    {c.unread_count}
-                  </span>
-                )}
-              </button>
-            ))
-          )}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Thread */}
+        {/* Thread view */}
         {!selectedId && (
-          <div className="hidden md:flex items-center justify-center">
-            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              Select a conversation to view messages
-            </span>
+          <div className="hidden md:flex flex-col items-center justify-center gap-2 p-8 text-center">
+            <div
+              className="w-12 h-12 rounded-2xl border flex items-center justify-center mb-1"
+              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+            >
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
+              Select a conversation
+            </div>
+            <div className="text-xs max-w-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Choose a thread on the left to coordinate payment, meetup details, or parcel tracking.
+            </div>
           </div>
         )}
         {selectedId && (
           <div className="flex flex-col min-h-0">
-            <div className="flex items-center gap-2 p-3.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+            {/* Thread Header */}
+            <div
+              className="flex items-center gap-3 px-4 py-3 border-b shrink-0"
+              style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}
+            >
               <button
                 type="button"
                 onClick={() => setSelectedId(null)}
-                className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer border"
-                style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                aria-label="Back to conversation list"
+                className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer border shrink-0"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)', background: 'var(--bg-input)' }}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                  {selected?.counterpart_name || 'Conversation'}
+
+              {selected?.image_path && (
+                <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-zinc-950 border hidden sm:block" style={{ borderColor: 'var(--border)' }}>
+                  <img {...cardThumbProps(selected.image_path, 'avatar')} alt={selected.card_name} className="w-full h-full object-cover" />
                 </div>
-                <div className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selected?.counterpart_id ? (
+                    <a
+                      href={`/user?id=${selected.counterpart_id}`}
+                      className="text-sm font-black truncate hover:underline inline-flex items-center gap-1"
+                      style={{ color: 'var(--text-primary)' }}
+                      title="View user profile and ratings"
+                    >
+                      <span>{selected.counterpart_name || 'Conversation'}</span>
+                      <svg className="w-3.5 h-3.5 opacity-60 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                      {selected?.counterpart_name || 'Conversation'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs font-semibold truncate mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                   {selected?.card_name}
                 </div>
               </div>
-              {selected?.has_open_request && (
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  Open request
-                </span>
-              )}
+
+              <div className="flex items-center gap-2 shrink-0">
+                {selected?.has_open_request && (
+                  <span
+                    className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border"
+                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                  >
+                    Open hold
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { loadThread(selectedId); loadConversations(); }}
+                  title="Refresh messages"
+                  className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <HoldPanel
               conversationId={selectedId}
               myId={profile.id}
+              counterpartId={selected?.counterpart_id}
+              counterpartName={selected?.counterpart_name}
               refreshKey={messages.length}
               onChanged={() => { loadThread(selectedId); loadConversations(); }}
             />
 
-            <div ref={threadRef} className="flex-1 overflow-y-auto p-4 space-y-2.5">
+            {/* Message History */}
+            <div ref={threadRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {loadingThread ? (
                 <div className="text-center text-xs font-semibold py-8" style={{ color: 'var(--text-tertiary)' }}>
-                  Loading…
+                  Loading messages…
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-xs py-8" style={{ color: 'var(--text-tertiary)' }}>
+                <div className="text-center text-xs py-12" style={{ color: 'var(--text-tertiary)' }}>
                   No messages yet — say hello!
                 </div>
               ) : (
-                messages.map((m) => {
-                  if (m.message_type === 'system') {
-                    // A request's delivery details (locker, address, arrangement) ride along with
-                    // its "requested" message, so both sides have them right in the chat.
-                    const details = typeof m.metadata?.handover_details === 'string' ? m.metadata.handover_details : '';
-                    return (
-                      <div key={m.id} className="flex flex-col items-center gap-1 py-1">
-                        <span
-                          className="px-3 py-1.5 rounded-full text-[11px] font-semibold text-center"
-                          style={{ background: 'var(--bg-surface-2)', color: 'var(--text-tertiary)' }}
-                        >
-                          {m.body}
-                        </span>
-                        {details && (
-                          <div
-                            className="px-3 py-2 rounded-xl text-[11px] leading-relaxed whitespace-pre-line border max-w-[85%]"
-                            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-                          >
-                            {details}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  const mine = m.sender_id === profile.id;
+                messages.map((m, idx) => {
+                  const prev = idx > 0 ? messages[idx - 1] : null;
+                  const showDaySeparator = !prev || !isSameDay(new Date(prev.created_at), new Date(m.created_at));
+                  const fullTimestamp = new Date(m.created_at).toLocaleString('en-GB', { hour12: false });
+
                   return (
-                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className="max-w-[75%] px-3 py-2 rounded-2xl text-xs leading-relaxed"
-                        style={
-                          mine
-                            ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderBottomRightRadius: 4 }
-                            : { background: 'var(--bg-surface-2)', color: 'var(--text-primary)', borderBottomLeftRadius: 4 }
-                        }
-                      >
-                        <div className="whitespace-pre-wrap break-words">{m.body}</div>
-                        <div
-                          className="text-[9px] mt-1 text-right"
-                          style={{ color: mine ? 'rgba(0,0,0,0.55)' : 'var(--text-muted)' }}
-                        >
-                          {timeAgo(m.created_at)}
+                    <React.Fragment key={m.id}>
+                      {showDaySeparator && (
+                        <div className="flex items-center gap-3 py-2" role="separator">
+                          <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
+                          <span
+                            className="px-3 py-1 rounded-full text-[11px] font-bold border shrink-0"
+                            style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                          >
+                            {formatDayHeader(m.created_at)}
+                          </span>
+                          <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
                         </div>
-                      </div>
-                    </div>
+                      )}
+
+                      {m.message_type === 'system' ? (
+                        <div className="flex flex-col items-center gap-1.5 py-1">
+                          <div
+                            className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-center border inline-flex flex-wrap items-center justify-center gap-2 max-w-[92%]"
+                            style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                          >
+                            <span>{m.body}</span>
+                            <span
+                              className="text-[11px] font-bold"
+                              style={{ color: 'var(--text-tertiary)' }}
+                              title={fullTimestamp}
+                            >
+                              · {formatMessageTime(m.created_at)}
+                            </span>
+                          </div>
+                          {typeof m.metadata?.handover_details === 'string' && m.metadata.handover_details && (
+                            <div
+                              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-medium leading-relaxed whitespace-pre-line border max-w-[85%]"
+                              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                            >
+                              {m.metadata.handover_details}
+                            </div>
+                          )}
+                        </div>
+                      ) : (() => {
+                        const mine = m.sender_id === profile.id;
+                        return (
+                          <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className={`max-w-[82%] sm:max-w-[72%] px-3.5 py-2.5 rounded-2xl border text-[13.5px] sm:text-sm font-medium leading-relaxed shadow-xs ${
+                                mine ? 'rounded-br-sm' : 'rounded-bl-sm'
+                              }`}
+                              style={
+                                mine
+                                  ? {
+                                      background: 'var(--accent-muted)',
+                                      borderColor: 'var(--accent-border)',
+                                      color: 'var(--text-primary)',
+                                    }
+                                  : {
+                                      background: 'var(--bg-surface-2)',
+                                      borderColor: 'var(--border)',
+                                      color: 'var(--text-primary)',
+                                    }
+                              }
+                            >
+                              <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                              <div
+                                className="text-[11px] font-semibold mt-1.5 flex items-center justify-end gap-1.5 select-none"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                title={fullTimestamp}
+                              >
+                                {mine && <span className="font-bold" style={{ color: 'var(--text-accent)' }}>You ·</span>}
+                                <span>{formatMessageTime(m.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </React.Fragment>
                   );
                 })
               )}
             </div>
 
-            <form onSubmit={handleSend} className="flex items-center gap-2 p-3 border-t shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-              <input
-                type="text"
+            {/* Composer */}
+            <form
+              onSubmit={handleSend}
+              className="flex items-end gap-2 p-3 border-t shrink-0"
+              style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}
+            >
+              <textarea
+                ref={textareaRef}
+                rows={1}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Type a message…"
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void submitDraft();
+                  }
+                }}
+                placeholder="Write a message… (Enter to send, Shift+Enter for new line)"
                 maxLength={1000}
-                className="flex-1 border rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-amber-400 transition"
-                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                className="flex-1 border rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--accent)] transition resize-none leading-snug"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)', maxHeight: 130 }}
               />
               <button
                 type="submit"
                 disabled={!draft.trim() || sending}
-                className="px-4 py-2.5 rounded-xl font-black text-xs transition cursor-pointer disabled:opacity-50 shrink-0"
+                className="h-10 px-4 rounded-xl font-black text-xs transition cursor-pointer disabled:opacity-50 shrink-0 inline-flex items-center gap-1.5"
                 style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
               >
-                {sending ? '…' : 'Send'}
+                <span>{sending ? 'Sending…' : 'Send'}</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
               </button>
             </form>
           </div>

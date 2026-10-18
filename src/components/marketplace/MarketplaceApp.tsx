@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { supabase } from '../../lib/supabase';
+import { isUnreleasedSet } from '../../lib/cardPreview';
 import { t } from '../../lib/labels';
 import { useSiteTheme } from '../../lib/theme';
 import { useUrlOverlay } from '../../lib/useUrlOverlay';
@@ -14,12 +16,13 @@ import { groupListingsByCard, type CardListingGroup } from '../../lib/marketplac
 import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
-import { matchesCardVariants } from '../../lib/cardVariants';
+import { matchesCardVariants, compareCardsByRarity } from '../../lib/cardVariants';
 import { gridSizeClasses } from '../../lib/gridSize';
 import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
-  STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode, sortSetNames
+  STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode, sortSetNames,
+  MTG_RARITIES, MTG_TYPES, ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS
 } from '../../lib/constants';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -62,7 +65,6 @@ export function MarketplaceApp() {
   const [sortMode, setSortMode] = useState<SortMode>('Price (Low to High)');
   const [sortOpen, setSortOpen] = useState(false);
   const [gridSize, setGridSize] = useState<'small' | 'normal' | 'large'>('normal');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'on_hold'>('in_stock');
   // "cards" groups every listing of a card into one tile (Cardmarket-style); "listings" shows
   // each listing separately. Left unset it follows whether the view is scoped to one seller.
   const [viewOverride, setViewOverride] = useState<'cards' | 'listings' | null>(null);
@@ -158,7 +160,7 @@ export function MarketplaceApp() {
       if (filters.domains && filters.domains.length > 0) params.set('domains', filters.domains.join(','));
       if (filters.foilFilter) params.set('foil', 'true');
       if (filters.sellerId) params.set('seller_id', filters.sellerId);
-      if (statusFilter !== 'all') params.set('status', statusFilter);
+      params.set('status', 'in_stock');
       params.set('pageSize', '500');
 
       setFetchError(null);
@@ -207,7 +209,7 @@ export function MarketplaceApp() {
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
       window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
     };
-  }, [filters, searchQuery, sellerSearch, statusFilter]);
+  }, [filters, searchQuery, sellerSearch]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -251,6 +253,18 @@ export function MarketplaceApp() {
       if (sortMode === 'Quantity (Low to High)') {
         return (a.quantity || 0) - (b.quantity || 0);
       }
+      if (sortMode === 'Card Number (Asc)') {
+        return (a.card_number || '').localeCompare(b.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Card Number (Desc)') {
+        return (b.card_number || '').localeCompare(a.card_number || '', undefined, { numeric: true });
+      }
+      if (sortMode === 'Rarity (High to Low)') {
+        return compareCardsByRarity(a, b, 'desc');
+      }
+      if (sortMode === 'Rarity (Low to High)') {
+        return compareCardsByRarity(a, b, 'asc');
+      }
       if (sortMode === 'Name (A to Z)') {
         return (a.name || '').localeCompare(b.name || '');
       }
@@ -267,7 +281,6 @@ export function MarketplaceApp() {
 
   const groupedCards = useMemo(() => {
     const groups = groupListingsByCard(cards.filter(card => matchesCardVariants(card, filters)));
-    const rarityRank = (g: CardListingGroup) => RARITIES.indexOf(g.representative.rarity);
     return groups.sort((a, b) => {
       if (sortMode === 'Price (Low to High)') return (a.lowest_price || Infinity) - (b.lowest_price || Infinity);
       if (sortMode === 'Price (High to Low)') return b.lowest_price - a.lowest_price;
@@ -277,8 +290,8 @@ export function MarketplaceApp() {
       if (sortMode === 'Name (Z to A)') return (b.representative.name || '').localeCompare(a.representative.name || '');
       if (sortMode === 'Card Number (Asc)') return (a.representative.card_number || '').localeCompare(b.representative.card_number || '', undefined, { numeric: true });
       if (sortMode === 'Card Number (Desc)') return (b.representative.card_number || '').localeCompare(a.representative.card_number || '', undefined, { numeric: true });
-      if (sortMode === 'Rarity (High to Low)') return rarityRank(b) - rarityRank(a);
-      if (sortMode === 'Rarity (Low to High)') return rarityRank(a) - rarityRank(b);
+      if (sortMode === 'Rarity (High to Low)') return compareCardsByRarity(a.representative, b.representative, 'desc');
+      if (sortMode === 'Rarity (Low to High)') return compareCardsByRarity(a.representative, b.representative, 'asc');
       return 0;
     });
   }, [cards, filters, sortMode]);
@@ -288,13 +301,36 @@ export function MarketplaceApp() {
     [groupedCards, selectedGroupCardId]
   );
 
+  const isRiftbound = !filters.game || filters.game === 'riftbound';
+  const isOnePiece = filters.game === 'onepiece';
+  const [allSetsForGame, setAllSetsForGame] = useState<string[]>([]);
+
+  useEffect(() => {
+    const g = filters.game || 'riftbound';
+    if (g === 'riftbound') {
+      setAllSetsForGame(SETS);
+    } else {
+      supabase
+        .from('sets')
+        .select('name, release_date')
+        .eq('game', g)
+        .order('release_date', { ascending: false })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const released = data.filter(s => !isUnreleasedSet(s.release_date));
+            setAllSetsForGame(released.map(s => s.name));
+          }
+        });
+    }
+  }, [filters.game]);
+
   const availableSets = useMemo(() => {
-    const setNames = new Set(SETS);
+    const setNames = new Set(allSetsForGame.length > 0 ? allSetsForGame : (isRiftbound ? SETS : []));
     cards.forEach(c => {
       if (c.set_name) setNames.add(c.set_name);
     });
-    return sortSetNames(Array.from(setNames));
-  }, [cards]);
+    return isRiftbound ? sortSetNames(Array.from(setNames)) : Array.from(setNames);
+  }, [cards, allSetsForGame, isRiftbound]);
 
   const sidebar = (
     <FilterSidebar
@@ -303,10 +339,10 @@ export function MarketplaceApp() {
       options={{
         sets: availableSets,
         wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-        rarities: RARITIES,
-        types: TYPES,
-        domains: DOMAINS,
-        tags: TAGS,
+        rarities: isRiftbound ? RARITIES : isOnePiece ? ONEPIECE_RARITIES : MTG_RARITIES,
+        types: isRiftbound ? TYPES : isOnePiece ? ONEPIECE_TYPES : MTG_TYPES,
+        domains: isRiftbound ? DOMAINS : isOnePiece ? ONEPIECE_COLORS : [],
+        tags: isRiftbound ? TAGS : [],
       }}
     />
   );
@@ -318,7 +354,7 @@ export function MarketplaceApp() {
   const loadMoreState = useLoadMore(
     shownTotal,
     48,
-    JSON.stringify([filters, searchQuery, sellerSearch, statusFilter, sortMode, view])
+    JSON.stringify([filters, searchQuery, sellerSearch, sortMode, view])
   );
 
   // ─── LIVE MARKETPLACE ───────────────────────────────────────────────
@@ -426,24 +462,33 @@ export function MarketplaceApp() {
                   </button>
 
                   {sortOpen && (
-                    <div className="absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl border shadow-2xl z-50 py-1 overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--bg-surface)' }}>
-                      {SORT_MODES.map(mode => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => { setSortMode(mode); setSortOpen(false); }}
-                          className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
-                            sortMode === mode ? 'text-[var(--text-accent)] bg-[var(--bg-raised)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-raised)]'
-                          }`}
-                        >
-                          <span>{mode}</span>
-                          {sortMode === mode && (
-                            <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
+                    <div className="absolute right-0 mt-1.5 w-full sm:w-56 rounded-xl border shadow-2xl z-50 overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--bg-surface)' }}>
+                      {SORT_MODES.map((mode, idx) => {
+                        const isSelected = sortMode === mode;
+                        const isLighterPair = Math.floor(idx / 2) % 2 === 0;
+                        const isPairEnd = idx % 2 === 1 && idx < SORT_MODES.length - 1;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => { setSortMode(mode); setSortOpen(false); }}
+                            className={`w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold transition cursor-pointer text-left ${
+                              isPairEnd ? 'border-b border-[var(--border-subtle)]' : ''
+                            } ${
+                              isSelected
+                                ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] font-bold'
+                                : `${isLighterPair ? 'bg-[var(--bg-surface-2)]' : 'bg-[var(--bg-input)]'} text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-raised)]`
+                            }`}
+                          >
+                            <span>{mode}</span>
+                            {isSelected && (
+                              <svg className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -470,30 +515,6 @@ export function MarketplaceApp() {
 
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-3">
             <div className="flex flex-col gap-3 min-w-0">
-            {/* Status Filter Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>Status:</span>
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'in_stock', label: 'Available only' },
-                { id: 'on_hold', label: 'On Hold' },
-              ].map(pill => (
-                <button
-                  key={pill.id}
-                  type="button"
-                  onClick={() => setStatusFilter(pill.id as any)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                    statusFilter === pill.id
-                      ? 'bg-[var(--accent-muted)] text-[var(--text-accent)] border-[var(--accent-border)] shadow-sm'
-                      : 'border-[var(--border)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
-                  }`}
-                  style={statusFilter === pill.id ? undefined : { background: 'var(--bg-surface-2)' }}
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>View:</span>
               {([

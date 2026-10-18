@@ -1,43 +1,119 @@
 ---
 /**
- * A plain reading page (legal notices, guides): the site layout with a narrow text column and a
- * sidebar of the other pages in the same group.
+ * A plain reading page (legal notices, guides): the site layout with a narrow text column,
+ * a sidebar of the other pages in the same group, and an English / Magyar language toggle.
  */
 import Layout from './Layout.astro';
 import { LEGAL_PAGES, HELP_PAGES } from '../lib/site';
 
 interface Props {
   title: string;
+  titleHu?: string;
   /** One or two sentences under the title. */
   lead: string;
+  leadHu?: string;
   group: 'legal' | 'help';
   updated: string;
+  updatedHu?: string;
 }
 
-const { title, lead, group, updated } = Astro.props;
+const { title, titleHu, lead, leadHu, group, updated, updatedHu } = Astro.props;
 const pages = group === 'legal' ? LEGAL_PAGES : HELP_PAGES;
 const pathname = Astro.url.pathname.replace(/\/$/, '');
+const hasBilingual = Boolean(titleHu);
 ---
 
 <Layout title={`${title} | TCG Vault`}>
-  <div class="doc-wrap">
+  <div class="doc-wrap" data-doc-lang="hu">
     <aside class="doc-side" aria-label={group === 'legal' ? 'Legal' : 'Guides'}>
-      <div class="doc-side-title">{group === 'legal' ? 'Legal' : 'Guides'}</div>
+      {hasBilingual && (
+        <div class="doc-lang-box">
+          <div class="doc-side-title">
+            <span class="lang-en">Language</span>
+            <span class="lang-hu">Nyelv / Language</span>
+          </div>
+          <div class="doc-lang-switch" role="group" aria-label="Document language">
+            <button type="button" data-set-doc-lang="hu" class="doc-lang-btn active">Magyar (HU)</button>
+            <button type="button" data-set-doc-lang="en" class="doc-lang-btn">English (EN)</button>
+          </div>
+        </div>
+      )}
+      <div class="doc-side-title">
+        <span class="lang-en">{group === 'legal' ? 'Legal' : 'Guides'}</span>
+        <span class="lang-hu">{group === 'legal' ? 'Jogi dokumentumok' : 'Útmutatók'}</span>
+      </div>
       <ul>
         {pages.map((p) => (
-          <li><a href={p.href} aria-current={p.href === pathname ? 'page' : undefined}>{p.label}</a></li>
+          <li>
+            <a href={p.href} aria-current={p.href === pathname ? 'page' : undefined}>
+              <span class="lang-en">{p.label}</span>
+              <span class="lang-hu">{p.labelHu || p.label}</span>
+            </a>
+          </li>
         ))}
       </ul>
     </aside>
 
     <article class="doc">
-      <h1>{title}</h1>
-      <p class="doc-lead">{lead}</p>
-      <p class="doc-updated">Last updated {updated}</p>
+      {hasBilingual ? (
+        <>
+          <div class="lang-en">
+            <h1>{title}</h1>
+            <p class="doc-lead">{lead}</p>
+            <p class="doc-updated">Last updated: {updated}</p>
+          </div>
+          <div class="lang-hu">
+            <h1>{titleHu}</h1>
+            <p class="doc-lead">{leadHu || lead}</p>
+            <p class="doc-updated">Utolsó frissítés: {updatedHu || updated}</p>
+          </div>
+        </>
+      ) : (
+        <>
+          <h1>{title}</h1>
+          <p class="doc-lead">{lead}</p>
+          <p class="doc-updated">Last updated {updated}</p>
+        </>
+      )}
       <slot />
     </article>
   </div>
 </Layout>
+
+<script is:inline>
+  (function () {
+    var wrap = document.querySelector('.doc-wrap');
+    if (!wrap) return;
+    var STORAGE_KEY = 'tcg_legal_lang';
+    var buttons = wrap.querySelectorAll('[data-set-doc-lang]');
+
+    function applyLang(lang) {
+      var normalized = lang === 'en' ? 'en' : 'hu';
+      wrap.setAttribute('data-doc-lang', normalized);
+      buttons.forEach(function (btn) {
+        var active = btn.getAttribute('data-set-doc-lang') === normalized;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
+    var saved = null;
+    try {
+      saved = localStorage.getItem(STORAGE_KEY);
+    } catch (e) {}
+    applyLang(saved === 'en' || saved === 'hu' ? saved : 'hu');
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var next = btn.getAttribute('data-set-doc-lang') || 'hu';
+        try {
+          localStorage.setItem(STORAGE_KEY, next);
+        } catch (e) {}
+        applyLang(next);
+      });
+    });
+  })();
+</script>
 
 <style>
   .doc-wrap {
@@ -48,9 +124,45 @@ const pathname = Astro.url.pathname.replace(/\/$/, '');
     grid-template-columns: 1fr;
     gap: 24px;
   }
+  .doc-wrap[data-doc-lang="hu"] :global(.lang-en) { display: none; }
+  .doc-wrap[data-doc-lang="en"] :global(.lang-hu) { display: none; }
+
   @media (min-width: 900px) {
-    .doc-wrap { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; }
+    .doc-wrap { grid-template-columns: 230px minmax(0, 1fr); gap: 40px; }
     .doc-side { position: sticky; top: calc(var(--page-chrome-h) + 24px); align-self: start; }
+  }
+  .doc-lang-box {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .doc-lang-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: var(--bg-input);
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .doc-lang-btn {
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .doc-lang-btn:hover {
+    color: var(--text-primary);
+  }
+  .doc-lang-btn.active {
+    background: var(--accent-muted);
+    color: var(--text-accent);
+    border-color: var(--accent-border);
   }
   .doc-side-title {
     font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;
@@ -66,7 +178,7 @@ const pathname = Astro.url.pathname.replace(/\/$/, '');
   .doc-side a:hover { background: var(--bg-surface-2); color: var(--text-primary); }
   .doc-side a[aria-current='page'] { background: var(--accent-muted); color: var(--text-accent); font-weight: 700; border-color: var(--accent-border); }
 
-  .doc { max-width: 720px; color: var(--text-secondary); font-size: 15px; line-height: 1.7; }
+  .doc { max-width: 740px; color: var(--text-secondary); font-size: 15px; line-height: 1.7; }
   .doc h1 { font-size: clamp(26px, 4vw, 34px); font-weight: 900; color: var(--text-primary); line-height: 1.15; margin: 0 0 8px; font-family: var(--font-display); }
   .doc-lead { font-size: 16px; color: var(--text-secondary); margin: 0 0 4px; }
   .doc-updated { font-size: 12px; color: var(--text-tertiary); margin: 0 0 28px; }

@@ -6,12 +6,8 @@ import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
 import { ListCardModal } from '../marketplace/ListCardModal';
-import { QuickSaleSettingsPanel } from './QuickSaleSettingsPanel';
 import { ShippingSettingsPanel } from './ShippingSettingsPanel';
-import { QuickSalePreviewModal } from '../collection/QuickSalePreviewModal';
-import { fetchCardsCatalog } from '../../lib/api';
-import { getLocalCollectionOwner } from '../../lib/collectionClient';
-import type { CatalogCard, FilterState } from '../../types';
+import { CollectionSettingsPanel } from './CollectionSettingsPanel';
 import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
@@ -23,8 +19,7 @@ import { adjustLocalCollection } from '../../lib/collectionClient';
 import { listingCollectionLinks } from '../../lib/sellerNotes';
 import { EditListingModal } from './EditListingModal';
 import { useCollectionsStore, refreshCollections } from '../../lib/collectionsStore';
-import { PERSONAL_COLLECTION_ID } from '../../lib/collectionDefaults';
-import type { UserProfile, Order, TradeReview, QuickSaleRule } from '../../types';
+import type { UserProfile, Order, TradeReview } from '../../types';
 import { StatBox } from '../StatBox';
 import { Pagination, usePagination } from '../Pagination';
 
@@ -45,7 +40,7 @@ export function SellerDashboardApp() {
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
-  // Named collections: to name the one a listing belongs to, and as a Quick List source.
+  // Named collections: to name the one a listing belongs to.
   const collectionsStore = useCollectionsStore();
   const collectionName = (id: string | null) => collectionsStore.collections.find(c => c.id === id)?.name || 'a collection';
   const bulkPriceModalAnim = useExitTransition(showBulkPriceModal, 250);
@@ -68,12 +63,7 @@ export function SellerDashboardApp() {
   // Ratings I've given buyers, by order, and the sale being rated right now.
   const [buyerRatingsByOrder, setBuyerRatingsByOrder] = useState<Record<string, TradeReview>>({});
   const [ratingOrder, setRatingOrder] = useState<Order | null>(null);
-  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'shipping' | 'quicksale'>('listings');
-
-  // Quick List Rules State
-  const [quickSaleRules, setQuickSaleRules] = useState<QuickSaleRule[]>([]);
-  const [loadingRules, setLoadingRules] = useState(false);
-  const [savingRules, setSavingRules] = useState(false);
+  const [activeTab, setActiveTab] = useState<'listings' | 'holds' | 'analytics' | 'sales' | 'reviews' | 'shipping' | 'collections'>('listings');
 
   // Hold Requests State (P2P classifieds model)
   const [holdRequests, setHoldRequests] = useState<any[]>([]);
@@ -235,13 +225,6 @@ export function SellerDashboardApp() {
         loadSellerSales(p.id);
         loadSellerReviews(p.id);
         loadHoldRequests(p.id);
-        
-        // Load Quick List rules
-        getCurrentUser().then(u => {
-          if (u?.user_metadata?.quick_sale_settings) {
-            setQuickSaleRules(u.user_metadata.quick_sale_settings);
-          }
-        });
       }
     });
 
@@ -260,76 +243,6 @@ export function SellerDashboardApp() {
       window.removeEventListener('tcg-collection-change', loadCollectionStats);
     };
   }, []);
-
-  // Running Quick List from here, without going back to the Catalog: the same preview, fed the
-  // collection kept on this device and the full card list of both games.
-  const [quickListOpen, setQuickListOpen] = useState(false);
-  const [preparingQuickList, setPreparingQuickList] = useState(false);
-  const [quickListCards, setQuickListCards] = useState<CatalogCard[]>([]);
-  const [quickListOwned, setQuickListOwned] = useState<{ cardId: string; count: number }[]>([]);
-  // Which collection Quick List takes its spare copies from (not an always-list one - those are listed already).
-  const [quickListSource, setQuickListSource] = useState<string>(PERSONAL_COLLECTION_ID);
-  const quickListSources = collectionsStore.collections.filter(c => !c.always_list);
-  const quickListNamed = quickListSources.find(c => c.id === quickListSource) || null;
-
-  const runQuickList = async () => {
-    if (!profile || preparingQuickList) return;
-    if (quickSaleRules.length === 0) {
-      showToast('Add and save a Quick List rule below first.');
-      return;
-    }
-    // Listing takes the copies out of Personal on this device too, so it has to be this account's
-    // copy - on a device that hasn't synced it yet, that happens in the Catalog. A named collection
-    // lives on the server.
-    if (!quickListNamed && getLocalCollectionOwner() !== profile.id) {
-      showToast('Open the Catalog once on this device so your collection syncs, then run Quick List here.');
-      return;
-    }
-    let owned: { cardId: string; count: number }[] = [];
-    if (quickListNamed) {
-      owned = Object.entries(quickListNamed.cards).map(([cardId, count]) => ({ cardId, count }));
-    } else try {
-      const raw = localStorage.getItem('tcg_user_collection') || localStorage.getItem('tcg_collection');
-      const dict: Record<string, number> = raw ? JSON.parse(raw) : {};
-      owned = Object.entries(dict)
-        .filter(([, count]) => typeof count === 'number' && count > 0)
-        .map(([cardId, count]) => ({ cardId, count }));
-    } catch {
-      owned = [];
-    }
-    if (owned.length === 0) {
-      showToast(quickListNamed ? `"${quickListNamed.name}" is empty - add cards to it in the Catalog first.` : 'Your collection is empty - add the cards you own in the Catalog first.');
-      return;
-    }
-    setPreparingQuickList(true);
-    try {
-      const base: FilterState = { category: 'singles', game: 'riftbound', set: '', rarities: [], type: '', domains: [], tags: [], costMin: 1, costMax: 10 };
-      const list = await fetchCardsCatalog(base, '');
-      setQuickListCards(list.data || []);
-      setQuickListOwned(owned);
-      setQuickListOpen(true);
-    } finally {
-      setPreparingQuickList(false);
-    }
-  };
-
-  const saveQuickSaleRules = async (rules: QuickSaleRule[]) => {
-    setSavingRules(true);
-    try {
-      const { data, error } = await supabase.auth.updateUser({
-        data: { quick_sale_settings: rules }
-      });
-      if (!error && data.user) {
-        setQuickSaleRules(rules);
-      } else {
-        console.error('Failed to save rules:', error);
-      }
-    } catch (e) {
-      console.error('Exception saving rules:', e);
-    } finally {
-      setSavingRules(false);
-    }
-  };
 
   // Actions: Unlist & Edit
   const handleUnlistCard = async (listingId: string) => {
@@ -515,11 +428,16 @@ export function SellerDashboardApp() {
 
   // Hold Request Management Actions
   const handleHoldAction = async (requestId: string, action: HoldAction) => {
+    const targetReq = holdRequests.find(r => r.id === requestId);
     const confirmPrompt =
       action === 'confirm_sale'
-        ? (`The buyer didn't confirm within ${BUYER_CONFIRM_DAYS} days of handover. Complete the sale now?`)
+        ? (targetReq?.status === 'buyer_received'
+            ? 'The buyer confirmed they received the card. OK and complete the sale now?'
+            : `3 days have passed since handover without a response. Complete the sale now?`)
+        : action === 'deny'
+        ? ('Deny handover or receipt? The hold will be cancelled and the card returned to In Stock.')
         : action === 'mark_handed_over'
-        ? ('Mark as handed over / sent? The buyer then confirms they received it, which completes the sale.')
+        ? ('Mark as handed over / sent? The buyer will have 3 days to confirm receipt before it auto-completes.')
         : action === 'hold'
         ? ('Approve holding this card for the buyer?')
         : action === 'release'
@@ -547,8 +465,10 @@ export function SellerDashboardApp() {
         showToast(
           action === 'confirm_sale'
             ? ('Sale completed and recorded.')
+            : action === 'deny'
+            ? ('Hold denied and cancelled. Card returned to In Stock.')
             : action === 'mark_handed_over'
-            ? ('Marked as handed over - waiting for the buyer to confirm.')
+            ? ('Marked as handed over - waiting for buyer confirmation (auto-completes in 3 days).')
             : action === 'hold'
             ? ('Card marked as on hold.')
             : action === 'release'
@@ -902,44 +822,41 @@ export function SellerDashboardApp() {
           <StatBox label="Cards sold" value={itemsSold} valueClassName="text-amber-400" />
         </div>
 
-        {/* ─── DYNAMIC UPGRADED BADGES BANNER ─── */}
-        <div className="mt-6 pt-5 border-t grid grid-cols-1 md:grid-cols-2 gap-4" style={{ borderColor: 'var(--border-subtle)' }}>
-          {/* 1. SELLER BADGE */}
+        {/* ─── SELLER MERCHANT TIER BANNER ─── */}
+        <div className="mt-5 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
           <div
-            className="p-4 rounded-xl border flex flex-col justify-between"
+            className="p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             style={{
               background: 'var(--bg-surface-2)',
               borderColor: sellerTier.border,
             }}
           >
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center" style={{ color: sellerTier.color }}>
-                    <BadgeIconSvg iconType={sellerTier.iconType} className="w-5 h-5" />
-                  </span>
-                  <span className="text-sm font-black" style={{ color: sellerTier.color }}>
-                    {sellerTier.nameEn}
-                  </span>
-                </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="flex items-center" style={{ color: sellerTier.color }}>
+                  <BadgeIconSvg iconType={sellerTier.iconType} className="w-4 h-4" />
+                </span>
+                <span className="text-sm font-black" style={{ color: sellerTier.color }}>
+                  {sellerTier.nameEn}
+                </span>
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider"
                   style={sellerTier.badgeStyle}
                 >
-                  {completedSalesCount >= 1 ? ('Verified') : ('Level 0')}
+                  {completedSalesCount >= 1 ? `Tier ${sellerTier.tier}` : 'Level 0'}
                 </span>
               </div>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-xs leading-relaxed mt-1" style={{ color: 'var(--text-tertiary)' }}>
                 {completedSalesCount >= 1
-                  ? `Verified community seller with ${completedSalesCount} completed sales.`
-                  : 'Complete at least 1 sale to unlock the "Verified Seller" badge!'}
+                  ? `Active community seller with ${completedSalesCount} completed ${completedSalesCount === 1 ? 'sale' : 'sales'}.`
+                  : 'Complete at least 1 sale to unlock the "Active Seller" badge!'}
               </p>
             </div>
 
             {/* Sales Progress Bar */}
             {sellerTier.nextTierSales > completedSalesCount && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
+              <div className="sm:w-64 shrink-0">
+                <div className="flex items-center justify-between text-[11px] font-bold mb-1">
                   <span style={{ color: 'var(--text-secondary)' }}>
                     Next merchant tier:
                   </span>
@@ -959,51 +876,6 @@ export function SellerDashboardApp() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* 2. GAME-SPECIFIC COLLECTOR BADGE */}
-          <div
-            className="p-4 rounded-xl border flex flex-col justify-between"
-            style={{
-              background: 'var(--bg-surface-2)',
-              borderColor: collectorTier.border,
-            }}
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex items-center" style={{ color: collectorTier.color }}>
-                  <BadgeIconSvg iconType={collectorTier.iconType} className="w-5 h-5" />
-                </span>
-                <span className="text-sm font-black" style={{ color: collectorTier.color }}>
-                  {collectorTier.nameEn}
-                </span>
-              </div>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                {`Unique cards owned in your Riftbound catalog: ${collectorTier.ownedCount} / ${collectorTier.totalCount} (${collectorTier.percentage}%).`}
-              </p>
-            </div>
-
-            {/* Collector Progress Bar */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  Catalog Completion:
-                </span>
-                <span className="font-mono font-black" style={{ color: collectorTier.color }}>
-                  {collectorTier.percentage}% {collectorTier.percentage >= 100 ? 'MAX (100%)' : `(Goal: ${collectorTier.nextTierMin}%)`}
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full overflow-hidden bg-black/40 border border-white/5">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, collectorTier.percentage)}%`,
-                    background: collectorTier.color,
-                    boxShadow: `0 0 10px ${collectorTier.color}`,
-                  }}
-                />
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -1169,9 +1041,9 @@ export function SellerDashboardApp() {
             icon: <path d="M1 3h15v13H1zM16 8h4l3 3v5h-7M5.5 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM18.5 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />,
           },
           {
-            id: 'quicksale' as const,
-            label: 'Quick List',
-            icon: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
+            id: 'collections' as const,
+            label: 'Collection Settings',
+            icon: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
           },
         ]).map((tabDef) => {
           const isActive = activeTab === tabDef.id;
@@ -1318,7 +1190,7 @@ export function SellerDashboardApp() {
                   : ('No active marketplace listings')}
               </div>
               <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }}>
-                List a card for sale to start building your verified seller tier!
+                List a card for sale to start building your seller tier!
               </p>
               <button
                 type="button"
@@ -1597,6 +1469,7 @@ export function SellerDashboardApp() {
                   : req.price_huf;
                 const isHeld = req.status === 'held';
                 const isHandedOver = req.status === 'handed_over';
+                const isBuyerReceived = req.status === 'buyer_received';
                 const isPending = req.status === 'pending';
                 const sellerActions = allowedHoldActions(req.status, 'seller', req.updated_at || req.created_at);
                 const isConfirmed = req.status === 'confirmed' || req.status === 'completed';
@@ -1618,7 +1491,7 @@ export function SellerDashboardApp() {
                   <div
                     key={req.id}
                     className={`p-5 rounded-2xl border transition-all ${
-                      isHeld || isHandedOver
+                      isHeld || isHandedOver || isBuyerReceived
                         ? 'border-amber-500/40 bg-amber-950/10'
                         : isPending
                         ? 'border-indigo-500/30 bg-indigo-950/10'
@@ -1671,6 +1544,14 @@ export function SellerDashboardApp() {
                                 <span>HANDED OVER</span>
                               </span>
                             )}
+                            {isBuyerReceived && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-[var(--positive)] border border-emerald-500/40 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>BUYER RECEIVED — AWAITING OK</span>
+                              </span>
+                            )}
                             {isConfirmed && (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-[var(--positive)] border border-emerald-500/40 flex items-center gap-1">
                                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
@@ -1713,7 +1594,7 @@ export function SellerDashboardApp() {
 
                           <div className="text-[11px] text-[var(--text-muted)] mt-1">
                             Requested at:{' '}
-                            {new Date(req.created_at).toLocaleString('en-US')}
+                            {new Date(req.created_at).toLocaleString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
                           </div>
                         </div>
                       </div>
@@ -1753,7 +1634,7 @@ export function SellerDashboardApp() {
                           </>
                         )}
 
-                        {(isHeld || isHandedOver) && (
+                        {(isHeld || isHandedOver || isBuyerReceived) && (
                           <>
                             {sellerActions.includes('mark_handed_over') && (
                               <button
@@ -1770,7 +1651,12 @@ export function SellerDashboardApp() {
                             )}
                             {isHandedOver && !sellerActions.includes('confirm_sale') && (
                               <span className="text-[11px] font-semibold px-3 py-2 rounded-xl border" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', background: 'var(--bg-raised)' }}>
-                                Waiting for the buyer to confirm - you can complete it from {sellerCanCompleteFrom(req.updated_at || req.created_at).toLocaleDateString()}
+                                Waiting for buyer to confirm (auto-completes after 3 days: {sellerCanCompleteFrom(req.updated_at || req.created_at).toLocaleDateString()})
+                              </span>
+                            )}
+                            {isBuyerReceived && !sellerActions.includes('confirm_sale') && (
+                              <span className="text-[11px] font-semibold px-3 py-2 rounded-xl border" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)', background: 'var(--bg-raised)' }}>
+                                Buyer marked received - please confirm or deny (auto-completes on {sellerCanCompleteFrom(req.updated_at || req.created_at).toLocaleDateString()})
                               </span>
                             )}
                             {sellerActions.includes('confirm_sale') && (
@@ -1783,17 +1669,33 @@ export function SellerDashboardApp() {
                                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                                   <polyline points="20 6 9 17 4 12" />
                                 </svg>
-                                <span>Complete sale</span>
+                                <span>{isBuyerReceived ? 'OK & Complete sale' : 'Complete sale'}</span>
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => handleHoldAction(req.id, 'release')}
-                              disabled={processingHoldId === req.id}
-                              className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/30 disabled:opacity-50"
-                            >
-                              <span>{isHandedOver ? 'Cancel sale' : 'Release Hold'}</span>
-                            </button>
+                            {sellerActions.includes('deny') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'deny')}
+                                disabled={processingHoldId === req.id}
+                                className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 disabled:opacity-50 flex items-center gap-1.5"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                                <span>Deny sale</span>
+                              </button>
+                            )}
+                            {sellerActions.includes('release') && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldAction(req.id, 'release')}
+                                disabled={processingHoldId === req.id}
+                                className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border border-amber-500/30 disabled:opacity-50"
+                              >
+                                <span>{isHandedOver ? 'Cancel sale' : 'Release Hold'}</span>
+                              </button>
+                            )}
                           </>
                         )}
 
@@ -2241,68 +2143,16 @@ export function SellerDashboardApp() {
         <ShippingSettingsPanel sellerId={profile.id} onToast={showToast} />
       )}
 
-      {/* ─── TAB: QUICK SALE RULES ──────────────────────────────────── */}
-      {activeTab === 'quicksale' && (
-        <div
-          className="rounded-2xl border p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-        >
-          <div className="min-w-0">
-            <div className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>Run Quick List</div>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              Lists the spare copies in a collection using your saved rules below. You'll see every card and price before anything goes up.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-          {quickListSources.length > 0 && (
-            <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              <span className="shrink-0">From</span>
-              <select
-                value={quickListSource}
-                onChange={(e) => setQuickListSource(e.target.value)}
-                className="h-10 px-3 rounded-xl text-xs font-bold border cursor-pointer w-full sm:w-auto"
-                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-              >
-                <option value={PERSONAL_COLLECTION_ID}>Personal</option>
-                {quickListSources.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
-          )}
-          <button
-            type="button"
-            onClick={runQuickList}
-            disabled={preparingQuickList}
-            className="h-10 px-5 rounded-xl text-xs font-black cursor-pointer transition shrink-0 inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-default"
-            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            {preparingQuickList ? 'Loading cards…' : 'Run Quick List'}
-          </button>
-          </div>
-        </div>
-      )}
-      {activeTab === 'quicksale' && (
-        <QuickSaleSettingsPanel
-          rules={quickSaleRules}
-          onSave={saveQuickSaleRules}
-          saving={savingRules}
-          
+      {/* ─── TAB: COLLECTION SETTINGS ───────────────────────────────── */}
+      {activeTab === 'collections' && (
+        <CollectionSettingsPanel
+          onToast={showToast}
+          onChanged={() => {
+            loadSellerListings();
+            window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+          }}
         />
       )}
-
-      <QuickSalePreviewModal
-        isOpen={quickListOpen}
-        onClose={() => {
-          setQuickListOpen(false);
-          loadSellerListings();
-          window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
-        }}
-        ownedCards={quickListOwned}
-        allCards={quickListCards}
-        sourceCollectionId={quickListNamed?.id ?? null}
-      />
 
       {/* List Card Modal - it holds itself open for its own exit transition (isOpen), so it's
           rendered unconditionally rather than wrapped in `{isListModalOpen && (...)}` here, which

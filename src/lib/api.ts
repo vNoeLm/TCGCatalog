@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { isUnreleasedSet } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
-import { OWNER_ID, DOMAINS, RARITIES } from './constants';
+import { OWNER_ID, DOMAINS, RARITIES, MTG_RARITIES, ONEPIECE_RARITIES, ONEPIECE_COLORS } from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
@@ -203,7 +203,7 @@ export async function fetchCardsCatalog(
 
   // Validate rarities against active game
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = RARITIES;
+    const allowedRarities = targetGame === 'mtg' ? MTG_RARITIES : targetGame === 'onepiece' ? ONEPIECE_RARITIES : RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('rarity', cleanRarities);
@@ -226,17 +226,32 @@ export async function fetchCardsCatalog(
     }
   }
 
-  // Validate domains against active game
+  // Validate domains / colors against active game (Riftbound / One Piece)
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = DOMAINS;
-    const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
-    if (cleanDomains.length > 0) {
-      const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
-      query = query.or(orQuery);
+    if (targetGame === 'riftbound') {
+      const cleanDomains = filters.domains.filter(d => DOMAINS.includes(d));
+      if (cleanDomains.length > 0) {
+        const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery);
+      }
+    } else if (targetGame === 'onepiece') {
+      const cleanColors = filters.domains.filter(c => ONEPIECE_COLORS.includes(c));
+      if (cleanColors.length > 0) {
+        const orQuery = cleanColors.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery);
+      }
     }
   }
 
-  if (filters.tags && filters.tags.length > 0) {
+  // Cost filter
+  if (filters.costMin && filters.costMin > 1) {
+    query = query.gte('cost', filters.costMin);
+  }
+  if (filters.costMax && filters.costMax < 10) {
+    query = query.lte('cost', filters.costMax);
+  }
+
+  if (targetGame === 'riftbound' && filters.tags && filters.tags.length > 0) {
     const tagQuery = filters.tags.map(t => `tags.cs.["${t}"]`).join(',');
     query = query.or(tagQuery);
   }
@@ -252,14 +267,25 @@ export async function fetchCardsCatalog(
     }
   }
 
-  query = query.order('card_number').limit(5000);
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching cards catalog:', error);
-    return { data: [], count: 0 };
+  query = query.order('card_number');
+
+  let allData: any[] = [];
+  let from = 0;
+  const CHUNK = 2000;
+
+  while (true) {
+    const { data: chunk, error: chunkErr } = await query.range(from, from + CHUNK - 1);
+    if (chunkErr) {
+      console.error('Error fetching cards catalog:', chunkErr);
+      break;
+    }
+    if (!chunk || chunk.length === 0) break;
+    allData.push(...chunk);
+    from += CHUNK;
+    if (chunk.length < CHUNK) break;
   }
 
-  let mappedData: CatalogCard[] = (data || []).map((row: any) => {
+  let mappedData: CatalogCard[] = allData.map((row: any) => {
     return {
       id: row.id,
       card_number: row.card_number,
@@ -364,7 +390,7 @@ export async function fetchLegacyInventory(
     query = query.eq('cards.sets.name', filters.set);
   }
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = RARITIES;
+    const allowedRarities = targetGame === 'mtg' ? MTG_RARITIES : targetGame === 'onepiece' ? ONEPIECE_RARITIES : RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('cards.rarity', cleanRarities);
@@ -386,7 +412,7 @@ export async function fetchLegacyInventory(
     }
   }
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = DOMAINS;
+    const allowedDomains = targetGame === 'onepiece' ? ONEPIECE_COLORS : DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');

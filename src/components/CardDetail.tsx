@@ -18,6 +18,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string }> 
 
 import { formatGameText, splitCardTitle, formatCleanCardNumber } from '../lib/formatGameText';
 import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
+import { isOvernumbered, isSigned, isAltArt } from '../lib/cardVariants';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { isNeutralCard } from '../lib/riftboundRules';
 import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
@@ -686,61 +687,53 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 );
               })()}
 
-              {(() => {
-                const num = (card.card_number || '').toUpperCase();
-                const sub = (card.subtype || '').toLowerCase().trim();
-                const tags = Array.isArray(card.tags) ? card.tags.map((t: string) => String(t).toLowerCase().trim()) : [];
-                const isSigned = Boolean(
-                  num.includes('*') ||
-                  num.includes('★') ||
-                  num.includes('STAR') ||
-                  sub === 'signed' ||
-                  tags.includes('signed') ||
-                  tags.includes('star')
-                );
-                if (!isSigned) return null;
-                return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
-                    Signed Edition
-                  </span>
-                );
-              })()}
+              {isSigned(card) && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
+                  Signed Edition
+                </span>
+              )}
 
-              {(() => {
-                const numPart = card.card_number?.split('/')[0] || '';
-                const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
-                const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
-                const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
-                if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
+              {isAltArt(card) && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-500/15 border border-pink-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
+                  Alt Art
+                </span>
+              )}
 
-                return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-pink-500/15 border border-pink-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
-                    Alt Art
-                  </span>
-                );
-              })()}
-
-              {(() => {
-                const cleanNum = formatCleanCardNumber(card.card_number);
-                if (!cleanNum || !cleanNum.includes('/')) return null;
-                const parts = cleanNum.split('/');
-                if (parts.length < 2) return null;
-                const numMatch = parts[0].match(/\d+/);
-                const denMatch = parts[1].match(/\d+/);
-                if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
-
-                return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
-                    Overnumbered Edition
-                  </span>
-                );
-              })()}
+              {isOvernumbered(card) && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/50 uppercase tracking-wider shadow-sm" style={{ color: 'var(--text-primary)' }}>
+                  Overnumbered Edition
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 
-                {((card.domain && card.domain !== 'Colorless') || isNeutral) && (() => {
+                {card.game === 'mtg' && card.cost != null && (
+                  <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Mana Value</div>
+                    <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
+                  </div>
+                )}
+
+                {card.game === 'onepiece' && (
+                  <>
+                    {card.cost != null && (
+                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Cost</div>
+                        <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
+                      </div>
+                    )}
+                    {card.domain && (
+                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Color</div>
+                        <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.domain}</div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {(!card.game || card.game === 'riftbound') && ((card.domain && card.domain !== 'Colorless') || isNeutral) && (() => {
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -765,19 +758,29 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {(() => {
                   const rawType = (card.card_type || '').toLowerCase();
                   const superType = (card.subtype || '').toLowerCase();
+                  const isChampionUnit = rawType === 'unit' && superType === 'champion';
                   const typeIcon = TYPE_ICONS[rawType];
                   const superIcon = TYPE_ICONS[superType];
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</div>
                       <div className="flex items-center gap-1.5 text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
-                        <span className="truncate">{card.card_type}</span>
-                        {superType && (
+                        {isChampionUnit ? (
                           <>
-                            <span className="mx-0.5" style={{ color: 'var(--text-muted)' }}>·</span>
                             {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
                             <span className="text-amber-300 truncate">{card.subtype}</span>
+                          </>
+                        ) : (
+                          <>
+                            {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
+                            <span className="truncate">{card.card_type}</span>
+                            {superType && (
+                              <>
+                                <span className="mx-0.5" style={{ color: 'var(--text-muted)' }}>·</span>
+                                {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
+                                <span className="text-amber-300 truncate">{card.subtype}</span>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -814,15 +817,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           </div>
 
           {(() => {
+            const isOnePiece = card.game === 'onepiece';
             const powerReq = getCardPowerRequirement(card);
-            const hasPowerCost = powerReq.power > 0 && powerReq.domains.length > 0;
-            const hasEnergy = card.energy != null;
+            const hasPowerCost = (!card.game || card.game === 'riftbound') && powerReq.power > 0 && powerReq.domains.length > 0;
+            const hasEnergy = (!card.game || card.game === 'riftbound') && card.energy != null;
             const hasMight = card.might != null;
             const hasMightBonus = card.might_bonus != null;
+            const hasOnePieceCost = isOnePiece && card.cost != null;
 
-            if (!hasEnergy && !hasMight && !hasMightBonus && !hasPowerCost) return null;
+            if (!hasEnergy && !hasMight && !hasMightBonus && !hasPowerCost && !hasOnePieceCost) return null;
 
-            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
+            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0) + (hasOnePieceCost ? 1 : 0);
             const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
             return (
@@ -852,6 +857,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </div>
                   );
                 })()}
+
+                {/* 1b. One Piece Cost */}
+                {hasOnePieceCost && (
+                  <div 
+                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+                  >
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Cost</div>
+                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
+                  </div>
+                )}
 
                 {/* 2. Power Cost */}
                 {hasPowerCost && (
@@ -905,10 +921,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 )}
 
-                {/* 3. Might */}
+                {/* 3. Might / Power */}
                 {hasMight && (
                   <div className="rounded-xl p-3 flex flex-col items-center justify-center text-center border" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>Might</div>
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>
+                      {isOnePiece ? 'Power' : 'Might'}
+                    </div>
                     <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>{card.might}</div>
                   </div>
                 )}
@@ -962,9 +980,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {card.text && (
                 <div className={card.ability ? "pt-3" : ""} style={card.ability ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
                   <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
-                    Flavor Text
+                    {card.game === 'mtg' || card.game === 'onepiece' ? 'Card Text' : 'Flavor Text'}
                   </div>
-                  <div className="text-sm sm:text-base italic leading-relaxed" style={{ color: 'var(--text-secondary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
+                  <div className={`text-sm sm:text-base leading-relaxed ${card.game === 'mtg' || card.game === 'onepiece' ? 'whitespace-pre-line' : 'italic'}`} style={{ color: (card.game === 'mtg' || card.game === 'onepiece') ? 'var(--text-primary)' : 'var(--text-secondary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
               )}
             </div>
@@ -1516,13 +1534,15 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   );
 }
 
-function PriceChartingButton({ card, isFoil }: { card: CatalogCard, isFoil?: boolean,}) {
-  const url = `https://www.cardmarket.com/en/Riftbound/Products/Search?searchString=${encodeURIComponent(card.name)}`;
-  
+function PriceChartingButton({ card }: { card: CatalogCard; isFoil?: boolean }) {
+  const game = (card.game || 'riftbound').toLowerCase();
+  const cmSlug = game === 'mtg' ? 'Magic' : game === 'onepiece' ? 'OnePiece' : 'Riftbound';
+  const url = `https://www.cardmarket.com/en/${cmSlug}/Products/Search?searchString=${encodeURIComponent(card.name)}`;
+
   return (
     <a
       href={url} target="_blank" rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold transition shadow-sm border"
+      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm sm:text-base font-bold transition shadow-sm border hover:brightness-110"
       style={{
         background: 'var(--bg-surface-2)',
         borderColor: 'var(--border)',

@@ -132,11 +132,6 @@ export function LegalFooter() {
                 </span>
               ))}
             </div>
-            {/* The statement Riot's "Legal Jibber Jabber" (section 6) asks fan projects to show, where it's
-                easy to find - every page. */}
-            <p className="text-[10px] leading-relaxed mt-3 max-w-xs">
-              TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
-            </p>
           </div>
 
           {FOOTER_COLUMNS.map((col) => (
@@ -158,6 +153,22 @@ export function LegalFooter() {
               </ul>
             </nav>
           ))}
+        </div>
+
+        {/* Dedicated publisher & IP disclaimers section below a full-width divider */}
+        <div className="mt-7 pt-5 border-t space-y-1.5" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Riftbound:</strong>{' '}
+            TCG Vault was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Magic: The Gathering:</strong>{' '}
+            Portions of TCG Vault are unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Not approved or endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>One Piece Card Game:</strong>{' '}
+            One Piece Card Game images, card text, and related marks are property of Bandai Co., Ltd. ©Eiichiro Oda/Shueisha ©Eiichiro Oda/Shueisha, Toei Animation. TCG Vault is not affiliated with or endorsed by Bandai, Shueisha, or Toei Animation.
+          </p>
         </div>
       </div>
     </footer>

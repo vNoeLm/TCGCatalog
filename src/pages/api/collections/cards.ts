@@ -52,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (body.prices && typeof body.prices === 'object') {
       for (const [k, v] of Object.entries(body.prices as Record<string, unknown>)) {
         const n = Math.round(Number(v));
-        if (Number.isFinite(n) && n > 0) prices[k] = n;
+        if (Number.isFinite(n) && n >= 0) prices[k] = n;
       }
     }
     const result = await syncAlwaysList(caller.user.id, { ...coll, cards }, [...changed], prices);

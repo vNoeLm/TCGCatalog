@@ -5,6 +5,7 @@ import { cardThumbProps, gridThumbSize } from "../lib/supabase";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
+import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -136,85 +137,53 @@ export function CardListItem(props: CardListItemProps) {
               {printLanguage(card.name)} print
             </span>
           )}
-          {(() => {
-            const num = (card.card_number || '').toUpperCase();
-            const sub = (card.subtype || '').toLowerCase().trim();
-            const tags = Array.isArray(card.tags) ? card.tags.map((t: string) => String(t).toLowerCase().trim()) : [];
-            const isSigned = Boolean(
-              num.includes('*') ||
-              num.includes('★') ||
-              num.includes('STAR') ||
-              sub === 'signed' ||
-              tags.includes('signed') ||
-              tags.includes('star')
-            );
-            if (!isSigned) return null;
-            return (
-              <span
-                className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
-                style={{
-                  background: "rgba(147, 51, 234, 0.95)",
-                  color: "#ffffff",
-                  border: "1.5px solid #c084fc",
-                  boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
-                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
-                }}
-              >
-                SIGNED
-              </span>
-            );
-          })()}
+          {isSigned(card) && (
+            <span
+              className="px-2 py-0.5 text-[11px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(147, 51, 234, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #c084fc",
+                boxShadow: "0 0 12px rgba(168, 85, 247, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              SIGNED
+            </span>
+          )}
         </div>
 
         {/* Bottom Left Badges: ALT ART / ON */}
         <div className="absolute bottom-1.5 left-1.5 flex flex-col items-start gap-1" style={{ zIndex: 3 }}>
-          {(() => {
-            const numPart = card.card_number?.split('/')[0] || '';
-            const hasSuffix = /[0-9]+[a-zA-Z]/i.test(numPart);
-            const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
-            const isAltTag = Array.isArray(card.tags) && card.tags.some((t: string) => t.toLowerCase().includes('alt') || t.toLowerCase().includes('alternate'));
-            if (!hasSuffix && !isAltSubtype && !isAltTag) return null;
+          {isAltArt(card) && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(219, 39, 119, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #f472b6",
+                boxShadow: "0 0 12px rgba(236, 72, 153, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              ALT ART
+            </span>
+          )}
 
-            return (
-              <span
-                className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
-                style={{
-                  background: "rgba(219, 39, 119, 0.95)",
-                  color: "#ffffff",
-                  border: "1.5px solid #f472b6",
-                  boxShadow: "0 0 12px rgba(236, 72, 153, 0.6)",
-                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
-                }}
-              >
-                ALT ART
-              </span>
-            );
-          })()}
-
-          {(() => {
-            const cleanNum = formatCleanCardNumber(card.card_number);
-            if (!cleanNum || !cleanNum.includes('/')) return null;
-            const parts = cleanNum.split('/');
-            if (parts.length < 2) return null;
-            const numMatch = parts[0].match(/\d+/);
-            const denMatch = parts[1].match(/\d+/);
-            if (!numMatch || !denMatch || parseInt(numMatch[0], 10) <= parseInt(denMatch[0], 10)) return null;
-
-            return (
-              <span
-                className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
-                style={{
-                  background: "rgba(99, 102, 241, 0.95)",
-                  color: "#ffffff",
-                  border: "1.5px solid #818cf8",
-                  boxShadow: "0 0 12px rgba(99, 102, 241, 0.6)",
-                  textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
-                }}
-              >
-                ON
-              </span>
-            );
-          })()}
+          {isOvernumbered(card) && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(99, 102, 241, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #818cf8",
+                boxShadow: "0 0 12px rgba(99, 102, 241, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              ON
+            </span>
+          )}
         </div>
       </button>
 
@@ -254,7 +223,7 @@ export function CardListItem(props: CardListItemProps) {
             {formatCleanCardNumber(card.card_number)}
           </span>
           <span className="capitalize truncate text-center font-medium">
-            {card.card_type}
+            {(card.subtype || '').toLowerCase() === 'champion' ? 'Champion' : card.card_type}
           </span>
           <span className="capitalize truncate text-right font-medium" style={{ color: 'var(--text-tertiary)' }}>
             {card.rarity || ''}

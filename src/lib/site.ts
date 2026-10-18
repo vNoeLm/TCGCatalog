@@ -4,13 +4,13 @@ export const DISCORD_USERNAME = 'shebrokeme';
 
 /** The info pages, grouped as the footer and the page sidebars show them. */
 export const LEGAL_PAGES = [
-  { href: '/legal/privacy', label: 'Privacy notice' },
-  { href: '/legal/cookies', label: 'Cookie notice' },
-  { href: '/legal/copyright', label: 'Copyright & rights holders' },
-  { href: '/legal/terms', label: 'Terms of Service' },
+  { href: '/legal/terms', label: 'Terms of Service (ÁSZF)', labelHu: 'ÁSZF és Impresszum' },
+  { href: '/legal/privacy', label: 'Privacy notice (Adatkezelés)', labelHu: 'Adatkezelési tájékoztató' },
+  { href: '/legal/cookies', label: 'Cookie notice (Sütik)', labelHu: 'Süti tájékoztató' },
+  { href: '/legal/copyright', label: 'Copyright & rights holders', labelHu: 'Szerzői jogok' },
 ];
 
 export const HELP_PAGES = [
-  { href: '/help/shipping', label: 'Shipping & handover guide' },
-  { href: '/help/selling', label: 'Seller guidelines' },
+  { href: '/help/shipping', label: 'Shipping & handover guide', labelHu: 'Szállítási útmutató' },
+  { href: '/help/selling', label: 'Seller guidelines', labelHu: 'Eladói útmutató' },
 ];

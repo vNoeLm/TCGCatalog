@@ -117,13 +117,7 @@ export const GET: APIRoute = async ({ url }) => {
         }
       }
     } else {
-      if (statusParam === 'in_stock') {
-        invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
-      } else if (statusParam === 'on_hold') {
-        invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
-      } else {
-        invQuery = invQuery.in('status', ['In Stock', 'Reserved', 'On Hold']);
-      }
+      invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
     }
 
     if (game && game !== 'all') {

@@ -129,6 +129,7 @@ export interface UserProfile {
   email: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  banner_url?: string | null;
   role: UserRole;
   is_admin: boolean;
   is_owner?: boolean;
@@ -325,38 +326,3 @@ export interface ConversationSummary {
   unread_count: number;
 }
 
-export interface QuickSaleRule {
-  id: string;
-  game: string; // The game this rule applies to
-  /** What the rule aims at. 'all' takes every card not excluded below. */
-  type: 'rarity' | 'set' | 'card_type' | 'all' | 'specific_card';
-  targetValue: string; // rarity / set name / card type, or a card ID; unused for 'all'
-  targetCardName?: string; // Optional name for display if specific_card
-  /**
-   * Card types this rule never lists. Absent on rules saved before exclusions existed, which fall
-   * back to skipping runes and tokens (see DEFAULT_EXCLUDED_TYPES in lib/quickSaleRules).
-   */
-  excludeTypes?: string[];
-  excludePromos?: boolean;
-  /** Skips the Showcase rarity (alt-art / overnumbered prints). */
-  excludeShowcase?: boolean;
-  minCopiesToKeep: number;
-  /**
-   * The price to list at. With the default 'fixed' mode it is the price for every card the rule
-   * picks up; with an adaptive mode it is the fallback for a card that has no market data.
-   */
-  basePriceHuf: number | ''; // Allow empty for typing
-  /**
-   * How the price is set. 'fixed' lists everything at basePriceHuf; 'market' uses each card's market
-   * price; 'estimate' uses each card's estimated value (market price combined with what sellers on
-   * the site are asking). Absent on rules saved before this existed, which are fixed.
-   */
-  priceMode?: 'fixed' | 'market' | 'estimate';
-  /** Percent added to an adaptive price, so -10 lists 10% under it. */
-  priceAdjustPct?: number;
-  /** An adaptive price is never lower than this. */
-  minPriceHuf?: number;
-  handoverMethods: string[];
-  condition: string;
-  enabled: boolean;
-}

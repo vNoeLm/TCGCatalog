@@ -1,6 +1,7 @@
-// Riftbound only.
 export const GAMES = [
   { id: 'riftbound', name: 'Riftbound', active: true },
+  { id: 'mtg', name: 'Magic: The Gathering', active: true },
+  { id: 'onepiece', name: 'One Piece Card Game', active: true },
 ];
 
 export const CATEGORIES = [
@@ -16,6 +17,15 @@ export const SEALED_PRODUCT_TYPES = [
   'Elite Trainer Box',
   'Tin / Collection Box',
 ];
+
+// ─── Magic: The Gathering Constants ──────────────────────────────────
+export const MTG_RARITIES = ['Common', 'Uncommon', 'Rare', 'Mythic', 'Special', 'Bonus'];
+export const MTG_TYPES = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'];
+
+// ─── One Piece Card Game Constants ───────────────────────────────────
+export const ONEPIECE_RARITIES = ['Common', 'Uncommon', 'Rare', 'Super Rare', 'Secret Rare', 'Leader', 'Treasure Rare', 'Promo'];
+export const ONEPIECE_TYPES = ['Leader', 'Character', 'Event', 'Stage'];
+export const ONEPIECE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
 
 // ─── Riftbound Constants ──────────────────────────────────────────
 export const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];

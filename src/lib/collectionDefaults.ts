@@ -1,5 +1,3 @@
-import type { QuickSaleRule } from '../types';
-import { quickSalePrice } from './quickSaleRules';
 import { ALL_HANDOVER_IDS } from './handover';
 
 /**
@@ -14,14 +12,20 @@ export const MAX_COLLECTION_NAME = 60;
 /** How an always-list collection lists a card it gets. */
 export interface ListDefaults {
   condition: string;
-  /** Same modes as Quick List: one fixed price, or each card's market price / estimated value. */
+  /** One fixed price, or each card's market price / estimated value. */
   price_mode: 'fixed' | 'market' | 'estimate';
   /** The fixed price, or the fallback for a card without market data. */
   base_price_huf: number;
+  /** When true (and price_mode !== 'fixed'), cards with no market/estimated price are not listed. */
+  skip_unpriced: boolean;
   /** Added to a market / estimated price, so -10 lists 10% under it. */
   price_adjust_pct: number;
   /** A market / estimated price is never lower than this. */
   min_price_huf: number;
+  /** Number of copies of each card to keep unlisted for personal play/collection (0 = list all). */
+  keep_copies: number;
+  /** @deprecated Removed to prevent artificial scarcity */
+  max_list_qty?: number;
   handover_methods: string[];
 }
 
@@ -29,8 +33,11 @@ export const DEFAULT_LIST_DEFAULTS: ListDefaults = {
   condition: 'Near Mint',
   price_mode: 'market',
   base_price_huf: 100,
+  skip_unpriced: false,
   price_adjust_pct: 0,
   min_price_huf: 0,
+  keep_copies: 0,
+  max_list_qty: 0,
   handover_methods: ['personal'],
 };
 
@@ -60,8 +67,11 @@ export function normalizeListDefaults(raw: unknown): ListDefaults {
     condition: LISTING_CONDITIONS.includes(o.condition) ? o.condition : DEFAULT_LIST_DEFAULTS.condition,
     price_mode: o.price_mode === 'fixed' || o.price_mode === 'estimate' ? o.price_mode : 'market',
     base_price_huf: int(o.base_price_huf, 1, 10_000_000, DEFAULT_LIST_DEFAULTS.base_price_huf),
+    skip_unpriced: Boolean(o.skip_unpriced),
     price_adjust_pct: int(o.price_adjust_pct, -90, 500, 0),
     min_price_huf: int(o.min_price_huf, 0, 10_000_000, 0),
+    keep_copies: int(o.keep_copies, 0, 99, 0),
+    max_list_qty: 0,
     handover_methods: methods.length ? methods : DEFAULT_LIST_DEFAULTS.handover_methods,
   };
 }
@@ -78,13 +88,19 @@ export function normalizeCards(raw: unknown): Record<string, number> {
   return out;
 }
 
-/** The price an always-list collection lists a card at, from its defaults and the card's values. */
+/**
+ * The price an always-list collection lists a card at, from its defaults and the card's values.
+ * Returns 0 when `skip_unpriced` is enabled and no reference price exists.
+ */
 export function defaultListPrice(defaults: ListDefaults, values: { marketHuf: number | null; estimateHuf: number | null }): number {
-  const rule = {
-    basePriceHuf: defaults.base_price_huf,
-    priceMode: defaults.price_mode,
-    priceAdjustPct: defaults.price_adjust_pct,
-    minPriceHuf: defaults.min_price_huf,
-  } as unknown as QuickSaleRule;
-  return quickSalePrice(rule, values).priceHuf;
+  const fallback = Math.max(1, Math.round(defaults.base_price_huf || 100));
+  if (defaults.price_mode === 'fixed') return fallback;
+  const ref = defaults.price_mode === 'estimate'
+    ? (values.estimateHuf ?? values.marketHuf)
+    : values.marketHuf;
+  if (ref === null || !Number.isFinite(ref) || ref <= 0) {
+    return defaults.skip_unpriced ? 0 : fallback;
+  }
+  const adjusted = Math.round(ref * (1 + (defaults.price_adjust_pct || 0) / 100));
+  return Math.max(1, Math.round(defaults.min_price_huf || 0), adjusted);
 }

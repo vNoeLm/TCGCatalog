@@ -23,6 +23,7 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .vercel
+.wrangler/
 scratch/
 inspect_*.mjs
 

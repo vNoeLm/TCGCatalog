@@ -93,6 +93,13 @@ export const DOMAIN_STYLES: Record<string, FilterTokenStyle> = {
   Chaos:      { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
   Order:      { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
   Colorless:  { dot: "#cbd5e1", activeBg: "rgba(203,213,225,0.18)", border: "rgba(203,213,225,0.6)", text: "#f1f5f9", hoverBg: "rgba(203,213,225,0.1)",  hoverBorder: "rgba(203,213,225,0.35)" },
+  // One Piece Card Game Colors
+  Red:        { dot: "#ef4444", activeBg: "rgba(239,68,68,0.22)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.12)",   hoverBorder: "rgba(239,68,68,0.45)" },
+  Green:      { dot: "#22c55e", activeBg: "rgba(34,197,94,0.22)",   border: "rgba(34,197,94,0.7)", text: "#86efac", hoverBg: "rgba(34,197,94,0.12)",   hoverBorder: "rgba(34,197,94,0.45)" },
+  Blue:       { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.22)",  border: "rgba(59,130,246,0.7)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.12)",  hoverBorder: "rgba(59,130,246,0.45)" },
+  Purple:     { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
+  Black:      { dot: "#64748b", activeBg: "rgba(51,65,85,0.35)",    border: "rgba(148,163,184,0.7)", text: "#cbd5e1", hoverBg: "rgba(51,65,85,0.2)",    hoverBorder: "rgba(148,163,184,0.45)" },
+  Yellow:     { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
 };
 
 export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
@@ -101,6 +108,15 @@ export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
   Rare:            { dot: "#c084fc", activeBg: "rgba(192,132,252,0.22)", border: "rgba(192,132,252,0.7)", text: "#e9d5ff", hoverBg: "rgba(192,132,252,0.12)", hoverBorder: "rgba(192,132,252,0.45)" },
   Epic:            { dot: "#fb923c", activeBg: "rgba(251,146,60,0.22)",  border: "rgba(251,146,60,0.7)",  text: "#fed7aa", hoverBg: "rgba(251,146,60,0.12)",  hoverBorder: "rgba(251,146,60,0.45)" },
   Showcase:        { dot: "#fde047", activeBg: "rgba(253,224,71,0.22)",  border: "rgba(253,224,71,0.8)",  text: "#fef08a", hoverBg: "rgba(253,224,71,0.14)",  hoverBorder: "rgba(253,224,71,0.55)" },
+  Mythic:          { dot: "#f97316", activeBg: "rgba(249,115,22,0.22)",  border: "rgba(249,115,22,0.8)",  text: "#fdba74", hoverBg: "rgba(249,115,22,0.12)",  hoverBorder: "rgba(249,115,22,0.5)" },
+  Special:         { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)",  text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
+  Bonus:           { dot: "#ec4899", activeBg: "rgba(236,72,153,0.22)",  border: "rgba(236,72,153,0.7)",  text: "#fbcfe8", hoverBg: "rgba(236,72,153,0.12)",  hoverBorder: "rgba(236,72,153,0.45)" },
+  // One Piece Card Game Rarities
+  'Super Rare':    { dot: "#e11d48", activeBg: "rgba(225,29,72,0.22)",   border: "rgba(225,29,72,0.7)",   text: "#fda4af", hoverBg: "rgba(225,29,72,0.12)",   hoverBorder: "rgba(225,29,72,0.45)" },
+  'Secret Rare':   { dot: "#06b6d4", activeBg: "rgba(6,182,212,0.22)",   border: "rgba(6,182,212,0.7)",   text: "#67e8f9", hoverBg: "rgba(6,182,212,0.12)",   hoverBorder: "rgba(6,182,212,0.45)" },
+  'Leader':        { dot: "#f59e0b", activeBg: "rgba(245,158,11,0.22)",  border: "rgba(245,158,11,0.7)",  text: "#fcd34d", hoverBg: "rgba(245,158,11,0.12)",  hoverBorder: "rgba(245,158,11,0.45)" },
+  'Treasure Rare': { dot: "#10b981", activeBg: "rgba(16,185,129,0.22)",  border: "rgba(16,185,129,0.7)",  text: "#6ee7b7", hoverBg: "rgba(16,185,129,0.12)",  hoverBorder: "rgba(16,185,129,0.45)" },
+  'Promo':         { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)",  text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
 };
 
 
