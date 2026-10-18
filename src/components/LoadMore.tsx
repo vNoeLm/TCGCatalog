@@ -4,66 +4,61 @@ export interface LoadMoreState {
   /** How many items to render. */
   shown: number;
   hasMore: boolean;
-  /** True once the person asked for more - from then on, more load as they scroll. */
+  /** True once the person asked for more. */
   auto: boolean;
   loadMore: () => void;
   sentinelRef: React.RefObject<HTMLDivElement | null>;
 }
 
+export const DEFAULT_LOAD_MORE_LIMIT = 288;
+
 /**
- * A long card list that starts with one batch and a "Load more" button, and only loads further
- * batches on its own as you scroll once that button has been pressed. Loading on scroll from the
- * start meant the page never ended, so its footer (legal, links) could never be reached.
+ * A long card list that starts with one batch and a "Load more" button, allowing users
+ * to load additional batches up to a sensible maximum limit (e.g. 288 cards).
+ * This ensures DOM nodes remain manageable, mobile rendering is smooth, and the footer can always be reached.
  *
- * Only what's *rendered* is limited: callers keep computing counts and totals (collection value,
- * "N cards for sale") from the full list. `resetKey` starts over at one batch whenever the list
- * itself changes (new filters, search, sort).
+ * Only what's *rendered* is limited: callers keep computing counts and totals from the full list.
+ * `resetKey` starts over at one batch whenever the list itself changes (new filters, search, sort).
  */
-export function useLoadMore(total: number, batchSize: number, resetKey: string): LoadMoreState {
+export function useLoadMore(
+  total: number,
+  batchSize: number,
+  resetKey: string,
+  maxLimit: number = DEFAULT_LOAD_MORE_LIMIT
+): LoadMoreState {
   const [shown, setShown] = useState(batchSize);
-  const [auto, setAuto] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setShown(batchSize);
-    setAuto(false);
   }, [resetKey, batchSize]);
 
-  const hasMore = shown < total;
-
-  // Re-created after every batch (`shown`), so it fires again straight away if the sentinel is
-  // still near the viewport - an observer only reports changes, and "still visible" isn't one.
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!auto || !hasMore || !el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) setShown((s) => s + batchSize);
-      },
-      { rootMargin: '400px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [auto, hasMore, batchSize, shown]);
+  const effectiveMax = Math.min(total, maxLimit);
+  const hasMore = shown < effectiveMax;
 
   const loadMore = () => {
-    setAuto(true);
-    setShown((s) => s + batchSize);
+    setShown((s) => Math.min(s + batchSize, effectiveMax));
   };
 
-  return { shown, hasMore, auto, loadMore, sentinelRef };
+  return { shown, hasMore, auto: false, loadMore, sentinelRef };
 }
 
-/** The end of the list: the "Load more" button, or the scroll trigger once it's been pressed. */
+/** The end of the list: the "Load more" button, or an indicator when capped so the footer is reached. */
 export function LoadMoreFooter({ state, total, noun }: { state: LoadMoreState; total: number; noun: string }) {
-  if (!state.hasMore) return null;
-
-  if (state.auto) {
-    return (
-      <div ref={state.sentinelRef} className="flex justify-center py-8 text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>
-        Loading more {noun}…
-      </div>
-    );
+  if (!state.hasMore) {
+    if (total > state.shown) {
+      return (
+        <div className="flex flex-col items-center gap-1.5 py-8 text-center">
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+            Showing {Math.min(state.shown, total).toLocaleString()} of {total.toLocaleString()} {noun}
+          </p>
+          <p className="text-xs max-w-md" style={{ color: 'var(--text-muted)' }}>
+            Narrow your search or use filters to find specific {noun}.
+          </p>
+        </div>
+      );
+    }
+    return null;
   }
 
   return (

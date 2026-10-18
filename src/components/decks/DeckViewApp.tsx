@@ -40,7 +40,7 @@ export function DeckViewApp() {
       if (!row) { setNotFound(true); setLoading(false); return; }
       setDeckRow(row);
       setActiveZone(defaultZone(row.game));
-      const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: row.game }, '', true);
+      const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: row.game }, '');
       setCards(data || []);
       setLoading(false);
     })();

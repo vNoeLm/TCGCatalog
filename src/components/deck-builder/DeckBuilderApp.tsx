@@ -312,7 +312,7 @@ export function DeckBuilderApp() {
   useEffect(() => {
     async function loadCards() {
       setLoading(true);
-      const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame } as any, '', true);
+      const { data } = await fetchCardsCatalog({ ...DEFAULT_FILTERS, game: activeGame } as any, '');
       if (data) {
         setCards(data);
       }

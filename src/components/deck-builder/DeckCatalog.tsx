@@ -8,6 +8,7 @@ import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard, compareCardsByRarity } from '../../lib/cardVariants';
 import { TAGS, sortSetNames, ONEPIECE_COLORS, ONEPIECE_RARITIES, MTG_RARITIES } from '../../lib/constants';
 import { maxCopies, zoneRule, type GameId } from '../../lib/deckRules';
+import { useLoadMore, LoadMoreFooter } from '../LoadMore';
 
 interface DeckCatalogProps {
   cards: CatalogCard[];
@@ -413,8 +414,11 @@ export function DeckCatalog({
       if (search) {
         // A known keyword ("deflect", "xp") also matches cards carrying it in their text.
         const searchedKeyword = findSearchableKeyword(search);
-        const nameMatch = card.name.toLowerCase().includes(search.toLowerCase());
-        if (!nameMatch && !(searchedKeyword && cardHasKeyword(card, searchedKeyword))) return false;
+        const q = search.toLowerCase();
+        const nameMatch = card.name.toLowerCase().includes(q);
+        const numberMatch = (card.card_number || '').toLowerCase().includes(q);
+        const artistMatch = (card.artist || '').toLowerCase().includes(q);
+        if (!nameMatch && !numberMatch && !artistMatch && !(searchedKeyword && cardHasKeyword(card, searchedKeyword))) return false;
       }
 
       // 5. Type sub-filter
@@ -513,6 +517,55 @@ export function DeckCatalog({
       }
     });
   }, [filteredCards, sortMode]);
+
+  const catalogResetKey = useMemo(() => JSON.stringify([
+    search,
+    typeFilter,
+    rarityFilter,
+    domainFilter,
+    altArtFilter,
+    overnumberedFilter,
+    signedFilter,
+    spFilter,
+    baseSetOnly,
+    tagFilter,
+    keywordFilter,
+    keywordMode,
+    setFilter,
+    costMin,
+    costMax,
+    onlyOwned,
+    activeZone,
+    activeGame,
+    sortMode,
+    cards.length,
+  ]), [
+    search,
+    typeFilter,
+    rarityFilter,
+    domainFilter,
+    altArtFilter,
+    overnumberedFilter,
+    signedFilter,
+    spFilter,
+    baseSetOnly,
+    tagFilter,
+    keywordFilter,
+    keywordMode,
+    setFilter,
+    costMin,
+    costMax,
+    onlyOwned,
+    activeZone,
+    activeGame,
+    sortMode,
+    cards.length,
+  ]);
+
+  const loadMoreState = useLoadMore(sortedCards.length, 48, catalogResetKey);
+  const paginatedCards = useMemo(() => {
+    return sortedCards.slice(0, loadMoreState.shown);
+  }, [sortedCards, loadMoreState.shown]);
 
   const activeFiltersCount =
     (onlyOwned ? 1 : 0) +
@@ -921,7 +974,7 @@ export function DeckCatalog({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))', gap: '16px 10px' }}>
-          {sortedCards.map(card => {
+          {paginatedCards.map(card => {
             const fallback = `https://placehold.co/400x560/1e293b/94a3b8?text=${encodeURIComponent(card.name)}`;
             const imgSrc = card.image_path ? getCardImageUrl(card.image_path) : fallback;
             const primaryDomain = (card.domain || '').toLowerCase().split(',')[0].trim();
@@ -1029,6 +1082,10 @@ export function DeckCatalog({
             </div>
           )}
         </div>
+
+        {filteredCards.length > 0 && (
+          <LoadMoreFooter state={loadMoreState} total={sortedCards.length} noun="cards" />
+        )}
       </div>
 
       <style>{`
