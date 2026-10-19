@@ -26,7 +26,26 @@ const labelCls = 'text-[10px] font-bold uppercase tracking-wider';
 export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onChange: (v: ListDefaults) => void }) {
   const set = (patch: Partial<ListDefaults>) => onChange({ ...value, ...patch });
   const adaptive = value.price_mode !== 'fixed';
-  const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+
+  // Local draft states to prevent "0" lock-in when deleting and typing (e.g. 0-10% or 023)
+  const [adjustPctDraft, setAdjustPctDraft] = useState<string>(String(value.price_adjust_pct ?? 0));
+  const [fallbackPriceDraft, setFallbackPriceDraft] = useState<string>(String(value.base_price_huf ?? 500));
+  const [minPriceDraft, setMinPriceDraft] = useState<string>(String(value.min_price_huf ?? 0));
+  const [fixedPriceDraft, setFixedPriceDraft] = useState<string>(String(value.base_price_huf ?? 500));
+
+  useEffect(() => {
+    setAdjustPctDraft(String(value.price_adjust_pct ?? 0));
+  }, [value.price_adjust_pct]);
+
+  useEffect(() => {
+    setFallbackPriceDraft(String(value.base_price_huf ?? 500));
+    setFixedPriceDraft(String(value.base_price_huf ?? 500));
+  }, [value.base_price_huf]);
+
+  useEffect(() => {
+    setMinPriceDraft(String(value.min_price_huf ?? 0));
+  }, [value.min_price_huf]);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
       <label className="flex flex-col gap-1">
@@ -62,10 +81,25 @@ export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onCha
             <label className="flex flex-col gap-1">
               <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Fallback price (Ft)</span>
               <input
-                type="number"
-                min={1}
-                value={value.base_price_huf}
-                onChange={(e) => set({ base_price_huf: Math.max(1, num(e.target.value)) })}
+                type="text"
+                inputMode="numeric"
+                value={fallbackPriceDraft}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*$/.test(val)) {
+                    setFallbackPriceDraft(val);
+                    const parsed = parseInt(val, 10);
+                    if (!isNaN(parsed) && parsed > 0) {
+                      set({ base_price_huf: parsed });
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  const parsed = Math.max(1, parseInt(fallbackPriceDraft, 10) || 500);
+                  set({ base_price_huf: parsed });
+                  setFallbackPriceDraft(String(parsed));
+                }}
+                placeholder="500"
                 className={inputCls}
                 style={inputStyle}
               />
@@ -80,11 +114,25 @@ export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onCha
           <label className="flex flex-col gap-1">
             <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Adjust price (%)</span>
             <input
-              type="number"
-              min={-90}
-              max={500}
-              value={value.price_adjust_pct}
-              onChange={(e) => set({ price_adjust_pct: Math.round(Number(e.target.value) || 0) })}
+              type="text"
+              inputMode="numeric"
+              value={adjustPctDraft}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || val === '-' || /^-?\d*$/.test(val)) {
+                  setAdjustPctDraft(val);
+                  const parsed = parseInt(val, 10);
+                  if (!isNaN(parsed)) {
+                    set({ price_adjust_pct: Math.max(-90, Math.min(500, parsed)) });
+                  } else if (val === '' || val === '-') {
+                    set({ price_adjust_pct: 0 });
+                  }
+                }
+              }}
+              onBlur={() => {
+                setAdjustPctDraft(String(value.price_adjust_pct ?? 0));
+              }}
+              placeholder="0"
               className={inputCls}
               style={inputStyle}
             />
@@ -92,10 +140,23 @@ export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onCha
           <label className="flex flex-col gap-1">
             <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Never list below (Ft)</span>
             <input
-              type="number"
-              min={0}
-              value={value.min_price_huf}
-              onChange={(e) => set({ min_price_huf: num(e.target.value) })}
+              type="text"
+              inputMode="numeric"
+              value={minPriceDraft}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || /^\d*$/.test(val)) {
+                  setMinPriceDraft(val);
+                  const parsed = parseInt(val, 10);
+                  set({ min_price_huf: isNaN(parsed) ? 0 : Math.max(0, parsed) });
+                }
+              }}
+              onBlur={() => {
+                const parsed = Math.max(0, parseInt(minPriceDraft, 10) || 0);
+                set({ min_price_huf: parsed });
+                setMinPriceDraft(String(parsed));
+              }}
+              placeholder="0"
               className={inputCls}
               style={inputStyle}
             />
@@ -105,10 +166,25 @@ export function DefaultsEditor({ value, onChange }: { value: ListDefaults; onCha
         <label className="flex flex-col gap-1 sm:col-span-2">
           <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Fixed price per copy (Ft)</span>
           <input
-            type="number"
-            min={1}
-            value={value.base_price_huf}
-            onChange={(e) => set({ base_price_huf: Math.max(1, num(e.target.value)) })}
+            type="text"
+            inputMode="numeric"
+            value={fixedPriceDraft}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || /^\d*$/.test(val)) {
+                setFixedPriceDraft(val);
+                const parsed = parseInt(val, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                  set({ base_price_huf: parsed });
+                }
+              }
+            }}
+            onBlur={() => {
+              const parsed = Math.max(1, parseInt(fixedPriceDraft, 10) || 500);
+              set({ base_price_huf: parsed });
+              setFixedPriceDraft(String(parsed));
+            }}
+            placeholder="500"
             className={inputCls}
             style={inputStyle}
           />

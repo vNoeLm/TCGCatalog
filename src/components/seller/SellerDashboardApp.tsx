@@ -39,6 +39,8 @@ export function SellerDashboardApp() {
   const [updatingListingId, setUpdatingListingId] = useState<string | null>(null);
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set());
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
+  const [matchingLowestId, setMatchingLowestId] = useState<string | null>(null);
+  const [matchingAllBusy, setMatchingAllBusy] = useState(false);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
   // Named collections: to name the one a listing belongs to.
   const collectionsStore = useCollectionsStore();
@@ -424,6 +426,107 @@ export function SellerDashboardApp() {
     } finally {
       setBulkActionBusy(false);
     }
+  };
+
+  const handleMatchLowest = async (item: any, lowestPrice: number) => {
+    if (matchingLowestId || matchingAllBusy) return;
+    setMatchingLowestId(item.inventory_id);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) throw new Error('Please sign in to update listings.');
+      const res = await fetch('/api/marketplace/listings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ id: item.inventory_id, price_huf: lowestPrice }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update price.');
+      setListings(prev => prev.map(l => (l.inventory_id === item.inventory_id ? { ...l, price_huf: lowestPrice } : l)));
+      showToast(`Updated "${item.name}" to ${lowestPrice.toLocaleString()} Ft.`);
+      window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating price');
+    } finally {
+      setMatchingLowestId(null);
+    }
+  };
+
+  const handleMatchAllUndercut = async () => {
+    if (undercutListings.length === 0 || matchingAllBusy) return;
+    if (!confirm(`Update ${undercutListings.length} undercut listing${undercutListings.length === 1 ? '' : 's'} to match the lowest active prices on the platform?`)) return;
+    setMatchingAllBusy(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) throw new Error('Please sign in to update listings.');
+
+      const updates = undercutListings
+        .map(item => {
+          const lowest = getPlatformLowest(item);
+          return lowest !== null ? { id: item.inventory_id, price: lowest } : null;
+        })
+        .filter((u): u is { id: string; price: number } => u !== null);
+
+      const results = await Promise.all(updates.map(u =>
+        fetch('/api/marketplace/listings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ id: u.id, price_huf: u.price }),
+        }).then(async res => ({ id: u.id, price: u.price, ok: res.ok }))
+      ));
+
+      const succeeded = results.filter(r => r.ok);
+      const priceMap = new Map(succeeded.map(r => [r.id, r.price]));
+      setListings(prev => prev.map(l => (priceMap.has(l.inventory_id) ? { ...l, price_huf: priceMap.get(l.inventory_id)! } : l)));
+      window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));
+      showToast(`Updated ${succeeded.length} listing${succeeded.length === 1 ? '' : 's'} to match lowest platform prices.`);
+    } catch (e: any) {
+      showToast(e?.message || 'Error updating listings');
+    } finally {
+      setMatchingAllBusy(false);
+    }
+  };
+
+  const handleExportSalesCsv = () => {
+    if (sellerOrders.length === 0) return;
+    const headers = ['Order Number', 'Date', 'Status', 'Items', 'Total HUF', 'Customer Name', 'Customer Email', 'Shipping Method'];
+    const rows = sellerOrders.map(o => [
+      o.order_number,
+      new Date(o.created_at).toISOString().slice(0, 10),
+      o.status,
+      `"${(o.items || []).map(i => `${i.quantity}x ${i.card_name} (${i.condition || 'NM'})`).join('; ')}"`,
+      o.total_price_huf ?? o.total_huf ?? 0,
+      `"${o.customer_info?.name || o.shipping_name || ''}"`,
+      `"${o.customer_info?.email || ''}"`,
+      `"${o.shipping_method || ''}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tcg-sales-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Sales history exported as CSV.');
+  };
+
+  const handleExportSalesJson = () => {
+    if (sellerOrders.length === 0) return;
+    const jsonContent = JSON.stringify(sellerOrders, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tcg-sales-history-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Sales history exported as JSON.');
   };
 
   // Hold Request Management Actions
@@ -1780,12 +1883,31 @@ export function SellerDashboardApp() {
       {activeTab === 'analytics' && (
         <div className="space-y-6">
           <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-            <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
-              {'Listing Performance & Price Competitiveness'}
-            </h3>
-            <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
-              Engagement per listing, and how your price compares to the lowest active price for the same card elsewhere on the platform.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+              <div>
+                <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
+                  Listing Performance &amp; Price Competitiveness
+                </h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Engagement per listing, and how your price compares to the lowest active price for the same card elsewhere on the platform.
+                </p>
+              </div>
+              {undercutListings.length > 0 && (
+                <button
+                  type="button"
+                  disabled={matchingAllBusy}
+                  onClick={handleMatchAllUndercut}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition cursor-pointer border hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                  title="Update all undercut listings to match the lowest active price on the site"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 17l5-5-5-5M6 17l5-5-5-5" />
+                  </svg>
+                  <span>{matchingAllBusy ? 'Matching All...' : `Match Lowest on All (${undercutListings.length})`}</span>
+                </button>
+              )}
+            </div>
 
             <div ref={statsTopRef} className="overflow-x-auto scroll-mt-24">
               {/* whitespace-nowrap: the table scrolls sideways on a phone anyway, so cells stay on
@@ -1871,7 +1993,19 @@ export function SellerDashboardApp() {
                               {lowest === null ? (
                                 <span className="text-[var(--text-muted)]">—</span>
                               ) : isUndercut ? (
-                                <span className="font-bold text-[var(--text-accent)]">{lowest.toLocaleString()} Ft</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-[var(--text-accent)]">{lowest.toLocaleString()} Ft</span>
+                                  <button
+                                    type="button"
+                                    disabled={matchingLowestId === item.inventory_id || matchingAllBusy}
+                                    onClick={() => handleMatchLowest(item, lowest)}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer hover:brightness-110 active:scale-95 disabled:opacity-50"
+                                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                                    title={`Update your price from ${item.price_huf?.toLocaleString()} Ft to ${lowest.toLocaleString()} Ft`}
+                                  >
+                                    {matchingLowestId === item.inventory_id ? 'Matching...' : 'Match lowest'}
+                                  </button>
+                                </div>
                               ) : (
                                 <span className="font-bold text-[var(--text-secondary)]">
                                   {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-[var(--positive)]">(Lowest)</span>
@@ -1947,7 +2081,57 @@ export function SellerDashboardApp() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Sales Summary & Export Bar */}
+              <div
+                className="p-4 sm:p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4"
+                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Sales History</h3>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-bold border" style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}>
+                      {sellerOrders.length} order{sellerOrders.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    SZJA Personal Movable Exemption: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{totalRevenueHuf.toLocaleString()} / 600 000 Ft</span> ({(Math.min(100, (totalRevenueHuf / 600000) * 100)).toFixed(1)}% of annual Hungarian tax-free threshold)
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleExportSalesCsv}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer hover:brightness-110 active:scale-95 inline-flex items-center gap-1.5"
+                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                    title="Export all completed orders to CSV for spreadsheets"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                    </svg>
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportSalesJson}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer hover:brightness-110 active:scale-95 inline-flex items-center gap-1.5"
+                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                    title="Export complete order objects to JSON"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    <span>Export JSON</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
               {sellerOrders.map((ord) => (
                 <div
                   key={ord.order_number}
@@ -2019,6 +2203,7 @@ export function SellerDashboardApp() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
         </div>

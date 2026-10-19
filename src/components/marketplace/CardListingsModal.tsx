@@ -27,7 +27,7 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 // had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
 // their 150px floors, so Description effectively vanished into Condition and the row still didn't
 // fit, forcing the whole thing to scroll horizontally.
-const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(160px,1fr)_minmax(200px,2.4fr)_minmax(130px,auto)_64px_115px_auto]';
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1.4fr)_64px_110px_84px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -168,12 +168,12 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
           <div className="px-3 sm:px-4 py-2 [container-type:inline-size] flex-1">
             <div className={`hidden @[720px]:grid ${ROW_COLUMNS} items-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-              <div className="pr-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Seller</div>
-              <div className="px-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Description</div>
-              <div className="px-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
-              <div className="px-3.5 border-r text-right" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
-              <div className="px-3.5 border-r text-right" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
-              <div className="pl-3.5 text-center">Action</div>
+              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Seller</div>
+              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Description</div>
+              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
+              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
+              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
+              <div className="pl-3 text-center">Action</div>
             </div>
             {visible.length === 0 ? (
               <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
@@ -197,7 +197,15 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       }}
                     >
                       {/* Seller Column */}
-                      <div className="order-1 min-w-0 pr-2 @[720px]:pr-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                      <div
+                        className="order-1 min-w-0 px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (l.seller_id) {
+                            window.location.href = `/user?id=${l.seller_id}`;
+                          }
+                        }}
+                      >
                         <a
                           href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
                           onClick={(e) => e.stopPropagation()}
@@ -232,11 +240,11 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       {/* Description Column */}
-                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
                         {(() => {
                           const description = getListingDescription(l.notes);
                           if (!description) {
-                            return <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                            return <span className="hidden @[720px]:inline text-center block" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
                           }
                           return (
                             <span className="flex items-center gap-1.5 min-w-0">
@@ -256,7 +264,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       {/* Condition Column */}
-                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-start @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
                         {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
                         {(l.inventory_images || []).length > 0 && (
@@ -272,17 +280,17 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       {/* Amount Column */}
-                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
+                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
                         {leftFor(l)}&times;
                       </div>
 
                       {/* Price Column */}
-                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right whitespace-nowrap @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-center whitespace-nowrap @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
                         {l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}
                       </div>
 
                       {/* View Button Column */}
-                      <div className="order-3 @[720px]:order-6 @[720px]:pl-3.5 flex justify-end">
+                      <div className="order-3 @[720px]:order-6 @[720px]:pl-3 flex justify-center">
                         <button
                           type="button"
                           onClick={(e) => {
