@@ -128,7 +128,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             </div>
           </div>
 
-          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity }} />
+          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly }} initialFoil={foilOnly} />
          </div>
 
          <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar flex flex-col">
@@ -167,13 +167,13 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           </div>
 
           <div className="px-3 sm:px-4 py-2 [container-type:inline-size] flex-1">
-            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} gap-x-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-              <div>Seller</div>
-              <div>Description</div>
-              <div>Condition</div>
-              <div className="text-right">Amount</div>
-              <div className="text-right">Price</div>
-              <div className="w-[68px]" />
+            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} items-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+              <div className="pr-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Seller</div>
+              <div className="px-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Description</div>
+              <div className="px-3.5 border-r" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
+              <div className="px-3.5 border-r text-right" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
+              <div className="px-3.5 border-r text-right" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
+              <div className="pl-3.5 text-center">Action</div>
             </div>
             {visible.length === 0 ? (
               <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
@@ -184,53 +184,79 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   return (
                     <div
                       key={l.inventory_id}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-3 @[720px]:gap-x-5 gap-y-1.5 px-3 py-3 rounded-xl hover:brightness-95 transition`}
+                      onClick={() => onSelectListing(l.inventory_id)}
+                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer hover:bg-[var(--bg-surface-2)] transition-colors group`}
                       style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSelectListing(l.inventory_id);
+                        }
+                      }}
                     >
-                      <a
-                        href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
-                        className="flex items-center gap-2 min-w-0 hover:opacity-80 order-1"
-                        title={`View ${rowSeller(l)}'s profile`}
-                      >
-                        {l.seller_avatar ? (
-                          <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
-                        ) : (
-                          <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-                            {rowSeller(l)[0].toUpperCase()}
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                            <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
-                            <span className="truncate">{rowSeller(l)}</span>
+                      {/* Seller Column */}
+                      <div className="order-1 min-w-0 pr-2 @[720px]:pr-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                        <a
+                          href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 min-w-0 hover:opacity-80"
+                          title={`View ${rowSeller(l)}'s profile`}
+                        >
+                          {l.seller_avatar ? (
+                            <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
+                          ) : (
+                            <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                              {rowSeller(l)[0].toUpperCase()}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                              <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
+                              <span className="truncate">{rowSeller(l)}</span>
+                            </div>
+                            <div className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                              {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
+                                <span className="font-bold inline-flex items-center gap-0.5" style={{ color: 'var(--text-accent)' }}>
+                                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                  </svg>
+                                  <span>{l.seller_rating_avg.toFixed(1)}</span>
+                                </span>
+                              )}
+                              {l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
+                            </div>
                           </div>
-                          <div className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                            {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
-                              <span className="font-bold" style={{ color: 'var(--text-accent)' }}>&#9733; {l.seller_rating_avg.toFixed(1)}</span>
-                            )}
-                            {l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
-                          </div>
-                        </div>
-                      </a>
+                        </a>
+                      </div>
 
-                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed">
+                      {/* Description Column */}
+                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
                         {(() => {
                           const description = getListingDescription(l.notes);
                           if (!description) {
                             return <span className="hidden @[720px]:inline" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
                           }
                           return (
-                            <span className="flex items-start gap-1.5">
-                              <svg className="w-3 h-3 mt-0.5 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <svg className="w-3 h-3 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
                                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                               </svg>
-                              <span className="line-clamp-3 break-words" style={{ color: 'var(--text-secondary)' }} title={description}>{description}</span>
+                              <span
+                                className="truncate block max-w-full"
+                                style={{ color: 'var(--text-secondary)' }}
+                                title={description}
+                              >
+                                {description}
+                              </span>
                             </span>
                           );
                         })()}
                       </div>
 
-                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-start">
+                      {/* Condition Column */}
+                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-start @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
                         <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
                         {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
                         {(l.inventory_images || []).length > 0 && (
@@ -245,17 +271,30 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
                       </div>
 
-                      {/* What's left to add - copies already in the buyer's cart are taken off. */}
-                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</div>
-                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right whitespace-nowrap">{l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}</div>
-                      <button
-                        type="button"
-                        onClick={() => onSelectListing(l.inventory_id)}
-                        className="order-3 @[720px]:order-6 w-[68px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition text-center justify-self-end"
-                        style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
-                      >
-                        View
-                      </button>
+                      {/* Amount Column */}
+                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-right @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
+                        {leftFor(l)}&times;
+                      </div>
+
+                      {/* Price Column */}
+                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-right whitespace-nowrap @[720px]:px-3.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                        {l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}
+                      </div>
+
+                      {/* View Button Column */}
+                      <div className="order-3 @[720px]:order-6 @[720px]:pl-3.5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectListing(l.inventory_id);
+                          }}
+                          className="w-[68px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition text-center hover:brightness-110 active:scale-95 shadow-sm"
+                          style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                        >
+                          View
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

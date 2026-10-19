@@ -14,6 +14,7 @@ interface CardValuePanelProps {
     market_price_foil_eur?: number | null;
   };
   className?: string;
+  isFoil?: boolean;
 }
 
 const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
@@ -25,7 +26,7 @@ const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
  * Each figure sits under its label rather than beside it, so a narrow panel (two finishes side by
  * side) can never squeeze a value onto two lines.
  */
-export function CardValuePanel({ card, className }: CardValuePanelProps) {
+export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps) {
   const values = useCardValueData();
   const [tab, setTab] = useState<'value' | 'graph'>('value');
   const game = (card.game || 'riftbound').toLowerCase();
@@ -88,54 +89,71 @@ export function CardValuePanel({ card, className }: CardValuePanelProps) {
 
       {tab === 'value' ? (
         <div className={`grid gap-3 ${rows.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
-          {rows.map(({ label, foil, estimate, eur }) => (
-            <div
-              key={foil ? 'foil' : 'normal'}
-              className="rounded-xl p-3.5 border"
-              style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border, var(--border))' }}
-            >
-              <div className="text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {label ? `${label} value` : 'Estimated value'}
-              </div>
-              <div className="text-2xl sm:text-3xl font-black whitespace-nowrap" style={strong}>
-                ~{ft(estimate.valueHuf!)}
-              </div>
+          {rows.map(({ label, foil, estimate, eur }) => {
+            const isSelectedFinish = isFoil !== undefined && isFoil === foil;
+            return (
+              <div
+                key={foil ? 'foil' : 'normal'}
+                className="rounded-xl p-3.5 border transition"
+                style={{
+                  background: isSelectedFinish ? 'var(--accent-muted)' : 'var(--bg-input)',
+                  borderColor: isSelectedFinish ? 'var(--accent)' : 'var(--border-subtle)',
+                  boxShadow: isSelectedFinish ? '0 0 12px var(--accent-glow, rgba(245, 158, 11, 0.2))' : undefined,
+                }}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="text-xs font-black uppercase tracking-wider" style={{ color: isSelectedFinish ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
+                    {label ? `${label} value` : 'Estimated value'}
+                  </div>
+                  {isSelectedFinish && (
+                    <span
+                      className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border"
+                      style={{ background: 'var(--accent)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent)' }}
+                    >
+                      This Listing
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl sm:text-3xl font-black whitespace-nowrap" style={strong}>
+                  ~{ft(estimate.valueHuf!)}
+                </div>
 
-              <dl className="mt-3 pt-3 space-y-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                <div>
-                  <dt className="text-xs" style={muted}>Market price</dt>
-                  <dd className="text-sm font-bold" style={strong}>
-                    {estimate.referenceHuf ? (
-                      <>
-                        <span className="whitespace-nowrap">{ft(roundHuf(estimate.referenceHuf))}</span>
-                        {eur ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>EUR {eur.toFixed(2)}</span> : null}
-                      </>
-                    ) : (
-                      <span className="font-medium" style={muted}>none</span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs" style={muted}>For sale here</dt>
-                  <dd className="text-sm font-bold" style={strong}>
-                    {estimate.site ? (
-                      <>
-                        <span className="whitespace-nowrap">
-                          {estimate.site.count} listing{estimate.site.count === 1 ? '' : 's'}
-                        </span>
-                        <span className="ml-2 text-xs font-medium" style={muted}>
-                          from {ft(roundHuf(estimate.site.lowest))}
-                          {estimate.site.count > 1 ? `, middle ${ft(roundHuf(estimate.site.median))}` : ''}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="font-medium" style={muted}>nobody yet</span>
-                    )}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          ))}
+                <dl className="mt-3 pt-3 space-y-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div>
+                    <dt className="text-xs" style={muted}>Market price</dt>
+                    <dd className="text-sm font-bold" style={strong}>
+                      {estimate.referenceHuf ? (
+                        <>
+                          <span className="whitespace-nowrap">{ft(roundHuf(estimate.referenceHuf))}</span>
+                          {eur ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>EUR {eur.toFixed(2)}</span> : null}
+                        </>
+                      ) : (
+                        <span className="font-medium" style={muted}>none</span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs" style={muted}>For sale here</dt>
+                    <dd className="text-sm font-bold" style={strong}>
+                      {estimate.site ? (
+                        <>
+                          <span className="whitespace-nowrap">
+                            {estimate.site.count} listing{estimate.site.count === 1 ? '' : 's'}
+                          </span>
+                          <span className="ml-2 text-xs font-medium" style={muted}>
+                            from {ft(roundHuf(estimate.site.lowest))}
+                            {estimate.site.count > 1 ? `, middle ${ft(roundHuf(estimate.site.median))}` : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-medium" style={muted}>nobody yet</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })}
           <p className="text-[11px] sm:col-span-2" style={muted}>
             {game === 'mtg' ? (
               <>
@@ -159,7 +177,7 @@ export function CardValuePanel({ card, className }: CardValuePanelProps) {
         </div>
       ) : (
         <div className="-mx-4 sm:-mx-5 -mb-4 sm:-mb-5">
-          <PriceHistoryChart cardId={card.id} card={{ id: card.id, rarity: card.rarity }} />
+          <PriceHistoryChart cardId={card.id} card={{ id: card.id, rarity: card.rarity, is_foil: isFoil }} initialFoil={isFoil} />
         </div>
       )}
     </div>

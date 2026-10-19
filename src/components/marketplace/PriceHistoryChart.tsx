@@ -19,7 +19,8 @@ interface HistoryResponse {
 
 interface PriceHistoryChartProps {
   cardId: string;
-  card: { id: string; rarity?: string | null };
+  card: { id: string; rarity?: string | null; is_foil?: boolean };
+  initialFoil?: boolean;
 }
 
 const PAD = { left: 56, right: 14, top: 12, bottom: 26 };
@@ -343,23 +344,26 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
  * now is not part of it. The range and finish controls scope the plot; the expand button opens
  * the same chart much larger.
  */
-export function PriceHistoryChart({ cardId, card }: PriceHistoryChartProps) {
+export function PriceHistoryChart({ cardId, card, initialFoil }: PriceHistoryChartProps) {
   const values = useCardValueData();
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [failed, setFailed] = useState(false);
-  const [foil, setFoil] = useState(false);
+  const [foil, setFoil] = useState(Boolean(initialFoil));
   const [range, setRange] = useState<Range>('all');
   const [expanded, setExpanded] = useState(false);
   const expandAnim = useExitTransition(expanded, 250);
 
   // Only Common and Uncommon come in two finishes; the rest are one entry.
-  const twoFinishes = hasFoilVariant(card);
+  const twoFinishes = hasFoilVariant({ ...card, is_foil: initialFoil });
+
+  useEffect(() => {
+    setFoil(Boolean(initialFoil));
+  }, [cardId, initialFoil]);
 
   useEffect(() => {
     let cancelled = false;
     setData(null);
     setFailed(false);
-    setFoil(false);
     fetch(`/api/marketplace/price-history?card_id=${encodeURIComponent(cardId)}`)
       .then((r) => r.json())
       .then((json: HistoryResponse) => {

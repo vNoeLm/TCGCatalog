@@ -1025,7 +1025,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
               {/* BOTTOM RIGHT: Value / Graph Panel */}
               <div>
-                <CardValuePanel card={card} className="mb-0" />
+                <CardValuePanel card={card} className="mb-0" isFoil={isInventory ? Boolean(data?.is_foil) : undefined} />
               </div>
             </div>
           ) : (
