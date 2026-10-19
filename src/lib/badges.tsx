@@ -462,10 +462,10 @@ export function SiteOwnerTag({ className = '' }: { className?: string }) {
         borderColor: 'var(--tag-gold-border)',
         color: 'var(--tag-gold)',
       }}
-      title="Site Owner"
+      title="Owner"
     >
       <BadgeIconSvg iconType="crown" className="w-3 h-3" />
-      <span>Site Owner</span>
+      <span>Owner</span>
     </span>
   );
 }

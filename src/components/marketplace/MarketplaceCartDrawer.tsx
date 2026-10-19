@@ -468,9 +468,16 @@ export function MarketplaceCartDrawer() {
                       )}
 
                       {m?.kind === 'personal' && (
-                        <p className="text-[11px] leading-relaxed mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                          You'll agree on a time and place with {group.sellerName} in Messages. Your message below starts that chat.
-                        </p>
+                        <div className="mb-2">
+                          {shippingBySeller[group.sellerId]?.in_person_location && (
+                            <div className="text-[11px] p-2 rounded-lg mb-1.5 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                              <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Pickup area:</span> {shippingBySeller[group.sellerId]?.in_person_location}
+                            </div>
+                          )}
+                          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                            You'll agree on a time and place with {group.sellerName} in Messages. Your message below starts that chat.
+                          </p>
+                        </div>
                       )}
                       {(m?.kind === 'locker' || m?.kind === 'address') && (
                         <p className="text-[11px] leading-relaxed mb-2" style={{ color: 'var(--text-tertiary)' }}>

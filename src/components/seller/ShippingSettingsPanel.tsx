@@ -30,6 +30,7 @@ export function ShippingSettingsPanel({ sellerId, onToast }: { sellerId: string;
       const start: ShippingSettings = {
         country: current?.country || 'HU',
         ships_to: current?.ships_to || 'EU',
+        in_person_location: current?.in_person_location || '',
       };
       HANDOVER_METHODS.forEach((m) => { start[m.id] = shippingOption(current, m.id); });
       setSettings(start);
@@ -87,56 +88,80 @@ export function ShippingSettingsPanel({ sellerId, onToast }: { sellerId: string;
         listings - a listing still only offers the methods you picked when you listed it.
       </p>
 
-      {/* Seller Location & Delivery Scope */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-        <div>
-          <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            Seller Location (Where you are based)
-          </label>
-          <div className="flex items-center gap-2.5">
-            <CountryFlag countryCode={settings.country || 'HU'} className="w-6 h-4.5 rounded-[2px]" />
+      {/* Seller Location, Delivery Scope & In-Person Locations */}
+      <div className="flex flex-col gap-4 mb-5 p-4 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Seller Location (Where you are based)
+            </label>
+            <div className="flex items-center gap-2.5">
+              <CountryFlag countryCode={settings.country || 'HU'} className="w-6 h-4.5 rounded-[2px]" />
+              <select
+                value={settings.country || 'HU'}
+                onChange={(e) => {
+                  setSettings((s) => ({ ...s!, country: e.target.value }));
+                  setDirty(true);
+                }}
+                className="flex-1 h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
+                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name} ({c.localName})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              Your country's flag is shown next to your name on all marketplace cards.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Shipping Destination Scope
+            </label>
             <select
-              value={settings.country || 'HU'}
+              value={settings.ships_to || 'EU'}
               onChange={(e) => {
-                setSettings((s) => ({ ...s!, country: e.target.value }));
+                setSettings((s) => ({ ...s!, ships_to: e.target.value as ShippingScope }));
                 setDirty(true);
               }}
-              className="flex-1 h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
+              className="w-full h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
               style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             >
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name} ({c.localName})
+              {SHIPPING_SCOPES.map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {sc.label} — {sc.desc}
                 </option>
               ))}
             </select>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              Shows buyers what countries you ship to.
+            </p>
           </div>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Your country's flag is shown next to your name on all marketplace cards.
-          </p>
         </div>
 
-        <div>
-          <label className="block text-xs font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            Shipping Destination Scope
+        {/* In-Person Meeting Locations */}
+        <div className="pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            In-Person Handover Locations (Where you can meet)
           </label>
-          <select
-            value={settings.ships_to || 'EU'}
+          <input
+            type="text"
+            value={settings.in_person_location || ''}
             onChange={(e) => {
-              setSettings((s) => ({ ...s!, ships_to: e.target.value as ShippingScope }));
+              setSettings((s) => ({ ...s!, in_person_location: e.target.value }));
               setDirty(true);
             }}
-            className="w-full h-9 rounded-lg px-3 text-xs font-bold border outline-none cursor-pointer focus:border-[var(--accent)]"
+            placeholder="e.g. Budapest (Deák tér, Nyugati, Blaha), or Debrecen city center"
+            maxLength={150}
+            className="w-full h-9 rounded-lg px-3 text-xs font-semibold border outline-none focus:border-[var(--accent)]"
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-          >
-            {SHIPPING_SCOPES.map((sc) => (
-              <option key={sc.id} value={sc.id}>
-                {sc.label} — {sc.desc}
-              </option>
-            ))}
-          </select>
+          />
           <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Shows buyers what countries you ship to.
+            Shown to buyers when choosing in-person pickup so they know where you are available to meet.
           </p>
         </div>
       </div>

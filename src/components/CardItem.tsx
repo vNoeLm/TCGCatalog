@@ -5,6 +5,7 @@ import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 import { CountryFlag } from "./CountryFlag";
+import { OWNER_ID } from "../lib/constants";
 
 interface CardItemProps {
   card: InventoryCard;
@@ -245,36 +246,41 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
           </span>
         </div>
 
-        {/* Seller Info Pill */}
-        <div className="flex items-center justify-between gap-1 mb-2 pt-1 border-t text-[10px]" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+        {/* Seller Info Pill (aligned at bottom above price) */}
+        <div className="mt-auto flex items-center justify-between gap-1 pt-2 pb-1 border-t text-[10px]" style={{ borderColor: 'var(--border-subtle)' }}>
+          <a
+            href={`/user?id=${card.seller_id || OWNER_ID}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1.5 min-w-0 hover:underline cursor-pointer group/seller"
+            title={`View ${card.seller_name || 'Noel :3'}'s profile`}
+          >
             <CountryFlag countryCode={card.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px] shrink-0" />
             <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center font-black text-[9px] shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
               {card.seller_name ? card.seller_name[0].toUpperCase() : 'N'}
             </span>
-            <span className="font-semibold truncate max-w-[85px]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
+            <span className="font-semibold truncate max-w-[85px] group-hover/seller:text-[var(--text-primary)]" style={{ color: 'var(--text-secondary)' }} title={card.seller_name || 'Noel :3'}>
               {card.seller_name || 'Noel :3'}
             </span>
             {card.seller_role === 'owner' ? (
-              <span className="text-[8px] font-black px-1.5 py-0.2 rounded border shrink-0 uppercase tracking-wider inline-flex items-center gap-1" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded border shrink-0 uppercase tracking-wider inline-flex items-center gap-1" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                 </svg>
-                <span>Founder</span>
+                <span>Owner</span>
               </span>
             ) : card.seller_badge ? (
               <span 
-                className="text-[8px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-[var(--positive)] border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
+                className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-[var(--positive)] border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
                 title={card.seller_badge}
               >
                 <span>★</span>
                 <span>{card.seller_badge}</span>
               </span>
             ) : null}
-          </div>
+          </a>
           <div className="flex items-center gap-1.5 shrink-0">
             {typeof card.views === 'number' && card.views > 0 && (
-              <span className="text-[9px] flex items-center gap-0.5" style={{ color: 'var(--text-tertiary)' }} title={`${card.views} ${'views'}`}>
+              <span className="text-[9px] flex items-center gap-0.5" style={{ color: 'var(--text-tertiary)' }} title={`${card.views} views`}>
                 <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
@@ -292,7 +298,7 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
         </div>
 
         {/* Price + Buy */}
-        <div className={`mt-auto flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className={`flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-[var(--positive)]`}>
               {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}

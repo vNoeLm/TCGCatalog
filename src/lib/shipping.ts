@@ -15,6 +15,7 @@ export interface ShippingOption {
 export type ShippingSettings = Partial<Record<HandoverMethodId, ShippingOption>> & {
   country?: string;
   ships_to?: 'DOMESTIC' | 'EU' | 'WORLD';
+  in_person_location?: string;
 };
 
 const MAX_HUF = 1_000_000;
@@ -37,6 +38,9 @@ export function normalizeShipping(raw: unknown): ShippingSettings {
     out.ships_to = obj.ships_to;
   } else {
     out.ships_to = 'EU';
+  }
+  if (typeof obj.in_person_location === 'string' && obj.in_person_location.trim()) {
+    out.in_person_location = obj.in_person_location.trim().slice(0, 150);
   }
   for (const m of HANDOVER_METHODS) {
     const o = obj[m.id];

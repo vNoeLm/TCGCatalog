@@ -666,13 +666,48 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           </div>
 
           <div className="min-w-0">
-          {/* ── Meta rows ── */}
-          <div 
-            className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4"
-            style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}
-          >
+          {isInventory ? (
+            <>
+              {/* Condition + notes (Listing View) */}
+              <div 
+                className="rounded-2xl p-4 sm:p-5 mb-4 border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Condition</p>
+                <p className="text-base sm:text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{data.condition}</p>
+                {(() => {
+                  const displayNotes = getDisplayConditionNotes(data.notes);
+                  if (!displayNotes) return null;
+                  return (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Seller's Description</p>
+                      <p
+                        className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
+                        style={{
+                          background: 'var(--bg-input)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-secondary)'
+                        }}
+                      >
+                        {displayNotes}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
 
-            {/* Row 1: Rarity + Lucky */}
+              {/* Price Graph & Value Reference */}
+              <CardValuePanel card={card} />
+            </>
+          ) : (
+            <>
+              {/* ── Meta rows ── */}
+              <div 
+                className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4"
+                style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}
+              >
+
+                {/* Row 1: Rarity + Lucky */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Rarity icon + label */}
               {(() => {
@@ -989,12 +1024,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               )}
             </div>
           )}
+          </>
+          )}
 
           </div>
 
           <div className="min-w-0">
           {/* What it's worth: market reference, what's for sale here, and the estimate from both */}
-          <CardValuePanel card={card} />
+          {!isInventory && <CardValuePanel card={card} />}
 
           {/* Collection Tracking Section (Catalog / Personal Collection only, hidden in Store) */}
           {!isInventory && (
@@ -1149,36 +1186,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             />
           )}
 
-          {/* Condition + notes (Inventory only) */}
-          {isInventory && (
-            <div 
-              className="rounded-2xl p-4 sm:p-5 mb-4 border"
-              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Condition</p>
-              <p className="text-base sm:text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{data.condition}</p>
-              {(() => {
-                const displayNotes = getDisplayConditionNotes(data.notes);
-                if (!displayNotes) return null;
-                return (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Seller's Description</p>
-                    <p
-                      className="text-xs sm:text-sm leading-relaxed rounded-xl p-3 border"
-                      style={{
-                        background: 'var(--bg-input)',
-                        borderColor: 'var(--border-subtle)',
-                        color: 'var(--text-secondary)'
-                      }}
-                    >
-                      {displayNotes}
-                    </p>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
           {/* Seller Profile Card */}
           {isInventory && (
             <div 
@@ -1295,6 +1302,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   .map(m => ({ m, o: shippingOption(sellerShipping, m.id) }))
                   .filter(({ o }) => o.enabled);
                 if (offered.length === 0) return null;
+                const personalOpt = offered.find(({ m }) => m.id === 'personal');
                 return (
                   <div className="mb-4">
                     <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Delivery</p>
@@ -1306,6 +1314,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         </span>
                       ))}
                     </div>
+                    {personalOpt && sellerShipping?.in_person_location && (
+                      <div className="mt-2 text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Pickup:</span>
+                        <span>{sellerShipping.in_person_location}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
