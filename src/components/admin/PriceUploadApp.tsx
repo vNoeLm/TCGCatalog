@@ -20,7 +20,25 @@ interface Report {
 }
 
 type Access = 'checking' | 'allowed' | 'denied';
-type AdminTab = 'users' | 'reviews' | 'orders' | 'content' | 'prices';
+type AdminTab = 'users' | 'reports' | 'orders' | 'content' | 'prices';
+type OrdersSubTab = 'completed' | 'holds';
+type ContentSubTab = 'listings' | 'decks';
+
+export interface ModerationReportItem {
+  id: string;
+  type: 'listing' | 'profile' | 'message';
+  target_id: string;
+  target_name: string;
+  target_link: string;
+  reason: string;
+  details?: string;
+  reporter_id?: string | null;
+  reporter_name?: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+}
 
 const fmtEur = (n: number | null) => (n === null ? '-' : `${n.toFixed(2)} EUR`);
 const fmtDate24 = (iso: string | null | undefined) => {
@@ -48,6 +66,7 @@ export function PriceUploadApp() {
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [reports, setReports] = useState<ModerationReportItem[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [holds, setHolds] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
@@ -55,9 +74,14 @@ export function PriceUploadApp() {
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  // Filters
+  // Filters & Subtabs
   const [userSearch, setUserSearch] = useState('');
   const [reviewSearch, setReviewSearch] = useState('');
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportTypeFilter, setReportTypeFilter] = useState<'all' | 'listing' | 'profile' | 'message'>('all');
+  const [reportStatusFilter, setReportStatusFilter] = useState<'all' | 'pending' | 'resolved' | 'dismissed'>('all');
+  const [ordersSubTab, setOrdersSubTab] = useState<OrdersSubTab>('completed');
+  const [contentSubTab, setContentSubTab] = useState<ContentSubTab>('listings');
   const [orderSearch, setOrderSearch] = useState('');
   const [contentSearch, setContentSearch] = useState('');
 
@@ -90,6 +114,7 @@ export function PriceUploadApp() {
         setCurrentAdminId(json.currentAdminId || null);
         setUsers(json.users || []);
         setReviews(json.reviews || []);
+        setReports(json.reports || []);
         setOrders(json.orders || []);
         setHolds(json.holds || []);
         setListings(json.listings || []);
@@ -234,6 +259,21 @@ export function PriceUploadApp() {
     );
   });
 
+  const filteredReports = reports.filter((r) => {
+    if (reportTypeFilter !== 'all' && r.type !== reportTypeFilter) return false;
+    if (reportStatusFilter !== 'all' && r.status !== reportStatusFilter) return false;
+    if (!reportSearch.trim()) return true;
+    const q = reportSearch.toLowerCase();
+    return (
+      (r.target_name || '').toLowerCase().includes(q) ||
+      (r.reason || '').toLowerCase().includes(q) ||
+      (r.details || '').toLowerCase().includes(q) ||
+      (r.reporter_name || '').toLowerCase().includes(q)
+    );
+  });
+
+  const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
@@ -250,7 +290,7 @@ export function PriceUploadApp() {
                 Owner & Admin Console
               </h1>
               <p className="text-xs sm:text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                Manage collector accounts, moderate reviews, purge test orders, remove listings/decks, and update market prices.
+                Manage collector accounts, handle user reports, manage orders &amp; holds, remove listings/decks, and update market prices.
               </p>
             </div>
           </div>
@@ -298,7 +338,7 @@ export function PriceUploadApp() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { key: 'users' as const, label: 'Accounts', count: users.length },
-          { key: 'reviews' as const, label: 'Trade Reviews', count: reviews.length },
+          { key: 'reports' as const, label: 'Reports', count: pendingReportsCount > 0 ? `${pendingReportsCount} pending` : reports.length },
           { key: 'orders' as const, label: 'Orders & Holds', count: orders.length + holds.length },
           { key: 'content' as const, label: 'Listings & Decks', count: listings.length + decks.length },
           { key: 'prices' as const, label: 'Market Prices CSV', count: null },
@@ -485,88 +525,199 @@ export function PriceUploadApp() {
         </div>
       )}
 
-      {/* TAB 2: REVIEWS MODERATION */}
-      {activeTab === 'reviews' && (
+      {/* TAB 2: REPORTS & MODERATION */}
+      {activeTab === 'reports' && (
         <div className={card} style={cardStyle}>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
             <div>
               <h2 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                Trade Reviews Moderation ({filteredReviews.length})
+                User Reports ({filteredReports.length})
               </h2>
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Inspect and delete unfair, abusive, or test trade reviews across all buyers and sellers.
+                Review and resolve moderation reports submitted by collectors for listings, profiles, and messages.
               </p>
             </div>
             <input
               type="search"
-              value={reviewSearch}
-              onChange={(e) => setReviewSearch(e.target.value)}
-              placeholder="Search reviewer, reviewee, order, text..."
+              value={reportSearch}
+              onChange={(e) => setReportSearch(e.target.value)}
+              placeholder="Search target, reason, details, reporter..."
               className="h-9 px-3 rounded-xl text-xs border outline-none w-full sm:w-64"
               style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
 
-          <div className="space-y-2.5">
-            {filteredReviews.map((r) => (
-              <div
-                key={r.id}
-                className="rounded-xl border p-3.5 flex items-start justify-between gap-3 flex-wrap"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="font-black px-2 py-0.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                      {Number(r.rating).toFixed(1)} / 5
-                    </span>
-                    <a href={`/user?id=${r.reviewer_id}`} className="font-bold hover:underline" style={{ color: 'var(--text-primary)' }}>
-                      {r.reviewer_name}
-                    </a>
-                    <span style={{ color: 'var(--text-tertiary)' }}>rated</span>
-                    <a href={`/user?id=${r.reviewee_id}`} className="font-bold hover:underline" style={{ color: 'var(--text-primary)' }}>
-                      {r.reviewee_name}
-                    </a>
-                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}>
-                      {r.direction === 'seller_to_buyer' ? 'Seller -> Buyer' : 'Buyer -> Seller'}
-                    </span>
-                    {r.order_number && (
-                      <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                        #{r.order_number}
-                      </span>
-                    )}
-                    <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                      · {fmtDate24(r.created_at)}
-                    </span>
-                  </div>
-                  {r.comment ? (
-                    <p className="text-xs sm:text-sm italic mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-                      "{r.comment}"
-                    </p>
-                  ) : (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      No written comment.
-                    </p>
-                  )}
-                </div>
+          {/* Filters row */}
+          <div className="flex items-center justify-between gap-3 flex-wrap pb-3 mb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-bold text-[11px] mr-1" style={{ color: 'var(--text-tertiary)' }}>Type:</span>
+              {(['all', 'listing', 'profile', 'message'] as const).map((t) => (
                 <button
+                  key={t}
                   type="button"
-                  disabled={actionBusy === `del-rev-${r.id}`}
-                  onClick={() => {
-                    if (!window.confirm(`Delete this review by ${r.reviewer_name} for ${r.reviewee_name}?`)) return;
-                    runAdminAction(`del-rev-${r.id}`, { action: 'delete_review', review_id: r.id }, () => {
-                      setReviews((prev) => prev.filter((x) => x.id !== r.id));
-                      showNotice('ok', 'Review deleted.');
-                    });
-                  }}
-                  className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition shrink-0 disabled:opacity-50"
+                  onClick={() => setReportTypeFilter(t)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition border cursor-pointer"
+                  style={
+                    reportTypeFilter === t
+                      ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent)' }
+                      : { background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                  }
                 >
-                  Delete Review
+                  {t === 'all' ? 'All Types' : t}
                 </button>
-              </div>
-            ))}
-            {filteredReviews.length === 0 && (
-              <p className="text-xs py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                No reviews found.
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-bold text-[11px] mr-1" style={{ color: 'var(--text-tertiary)' }}>Status:</span>
+              {(['all', 'pending', 'resolved', 'dismissed'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setReportStatusFilter(s)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition border cursor-pointer"
+                  style={
+                    reportStatusFilter === s
+                      ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent)' }
+                      : { background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                  }
+                >
+                  {s === 'all' ? 'All Status' : s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {filteredReports.map((r) => {
+              const statusColor =
+                r.status === 'pending'
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                  : r.status === 'resolved'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                  : 'border-zinc-500/40 bg-zinc-500/10 text-zinc-400';
+
+              const typeBadge =
+                r.type === 'listing'
+                  ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
+                  : r.type === 'profile'
+                  ? 'border-purple-500/40 bg-purple-500/10 text-purple-400'
+                  : 'border-pink-500/40 bg-pink-500/10 text-pink-400';
+
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                >
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className={`font-black px-2 py-0.5 rounded-md border text-[10px] uppercase tracking-wider ${typeBadge}`}>
+                        {r.type}
+                      </span>
+                      <span className={`font-black px-2 py-0.5 rounded-md border text-[10px] uppercase tracking-wider ${statusColor}`}>
+                        {r.status}
+                      </span>
+                      {r.target_link ? (
+                        <a
+                          href={r.target_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold hover:underline inline-flex items-center gap-1"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          <span>{r.target_name}</span>
+                          <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {r.target_name}
+                        </span>
+                      )}
+                      <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        · Reported by {r.reporter_name || 'Collector'} · {fmtDate24(r.created_at)}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg border text-xs" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
+                      <div className="font-bold text-amber-300 mb-0.5">
+                        Reason: {r.reason}
+                      </div>
+                      {r.details && (
+                        <div className="text-zinc-300 leading-relaxed">
+                          "{r.details}"
+                        </div>
+                      )}
+                    </div>
+
+                    {r.resolved_at && (
+                      <div className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        Marked {r.status} on {fmtDate24(r.resolved_at)} by {r.resolved_by || 'Admin'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center sm:flex-col gap-2 shrink-0 self-end sm:self-start">
+                    {r.status === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={actionBusy === `res-${r.id}`}
+                          onClick={() => {
+                            runAdminAction(`res-${r.id}`, { action: 'resolve_report', report_id: r.id }, () => {
+                              setReports((prev) =>
+                                prev.map((x) => (x.id === r.id ? { ...x, status: 'resolved', resolved_at: new Date().toISOString() } : x))
+                              );
+                              showNotice('ok', 'Report marked as resolved.');
+                            });
+                          }}
+                          className="h-8 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 cursor-pointer transition disabled:opacity-50"
+                        >
+                          Resolve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionBusy === `dis-${r.id}`}
+                          onClick={() => {
+                            runAdminAction(`dis-${r.id}`, { action: 'dismiss_report', report_id: r.id }, () => {
+                              setReports((prev) =>
+                                prev.map((x) => (x.id === r.id ? { ...x, status: 'dismissed', resolved_at: new Date().toISOString() } : x))
+                              );
+                              showNotice('ok', 'Report dismissed.');
+                            });
+                          }}
+                          className="h-8 px-3 rounded-lg text-xs font-bold border border-zinc-500/40 bg-zinc-500/10 hover:bg-zinc-500/20 text-zinc-300 cursor-pointer transition disabled:opacity-50"
+                        >
+                          Dismiss
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      disabled={actionBusy === `del-rep-${r.id}`}
+                      onClick={() => {
+                        if (!window.confirm('Delete this report record permanently?')) return;
+                        runAdminAction(`del-rep-${r.id}`, { action: 'delete_report', report_id: r.id }, () => {
+                          setReports((prev) => prev.filter((x) => x.id !== r.id));
+                          showNotice('ok', 'Report record deleted.');
+                        });
+                      }}
+                      className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredReports.length === 0 && (
+              <p className="text-xs py-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                No reports found matching your criteria.
               </p>
             )}
           </div>
@@ -575,260 +726,320 @@ export function PriceUploadApp() {
 
       {/* TAB 3: ORDERS & HOLDS CLEANUP */}
       {activeTab === 'orders' && (
-        <div className="space-y-5">
-          <div className={card} style={cardStyle}>
-            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-              <div>
-                <h2 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                  Completed Orders ({filteredOrders.length})
-                </h2>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Completed sales and platform orders across all accounts. Delete individual test orders or purge all orders if needed.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  disabled={actionBusy === 'purge-all'}
-                  onClick={() => {
-                    if (!window.confirm('Purge ALL orders across the entire site? This cannot be undone.')) return;
-                    runAdminAction('purge-all', { action: 'purge_orders', mode: 'all' }, () => {
-                      setOrders([]);
-                      showNotice('ok', 'All platform orders purged.');
-                    });
-                  }}
-                  className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
-                >
-                  Purge All Orders
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <input
-                type="search"
-                value={orderSearch}
-                onChange={(e) => setOrderSearch(e.target.value)}
-                placeholder="Search order #, buyer, seller, status..."
-                className="h-9 px-3 rounded-xl text-xs border outline-none w-full sm:w-72"
-                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              {filteredOrders.map((o) => {
-                const key = o.id || o.order_number;
-                return (
-                  <div
-                    key={key}
-                    className="rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap text-xs">
-                        <span className="font-mono font-black" style={{ color: 'var(--text-accent)' }}>
-                          #{o.order_number || o.id}
-                        </span>
-                        <span className="font-bold px-2 py-0.5 rounded border text-[10px] uppercase" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                          {o.status || 'Completed'}
-                        </span>
-                        <span className="font-black" style={{ color: 'var(--text-primary)' }}>
-                          {Number(o.total_huf || 0).toLocaleString()} Ft
-                        </span>
-                        <span style={{ color: 'var(--text-tertiary)' }}>
-                          · {fmtDate24(o.created_at)}
-                        </span>
-                      </div>
-                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                        Buyer: <strong style={{ color: 'var(--text-secondary)' }}>{o.buyer_name}</strong> · Seller:{' '}
-                        <strong style={{ color: 'var(--text-secondary)' }}>{o.seller_name}</strong> · {(o.items || []).length} item(s)
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={actionBusy === `del-ord-${key}`}
-                      onClick={() => {
-                        runAdminAction(`del-ord-${key}`, { action: 'delete_order', order_id: key }, () => {
-                          setOrders((prev) => prev.filter((x) => (x.id || x.order_number) !== key));
-                          showNotice('ok', `Deleted order #${o.order_number || key}.`);
-                        });
-                      }}
-                      className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
-                    >
-                      Delete Order
-                    </button>
-                  </div>
-                );
-              })}
-              {filteredOrders.length === 0 && (
-                <p className="text-xs py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                  No completed orders found.
-                </p>
-              )}
-            </div>
+        <div className="space-y-4">
+          {/* Subtabs for Orders vs Holds */}
+          <div className="flex items-center gap-2 p-1 rounded-xl w-fit border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+            <button
+              type="button"
+              onClick={() => setOrdersSubTab('completed')}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+              style={
+                ordersSubTab === 'completed'
+                  ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }
+                  : { color: 'var(--text-secondary)' }
+              }
+            >
+              Completed Orders ({filteredOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrdersSubTab('holds')}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+              style={
+                ordersSubTab === 'holds'
+                  ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }
+                  : { color: 'var(--text-secondary)' }
+              }
+            >
+              Active Hold Requests ({holds.length})
+            </button>
           </div>
 
-          {/* Active Hold Requests (In-Progress Sales) */}
-          <div className={card} style={cardStyle}>
-            <h2 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
-              Active Hold Requests ({holds.length})
-            </h2>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              In-progress sales that have not yet been completed (pending, held, accepted, or awaiting handover confirmation). Once completed, they move to Completed Orders above.
-            </p>
-            <div className="space-y-2">
-              {holds.map((h) => (
-                <div
-                  key={h.id}
-                  className="rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap"
-                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-                >
-                  <div className="text-xs min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {h.card_name} {h.card_number ? `(${h.card_number})` : ''}
-                      </span>
-                      <span className="px-2 py-0.5 rounded border text-[10px] font-bold uppercase" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                        {h.status}
-                      </span>
-                      <span style={{ color: 'var(--text-tertiary)' }}>
-                        {h.quantity}x · {Number(h.price_huf || 0).toLocaleString()} Ft · {fmtDate24(h.created_at)}
-                      </span>
-                    </div>
-                    <div className="mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                      Buyer: {h.buyer_name} · Seller: {h.seller_name}
-                    </div>
-                  </div>
+          {ordersSubTab === 'completed' ? (
+            <div className={card} style={cardStyle}>
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                <div>
+                  <h2 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
+                    Completed Orders ({filteredOrders.length})
+                  </h2>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Completed sales and platform orders across all accounts. Purging permanently removes completed orders and hold records.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    disabled={actionBusy === `del-hold-${h.id}`}
+                    disabled={actionBusy === 'purge-all'}
                     onClick={() => {
-                      if (!window.confirm('Delete this hold request and its chat messages?')) return;
-                      runAdminAction(`del-hold-${h.id}`, { action: 'delete_hold', hold_id: h.id }, () => {
-                        setHolds((prev) => prev.filter((x) => x.id !== h.id));
-                        showNotice('ok', 'Hold request deleted.');
+                      if (!window.confirm('Purge ALL orders across the entire site? This permanently deletes all completed orders and hold requests.')) return;
+                      runAdminAction('purge-all', { action: 'purge_orders', mode: 'all' }, () => {
+                        setOrders([]);
+                        showNotice('ok', 'All platform orders permanently purged.');
                       });
                     }}
                     className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
                   >
-                    Delete Hold
+                    Purge All Orders
                   </button>
                 </div>
-              ))}
-              {holds.length === 0 && (
-                <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                  No active hold requests found.
-                </p>
-              )}
+              </div>
+
+              <div className="mb-3">
+                <input
+                  type="search"
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder="Search order #, buyer, seller, status..."
+                  className="h-9 px-3 rounded-xl text-xs border outline-none w-full sm:w-72"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                {filteredOrders.map((o) => {
+                  const key = o.id || o.order_number;
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap"
+                      style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                          <span className="font-mono font-black" style={{ color: 'var(--text-accent)' }}>
+                            #{o.order_number || o.id}
+                          </span>
+                          <span className="font-bold px-2 py-0.5 rounded border text-[10px] uppercase" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                            {o.status || 'Completed'}
+                          </span>
+                          <span className="font-black" style={{ color: 'var(--text-primary)' }}>
+                            {Number(o.total_huf || 0).toLocaleString()} Ft
+                          </span>
+                          <span style={{ color: 'var(--text-tertiary)' }}>
+                            · {fmtDate24(o.created_at)}
+                          </span>
+                        </div>
+                        <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                          Buyer: <strong style={{ color: 'var(--text-secondary)' }}>{o.buyer_name}</strong> · Seller:{' '}
+                          <strong style={{ color: 'var(--text-secondary)' }}>{o.seller_name}</strong> · {(o.items || []).length} item(s)
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={actionBusy === `del-ord-${key}`}
+                        onClick={() => {
+                          runAdminAction(`del-ord-${key}`, { action: 'delete_order', order_id: key }, () => {
+                            setOrders((prev) => prev.filter((x) => (x.id || x.order_number) !== key));
+                            showNotice('ok', `Deleted order #${o.order_number || key}.`);
+                          });
+                        }}
+                        className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
+                      >
+                        Delete Order
+                      </button>
+                    </div>
+                  );
+                })}
+                {filteredOrders.length === 0 && (
+                  <p className="text-xs py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    No completed orders found.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Active Hold Requests (In-Progress Sales) */
+            <div className={card} style={cardStyle}>
+              <h2 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
+                Active Hold Requests ({holds.length})
+              </h2>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                In-progress sales that have not yet been completed (pending, held, accepted, or awaiting handover confirmation).
+              </p>
+              <div className="space-y-2">
+                {holds.map((h) => (
+                  <div
+                    key={h.id}
+                    className="rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                  >
+                    <div className="text-xs min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {h.card_name} {h.card_number ? `(${h.card_number})` : ''}
+                        </span>
+                        <span className="px-2 py-0.5 rounded border text-[10px] font-bold uppercase" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                          {h.status}
+                        </span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>
+                          {h.quantity}x · {Number(h.price_huf || 0).toLocaleString()} Ft · {fmtDate24(h.created_at)}
+                        </span>
+                      </div>
+                      <div className="mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                        Buyer: {h.buyer_name} · Seller: {h.seller_name}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionBusy === `del-hold-${h.id}`}
+                      onClick={() => {
+                        if (!window.confirm('Delete this hold request and its chat messages?')) return;
+                        runAdminAction(`del-hold-${h.id}`, { action: 'delete_hold', hold_id: h.id }, () => {
+                          setHolds((prev) => prev.filter((x) => x.id !== h.id));
+                          showNotice('ok', 'Hold request deleted.');
+                        });
+                      }}
+                      className="h-8 px-3 rounded-lg text-xs font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition disabled:opacity-50"
+                    >
+                      Delete Hold
+                    </button>
+                  </div>
+                ))}
+                {holds.length === 0 && (
+                  <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    No active hold requests found.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* TAB 4: LISTINGS & DECKS */}
       {activeTab === 'content' && (
-        <div className="space-y-5">
+        <div className="space-y-4">
+          {/* Subtabs for Listings vs Decks */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 p-1 rounded-xl w-fit border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setContentSubTab('listings')}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                style={
+                  contentSubTab === 'listings'
+                    ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }
+                    : { color: 'var(--text-secondary)' }
+                }
+              >
+                Marketplace Listings ({filteredListings.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setContentSubTab('decks')}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                style={
+                  contentSubTab === 'decks'
+                    ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }
+                    : { color: 'var(--text-secondary)' }
+                }
+              >
+                Public Decks ({filteredDecks.length})
+              </button>
+            </div>
+
             <input
               type="search"
               value={contentSearch}
               onChange={(e) => setContentSearch(e.target.value)}
-              placeholder="Filter listings or decks by card name, deck name, or seller..."
+              placeholder={contentSubTab === 'listings' ? 'Filter listings by card name, number, or seller...' : 'Filter decks by name or author...'}
               className="h-9 px-3 rounded-xl text-xs border outline-none w-full sm:w-80"
               style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
 
-          <div className={card} style={cardStyle}>
-            <h2 className="text-base font-black mb-3" style={{ color: 'var(--text-primary)' }}>
-              Active Marketplace Listings ({filteredListings.length})
-            </h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-              {filteredListings.map((l) => (
-                <div
-                  key={l.id}
-                  className="rounded-xl border p-2.5 flex items-center justify-between gap-3 flex-wrap"
-                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-                >
-                  <div className="text-xs min-w-0">
-                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{l.card_name}</span>{' '}
-                    <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{l.card_number}</span>
-                    <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
-                    <span className="font-bold text-emerald-400">{Number(l.price_huf || 0).toLocaleString()} Ft</span>
-                    <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {l.quantity}x ({l.condition}) by{' '}
-                      <a href={`/user?id=${l.user_id}`} className="underline">{l.seller_name}</a>
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={actionBusy === `del-lst-${l.id}`}
-                    onClick={() => {
-                      runAdminAction(`del-lst-${l.id}`, { action: 'delete_listing', listing_id: l.id }, () => {
-                        setListings((prev) => prev.filter((x) => x.id !== l.id));
-                        showNotice('ok', `Removed listing for ${l.card_name}.`);
-                      });
-                    }}
-                    className="h-7 px-2.5 rounded-lg text-[11px] font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition"
+          {contentSubTab === 'listings' ? (
+            <div className={card} style={cardStyle}>
+              <h2 className="text-base font-black mb-3" style={{ color: 'var(--text-primary)' }}>
+                Active Marketplace Listings ({filteredListings.length})
+              </h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {filteredListings.map((l) => (
+                  <div
+                    key={l.id}
+                    className="rounded-xl border p-2.5 flex items-center justify-between gap-3 flex-wrap"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
                   >
-                    Remove Listing
-                  </button>
-                </div>
-              ))}
-              {filteredListings.length === 0 && (
-                <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                  No active listings match.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className={card} style={cardStyle}>
-            <h2 className="text-base font-black mb-3" style={{ color: 'var(--text-primary)' }}>
-              Public Decks ({filteredDecks.length})
-            </h2>
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {filteredDecks.map((d) => (
-                <div
-                  key={d.id}
-                  className="rounded-xl border p-2.5 flex items-center justify-between gap-3 flex-wrap"
-                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-                >
-                  <div className="text-xs min-w-0">
-                    <a href={`/decks/view?deck=${d.id}`} className="font-bold hover:underline" style={{ color: 'var(--text-primary)' }}>
-                      {d.name}
-                    </a>
-                    <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      by <a href={`/user?id=${d.user_id}`} className="underline">{d.author_name}</a>
-                    </span>
-                    <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
-                    <span style={{ color: 'var(--text-tertiary)' }}>{fmtDate24(d.created_at)}</span>
+                    <div className="text-xs min-w-0">
+                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{l.card_name}</span>{' '}
+                      <span className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{l.card_number}</span>
+                      <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
+                      <span className="font-bold text-emerald-400">{Number(l.price_huf || 0).toLocaleString()} Ft</span>
+                      <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {l.quantity}x ({l.condition}) by{' '}
+                        <a href={`/user?id=${l.user_id}`} className="underline">{l.seller_name}</a>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionBusy === `del-lst-${l.id}`}
+                      onClick={() => {
+                        runAdminAction(`del-lst-${l.id}`, { action: 'delete_listing', listing_id: l.id }, () => {
+                          setListings((prev) => prev.filter((x) => x.id !== l.id));
+                          showNotice('ok', `Removed listing for ${l.card_name}.`);
+                        });
+                      }}
+                      className="h-7 px-2.5 rounded-lg text-[11px] font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition"
+                    >
+                      Remove Listing
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={actionBusy === `del-deck-${d.id}`}
-                    onClick={() => {
-                      if (!window.confirm(`Delete public deck "${d.name}"?`)) return;
-                      runAdminAction(`del-deck-${d.id}`, { action: 'delete_deck', deck_id: d.id }, () => {
-                        setDecks((prev) => prev.filter((x) => x.id !== d.id));
-                        showNotice('ok', `Deleted deck "${d.name}".`);
-                      });
-                    }}
-                    className="h-7 px-2.5 rounded-lg text-[11px] font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition"
-                  >
-                    Delete Deck
-                  </button>
-                </div>
-              ))}
-              {filteredDecks.length === 0 && (
-                <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                  No public decks match.
-                </p>
-              )}
+                ))}
+                {filteredListings.length === 0 && (
+                  <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    No active listings match.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className={card} style={cardStyle}>
+              <h2 className="text-base font-black mb-3" style={{ color: 'var(--text-primary)' }}>
+                Public Decks ({filteredDecks.length})
+              </h2>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {filteredDecks.map((d) => (
+                  <div
+                    key={d.id}
+                    className="rounded-xl border p-2.5 flex items-center justify-between gap-3 flex-wrap"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                  >
+                    <div className="text-xs min-w-0">
+                      <a href={`/decks/view?deck=${d.id}`} className="font-bold hover:underline" style={{ color: 'var(--text-primary)' }}>
+                        {d.name}
+                      </a>
+                      <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        by <a href={`/user?id=${d.user_id}`} className="underline">{d.author_name}</a>
+                      </span>
+                      <span className="mx-1.5" style={{ color: 'var(--text-tertiary)' }}>·</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>{fmtDate24(d.created_at)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionBusy === `del-deck-${d.id}`}
+                      onClick={() => {
+                        if (!window.confirm(`Delete public deck "${d.name}"?`)) return;
+                        runAdminAction(`del-deck-${d.id}`, { action: 'delete_deck', deck_id: d.id }, () => {
+                          setDecks((prev) => prev.filter((x) => x.id !== d.id));
+                          showNotice('ok', `Deleted deck "${d.name}".`);
+                        });
+                      }}
+                      className="h-7 px-2.5 rounded-lg text-[11px] font-bold border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer transition"
+                    >
+                      Delete Deck
+                    </button>
+                  </div>
+                ))}
+                {filteredDecks.length === 0 && (
+                  <p className="text-xs py-4 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                    No public decks match.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

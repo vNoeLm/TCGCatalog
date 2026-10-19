@@ -256,11 +256,23 @@ export const GET: APIRoute = async ({ request }) => {
         created_at: h.created_at,
       }));
 
+    const { data: reportsRow } = await supabaseAdmin.from('settings').select('value').eq('key', 'moderation_reports').maybeSingle();
+    let reports: any[] = [];
+    if (reportsRow?.value) {
+      try {
+        const parsed = typeof reportsRow.value === 'string' ? JSON.parse(reportsRow.value) : reportsRow.value;
+        if (Array.isArray(parsed)) reports = parsed;
+      } catch {
+        reports = [];
+      }
+    }
+
     return jsonResponse({
       success: true,
       currentAdminId: caller.user.id,
       users,
       reviews,
+      reports,
       orders: enrichedOrders,
       holds,
       listings,
@@ -406,17 +418,18 @@ export const POST: APIRoute = async ({ request }) => {
       const next = existing.filter((o: any) => o.id !== orderId && o.order_number !== orderId);
       await supabaseAdmin.from('settings').upsert({ key: 'store_orders', value: JSON.stringify(next) });
       try {
-        await supabaseAdmin.from('orders').delete().eq('order_number', orderId);
+        await supabaseAdmin.from('orders').delete().or(`id.eq.${orderId},order_number.eq.${orderId}`);
       } catch {}
 
       // Also remove matching completed hold_request if this order came from a hold
       const holdIdsToDelete = Array.from(new Set([orderId, ...matchedHoldIds]));
       for (const hid of holdIdsToDelete) {
         try {
-          await supabaseAdmin.from('messages').delete().eq('hold_request_id', hid);
-        } catch {}
-        try {
-          await supabaseAdmin.from('hold_requests').delete().eq('id', hid);
+          const { data: matchingHolds } = await supabaseAdmin.from('hold_requests').select('id').or(`id.eq.${hid},order_number.eq.${hid}`);
+          for (const mh of matchingHolds || []) {
+            try { await supabaseAdmin.from('messages').delete().eq('hold_request_id', mh.id); } catch {}
+            try { await supabaseAdmin.from('hold_requests').delete().eq('id', mh.id); } catch {}
+          }
         } catch {}
       }
 
@@ -463,6 +476,20 @@ export const POST: APIRoute = async ({ request }) => {
         try {
           await supabaseAdmin.from('orders').delete().neq('order_number', '__dummy__');
         } catch {}
+        // Also permanently delete all completed hold requests and their messages
+        try {
+          const { data: compHolds } = await supabaseAdmin
+            .from('hold_requests')
+            .select('id')
+            .or('status.eq.Completed,status.eq.completed,status.eq.COMPLETED');
+          const compIds = (compHolds || []).map((h: any) => h.id);
+          if (compIds.length > 0) {
+            for (const hid of compIds) {
+              try { await supabaseAdmin.from('messages').delete().eq('hold_request_id', hid); } catch {}
+              try { await supabaseAdmin.from('hold_requests').delete().eq('id', hid); } catch {}
+            }
+          }
+        } catch {}
       }
 
       const { data: usersList } = await supabaseAdmin.auth.admin.listUsers({ perPage: 250 });
@@ -479,6 +506,34 @@ export const POST: APIRoute = async ({ request }) => {
       }
 
       return jsonResponse({ success: true, removedCount, remainingCount: remaining.length });
+    }
+
+    if (action === 'resolve_report' || action === 'dismiss_report' || action === 'delete_report') {
+      const reportId = String(body.report_id || '');
+      if (!reportId) return jsonResponse({ success: false, error: 'report_id required' }, 400);
+
+      const { data: row } = await supabaseAdmin.from('settings').select('value').eq('key', 'moderation_reports').maybeSingle();
+      let list: any[] = [];
+      try {
+        list = typeof row?.value === 'string' ? JSON.parse(row.value) : row?.value || [];
+        if (!Array.isArray(list)) list = [];
+      } catch {
+        list = [];
+      }
+
+      if (action === 'delete_report') {
+        list = list.filter((r: any) => r.id !== reportId);
+      } else {
+        const newStatus = action === 'resolve_report' ? 'resolved' : 'dismissed';
+        list = list.map((r: any) =>
+          r.id === reportId
+            ? { ...r, status: newStatus, resolved_at: new Date().toISOString(), resolved_by: caller.user.email || caller.user.id }
+            : r
+        );
+      }
+
+      await supabaseAdmin.from('settings').upsert({ key: 'moderation_reports', value: JSON.stringify(list) });
+      return jsonResponse({ success: true, report_id: reportId });
     }
 
     if (action === 'delete_hold') {

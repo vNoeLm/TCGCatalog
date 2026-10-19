@@ -8,6 +8,7 @@ import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import { getCurrentUser, getCurrentProfile } from '../../lib/auth';
+import { ReportModal } from '../common/ReportModal';
 import type { SellerProfileSummary, UserReputation } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -29,6 +30,7 @@ export function PublicProfileApp() {
   // Viewing your own profile: say so, with a way back to the editable one.
   const [isMe, setIsMe] = useState(false);
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
     if (id) getCurrentUser().then(u => setIsMe(Boolean(u && u.id === id)));
@@ -154,109 +156,127 @@ export function PublicProfileApp() {
         style={{ borderColor: 'var(--border)', boxShadow: 'var(--shadow-card)' }}
       >
         <BannerContainerBackground bannerUrl={bannerUrl} isLightTheme={isLightTheme} />
-        <div className="relative z-10 p-4 sm:p-7">
-        <div className="flex items-center gap-4 sm:gap-5 flex-wrap">
-          {summary.avatar_url ? (
-            <img
-              src={summary.avatar_url}
-              alt={displayName}
-              className="w-16 h-16 rounded-2xl object-cover border-2 shrink-0 bg-zinc-950 shadow-md"
-              style={{ borderColor: tier.color }}
-            />
-          ) : (
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 shrink-0 shadow-md"
-              style={{ background: 'var(--bg-surface-2)', borderColor: tier.color, color: 'var(--accent)' }}
-            >
-              {displayName[0].toUpperCase()}
-            </div>
-          )}
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                {displayName}
-              </h1>
-              {isOwner && <SiteOwnerTag />}
-              <span
-                className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
-                style={tier.badgeStyle}
+        <div className="relative z-10 p-4 sm:p-7 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4 sm:gap-5 flex-wrap min-w-0">
+            {summary.avatar_url ? (
+              <img
+                src={summary.avatar_url}
+                alt={displayName}
+                className="w-16 h-16 rounded-2xl object-cover border-2 shrink-0 bg-zinc-950 shadow-md"
+                style={{ borderColor: tier.color }}
+              />
+            ) : (
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 shrink-0 shadow-md"
+                style={{ background: 'var(--bg-surface-2)', borderColor: tier.color, color: 'var(--accent)' }}
               >
-                <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                <span>{tier.nameEn}</span>
-              </span>
-              {collectorTiers.map((ct) => (
+                {displayName[0].toUpperCase()}
+              </div>
+            )}
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                  {displayName}
+                </h1>
+                {isOwner && <SiteOwnerTag />}
                 <span
-                  key={ct.game}
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
-                  style={ct.badgeStyle}
-                  title={`${ct.nameEn} (${ct.ownedCount.toLocaleString()}/${ct.totalCount.toLocaleString()} cards)`}
+                  style={tier.badgeStyle}
                 >
-                  <BadgeIconSvg iconType={ct.iconType} className="w-3 h-3" />
-                  <span>{ct.nameEn}</span>
+                  <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
+                  <span>{tier.nameEn}</span>
                 </span>
-              ))}
-            </div>
+                {collectorTiers.map((ct) => (
+                  <span
+                    key={ct.game}
+                    className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
+                    style={ct.badgeStyle}
+                    title={`${ct.nameEn} (${ct.ownedCount.toLocaleString()}/${ct.totalCount.toLocaleString()} cards)`}
+                  >
+                    <BadgeIconSvg iconType={ct.iconType} className="w-3 h-3" />
+                    <span>{ct.nameEn}</span>
+                  </span>
+                ))}
+              </div>
 
-            <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-              <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-              >
-                {summary.rating_count > 0 && summary.rating_avg !== null ? (
-                  <>
-                    <Stars value={summary.rating_avg} size={11} />
-                    <span style={{ color: 'var(--text-primary)' }}>{summary.rating_avg.toFixed(1)}</span>
-                    <span>as seller ({summary.rating_count})</span>
-                  </>
-                ) : (
-                  'No seller ratings yet'
-                )}
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-              >
-                {summary.buyer_rating_count && summary.buyer_rating_avg != null ? (
-                  <>
-                    <Stars value={summary.buyer_rating_avg} size={11} />
-                    <span style={{ color: 'var(--text-primary)' }}>{summary.buyer_rating_avg.toFixed(1)}</span>
-                    <span>as buyer ({summary.buyer_rating_count})</span>
-                  </>
-                ) : (
-                  'No buyer ratings yet'
-                )}
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-[var(--positive)]"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-              >
-                Sold {summary.items_sold || 0} card{summary.items_sold === 1 ? '' : 's'} ({summary.sales_count || 0} sale{summary.sales_count === 1 ? '' : 's'})
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-                title="Completed purchases from other collectors"
-              >
-                Bought {summary.items_bought || 0} card{summary.items_bought === 1 ? '' : 's'} ({summary.purchases_count || 0} purchase{summary.purchases_count === 1 ? '' : 's'})
-              </span>
-              <span
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-indigo-300"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
-              >
-                {listings.length} listed now
-              </span>
-              {memberSince && (
+              <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                 <span
                   className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
-                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
                 >
-                  Member since {memberSince}
+                  {summary.rating_count > 0 && summary.rating_avg !== null ? (
+                    <>
+                      <Stars value={summary.rating_avg} size={11} />
+                      <span style={{ color: 'var(--text-primary)' }}>{summary.rating_avg.toFixed(1)}</span>
+                      <span>as seller ({summary.rating_count})</span>
+                    </>
+                  ) : (
+                    'No seller ratings yet'
+                  )}
                 </span>
-              )}
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                >
+                  {summary.buyer_rating_count && summary.buyer_rating_avg != null ? (
+                    <>
+                      <Stars value={summary.buyer_rating_avg} size={11} />
+                      <span style={{ color: 'var(--text-primary)' }}>{summary.buyer_rating_avg.toFixed(1)}</span>
+                      <span>as buyer ({summary.buyer_rating_count})</span>
+                    </>
+                  ) : (
+                    'No buyer ratings yet'
+                  )}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-[var(--positive)]"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                >
+                  Sold {summary.items_sold || 0} card{summary.items_sold === 1 ? '' : 's'} ({summary.sales_count || 0} sale{summary.sales_count === 1 ? '' : 's'})
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                  title="Completed purchases from other collectors"
+                >
+                  Bought {summary.items_bought || 0} card{summary.items_bought === 1 ? '' : 's'} ({summary.purchases_count || 0} purchase{summary.purchases_count === 1 ? '' : 's'})
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border text-indigo-300"
+                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}
+                >
+                  {listings.length} listed now
+                </span>
+                {memberSince && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg border"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}
+                  >
+                    Member since {memberSince}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+
+          {!isMe && (
+            <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                className="h-8 px-3 rounded-lg text-xs font-semibold border inline-flex items-center gap-1.5 cursor-pointer transition hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+                title="Report this collector to moderators"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+                <span>Report profile</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -454,6 +474,15 @@ export function PublicProfileApp() {
           : undefined;
         return <div className="space-y-3">{list.map(rev => <ReviewCard key={rev.id} review={rev} onDelete={handleDeleteReview} />)}</div>;
       })()}
+
+      <ReportModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        type="profile"
+        targetId={userId || ''}
+        targetName={displayName}
+        targetLink={typeof window !== 'undefined' ? window.location.href : `/user?id=${userId}`}
+      />
     </div>
   );
 }

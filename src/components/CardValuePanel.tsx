@@ -13,6 +13,7 @@ interface CardValuePanelProps {
     market_price_eur?: number | null;
     market_price_foil_eur?: number | null;
   };
+  className?: string;
 }
 
 const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
@@ -24,7 +25,7 @@ const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
  * Each figure sits under its label rather than beside it, so a narrow panel (two finishes side by
  * side) can never squeeze a value onto two lines.
  */
-export function CardValuePanel({ card }: CardValuePanelProps) {
+export function CardValuePanel({ card, className }: CardValuePanelProps) {
   const values = useCardValueData();
   const [tab, setTab] = useState<'value' | 'graph'>('value');
   const game = (card.game || 'riftbound').toLowerCase();
@@ -51,7 +52,7 @@ export function CardValuePanel({ card }: CardValuePanelProps) {
   // than dropping the panel (and with it the graph tab) without a word.
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl p-4 sm:p-5 mb-4 border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+      <div className={`rounded-2xl p-4 sm:p-5 border ${className ?? 'mb-4'}`} style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
         <div className="text-sm font-black uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Value</div>
         <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>No price yet</p>
         <p className="text-xs leading-relaxed mt-1" style={muted}>
@@ -64,7 +65,7 @@ export function CardValuePanel({ card }: CardValuePanelProps) {
   const strong = { color: 'var(--text-primary)' } as const;
 
   return (
-    <div className="rounded-2xl p-4 sm:p-5 mb-4 border overflow-hidden" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+    <div className={`rounded-2xl p-4 sm:p-5 border overflow-hidden ${className ?? 'mb-4'}`} style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
       <div
         className="flex items-center gap-1 pb-1.5 mb-3"
         style={{ borderBottom: '1px solid var(--border-subtle)' }}

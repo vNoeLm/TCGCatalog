@@ -4,6 +4,7 @@ import { cardThumbProps } from '../../lib/supabase';
 import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
 import { AuthModal } from '../auth/AuthModal';
 import { HoldPanel } from './HoldPanel';
+import { ReportModal } from '../common/ReportModal';
 import type { UserProfile, ChatMessage, ConversationSummary } from '../../types';
 
 /** Compact vertical padding around the page so the chat container gets maximum height. */
@@ -83,6 +84,7 @@ export function MessagesApp() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -487,6 +489,19 @@ export function MessagesApp() {
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                   </svg>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  title="Report this conversation to moderators"
+                  className="h-8 px-2.5 rounded-lg border flex items-center gap-1.5 cursor-pointer transition hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400 text-xs font-semibold"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                    <line x1="4" y1="22" x2="4" y2="15" />
+                  </svg>
+                  <span className="hidden sm:inline">Report</span>
+                </button>
               </div>
             </div>
 
@@ -637,6 +652,17 @@ export function MessagesApp() {
           </div>
         )}
       </div>
+
+      {selectedId && (
+        <ReportModal
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          type="message"
+          targetId={selectedId}
+          targetName={`Conversation with ${selected?.counterpart_name || 'Collector'} (${selected?.card_name || 'Listing'})`}
+          targetLink={typeof window !== 'undefined' ? `${window.location.pathname}?thread=${selectedId}` : ''}
+        />
+      )}
     </div>
   );
 }

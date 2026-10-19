@@ -34,6 +34,7 @@ import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
 import { CardValuePanel } from './CardValuePanel';
+import { ReportModal } from './common/ReportModal';
 import { WishlistControls } from './wishlists/WishlistControls';
 import { hasFoilVariant } from '../lib/cardVariants';
 import { saveLocalCollection } from '../lib/collectionClient';
@@ -69,6 +70,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Admin Quick Edit State
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -665,12 +667,105 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           )}
           </div>
 
-          <div className="min-w-0">
           {isInventory ? (
-            <>
-              {/* Condition + notes (Listing View) */}
+            <div className="2xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              {/* TOP LEFT: Seller Profile Card */}
               <div 
-                className="rounded-2xl p-4 sm:p-5 mb-4 border"
+                className="rounded-2xl p-4 sm:p-5 border flex items-center justify-between gap-3 shadow-sm cursor-pointer hover:bg-zinc-900/50 transition-colors h-full"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+                onClick={() => {
+                  if (data?.seller_id) {
+                    setReviewsModalSellerId(data.seller_id);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {sellerSummary?.avatar_url ? (
+                    <img
+                      src={sellerSummary.avatar_url}
+                      alt={sellerSummary.display_name || data?.seller_name || 'Seller'}
+                      className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shrink-0"
+                    />
+                  ) : (
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0 border"
+                      style={{
+                        background: 'var(--accent-muted)',
+                        borderColor: 'var(--accent)',
+                        color: 'var(--text-accent)',
+                      }}
+                    >
+                      {sellerSummary?.display_name ? sellerSummary.display_name[0].toUpperCase() : (data?.seller_name ? data.seller_name[0].toUpperCase() : 'S')}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-4 h-3 rounded-[2px]" />
+                      {data?.seller_id ? (
+                        <a
+                          href={`/user?id=${data.seller_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sm font-black truncate hover:underline"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
+                        </a>
+                      ) : (
+                        <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
+                          {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
+                        </span>
+                      )}
+                      {(() => {
+                        const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
+                        const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner, isLightTheme);
+                        return (
+                          <>
+                            {isOwner && <SiteOwnerTag />}
+                            <span
+                              className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
+                              style={tier.badgeStyle}
+                              title={tier.nameEn}
+                            >
+                              <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
+                              <span>{tier.nameEn}</span>
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-tertiary)' }}>
+                      {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
+                        <>
+                          <div className="flex items-center gap-1 font-bold" style={{ color: 'var(--text-accent)' }}>
+                            <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span>{sellerSummary.rating_avg.toFixed(1)}</span>
+                          </div>
+                          <span>•</span>
+                          <span>
+                            {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? ('rating') : ('ratings')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-zinc-400 text-[11px]">
+                          New Seller (No ratings yet)
+                        </span>
+                      )}
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-[11px]">
+                        <span>Ships from</span>
+                        <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-3 h-2 rounded-[2px]" />
+                        <span>({describeShippingScope(data?.seller_ships_to || sellerShipping?.ships_to, data?.seller_country || sellerShipping?.country)})</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TOP RIGHT: Condition & Description Card */}
+              <div 
+                className="rounded-2xl p-4 sm:p-5 border h-full"
                 style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
               >
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Condition</p>
@@ -696,12 +791,246 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 })()}
               </div>
 
-              {/* Price Graph & Value Reference */}
-              <CardValuePanel card={card} />
-            </>
+              {/* BOTTOM LEFT: Buying Card (Price, Delivery, Badges, Hold, Cart, Report) */}
+              <div 
+                className="rounded-2xl p-4 sm:p-5 border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+              >
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
+                  <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
+                    {data.price_huf ? fmt(data.price_huf) : 'N/A'}
+                  </div>
+                </div>
+
+                {/* Delivery */}
+                {(() => {
+                  const listed = listingHandoverIds(data.handover_methods);
+                  const offered = HANDOVER_METHODS
+                    .filter(m => listed.includes(m.id))
+                    .map(m => ({ m, o: shippingOption(sellerShipping, m.id) }))
+                    .filter(({ o }) => o.enabled);
+                  if (offered.length === 0) return null;
+                  const personalOpt = offered.find(({ m }) => m.id === 'personal');
+                  return (
+                    <div className="mb-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Delivery</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {offered.map(({ m, o }) => (
+                          <span key={m.id} className="text-[11px] px-2 py-1 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                            <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{m.label}</span>{' '}
+                            {describeOption({ price: o.price_huf, min: o.min_order_huf })}
+                          </span>
+                        ))}
+                      </div>
+                      {personalOpt && sellerShipping?.in_person_location && (
+                        <div className="mt-2 text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Pickup:</span>
+                          <span>{sellerShipping.in_person_location}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Status Badges */}
+                  {data.status === 'In Stock' && (
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full border text-[var(--positive)] inline-flex items-center gap-1.5" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <span key={copiesLeft} className={inCart > 0 ? 'tv-bump inline-block' : 'inline-block'}>
+                        {copiesLeft === 0 ? 'None left to add' : copiesLeft > 1 ? `${copiesLeft} available` : 'Available'}
+                      </span>
+                    </span>
+                  )}
+                  {data.status === 'In Stock' && inCart > 0 && (
+                    <button
+                      type="button"
+                      onClick={openCart}
+                      className="text-xs font-bold px-3 py-1.5 rounded-full border inline-flex items-center gap-1.5 cursor-pointer hover:brightness-110"
+                      style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                      </svg>
+                      <span>{inCart} in your cart · View</span>
+                    </button>
+                  )}
+                  {(data.status === 'On Hold' || data.status === 'Reserved') && (
+                    <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/50 inline-flex items-center gap-1.5 uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      <span>ON HOLD</span>
+                    </span>
+                  )}
+                  {data.status === 'Sold' && (
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-zinc-800 text-zinc-400 border-zinc-700 inline-flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      <span>SOLD</span>
+                    </span>
+                  )}
+
+                  {/* Primary Buyer Action: Request Hold */}
+                  {data.status === 'In Stock' && !isSeller && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (inCart === 0) addToCart(cartItemForListing());
+                        openCart();
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                      style={{
+                        background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
+                        color: 'var(--accent-contrast, #000000)',
+                        boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
+                      }}
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                      </svg>
+                      <span>Request Hold</span>
+                    </button>
+                  )}
+
+                  {/* Add to the cart */}
+                  {data.status === 'In Stock' && !isSeller && (
+                    <button
+                      type="button"
+                      disabled={copiesLeft === 0}
+                      onClick={() => {
+                        addToCart(cartItemForListing());
+                        setJustAdded(true);
+                        if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
+                        justAddedTimer.current = setTimeout(() => setJustAdded(false), 1400);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      style={
+                        justAdded
+                          ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
+                          : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                      }
+                      title={copiesLeft === 0 ? 'Every copy of this listing is already in your cart' : 'Add a copy to your cart'}
+                    >
+                      {justAdded ? (
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                          <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                        </svg>
+                      )}
+                      <span aria-live="polite">
+                        {justAdded ? 'Added to cart' : copiesLeft === 0 ? 'All in your cart' : inCart > 0 ? 'Add another' : 'Add to Cart'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Seller Quick Action Controls */}
+                  {isSeller && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {data.status === 'In Stock' && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isUpdatingStatus}
+                            onClick={() => handleSellerChangeStatus('On Hold')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 transition cursor-pointer" style={{ color: 'var(--text-accent)' }}
+                            title={'Manually put on hold'}
+                          >
+                            Put on Hold
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isUpdatingStatus}
+                            onClick={() => handleSellerChangeStatus('Sold')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
+                            title={'Confirm sale'}
+                          >
+                            Confirm Sale
+                          </button>
+                        </>
+                      )}
+                      {(data.status === 'On Hold' || data.status === 'Reserved') && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isUpdatingStatus}
+                            onClick={() => handleSellerChangeStatus('In Stock')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 transition cursor-pointer" style={{ color: 'var(--text-primary)' }}
+                            title={'Release hold back to available'}
+                          >
+                            Release Hold
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isUpdatingStatus}
+                            onClick={() => handleSellerChangeStatus('Sold')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
+                            title={'Confirm sale'}
+                          >
+                            Confirm Sale
+                          </button>
+                        </>
+                      )}
+                      {data.status === 'Sold' && (
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('In Stock')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 border transition cursor-pointer" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                          title={'Relist as in stock'}
+                        >
+                          Relist
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <PriceChartingButton card={card} isFoil={data.is_foil} />
+
+                  {!isSeller && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                      style={{
+                        background: 'var(--bg-input)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-tertiary)',
+                      }}
+                      title="Report this listing to moderators"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                        <line x1="4" y1="22" x2="4" y2="15" />
+                      </svg>
+                      <span>Report listing</span>
+                    </button>
+                  )}
+                </div>
+
+                {data.status === 'On Hold' && (
+                  <p className="text-xs mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl" style={{ color: 'var(--text-accent)' }}>
+                    This item is currently on hold for another buyer while handover/payment is arranged.
+                  </p>
+                )}
+              </div>
+
+              {/* BOTTOM RIGHT: Value / Graph Panel */}
+              <div>
+                <CardValuePanel card={card} className="mb-0" />
+              </div>
+            </div>
           ) : (
             <>
-              {/* ── Meta rows ── */}
+              <div className="min-w-0">
               <div 
                 className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5 mb-4"
                 style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}
@@ -1024,9 +1353,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               )}
             </div>
           )}
-          </>
-          )}
-
           </div>
 
           <div className="min-w-0">
@@ -1176,350 +1502,37 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           )}
 
           {/* Wishlists (catalog view): how many copies each of your lists wants */}
-          {!isInventory && (
-            <WishlistControls
-              cardId={card.id}
-              game={card.game || 'riftbound'}
-              hasFoil={hasFoilVariant(card)}
-              signedIn={Boolean(profile)}
-              onRequireSignIn={() => setShowAuthModal(true)}
-            />
-          )}
+          <WishlistControls
+            cardId={card.id}
+            game={card.game || 'riftbound'}
+            hasFoil={hasFoilVariant(card)}
+            signedIn={Boolean(profile)}
+            onRequireSignIn={() => setShowAuthModal(true)}
+          />
 
-          {/* Seller Profile Card */}
-          {isInventory && (
-            <div 
-              className="rounded-2xl p-4 mb-4 border flex items-center justify-between gap-3 shadow-sm cursor-pointer hover:bg-zinc-900/50 transition-colors"
-              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+          <div className="flex items-center gap-3 flex-wrap pt-2">
+            <button
+              type="button"
               onClick={() => {
-                if (data?.seller_id) {
-                  setReviewsModalSellerId(data.seller_id);
+                if (profile) {
+                  setIsListModalOpen(true);
+                } else {
+                  setShowAuthModal(true);
                 }
               }}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border text-[var(--positive)] hover:brightness-110" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}
+              title={'List your copy of this card for sale'}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                {sellerSummary?.avatar_url ? (
-                  <img
-                    src={sellerSummary.avatar_url}
-                    alt={sellerSummary.display_name || data?.seller_name || 'Seller'}
-                    className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shrink-0"
-                  />
-                ) : (
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0 border"
-                    style={{
-                      background: 'var(--accent-muted)',
-                      borderColor: 'var(--accent)',
-                      color: 'var(--text-accent)',
-                    }}
-                  >
-                    {sellerSummary?.display_name ? sellerSummary.display_name[0].toUpperCase() : (data?.seller_name ? data.seller_name[0].toUpperCase() : 'S')}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-4 h-3 rounded-[2px]" />
-                    {data?.seller_id ? (
-                      <a
-                        href={`/user?id=${data.seller_id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sm font-black truncate hover:underline"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
-                      </a>
-                    ) : (
-                      <span className="text-sm font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                        {sellerSummary?.display_name || data?.seller_name || (data?.seller_role === 'owner' ? 'Noel :3' : 'Community Seller')}
-                      </span>
-                    )}
-                    {(() => {
-                      const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
-                      const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner, isLightTheme);
-                      return (
-                        <>
-                          {isOwner && <SiteOwnerTag />}
-                          <span
-                            className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
-                            style={tier.badgeStyle}
-                            title={tier.nameEn}
-                          >
-                            <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
-                            <span>{tier.nameEn}</span>
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs flex-wrap" style={{ color: 'var(--text-tertiary)' }}>
-                    {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
-                      <>
-                        <div className="flex items-center gap-1 font-bold" style={{ color: 'var(--text-accent)' }}>
-                          <span>★</span>
-                          <span>{sellerSummary.rating_avg.toFixed(1)}</span>
-                        </div>
-                        <span>•</span>
-                        <span>
-                          {sellerSummary.rating_count} {sellerSummary.rating_count === 1 ? ('rating') : ('ratings')}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-zinc-400 text-[11px]">
-                        New Seller (No ratings yet)
-                      </span>
-                    )}
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1 text-[11px]">
-                      <span>Ships from</span>
-                      <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-3 h-2 rounded-[2px]" />
-                      <span>({describeShippingScope(data?.seller_ships_to || sellerShipping?.ships_to, data?.seller_country || sellerShipping?.country)})</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Price & Status + CTA (Inventory only) */}
-          {isInventory && (
-            <div 
-              className="rounded-2xl p-4 sm:p-5 mb-4 border"
-              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-            >
-              <div className="mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
-                <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
-                  {data.price_huf ? fmt(data.price_huf) : 'N/A'}
-                </div>
-              </div>
-
-              {/* Delivery: the methods this card was listed with that the seller offers, with what
-                  each costs and the order it needs (the minimum is for everything bought from them). */}
-              {(() => {
-                const listed = listingHandoverIds(data.handover_methods);
-                const offered = HANDOVER_METHODS
-                  .filter(m => listed.includes(m.id))
-                  .map(m => ({ m, o: shippingOption(sellerShipping, m.id) }))
-                  .filter(({ o }) => o.enabled);
-                if (offered.length === 0) return null;
-                const personalOpt = offered.find(({ m }) => m.id === 'personal');
-                return (
-                  <div className="mb-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Delivery</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {offered.map(({ m, o }) => (
-                        <span key={m.id} className="text-[11px] px-2 py-1 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{m.label}</span>{' '}
-                          {describeOption({ price: o.price_huf, min: o.min_order_huf })}
-                        </span>
-                      ))}
-                    </div>
-                    {personalOpt && sellerShipping?.in_person_location && (
-                      <div className="mt-2 text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                        <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Pickup:</span>
-                        <span>{sellerShipping.in_person_location}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="flex items-center gap-2.5 flex-wrap">
-                {/* Status Badges */}
-                {data.status === 'In Stock' && (
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border text-[var(--positive)] inline-flex items-center gap-1.5" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    {/* Counts what's still left to add, so adding to the cart visibly takes from it. */}
-                    <span key={copiesLeft} className={inCart > 0 ? 'tv-bump inline-block' : 'inline-block'}>
-                      {copiesLeft === 0 ? 'None left to add' : copiesLeft > 1 ? `${copiesLeft} available` : 'Available'}
-                    </span>
-                  </span>
-                )}
-                {data.status === 'In Stock' && inCart > 0 && (
-                  <button
-                    type="button"
-                    onClick={openCart}
-                    className="text-xs font-bold px-3 py-1.5 rounded-full border inline-flex items-center gap-1.5 cursor-pointer hover:brightness-110"
-                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                      <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-                    </svg>
-                    <span>{inCart} in your cart · View</span>
-                  </button>
-                )}
-                {(data.status === 'On Hold' || data.status === 'Reserved') && (
-                  <span className="text-xs font-black px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 border-amber-500/50 inline-flex items-center gap-1.5 uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.25)]">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                    <span>ON HOLD</span>
-                  </span>
-                )}
-                {data.status === 'Sold' && (
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-zinc-800 text-zinc-400 border-zinc-700 inline-flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span>SOLD</span>
-                  </span>
-                )}
-
-                {/* Primary Buyer Action: Request Hold. The cart is the one checkout - this puts the
-                    card in it (if it isn't already) and opens it on this seller's request. */}
-                {data.status === 'In Stock' && !isSeller && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (inCart === 0) addToCart(cartItemForListing());
-                      openCart();
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                    style={{
-                      background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
-                      color: 'var(--accent-contrast, #000000)',
-                      boxShadow: '0 4px 14px var(--accent-glow, rgba(245, 158, 11, 0.4))',
-                    }}
-                  >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
-                    <span>Request Hold</span>
-                  </button>
-                )}
-
-                {/* Add to the cart (grouped per seller at checkout) */}
-                {data.status === 'In Stock' && !isSeller && (
-                  <button
-                    type="button"
-                    disabled={copiesLeft === 0}
-                    onClick={() => {
-                      addToCart(cartItemForListing());
-                      setJustAdded(true);
-                      if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
-                      justAddedTimer.current = setTimeout(() => setJustAdded(false), 1400);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                    style={
-                      justAdded
-                        ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
-                        : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
-                    }
-                    title={copiesLeft === 0 ? 'Every copy of this listing is already in your cart' : 'Add a copy to your cart'}
-                  >
-                    {justAdded ? (
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-                      </svg>
-                    )}
-                    <span aria-live="polite">
-                      {justAdded ? 'Added to cart' : copiesLeft === 0 ? 'All in your cart' : inCart > 0 ? 'Add another' : 'Add to Cart'}
-                    </span>
-                  </button>
-                )}
-
-                {/* Seller Quick Action Controls */}
-                {isSeller && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {data.status === 'In Stock' && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isUpdatingStatus}
-                          onClick={() => handleSellerChangeStatus('On Hold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 transition cursor-pointer" style={{ color: 'var(--text-accent)' }}
-                          title={'Manually put on hold'}
-                        >
-                          Put on Hold
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUpdatingStatus}
-                          onClick={() => handleSellerChangeStatus('Sold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
-                          title={'Confirm sale'}
-                        >
-                          Confirm Sale
-                        </button>
-                      </>
-                    )}
-                    {(data.status === 'On Hold' || data.status === 'Reserved') && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isUpdatingStatus}
-                          onClick={() => handleSellerChangeStatus('In Stock')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 transition cursor-pointer" style={{ color: 'var(--text-primary)' }}
-                          title={'Release hold back to available'}
-                        >
-                          Release Hold
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUpdatingStatus}
-                          onClick={() => handleSellerChangeStatus('Sold')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
-                          title={'Confirm sale'}
-                        >
-                          Confirm Sale
-                        </button>
-                      </>
-                    )}
-                    {data.status === 'Sold' && (
-                      <button
-                        type="button"
-                        disabled={isUpdatingStatus}
-                        onClick={() => handleSellerChangeStatus('In Stock')}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 border transition cursor-pointer" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
-                        title={'Relist as in stock'}
-                      >
-                        Relist
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                <PriceChartingButton card={card} isFoil={data.is_foil}  />
-              </div>
-
-              {data.status === 'On Hold' && (
-                <p className="text-xs mt-2.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl" style={{ color: 'var(--text-accent)' }}>
-                  This item is currently on hold for another buyer while handover/payment is arranged.
-                </p>
-              )}
-            </div>
-          )}
-
-          {!isInventory && (
-            <div className="flex items-center gap-3 flex-wrap pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (profile) {
-                    setIsListModalOpen(true);
-                  } else {
-                    setShowAuthModal(true);
-                  }
-                }}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold shadow transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer border text-[var(--positive)] hover:brightness-110" style={{ background: 'var(--positive-muted)', borderColor: 'var(--positive-border)' }}
-                title={'List your copy of this card for sale'}
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
-                </svg>
-                <span>Sell on Marketplace</span>
-              </button>
-              <PriceChartingButton card={card}  />
-            </div>
-          )}
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V5a2 2 0 012-2z" />
+              </svg>
+              <span>Sell on Marketplace</span>
+            </button>
+            <PriceChartingButton card={card}  />
           </div>
+          </div>
+        </>
+      )}
         </div>
       </div>
 
@@ -1553,6 +1566,15 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           sellerSummary={sellerSummary}
         />
       )}
+
+      <ReportModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        type="listing"
+        targetId={String(data?.id || inventoryId || card.id)}
+        targetName={`${card.name} (${data?.condition || 'Card'}) · ${sellerSummary?.display_name || data?.seller_name || 'Listing'}`}
+        targetLink={typeof window !== 'undefined' ? window.location.href : ''}
+      />
     </div>
   );
 }
