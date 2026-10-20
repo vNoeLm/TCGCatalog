@@ -20,7 +20,7 @@ interface HistoryResponse {
 
 interface PriceHistoryChartProps {
   cardId: string;
-  card: { id: string; rarity?: string | null; is_foil?: boolean };
+  card: { id: string; rarity?: string | null; is_foil?: boolean; game?: string | null };
   initialFoil?: boolean;
 }
 

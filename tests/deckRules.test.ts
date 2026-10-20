@@ -200,4 +200,24 @@ describe('Multi-game deck serialization', () => {
     expect(isAltArt({ card_number: 'RAD-R01' })).toBe(false);
     expect(isAltArt({ card_number: 'RAD-109' })).toBe(false);
   });
+
+  it('determines foil variant availability per game', async () => {
+    const { hasFoilVariant } = await import('../src/lib/cardVariants');
+    // Riftbound: Common and Uncommon only
+    expect(hasFoilVariant({ game: 'riftbound', rarity: 'Common' })).toBe(true);
+    expect(hasFoilVariant({ game: 'riftbound', rarity: 'Uncommon' })).toBe(true);
+    expect(hasFoilVariant({ game: 'riftbound', rarity: 'Rare' })).toBe(false);
+    expect(hasFoilVariant({ game: 'riftbound', rarity: 'Epic' })).toBe(false);
+    expect(hasFoilVariant({ rarity: 'Rare' })).toBe(false); // default riftbound
+
+    // Other games: all standard rarities have foils
+    expect(hasFoilVariant({ game: 'starwars', rarity: 'Rare' })).toBe(true);
+    expect(hasFoilVariant({ game: 'starwars', rarity: 'Legendary' })).toBe(true);
+    expect(hasFoilVariant({ game: 'mtg', rarity: 'Mythic Rare' })).toBe(true);
+    expect(hasFoilVariant({ game: 'lorcana', rarity: 'Super Rare' })).toBe(true);
+    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Super Rare' })).toBe(true);
+
+    // Tokens are not foil
+    expect(hasFoilVariant({ game: 'starwars', rarity: 'Common', card_type: 'Token' })).toBe(false);
+  });
 });

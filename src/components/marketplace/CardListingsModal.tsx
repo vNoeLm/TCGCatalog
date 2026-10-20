@@ -130,7 +130,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             </div>
           </div>
 
-          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly }} initialFoil={foilOnly} />
+          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }} initialFoil={foilOnly} />
          </div>
 
          <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar flex flex-col">

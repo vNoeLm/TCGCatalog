@@ -1042,8 +1042,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
             <div className="flex items-center gap-2 flex-wrap">
               {/* Rarity icon + label */}
               {(() => {
+                const isRiftbound = !card.game || card.game === 'riftbound';
                 const rarityKey = (card.rarity || '').toLowerCase();
-                const rarityIcon = RARITY_ICONS[rarityKey];
+                const rarityIcon = isRiftbound ? RARITY_ICONS[rarityKey] : null;
                 return (
                   <span 
                     style={{ background: rarityStyle.bg, color: rarityStyle.text, borderColor: `${rarityStyle.text}44`, boxShadow: `0 0 12px ${rarityStyle.glow}` }}
@@ -1450,8 +1451,8 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 </div>
 
-                {/* Foil Copy Stepper (for common/uncommon) */}
-                {(card.rarity === 'Common' || card.rarity === 'Uncommon') && (
+                {/* Foil Copy Stepper */}
+                {hasFoilVariant(card) && (
                   <div 
                     className="border rounded-xl p-3 flex items-center justify-between transition-colors"
                     style={{

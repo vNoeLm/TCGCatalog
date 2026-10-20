@@ -1,8 +1,14 @@
 import type { FilterState } from '../types';
 
-export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean }) => {
+export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean; game?: string | null; card_type?: string | null }) => {
   if (card.is_foil) return true;
-  return card.rarity === 'Common' || card.rarity === 'Uncommon';
+  const game = card.game || 'riftbound';
+  if (game === 'riftbound') {
+    return card.rarity === 'Common' || card.rarity === 'Uncommon';
+  }
+  // In SWU, MTG, Lorcana, One Piece, FaB: cards across all rarities (Common, Uncommon, Rare, Legendary, etc.) have foil versions
+  if (card.card_type === 'Token' || card.card_type === 'Rule') return false;
+  return true;
 };
 
 export const isOvernumbered = (card: { card_number?: string | null }) => {

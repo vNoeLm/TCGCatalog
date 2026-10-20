@@ -184,7 +184,7 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
         </div>
       ) : (
         <div className="-mx-4 sm:-mx-5 -mb-4 sm:-mb-5">
-          <PriceHistoryChart cardId={card.id} card={{ id: card.id, rarity: card.rarity, is_foil: isFoil }} initialFoil={isFoil} />
+          <PriceHistoryChart cardId={card.id} card={{ id: card.id, rarity: card.rarity, is_foil: isFoil, game: card.game }} initialFoil={isFoil} />
         </div>
       )}
     </div>

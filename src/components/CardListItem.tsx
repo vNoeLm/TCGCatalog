@@ -6,7 +6,7 @@ import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
 import { useCurrency } from "../lib/currency";
-import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
+import { isOvernumbered, isSigned, isAltArt, hasFoilVariant } from "../lib/cardVariants";
 
 interface CardListItemProps {
   card: CatalogCard;
@@ -56,7 +56,7 @@ export function CardListItem(props: CardListItemProps) {
   const rarityStyle = RARITY_COLORS[card.rarity] ?? { bg: "#27272a", text: "#e4e4e7", glow: "rgba(209,213,219,0.3)", border: "rgba(209,213,219,0.6)" };
   const hoverBorder = rarityStyle.border;
   const hoverGlow = rarityStyle.glow;
-  const showFoilToggle = card.card_type !== 'Rune' && (card.rarity === 'Common' || card.rarity === 'Uncommon');
+  const showFoilToggle = card.card_type !== 'Rune' && hasFoilVariant(card);
 
   const handleUpdateNormal = (e: React.MouseEvent, delta: number) => {
     e.preventDefault();
