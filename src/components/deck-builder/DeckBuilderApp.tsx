@@ -800,7 +800,7 @@ export function DeckBuilderApp() {
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
                 const anchor = document.createElement('a');
                 anchor.setAttribute("href", dataStr);
-                anchor.setAttribute("download", "tcg_vault_all_saved_decks.json");
+                anchor.setAttribute("download", "tcgxchange_all_saved_decks.json");
                 document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();

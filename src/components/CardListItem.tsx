@@ -256,7 +256,7 @@ export function CardListItem(props: CardListItemProps) {
               title={"Add normal copy to collection"}
             >
               <span className="text-sm font-black opacity-70">+</span>
-              <span>{showFoilToggle ? ('Normal') : (isSmall ? ('Add') : ('Add to Vault'))}</span>
+              <span>{showFoilToggle ? ('Normal') : (isSmall ? ('Add') : ('Add to Collection'))}</span>
             </button>
           ) : (
             <div 

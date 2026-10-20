@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const USER_AGENT = 'TCGVault/1.0 (https://tcgvault.local)';
+const USER_AGENT = 'TCGXChange/1.0 (https://tcgxchange.net)';
 
 const VALID_SET_TYPES = new Set([
   'expansion',

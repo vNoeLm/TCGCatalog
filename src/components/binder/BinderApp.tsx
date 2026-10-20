@@ -33,7 +33,7 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 /** Reads the tracked collection the same way the rest of the app does, and stays in
- * sync with it (other tabs, other pages, the "Add to Vault" buttons here). Follows the collection
+ * sync with it (other tabs, other pages, the "Add to Collection" buttons here). Follows the collection
  * that's active in the Catalog: Personal from this browser, or a named one. */
 function useOwnedQtyMap(): Record<string, number> {
   const store = useCollectionsStore();

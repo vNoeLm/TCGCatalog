@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useExitTransition } from '../lib/useExitTransition';
 
-const CONSENT_KEY = 'tcg_vault_cookie_consent';
+const CONSENT_KEY = 'tcgxchange_cookie_consent';
 
 /**
  * A one-time notice on first visit. Everything the site stores (collection, theme, sign-in) is
@@ -14,7 +14,7 @@ export function CookieConsent() {
 
   useEffect(() => {
     try {
-      if (!localStorage.getItem(CONSENT_KEY)) setNeedsConsent(true);
+      if (!localStorage.getItem(CONSENT_KEY) && !localStorage.getItem('tcg_vault_cookie_consent')) setNeedsConsent(true);
     } catch {
       // Storage blocked: nothing could be remembered either way, so there is nothing to ask about.
     }

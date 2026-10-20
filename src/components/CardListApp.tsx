@@ -621,7 +621,7 @@ export function CardListApp() {
     }
 
     // Rare+ cards have no separate foil print - the catalog tile only ever shows one
-    // "Add to Vault" control for them, keyed by the plain card id. Writing a `_foil` entry
+    // "Add to Collection" control for them, keyed by the plain card id. Writing a `_foil` entry
     // here anyway would create a copy the UI has no control to ever remove.
     const isFoil = e.shiftKey && hasFoilVariant(matched);
     updateCardCount(matched.id, isFoil, 1);
