@@ -71,7 +71,8 @@ export const isAltArt = (card: { card_number?: string | null; subtype?: string |
   if (isOvernumbered(card) || isSigned(card) || isSp(card)) return false;
   if (!card.card_number) return false;
   const numPart = card.card_number.split('/')[0].replace(/^[a-z]+-/i, '');
-  const hasSuffix = /^\d+-?[ab](?:-P)?$/i.test(numPart);
+  // Matches standard alt art numbering (e.g. 109a, 214a, 007a-P), rune alt arts (e.g. R04a, SFD-R04a, RAD-R01A, VEN-R01b-P)
+  const hasSuffix = /^(?:R?\d+|\d+)-?[ab](?:-P\d*)?$/i.test(numPart);
   const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
   const isAltTag = Array.isArray(card.tags) && card.tags.some((t: any) => String(t).toLowerCase().includes('alt') || String(t).toLowerCase().includes('alternate'));
   return Boolean(hasSuffix || isAltSubtype || isAltTag);

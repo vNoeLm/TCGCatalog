@@ -179,4 +179,25 @@ describe('Multi-game deck serialization', () => {
       expect(imported.deck.game).toBe('onepiece');
     }
   });
+
+  it('detects alt arts correctly for both regular cards and rune cards', async () => {
+    const { isAltArt } = await import('../src/lib/cardVariants');
+    // Regular alt arts
+    expect(isAltArt({ card_number: 'OGN-214a/298' })).toBe(true);
+    expect(isAltArt({ card_number: 'OGN-042a/298' })).toBe(true);
+    expect(isAltArt({ card_number: 'RAD-109A' })).toBe(true);
+    expect(isAltArt({ card_number: 'OGN-193a-P' })).toBe(true);
+
+    // Rune alt arts
+    expect(isAltArt({ card_number: 'SFD-R04a' })).toBe(true);
+    expect(isAltArt({ card_number: 'RAD-R01A' })).toBe(true);
+    expect(isAltArt({ card_number: 'UNL-R05b' })).toBe(true);
+    expect(isAltArt({ card_number: 'VEN-R01b-P' })).toBe(true);
+
+    // Base cards should not be alt arts
+    expect(isAltArt({ card_number: 'OGN-214/298' })).toBe(false);
+    expect(isAltArt({ card_number: 'SFD-R04' })).toBe(false);
+    expect(isAltArt({ card_number: 'RAD-R01' })).toBe(false);
+    expect(isAltArt({ card_number: 'RAD-109' })).toBe(false);
+  });
 });

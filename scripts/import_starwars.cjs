@@ -67,13 +67,15 @@ async function importStarWars() {
 
     // First pass: take Normal
     for (const c of list) {
+      if (String(c.Number).endsWith('F') || c.VariantType === 'Foil') continue;
       if (c.VariantType === 'Normal' && !seenNumbers.has(c.Number)) {
         seenNumbers.add(c.Number);
         uniqueCards.push(c);
       }
     }
-    // Second pass: fill in any remaining card numbers
+    // Second pass: fill in any remaining card numbers (excluding foil duplicate pseudo-cards)
     for (const c of list) {
+      if (String(c.Number).endsWith('F') || c.VariantType === 'Foil') continue;
       if (!seenNumbers.has(c.Number)) {
         seenNumbers.add(c.Number);
         uniqueCards.push(c);

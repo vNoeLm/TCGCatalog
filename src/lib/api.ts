@@ -483,9 +483,9 @@ export async function fetchLegacyInventory(
   }
 
   if (filters.altArtFilter === 'only') {
-    query = query.or('subtype.ilike.%alt%,subtype.ilike.%alternate%,card_number.ilike.%a/%,card_number.ilike.%b/%,card_number.ilike.%-SP%', { foreignTable: 'cards' });
+    query = query.or('subtype.ilike.%alt%,subtype.ilike.%alternate%,card_number.ilike.%a/%,card_number.ilike.%b/%,card_number.ilike.%-R%a%,card_number.ilike.%-R%b%,card_number.ilike.%-SP%', { foreignTable: 'cards' });
   } else if (filters.altArtFilter === 'none') {
-    query = query.not('subtype', 'ilike', '%alt%').not('subtype', 'ilike', '%alternate%').not('card_number', 'ilike', '%a/%').not('card_number', 'ilike', '%b/%').not('card_number', 'ilike', '%-SP%');
+    query = query.not('subtype', 'ilike', '%alt%').not('subtype', 'ilike', '%alternate%').not('card_number', 'ilike', '%a/%').not('card_number', 'ilike', '%b/%').not('card_number', 'ilike', '%-R%a%').not('card_number', 'ilike', '%-R%b%').not('card_number', 'ilike', '%-SP%');
   }
 
   if (filters.spFilter === 'only') {
