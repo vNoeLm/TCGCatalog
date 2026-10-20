@@ -128,11 +128,16 @@ export function formatGameText(text: string | null | undefined): string {
   f = f.replace(/\[A\]/g, icon(GLYPH_ICONS.rune, 'Any Rune', 18));
   f = f.replace(/\[C\]/g, icon(GLYPH_ICONS.rune, 'Domain Rune', 18));
 
-  // 7. Flesh and Blood game symbols
-  f = f.replace(/\{p\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#dc2626; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Attack Power">ATK</span>`);
-  f = f.replace(/\{d\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#2563eb; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Defense">DEF</span>`);
-  f = f.replace(/\{r\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:50%; font-weight:900; font-size:10px; width:17px; height:17px; margin:0 2px; vertical-align:middle;" title="Resource Pitch">R</span>`);
-  f = f.replace(/\{h\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#16a34a; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Life / Health">HP</span>`);
+  // 7. Flesh and Blood game symbols (Attack spear medallion, Defense shield, Resource, Life)
+  const fabAtkIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Attack Power (+ATK)"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><circle cx="12" cy="12" r="10" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="#fef08a" stroke-width="1" stroke-opacity="0.7"/><polygon points="6,6 18,10 13,13 10,18" fill="#18181b"/></svg></span>`;
+  const fabDefIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Defense (+DEF)"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><path d="M12 3 L20 6 V12 C20 17 12 21 12 21 C12 21 4 17 4 12 V6 Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.5"/><path d="M12 5.5 L18 7.8 V12 C18 15.8 12 19 12 19 C12 19 6 15.8 6 12 V7.8 Z" fill="#93c5fd" fill-opacity="0.5"/></svg></span>`;
+  const fabResourceIcon = `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:50%; font-weight:900; font-size:10px; width:16px; height:16px; margin:0 2px; vertical-align:middle;" title="Resource Pitch">R</span>`;
+  const fabLifeIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Life / Health"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#22c55e" stroke="#15803d" stroke-width="1.5"/></svg></span>`;
+
+  f = f.replace(/\{p\}/gi, fabAtkIcon);
+  f = f.replace(/\{d\}/gi, fabDefIcon);
+  f = f.replace(/\{r\}/gi, fabResourceIcon);
+  f = f.replace(/\{h\}/gi, fabLifeIcon);
 
   // 8. Star Wars: Unlimited symbols: {C=1}, {Exhaust}
   f = f.replace(/\{C=(\d+)\}/gi, (_: string, n: string) =>
@@ -140,10 +145,27 @@ export function formatGameText(text: string | null | undefined): string {
   );
   f = f.replace(/\{(?:Exhaust|exhaust)\}/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:var(--bg-raised); border:1px solid var(--border); color:var(--text-secondary); border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Exhaust">Exhaust</span>`);
 
-  // 9. Disney Lorcana symbols: {E} / [E] (Exert), {L} (Lore), {I} (Inkwell), {S} (Song)
+  // 9. Disney Lorcana symbols and ability headers
   f = f.replace(/\{E\}|\[E\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:var(--bg-raised); border:1px solid var(--border); color:var(--text-secondary); border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Exert">Exert</span>`);
   f = f.replace(/\{L\}|\[L\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Lore">Lore</span>`);
   f = f.replace(/\{I\}|\[I\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#6366f1; color:#fff; border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Ink">Ink</span>`);
+
+  // Lorcana uppercase ability titles (e.g. "TRAINING EXERCISES", "BIGGEST FAN:", "A GREATER PURPOSE")
+  f = f.replace(/(?:^|\n)([A-Z][A-Z0-9',!? -]{2,40})(?:\s*[:—–-]\s*|\s+(?=[A-Z][a-z]))/gm, (match: string, title: string) => {
+    const trimmed = title.trim();
+    if (trimmed.startsWith('DON!!') || trimmed === 'THE' || trimmed === 'AND' || trimmed === 'FOR') return match;
+    return `<span style="display:inline-block; font-weight:900; letter-spacing:0.04em; text-transform:uppercase; color:#f59e0b; background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.35); border-radius:4px; padding:1px 6px; margin:0 4px 0 0; font-size:11px; vertical-align:middle;">${trimmed}</span> `;
+  });
+
+  // Lorcana core keywords
+  const LORCANA_KEYWORDS = [
+    'Bodyguard', 'Evasive', 'Rush', 'Ward', 'Support', 'Reckless',
+    'Shift(?: \\d+)?', 'Singer(?: \\d+)?', 'Challenger(?: \\+\\d+)?', 'Resist(?: \\+\\d+)?'
+  ];
+  const lorcanaKwRegex = new RegExp(`\\b(${LORCANA_KEYWORDS.join('|')})\\b`, 'gi');
+  f = f.replace(lorcanaKwRegex, (_: string, kw: string) =>
+    `<span style="display:inline-flex; align-items:center; background:rgba(99,102,241,0.18); color:#818cf8; border:1px solid rgba(99,102,241,0.35); font-weight:800; font-size:11px; padding:0 5px; border-radius:4px; margin:0 2px; vertical-align:middle;">${kw}</span>`
+  );
 
   // 10. One Piece DON!! modifiers: [DON!! x1], [DON!! -1]
   f = f.replace(/\[DON!!\s*([x\-]?\d+)\]/gi, (_: string, val: string) =>

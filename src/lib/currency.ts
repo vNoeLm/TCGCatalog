@@ -19,7 +19,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function detectDefaultCurrency(): Currency {
-  if (typeof window === 'undefined') return 'EUR';
+  if (typeof window === 'undefined') return 'HUF';
   try {
     const saved = localStorage.getItem(CURRENCY_STORAGE_KEY);
     if (saved === 'HUF' || saved === 'EUR') return saved;
@@ -39,11 +39,11 @@ export function detectDefaultCurrency(): Currency {
     } catch {}
   } catch {}
 
-  return 'EUR';
+  return 'HUF';
 }
 
 export function getCurrency(): Currency {
-  if (typeof window === 'undefined') return 'EUR';
+  if (typeof window === 'undefined') return 'HUF';
   try {
     const saved = localStorage.getItem(CURRENCY_STORAGE_KEY);
     if (saved === 'HUF' || saved === 'EUR') return saved;

@@ -132,7 +132,7 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
                       {estimate.referenceHuf ? (
                         <>
                           <span className="whitespace-nowrap">{formatPrice(estimate.referenceHuf)}</span>
-                          {eur && currency === 'HUF' ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>EUR {eur.toFixed(2)}</span> : null}
+                          {eur && currency === 'HUF' ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>(Cardmarket: €{eur.toFixed(2)})</span> : null}
                         </>
                       ) : (
                         <span className="font-medium" style={muted}>none</span>
