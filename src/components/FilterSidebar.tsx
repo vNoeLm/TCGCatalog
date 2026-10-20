@@ -643,7 +643,7 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
               </div>
 
               {/* Tags List */}
-              <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+              <div className="flex flex-wrap gap-1 max-h-64 sm:max-h-80 overflow-y-auto custom-scrollbar pr-1">
                 {filteredTags.map((t) => {
                   const active = filters.tags.includes(t);
                   return (

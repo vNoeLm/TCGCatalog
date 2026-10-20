@@ -60,13 +60,32 @@ export function keywordSolidColor(kw: string): string {
  * - :rb_might: / [S] / [M] become the official might SVG glyph
  * - :rb_exhaust: / [T] become the official exhaust SVG glyph
  */
+const ONE_PIECE_KEYWORDS: Record<string, string> = {
+  rush: 'linear-gradient(135deg,#0284c7,#0369a1)',
+  blocker: 'linear-gradient(135deg,#16a34a,#15803d)',
+  banish: 'linear-gradient(135deg,#9333ea,#7e22ce)',
+  'double attack': 'linear-gradient(135deg,#dc2626,#b91c1c)',
+  trigger: 'linear-gradient(135deg,#eab308,#ca8a04)',
+  'on play': 'linear-gradient(135deg,#d97706,#b45309)',
+  'when attacking': 'linear-gradient(135deg,#d97706,#b45309)',
+  'on k.o.': 'linear-gradient(135deg,#475569,#334155)',
+  'activate: main': 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+  'once per turn': 'linear-gradient(135deg,#64748b,#475569)',
+  'your turn': 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+  "opponent's turn": 'linear-gradient(135deg,#dc2626,#991b1b)',
+  'end of your turn': 'linear-gradient(135deg,#64748b,#475569)',
+  main: 'linear-gradient(135deg,#8b5cf6,#6d28d9)',
+  counter: 'linear-gradient(135deg,#059669,#047857)',
+};
+
 export function formatGameText(text: string | null | undefined): string {
   if (!text) return '';
 
   let f = text;
 
-  // 0. Decode HTML entities
+  // 0. Decode HTML entities & support markdown bold (**bold**)
   f = f.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"');
+  f = f.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text-primary); font-weight:800;">$1</strong>');
 
   // Helper: inline SVG icon from CDN
   const icon = (url: string, title: string, size = 18) =>
@@ -77,9 +96,9 @@ export function formatGameText(text: string | null | undefined): string {
     `<span style="display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; border:1px solid #818cf8; border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:900; margin:0 2px; vertical-align:middle; box-shadow:0 0 6px rgba(99,102,241,0.5);">${n}</span>`;
 
   // Helper: keyword pill with context color
-  const pill = (kw: string, val?: string) => {
+  const pill = (kw: string, val?: string, customBg?: string) => {
     const key = kw.toLowerCase();
-    const bg = KEYWORD_COLORS[key] || KEYWORD_FALLBACK_COLOR;
+    const bg = customBg || KEYWORD_COLORS[key] || KEYWORD_FALLBACK_COLOR;
     const label = val ? `${kw.toUpperCase()} ${val}` : kw.toUpperCase();
     return `<span style="display:inline-flex; align-items:center; background:${bg}; color:#fff; font-weight:900; font-size:11px; letter-spacing:0.04em; padding:2px 7px; border-radius:5px; margin:0 2px; text-transform:uppercase; vertical-align:middle; white-space:nowrap;">${label}</span>`;
   };
@@ -109,12 +128,40 @@ export function formatGameText(text: string | null | undefined): string {
   f = f.replace(/\[A\]/g, icon(GLYPH_ICONS.rune, 'Any Rune', 18));
   f = f.replace(/\[C\]/g, icon(GLYPH_ICONS.rune, 'Domain Rune', 18));
 
-  // 7. Standalone number-in-brackets [0]-[12] (energy costs, not part of keywords)
+  // 7. Flesh and Blood game symbols
+  f = f.replace(/\{p\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#dc2626; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Attack Power">ATK</span>`);
+  f = f.replace(/\{d\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#2563eb; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Defense">DEF</span>`);
+  f = f.replace(/\{r\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:50%; font-weight:900; font-size:10px; width:17px; height:17px; margin:0 2px; vertical-align:middle;" title="Resource Pitch">R</span>`);
+  f = f.replace(/\{h\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#16a34a; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Life / Health">HP</span>`);
+
+  // 8. Star Wars: Unlimited symbols: {C=1}, {Exhaust}
+  f = f.replace(/\{C=(\d+)\}/gi, (_: string, n: string) =>
+    `<span style="display:inline-flex; align-items:center; justify-content:center; background:var(--accent-strong); color:var(--text-on-accent, #000); border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:900; margin:0 2px; vertical-align:middle;" title="Cost ${n}">${n}</span>`
+  );
+  f = f.replace(/\{(?:Exhaust|exhaust)\}/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:var(--bg-raised); border:1px solid var(--border); color:var(--text-secondary); border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Exhaust">Exhaust</span>`);
+
+  // 9. Disney Lorcana symbols: {E} / [E] (Exert), {L} (Lore), {I} (Inkwell), {S} (Song)
+  f = f.replace(/\{E\}|\[E\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:var(--bg-raised); border:1px solid var(--border); color:var(--text-secondary); border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Exert">Exert</span>`);
+  f = f.replace(/\{L\}|\[L\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Lore">Lore</span>`);
+  f = f.replace(/\{I\}|\[I\]/g, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#6366f1; color:#fff; border-radius:4px; font-size:10px; font-weight:900; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Ink">Ink</span>`);
+
+  // 10. One Piece DON!! modifiers: [DON!! x1], [DON!! -1]
+  f = f.replace(/\[DON!!\s*([x\-]?\d+)\]/gi, (_: string, val: string) =>
+    `<span style="display:inline-flex; align-items:center; background:linear-gradient(135deg,#ea580c,#c2410c); color:#fff; font-weight:900; font-size:10px; padding:1px 6px; border-radius:4px; margin:0 2px; vertical-align:middle; text-transform:uppercase;">DON!! ${val}</span>`
+  );
+
+  // 11. One Piece keyword triggers (Rush, Blocker, When Attacking, On Play, etc.)
+  const opKwKeys = Object.keys(ONE_PIECE_KEYWORDS).join('|');
+  const opRegex = new RegExp(`\\[(${opKwKeys})\\]`, 'gi');
+  f = f.replace(opRegex, (_: string, kw: string) => {
+    const bg = ONE_PIECE_KEYWORDS[kw.toLowerCase()] || KEYWORD_FALLBACK_COLOR;
+    return `<span style="display:inline-flex; align-items:center; background:${bg}; color:#fff; font-weight:900; font-size:10px; letter-spacing:0.04em; padding:1px 6px; border-radius:4px; margin:0 2px; text-transform:uppercase; vertical-align:middle; white-space:nowrap;">${kw.toUpperCase()}</span>`;
+  });
+
+  // 12. Standalone number-in-brackets [0]-[12] (energy costs, not part of keywords)
   f = f.replace(/\[(\d{1,2})\]/g, (_: string, n: string) => numCircle(n));
 
-  // 8. KEYWORDS â€” ONLY inside [brackets], preserving surrounding plain text.
-  //    Handles: [Assault 4], [Empower], [Deflect 2], [Empower] optionally followed by [5]
-  // Match [Keyword] or [Keyword N], optionally followed by whitespace + [N]
+  // 13. Riftbound keywords inside [brackets]
   const kwBracketRe = new RegExp(
     `\\[(${KEYWORD_LIST.join('|')})(?: (\\d+))?\\](?:\\s*\\[(\\d+)\\])?`,
     'gi'

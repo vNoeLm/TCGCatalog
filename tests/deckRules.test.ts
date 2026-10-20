@@ -210,12 +210,20 @@ describe('Multi-game deck serialization', () => {
     expect(hasFoilVariant({ game: 'riftbound', rarity: 'Epic' })).toBe(false);
     expect(hasFoilVariant({ rarity: 'Rare' })).toBe(false); // default riftbound
 
-    // Other games: all standard rarities have foils
+    // SWU and MTG: standard rarities have foils
     expect(hasFoilVariant({ game: 'starwars', rarity: 'Rare' })).toBe(true);
     expect(hasFoilVariant({ game: 'starwars', rarity: 'Legendary' })).toBe(true);
     expect(hasFoilVariant({ game: 'mtg', rarity: 'Mythic Rare' })).toBe(true);
+
+    // Lorcana: Super Rare has foils, Enchanted is intrinsically foil
     expect(hasFoilVariant({ game: 'lorcana', rarity: 'Super Rare' })).toBe(true);
-    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Super Rare' })).toBe(true);
+    expect(hasFoilVariant({ game: 'lorcana', rarity: 'Enchanted' })).toBe(false);
+
+    // One Piece: Super Rare and Common are not separate toggles, Rare and Alt Art have foils
+    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Rare' })).toBe(true);
+    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Super Rare' })).toBe(false);
+    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Common' })).toBe(false);
+    expect(hasFoilVariant({ game: 'onepiece', rarity: 'Super Rare', card_number: 'OP05-100a' })).toBe(true);
 
     // Tokens are not foil
     expect(hasFoilVariant({ game: 'starwars', rarity: 'Common', card_type: 'Token' })).toBe(false);

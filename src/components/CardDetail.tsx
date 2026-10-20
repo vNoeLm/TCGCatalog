@@ -47,6 +47,52 @@ import { useCurrency } from '../lib/currency';
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
 
+const renderLorcanaRarityIcon = (rarity: string) => {
+  const r = (rarity || '').toLowerCase().trim();
+  switch (r) {
+    case 'common':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" aria-label="Common">
+          <circle cx="12" cy="12" r="7" />
+        </svg>
+      );
+    case 'uncommon':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current shrink-0" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-label="Uncommon">
+          <path d="M3 6.5C5.5 5 9 5 12 7c3-2 6.5-2 9-.5v12c-2.5-1.5-6-1.5-9 .5-3-2-6.5-2-9-.5v-12z" />
+          <line x1="12" y1="7" x2="12" y2="19" />
+        </svg>
+      );
+    case 'rare':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" aria-label="Rare">
+          <polygon points="12,4 21,20 3,20" />
+        </svg>
+      );
+    case 'super rare':
+    case 'super_rare':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" aria-label="Super Rare">
+          <polygon points="12,2 21,12 12,22 3,12" />
+        </svg>
+      );
+    case 'legendary':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" aria-label="Legendary">
+          <polygon points="12,2 22,9 18,21 6,21 2,9" />
+        </svg>
+      );
+    case 'enchanted':
+      return (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0" aria-label="Enchanted">
+          <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
 export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: string, cardId?: string, onClose?: () => void }) {
   const isLightTheme = useSiteTheme().theme === 'light';
   const { formatPrice } = useCurrency();
@@ -1043,14 +1089,17 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {/* Rarity icon + label */}
               {(() => {
                 const isRiftbound = !card.game || card.game === 'riftbound';
+                const isLorcana = card.game === 'lorcana';
                 const rarityKey = (card.rarity || '').toLowerCase();
                 const rarityIcon = isRiftbound ? RARITY_ICONS[rarityKey] : null;
+                const lorcanaIcon = isLorcana ? renderLorcanaRarityIcon(card.rarity) : null;
                 return (
                   <span 
                     style={{ background: rarityStyle.bg, color: rarityStyle.text, borderColor: `${rarityStyle.text}44`, boxShadow: `0 0 12px ${rarityStyle.glow}` }}
                     className="inline-flex items-center gap-2 text-sm font-black px-3 py-1.5 rounded-xl border uppercase tracking-wider"
                   >
                     {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-5 h-5 object-contain" />}
+                    {lorcanaIcon}
                     {card.rarity}
                   </span>
                 );
@@ -1087,14 +1136,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
                 {(card.game === 'onepiece' || card.game === 'lorcana' || card.game === 'starwars' || card.game === 'fab') && (
                   <>
-                    {card.cost != null && (
-                      <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                          {card.game === 'lorcana' ? 'Ink Cost' : 'Cost'}
-                        </div>
-                        <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
-                      </div>
-                    )}
                     {card.domain && (
                       <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                         <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -1131,9 +1172,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 {(() => {
                   const rawType = (card.card_type || '').toLowerCase();
                   const superType = (card.subtype || '').toLowerCase();
-                  const isChampionUnit = rawType === 'unit' && superType === 'champion';
-                  const typeIcon = TYPE_ICONS[rawType];
-                  const superIcon = TYPE_ICONS[superType];
+                  const isRiftbound = !card.game || card.game === 'riftbound';
+                  const isChampionUnit = isRiftbound && rawType === 'unit' && superType === 'champion';
+                  const typeIcon = isRiftbound ? TYPE_ICONS[rawType] : null;
+                  const superIcon = isRiftbound ? TYPE_ICONS[superType] : null;
+                  const displayType = card.game === 'fab' && card.subtype ? card.subtype : card.card_type;
+                  const displaySubtype = card.game === 'fab' ? null : card.subtype;
+
                   return (
                     <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
                       <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Type</div>
@@ -1146,12 +1191,12 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         ) : (
                           <>
                             {typeIcon && <img src={typeIcon} alt={rawType} title={card.card_type} className="w-5 h-5 object-contain shrink-0" />}
-                            <span className="truncate">{card.card_type}</span>
-                            {superType && (
+                            <span className="truncate">{displayType}</span>
+                            {displaySubtype && (
                               <>
                                 <span className="mx-0.5" style={{ color: 'var(--text-muted)' }}>·</span>
-                                {superIcon && <img src={superIcon} alt={superType} title={card.subtype} className="w-5 h-5 object-contain shrink-0" />}
-                                <span className="text-amber-300 truncate">{card.subtype}</span>
+                                {superIcon && <img src={superIcon} alt={superType} title={displaySubtype} className="w-5 h-5 object-contain shrink-0" />}
+                                <span className="text-amber-300 truncate">{displaySubtype}</span>
                               </>
                             )}
                           </>
@@ -1190,22 +1235,46 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
           </div>
 
           {(() => {
+            const isRiftbound = !card.game || card.game === 'riftbound';
             const isOnePiece = card.game === 'onepiece';
+            const isLorcana = card.game === 'lorcana';
+            const isSWU = card.game === 'starwars';
+            const isFaB = card.game === 'fab';
+
+            // Riftbound specific
             const powerReq = getCardPowerRequirement(card);
-            const hasPowerCost = (!card.game || card.game === 'riftbound') && powerReq.power > 0 && powerReq.domains.length > 0;
-            const hasEnergy = (!card.game || card.game === 'riftbound') && card.energy != null;
+            const hasPowerCost = isRiftbound && powerReq.power > 0 && powerReq.domains.length > 0;
+            const hasEnergy = isRiftbound && card.energy != null;
+
+            // Stats across games
+            const hasCost = (isOnePiece || isLorcana || isSWU || isFaB) && card.cost != null;
             const hasMight = card.might != null;
             const hasMightBonus = card.might_bonus != null;
-            const hasOnePieceCost = isOnePiece && card.cost != null;
+            const hasLore = isLorcana && card.energy != null;
+            const hasFaBPitch = isFaB && card.energy != null;
 
-            if (!hasEnergy && !hasMight && !hasMightBonus && !hasPowerCost && !hasOnePieceCost) return null;
+            if (!hasEnergy && !hasMight && !hasMightBonus && !hasPowerCost && !hasCost && !hasLore && !hasFaBPitch) return null;
 
-            const statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0) + (hasOnePieceCost ? 1 : 0);
-            const gridClass = statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
+            let statCount = 0;
+            if (isRiftbound) {
+              statCount = (hasEnergy ? 1 : 0) + (hasPowerCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
+            } else if (isOnePiece) {
+              statCount = (hasCost ? 1 : 0) + (hasMight ? 1 : 0);
+            } else if (isLorcana) {
+              statCount = (hasCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0) + (hasLore ? 1 : 0);
+            } else if (isSWU) {
+              statCount = (hasCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
+            } else if (isFaB) {
+              statCount = (hasFaBPitch ? 1 : 0) + (hasCost ? 1 : 0) + (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
+            } else {
+              statCount = (hasMight ? 1 : 0) + (hasMightBonus ? 1 : 0);
+            }
+
+            const gridClass = statCount === 4 ? "grid-cols-2 sm:grid-cols-4" : statCount === 3 ? "grid-cols-3" : statCount === 2 ? "grid-cols-2" : "grid-cols-1";
 
             return (
               <div className={`grid ${gridClass} gap-2.5 mb-4`}>
-                {/* 1. Energy Cost */}
+                {/* 1. Riftbound Energy Cost */}
                 {hasEnergy && (() => {
                   const isMulti = parsedDomains.length > 1;
                   return (
@@ -1222,7 +1291,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                       className="border rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"
                     >
                       <div className="text-xs font-black uppercase tracking-wider mb-0.5 text-white/90 drop-shadow">
-                        {isMulti ? `${shownDomains.map(d => d.name).join(' / ')} ${"Energy"}` : `${shownDomains[0]?.name || ''} ${"Energy"}`}
+                        {isMulti ? `${shownDomains.map(d => d.name).join(' / ')} Energy` : `${shownDomains[0]?.name || ''} Energy`}
                       </div>
                       <div className="text-3xl sm:text-4xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         {card.energy}
@@ -1231,18 +1300,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   );
                 })()}
 
-                {/* 1b. One Piece Cost */}
-                {hasOnePieceCost && (
-                  <div 
-                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border"
-                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
-                  >
-                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Cost</div>
-                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
-                  </div>
-                )}
-
-                {/* 2. Power Cost */}
+                {/* 2. Riftbound Power Cost */}
                 {hasPowerCost && (
                   <div 
                     className="rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg border"
@@ -1253,7 +1311,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </div>
                     <div className="flex items-center gap-2 my-auto flex-wrap justify-center">
                       {powerReq.isMixed ? (
-                        // Mixed / Flexible: Player can pay EITHER domain rune
                         <div className="flex items-center gap-1.5 font-black text-base" style={{ color: 'var(--text-primary)' }}>
                           {powerReq.domains.map((domKey, idx) => {
                             const runeIcon = RUNE_ICONS[domKey];
@@ -1275,7 +1332,6 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           })}
                         </div>
                       ) : (
-                        // Single domain: Shows exact power requirement (e.g. 1x, 2x, 3x)
                         <div className="flex items-center gap-1">
                           <span className="text-sm font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>{powerReq.power}x</span>
                           {RUNE_ICONS[powerReq.domains[0]] ? (
@@ -1294,25 +1350,101 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 )}
 
-                {/* 3. Might / Power */}
-                {hasMight && (
-                  <div className="rounded-xl p-3 flex flex-col items-center justify-center text-center border" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}>
-                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>
-                      {isOnePiece ? 'Power' : 'Might'}
+                {/* 3. FaB Pitch */}
+                {hasFaBPitch && (() => {
+                  const pitch = Number(card.energy);
+                  const colorClass = pitch === 1 ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                    : pitch === 2 ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : pitch === 3 ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
+                    : 'border-zinc-500/40 bg-zinc-500/10 text-zinc-300';
+                  const label = pitch === 1 ? 'Pitch 1 (Red)' : pitch === 2 ? 'Pitch 2 (Yellow)' : pitch === 3 ? 'Pitch 3 (Blue)' : `Pitch ${pitch}`;
+                  return (
+                    <div className={`rounded-xl p-3 flex flex-col items-center justify-center text-center border ${colorClass}`}>
+                      <div className="text-xs font-black uppercase tracking-wider mb-0.5 opacity-90">{label}</div>
+                      <div className="flex items-center gap-1.5 justify-center mt-1">
+                        {Array.from({ length: Math.min(Math.max(pitch, 1), 3) }).map((_, i) => (
+                          <span key={i} className="w-3.5 h-3.5 rounded-full bg-current inline-block" />
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>{card.might}</div>
+                  );
+                })()}
+
+                {/* 4. Cost for Non-Riftbound games */}
+                {hasCost && (
+                  <div 
+                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border"
+                    style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+                  >
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                      {isLorcana ? 'Ink Cost' : 'Cost'}
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
                   </div>
                 )}
 
-                {/* 4. Might Bonus (gear grants this to the unit it's attached to) */}
+                {/* 5. Primary Offensive Stat: Might (Riftbound) / Power (One Piece, SWU) / Strength (Lorcana) / Attack (FaB) */}
+                {hasMight && (
+                  <div 
+                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border" 
+                    style={{ 
+                      background: isFaB ? 'rgba(239, 68, 68, 0.1)' : 'var(--accent-muted)', 
+                      borderColor: isFaB ? 'rgba(239, 68, 68, 0.3)' : 'var(--accent-border)' 
+                    }}
+                  >
+                    <div 
+                      className="text-xs font-black uppercase tracking-wider mb-0.5" 
+                      style={{ color: isFaB ? '#f87171' : 'var(--text-accent)' }}
+                    >
+                      {isOnePiece || isSWU ? 'Power' : isLorcana ? 'Strength' : isFaB ? 'Attack' : 'Might'}
+                    </div>
+                    <div 
+                      className="text-3xl sm:text-4xl font-black" 
+                      style={{ color: isFaB ? '#f87171' : 'var(--text-accent)' }}
+                    >
+                      {card.might}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Primary Defensive Stat: Might Bonus (Riftbound) / Willpower (Lorcana) / HP (SWU) / Defense (FaB) */}
                 {hasMightBonus && (
                   <div
                     className="rounded-xl p-3 flex flex-col items-center justify-center text-center border"
-                    style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)' }}
-                    title="Might added to the unit this is attached to"
+                    style={{ 
+                      background: isSWU ? 'rgba(239, 68, 68, 0.1)' : isFaB ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-surface-2)', 
+                      borderColor: isSWU ? 'rgba(239, 68, 68, 0.3)' : isFaB ? 'rgba(59, 130, 246, 0.3)' : 'var(--border)' 
+                    }}
+                    title={isRiftbound ? "Might added to the unit this is attached to" : undefined}
                   >
-                    <div className="text-xs font-black uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-accent)' }}>Might Bonus</div>
-                    <div className="text-3xl sm:text-4xl font-black" style={{ color: 'var(--text-accent)' }}>{card.might_bonus >= 0 ? `+${card.might_bonus}` : card.might_bonus}</div>
+                    <div 
+                      className="text-xs font-black uppercase tracking-wider mb-0.5" 
+                      style={{ color: isSWU ? '#f87171' : isFaB ? '#60a5fa' : 'var(--text-tertiary)' }}
+                    >
+                      {isLorcana ? 'Willpower' : isSWU ? 'HP' : isFaB ? 'Defense' : 'Might Bonus'}
+                    </div>
+                    <div 
+                      className="text-3xl sm:text-4xl font-black" 
+                      style={{ color: isSWU ? '#f87171' : isFaB ? '#60a5fa' : 'var(--text-primary)' }}
+                    >
+                      {isRiftbound && card.might_bonus >= 0 ? `+${card.might_bonus}` : card.might_bonus}
+                    </div>
+                  </div>
+                )}
+
+                {/* 7. Lorcana Lore */}
+                {hasLore && (
+                  <div 
+                    className="rounded-xl p-3 flex flex-col items-center justify-center text-center border" 
+                    style={{ background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.3)' }}
+                  >
+                    <div className="text-xs font-black uppercase tracking-wider mb-0.5 text-amber-400">Lore</div>
+                    <div className="text-3xl sm:text-4xl font-black text-amber-300 flex items-center justify-center gap-1.5">
+                      <span>{card.energy}</span>
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current text-amber-400 shrink-0" aria-label="Lore">
+                        <polygon points="12,2 20,12 12,22 4,12" />
+                      </svg>
+                    </div>
                   </div>
                 )}
               </div>

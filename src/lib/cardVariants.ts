@@ -1,13 +1,40 @@
 import type { FilterState } from '../types';
 
-export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean; game?: string | null; card_type?: string | null }) => {
+export const hasFoilVariant = (card: { rarity?: string | null; is_foil?: boolean; game?: string | null; card_type?: string | null; card_number?: string | null; subtype?: string | null; tags?: any; name?: string | null }) => {
   if (card.is_foil) return true;
   const game = card.game || 'riftbound';
+  const rarity = card.rarity || '';
+
   if (game === 'riftbound') {
-    return card.rarity === 'Common' || card.rarity === 'Uncommon';
+    // In Riftbound, Common & Uncommon have separate cold foil variants. Rare & higher are always foil in base set.
+    return rarity === 'Common' || rarity === 'Uncommon';
   }
-  // In SWU, MTG, Lorcana, One Piece, FaB: cards across all rarities (Common, Uncommon, Rare, Legendary, etc.) have foil versions
+
   if (card.card_type === 'Token' || card.card_type === 'Rule') return false;
+
+  if (game === 'lorcana') {
+    // In Lorcana, Enchanted rarity is intrinsically foil/full-art (no non-foil counterpart).
+    if (rarity.toLowerCase() === 'enchanted') return false;
+    return true;
+  }
+
+  if (game === 'onepiece') {
+    // In One Piece:
+    // - Super Rare (SR) and Secret Rare (SEC) in normal boosters are always foil (no standard non-foil exists).
+    // - Standard Common (C) and Uncommon (UC) are non-foil only (no foil in normal boosters).
+    // - Rare (R) and Leaders (L) have foil variants; Alt Arts/Parallel Arts are foiled.
+    if (isAltArt(card)) return true;
+    const rLower = rarity.toLowerCase();
+    if (rLower === 'super rare' || rLower === 'secret rare' || rLower === 'sr' || rLower === 'sec') {
+      return false;
+    }
+    if (rLower === 'common' || rLower === 'uncommon' || rLower === 'c' || rLower === 'uc') {
+      return false;
+    }
+    return true;
+  }
+
+  // Star Wars: Unlimited, Magic: The Gathering, Flesh and Blood: all standard rarities have foil versions
   return true;
 };
 
@@ -75,13 +102,15 @@ export const isToken = (card: { card_number?: string | null; card_type?: string 
 
 export const isAltArt = (card: { card_number?: string | null; subtype?: string | null; tags?: any; rarity?: string | null; card_type?: string | null; name?: string | null }) => {
   if (isOvernumbered(card) || isSigned(card) || isSp(card)) return false;
-  if (!card.card_number) return false;
-  const numPart = card.card_number.split('/')[0].replace(/^[a-z]+-/i, '');
-  // Matches standard alt art numbering (e.g. 109a, 214a, 007a-P), rune alt arts (e.g. R04a, SFD-R04a, RAD-R01A, VEN-R01b-P)
-  const hasSuffix = /^(?:R?\d+|\d+)-?[ab](?:-P\d*)?$/i.test(numPart);
+  if (!card.card_number && !card.name) return false;
+  const num = (card.card_number || '').trim();
+  const numPart = num.split('/')[0].replace(/^[a-z0-9]+-/i, '');
+  // Matches standard alt art numbering (e.g. 109a, 214a, 007a-P), rune alt arts (e.g. R04a, SFD-R04a, RAD-R01A, VEN-R01b-P), and parallel art (_p1)
+  const hasSuffix = /^(?:R?\d+|\d+)-?[ab](?:-P\d*)?$/i.test(numPart) || /_p\d*$/i.test(num);
   const isAltSubtype = card.subtype?.toLowerCase().includes('alt') || card.subtype?.toLowerCase().includes('alternate');
   const isAltTag = Array.isArray(card.tags) && card.tags.some((t: any) => String(t).toLowerCase().includes('alt') || String(t).toLowerCase().includes('alternate'));
-  return Boolean(hasSuffix || isAltSubtype || isAltTag);
+  const isAltName = Boolean(card.name && (card.name.toLowerCase().includes('alternate art') || card.name.toLowerCase().includes('parallel art')));
+  return Boolean(hasSuffix || isAltSubtype || isAltTag || isAltName);
 };
 
 /**
