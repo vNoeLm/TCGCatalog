@@ -171,6 +171,18 @@ export function LegalFooter() {
             <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>One Piece Card Game:</strong>{' '}
             One Piece Card Game images, card text, and related marks are property of Bandai Co., Ltd. ©Eiichiro Oda/Shueisha ©Eiichiro Oda/Shueisha, Toei Animation. TCG XChange is not affiliated with or endorsed by Bandai, Shueisha, or Toei Animation.
           </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Disney Lorcana:</strong>{' '}
+            Disney Lorcana artwork, text, characters, and related marks are property of Disney and Ravensburger. ©Disney. ©Ravensburger. TCG XChange is not affiliated with or endorsed by Disney or Ravensburger.
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Star Wars: Unlimited:</strong>{' '}
+            Star Wars: Unlimited and related marks are property of Lucasfilm Ltd. and Fantasy Flight Games. TM &amp; © Lucasfilm Ltd. © Fantasy Flight Games. TCG XChange is not affiliated with or endorsed by Lucasfilm Ltd., Disney, or Fantasy Flight Games.
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+            <strong className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Flesh and Blood:</strong>{' '}
+            Flesh and Blood TCG is a trademark and copyright of Legend Story Studios. All card images and text are © Legend Story Studios. TCG XChange is not affiliated with or endorsed by Legend Story Studios.
+          </p>
         </div>
       </div>
     </footer>
