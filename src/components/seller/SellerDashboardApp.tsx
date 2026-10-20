@@ -1017,10 +1017,10 @@ export function SellerDashboardApp() {
             </span>
           </div>
           <div className="text-lg sm:text-xl font-black text-[var(--positive)] truncate">
-            {totalRevenueHuf.toLocaleString()} Ft <span className="text-xs font-normal text-[var(--text-tertiary)]">({completedSalesCount} orders)</span>
+            {formatPrice(totalRevenueHuf)} <span className="text-xs font-normal text-[var(--text-tertiary)]">({completedSalesCount} orders)</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {itemsSold} cards sold · Avg order: {avgOrderValueHuf.toLocaleString()} Ft
+            {itemsSold} cards sold · Avg order: {formatPrice(avgOrderValueHuf)}
           </div>
         </div>
 
@@ -1045,7 +1045,7 @@ export function SellerDashboardApp() {
             {activeListings.length} <span className="text-xs font-normal text-[var(--text-tertiary)]">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
           </div>
           <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            Listed Value: {totalListedValueHuf.toLocaleString()} Ft
+            Listed Value: {formatPrice(totalListedValueHuf)}
           </div>
         </div>
 
@@ -1392,7 +1392,7 @@ export function SellerDashboardApp() {
                       </div>
                       <div className="mt-2 flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-black text-[var(--positive)]">
-                          {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                          {item.price_huf ? formatPrice(item.price_huf) : 'N/A'}
                         </span>
                         <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1" title="Change how many copies are in stock">
                           <button
@@ -1688,9 +1688,9 @@ export function SellerDashboardApp() {
                             {req.inventory?.condition && <span>• <span className="text-[var(--text-secondary)]">{req.inventory.condition}</span></span>}
                             {priceHuf && (
                               <span className="text-[var(--positive)] font-black font-mono ml-1">
-                                {priceHuf.toLocaleString()} Ft
+                                {formatPrice(priceHuf)}
                                 {Number(req.shipping_huf) > 0 && (
-                                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}> + {Number(req.shipping_huf).toLocaleString()} Ft shipping</span>
+                                  <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}> + {formatPrice(Number(req.shipping_huf))} shipping</span>
                                 )}
                               </span>
                             )}
@@ -1999,28 +1999,28 @@ export function SellerDashboardApp() {
                               </div>
                             </td>
                             <td className="py-3 px-3 font-mono font-bold text-[var(--positive)]">
-                              {item.price_huf ? `${item.price_huf.toLocaleString()} Ft` : 'N/A'}
+                              {item.price_huf ? formatPrice(item.price_huf) : 'N/A'}
                             </td>
                             <td className="py-3 px-3 font-mono">
                               {lowest === null ? (
                                 <span className="text-[var(--text-muted)]">—</span>
                               ) : isUndercut ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-[var(--text-accent)]">{lowest.toLocaleString()} Ft</span>
+                                  <span className="font-bold text-[var(--text-accent)]">{formatPrice(lowest)}</span>
                                   <button
                                     type="button"
                                     disabled={matchingLowestId === item.inventory_id || matchingAllBusy}
                                     onClick={() => handleMatchLowest(item, lowest)}
                                     className="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer hover:brightness-110 active:scale-95 disabled:opacity-50"
                                     style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
-                                    title={`Update your price from ${item.price_huf?.toLocaleString()} Ft to ${lowest.toLocaleString()} Ft`}
+                                    title={`Update your price from ${formatPrice(item.price_huf)} to ${formatPrice(lowest)}`}
                                   >
                                     {matchingLowestId === item.inventory_id ? 'Matching...' : 'Match lowest'}
                                   </button>
                                 </div>
                               ) : (
                                 <span className="font-bold text-[var(--text-secondary)]">
-                                  {lowest.toLocaleString()} Ft <span className="text-[10px] font-normal text-[var(--positive)]">(Lowest)</span>
+                                  {formatPrice(lowest)} <span className="text-[10px] font-normal text-[var(--positive)]">(Lowest)</span>
                                 </span>
                               )}
                             </td>
@@ -2050,7 +2050,7 @@ export function SellerDashboardApp() {
                                 </span>
                                 {isUndercut ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-[var(--negative)] bg-rose-950/40 border-rose-500/40">
-                                    Undercut by {(item.price_huf - (lowest as number)).toLocaleString()} Ft
+                                    Undercut by {formatPrice(item.price_huf - (lowest as number))}
                                   </span>
                                 ) : isStale ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border text-[var(--text-tertiary)] bg-[var(--bg-raised)]/60 border-[var(--border)]">
@@ -2213,7 +2213,7 @@ export function SellerDashboardApp() {
 
                   <div className="text-right shrink-0">
                     <div className="text-base font-black text-[var(--positive)] font-mono">
-                      {(ord.total_price_huf ?? ord.total_huf ?? 0).toLocaleString()} Ft
+                      {formatPrice(ord.total_price_huf ?? ord.total_huf ?? 0)}
                     </div>
                     <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
                       {ord.shipping_method || 'Standard Shipping'}

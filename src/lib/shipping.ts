@@ -1,11 +1,5 @@
 import { HANDOVER_METHODS, type HandoverMethodId } from './handover';
 
-/**
- * A seller's shipping options: per handover method, whether they offer it, what it costs and the
- * smallest order it's available for (e.g. in person free, Foxpost 1500 Ft from 5000 Ft). Shared by
- * the Seller Hub editor, the cart, the card window and the hold-request API.
- */
-
 export interface ShippingOption {
   enabled: boolean;
   price_huf: number;
@@ -50,8 +44,7 @@ export function normalizeShipping(raw: unknown): ShippingSettings {
   return out;
 }
 
-/** What one method looks like for a seller. A seller who never set anything offers all of them free
- *  (how it worked before); once they have, a method they didn't switch on isn't offered. */
+/** Looks up what a seller charges for one method (or the defaults: free, no minimum). */
 export function shippingOption(settings: ShippingSettings | null | undefined, id: HandoverMethodId): ShippingOption {
   if (!settings || Object.keys(settings).length === 0) return { enabled: true, price_huf: 0, min_order_huf: 0 };
   return settings[id] || { enabled: false, price_huf: 0, min_order_huf: 0 };
@@ -62,10 +55,10 @@ export interface MethodAvailability {
   offered: boolean;
   price: number;
   min: number;
-  /** How much more the order needs before this method can be used (0 when it can). */
   short: number;
 }
 
+/** Works out if an order meets a method's minimum, and if not, by how much. */
 export function methodAvailability(settings: ShippingSettings | null | undefined, id: HandoverMethodId, subtotal: number): MethodAvailability {
   const o = shippingOption(settings, id);
   return { id, offered: o.enabled, price: o.price_huf, min: o.min_order_huf, short: Math.max(0, o.min_order_huf - subtotal) };
@@ -75,7 +68,8 @@ export const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
 
 /** "Free", "1 500 Ft", "1 500 Ft · from 5 000 Ft" */
-export function describeOption(o: { price: number; min: number }): string {
-  const price = o.price > 0 ? fmtHuf(o.price) : 'Free';
-  return o.min > 0 ? `${price} · from ${fmtHuf(o.min)}` : price;
+export function describeOption(o: { price: number; min: number }, formatter?: (n: number) => string): string {
+  const fmt = formatter || fmtHuf;
+  const price = o.price > 0 ? fmt(o.price) : 'Free';
+  return o.min > 0 ? `${price} · from ${fmt(o.min)}` : price;
 }

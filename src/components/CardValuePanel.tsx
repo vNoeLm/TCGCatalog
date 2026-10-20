@@ -3,6 +3,7 @@ import { useCardValueData, valueOfCard } from '../lib/cardValues';
 import { hasFoilVariant } from '../lib/cardVariants';
 import { roundHuf } from '../lib/priceSuggestion';
 import { PriceHistoryChart } from './marketplace/PriceHistoryChart';
+import { useCurrency } from '../lib/currency';
 
 interface CardValuePanelProps {
   card: {
@@ -28,6 +29,7 @@ const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
  */
 export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps) {
   const values = useCardValueData();
+  const { formatPrice, currency } = useCurrency();
   const [tab, setTab] = useState<'value' | 'graph'>('value');
   const game = (card.game || 'riftbound').toLowerCase();
   const cmSlug = game === 'mtg' ? 'Magic' : game === 'onepiece' ? 'OnePiece' : 'Riftbound';
@@ -115,7 +117,7 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
                   )}
                 </div>
                 <div className="text-2xl sm:text-3xl font-black whitespace-nowrap" style={strong}>
-                  ~{ft(estimate.valueHuf!)}
+                  ~{formatPrice(estimate.valueHuf!)}
                 </div>
 
                 <dl className="mt-3 pt-3 space-y-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -124,8 +126,8 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
                     <dd className="text-sm font-bold" style={strong}>
                       {estimate.referenceHuf ? (
                         <>
-                          <span className="whitespace-nowrap">{ft(roundHuf(estimate.referenceHuf))}</span>
-                          {eur ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>EUR {eur.toFixed(2)}</span> : null}
+                          <span className="whitespace-nowrap">{formatPrice(estimate.referenceHuf)}</span>
+                          {eur && currency === 'HUF' ? <span className="ml-2 text-xs font-medium whitespace-nowrap" style={muted}>EUR {eur.toFixed(2)}</span> : null}
                         </>
                       ) : (
                         <span className="font-medium" style={muted}>none</span>
@@ -141,7 +143,7 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
                             {estimate.site.count} listing{estimate.site.count === 1 ? '' : 's'}
                           </span>
                           <span className="ml-2 text-xs font-medium" style={muted}>
-                            from {ft(roundHuf(estimate.site.lowest))}
+                            from {formatPrice(estimate.site.lowest)}
                             {estimate.site.count > 1 ? `, middle ${ft(roundHuf(estimate.site.median))}` : ''}
                           </span>
                         </>

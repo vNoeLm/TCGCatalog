@@ -4,6 +4,7 @@ import { useExitTransition } from '../../lib/useExitTransition';
 import { useCardValueData } from '../../lib/cardValues';
 import { eurToHuf } from '../../lib/priceSuggestion';
 import { hasFoilVariant } from '../../lib/cardVariants';
+import { useCurrency } from '../../lib/currency';
 
 /** Blue for the market reference, amber for what really sold here. Fixed series colors, deliberately not theme-tied, so the two lines stay distinguishable from each other on every theme. */
 const MARKET_COLOR = '#60a5fa';
@@ -139,6 +140,7 @@ interface ChartViewProps {
 /** Everything drawn: the legend and controls, the plot, and the summary line. Used inline and expanded. */
 function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, setFoil, large = false, onToggleExpand }: ChartViewProps) {
   const { W, H, font } = large ? DIMS.large : DIMS.small;
+  const { currency, formatPrice, eurHufRate } = useCurrency();
   const [hover, setHover] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const windowDays = RANGES.find((r) => r.id === range)?.days ?? null;
 
@@ -259,7 +261,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
                 <g key={v}>
                   <line x1={PAD.left} x2={W - PAD.right} y1={chart.y(v)} y2={chart.y(v)} stroke="currentColor" strokeOpacity="0.09" style={{ color: 'var(--border)' }} />
                   <text x={PAD.left - 8} y={chart.y(v) + 4} textAnchor="end" fontSize={font} fill="currentColor" style={{ color: 'var(--text-muted)' }}>
-                    {v >= 10000 ? `${Math.round(v / 1000)}k` : v.toLocaleString('hu-HU')}
+                    {currency === 'EUR' ? `${(v / eurHufRate).toFixed(v / eurHufRate < 10 ? 1 : 0)}€` : v >= 10000 ? `${Math.round(v / 1000)}k` : v.toLocaleString('hu-HU')}
                   </text>
                 </g>
               ))}
@@ -277,7 +279,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
                     cx={chart.x(m.t)} cy={chart.y(m.huf)} r="12" fill="transparent"
                     onMouseEnter={() => setHover({
                       x: chart.x(m.t), y: chart.y(m.huf),
-                      lines: [m.count > 1 ? `Market reference (avg of ${m.count} that day)` : 'Market reference', fmtHuf(m.huf), fmtDayYear(m.t)],
+                      lines: [m.count > 1 ? `Market reference (avg of ${m.count} that day)` : 'Market reference', formatPrice(m.huf), fmtDayYear(m.t)],
                     })}
                   />
                 </g>
@@ -292,7 +294,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
                       x: chart.x(s.t), y: chart.y(s.huf),
                       lines: [
                         s.count > 1 ? `Sold (avg of ${s.count} sales, ${s.quantity} copies)` : `Sold${s.quantity > 1 ? ` (${s.quantity} copies)` : ''}`,
-                        fmtHuf(s.huf),
+                        formatPrice(s.huf),
                         fmtDayYear(s.t),
                       ],
                     })}
@@ -324,8 +326,8 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
           <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
             {summary
               ? summary.change === null
-                ? `Market reference: ${fmtHuf(summary.last.huf)} since ${fmtDay(summary.last.t)}. `
-                : `Market reference: ${fmtHuf(summary.last.huf)}, ${summary.change >= 0 ? 'up' : 'down'} ${Math.abs(summary.change).toFixed(0)}% on ${fmtDay(summary.last.t)}. `
+                ? `Market reference: ${formatPrice(summary.last.huf)} since ${fmtDay(summary.last.t)}. `
+                : `Market reference: ${formatPrice(summary.last.huf)}, ${summary.change >= 0 ? 'up' : 'down'} ${Math.abs(summary.change).toFixed(0)}% on ${fmtDay(summary.last.t)}. `
               : ''}
             {(() => {
               const saleCount = series!.sold.reduce((sum, s) => sum + s.count, 0);

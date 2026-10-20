@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { CatalogCard } from '../types';
 import { useCardValueData, valueOfCard } from '../lib/cardValues';
+import { useCurrency } from '../lib/currency';
 
 interface CollectionValueChipProps {
   /** Owned counts: a card id, or the id with "_foil" on the end for foil copies. */
@@ -16,6 +17,7 @@ interface CollectionValueChipProps {
  */
 export function CollectionValueChip({ collection, cards }: CollectionValueChipProps) {
   const values = useCardValueData();
+  const { formatPrice } = useCurrency();
 
   const { total, copies, unpriced } = useMemo(() => {
     const byId = new Map(cards.map((card) => [card.id, card]));
@@ -51,9 +53,9 @@ export function CollectionValueChip({ collection, cards }: CollectionValueChipPr
         <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
         <path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
       </svg>
-      <div className="leading-tight">
-        <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Collection value</div>
-        <div className="text-sm font-black font-mono text-[var(--positive)]">~{Math.round(total).toLocaleString('en-US')} Ft</div>
+      <div className="leading-tight text-center">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: 'var(--text-tertiary)' }}>Collection value</div>
+        <div className="text-sm font-black font-mono text-[var(--positive)] text-center">~{formatPrice(total)}</div>
       </div>
     </div>
   );

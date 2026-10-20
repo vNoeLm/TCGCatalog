@@ -1,3 +1,4 @@
+import { useCurrency } from '../../lib/currency';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseWantList } from '../../lib/wantList';
 import { Pagination, usePagination } from '../Pagination';
@@ -187,6 +188,7 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const values = useCardValueData();
+  const { formatPrice } = useCurrency();
 
   // Card details for the list's entries; refetched only when a card is added that isn't loaded yet.
   const ids = useMemo(() => [...new Set(Object.keys(list.items).map((k) => k.replace(/_foil$/, '')))].sort().join(','), [list.items]);
@@ -262,7 +264,7 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
       </form>
       <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
         {copies} {copies === 1 ? 'card' : 'cards'}
-        {estimate > 0 && <> · about <span className="font-bold" style={{ color: 'var(--positive)' }}>{ft(Math.round(estimate))}</span></>}
+        {estimate > 0 && <> · about <span className="font-bold" style={{ color: 'var(--positive)' }}>{formatPrice(estimate)}</span></>}
         {unpriced > 0 && <> · {unpriced} without a price yet</>}
       </p>
 
