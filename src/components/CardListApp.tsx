@@ -1647,21 +1647,25 @@ export function CardListApp() {
                   From 768px each group is `display: contents`, so the buttons line up in one row
                   in their original order. */}
               <div className="flex flex-col gap-1.5 md:flex-row md:items-center w-full xl:w-auto">
-                <a
-                  href="/deck-builder"
-                  title="Open Deck Builder"
-                  className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
-                >
-                  Deck Builder
-                </a>
+                {isRiftbound && (
+                  <a
+                    href="/deck-builder"
+                    title="Open Deck Builder"
+                    className={`md:order-1 md:flex-1 xl:flex-none flex items-center justify-center px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer shadow-sm whitespace-nowrap ${catalogTheme.deckBuilderBtn}`}
+                  >
+                    Deck Builder
+                  </a>
+                )}
 
                 {/* Decks (saved deck browser) and Binder (physical-binder layout) - views onto the
                     same card data, so they live here as catalog actions rather than their own nav
                     item - plus Scan (camera devices only), the same accent color. */}
-                <div className={`grid ${canScan ? 'grid-cols-2' : 'grid-cols-3'} gap-1.5 md:contents`}>
-                  <a href="/decks" title="Browse saved decks" className={`md:order-2 md:flex-1 xl:flex-none ${viewBtnClass}`}>
-                    Decks
-                  </a>
+                <div className={`grid ${canScan ? (isRiftbound ? 'grid-cols-2' : 'grid-cols-2') : (isRiftbound ? 'grid-cols-3' : 'grid-cols-2')} gap-1.5 md:contents`}>
+                  {isRiftbound && (
+                    <a href="/decks" title="Browse saved decks" className={`md:order-2 md:flex-1 xl:flex-none ${viewBtnClass}`}>
+                      Decks
+                    </a>
+                  )}
                   <a href="/binder" title="Open Binder Map" className={`md:order-3 md:flex-1 xl:flex-none ${viewBtnClass}`}>
                     Binder
                   </a>

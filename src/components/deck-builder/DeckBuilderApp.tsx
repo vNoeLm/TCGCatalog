@@ -16,7 +16,7 @@ import { Modal } from '../ui/Modal';
 import { publishDeck, setDeckVisibility, deletePublishedDeck, fetchMyDecks, type PublicDeckSummary } from '../../lib/publicDecks';
 
 import { getActiveGame } from '../../lib/theme';
-import { EVENTS } from '../../lib/constants';
+import { EVENTS, STORAGE_KEYS } from '../../lib/constants';
 import { toGameId, gameStorageKey, defaultZone, hasZone, type GameId } from '../../lib/deckRules';
 
 const BREAKPOINT = 1100;
@@ -340,6 +340,48 @@ export function DeckBuilderApp() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', color: 'var(--accent-light)' }}>
         Loading Deck Builder...
+      </div>
+    );
+  }
+
+  if (activeGame !== 'riftbound') {
+    return (
+      <div style={{ maxWidth: 640, margin: '60px auto', padding: 'clamp(16px,3vw,32px)', textAlign: 'center' }}>
+        <div className="rounded-2xl p-8 border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          </div>
+          <h2 className="text-xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
+            Deck Builder Unavailable
+          </h2>
+          <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text-secondary)' }}>
+            The deck builder is currently exclusively available for <strong>Riftbound</strong>.
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem(STORAGE_KEYS.ACTIVE_GAME, 'riftbound');
+                setActiveGame('riftbound');
+                window.dispatchEvent(new CustomEvent(EVENTS.GAME_CHANGE, { detail: { game: 'riftbound' } }));
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+              style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+            >
+              Switch to Riftbound
+            </button>
+            <a
+              href="/"
+              className="px-4 py-2 rounded-xl text-xs font-bold transition border"
+              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            >
+              Back to Catalog
+            </a>
+          </div>
+        </div>
       </div>
     );
   }
