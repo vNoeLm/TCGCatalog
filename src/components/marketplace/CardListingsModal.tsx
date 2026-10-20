@@ -4,6 +4,7 @@ import type { InventoryCard } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 import { getListingDescription } from '../../lib/sellerNotes';
+import { useCurrency } from '../../lib/currency';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { StatBox } from '../StatBox';
 import { cartQuantityFor } from '../../lib/marketplaceCart';
@@ -37,6 +38,7 @@ interface CardListingsModalProps {
 
 /** Every active listing of one card with its price, condition and seller, cheapest first. */
 export function CardListingsModal({ group, onClose, onSelectListing }: CardListingsModalProps) {
+  const { formatPrice } = useCurrency();
   const card = group.representative;
   const imagePath = card.card_image_path || card.image_path;
   const { main, sub } = splitCardTitle(card.name);
@@ -117,8 +119,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
               <div className="grid grid-cols-2 @[420px]:grid-cols-4 gap-2 mt-4">
                 {[
-                  { label: 'Lowest', value: group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A', accent: true },
-                  { label: 'Average', value: group.avg_price > 0 ? fmtHuf(group.avg_price) : 'N/A' },
+                  { label: 'Lowest', value: group.lowest_price > 0 ? formatPrice(group.lowest_price) : 'N/A', accent: true },
+                  { label: 'Average', value: group.avg_price > 0 ? formatPrice(group.avg_price) : 'N/A' },
                   { label: 'Listings', value: String(group.listing_count) },
                   { label: 'Copies', value: String(group.total_quantity) },
                 ].map(stat => (
@@ -185,7 +187,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                     <div
                       key={l.inventory_id}
                       onClick={() => onSelectListing(l.inventory_id)}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer hover:bg-[var(--bg-surface-2)] transition-colors group`}
+                      className={`listing-row grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer transition-colors group`}
                       style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
                       role="button"
                       tabIndex={0}
@@ -198,7 +200,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                     >
                       {/* Seller Column */}
                       <div
-                        className="order-1 min-w-0 px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
+                        className="seller-col order-1 min-w-0 px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (l.seller_id) {
@@ -209,7 +211,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         <a
                           href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
                           onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2 min-w-0 hover:opacity-80"
+                          className="flex items-center gap-2 min-w-0 p-1.5 -m-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-raised)] transition-all cursor-pointer group/seller"
                           title={`View ${rowSeller(l)}'s profile`}
                         >
                           {l.seller_avatar ? (
@@ -286,7 +288,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
                       {/* Price Column */}
                       <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-center whitespace-nowrap @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                        {l.price_huf ? fmtHuf(l.price_huf) : 'N/A'}
+                        {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
                       </div>
 
                       {/* View Button Column */}

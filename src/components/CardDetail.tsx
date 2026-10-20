@@ -42,12 +42,14 @@ import { useCollectionsStore, activeNamedCollection, changeCollectionCard } from
 import { listPriceForCard } from '../lib/collectionPricing';
 import { printLanguage } from '../lib/cardPreview';
 import { useCardValueData } from '../lib/cardValues';
+import { useCurrency } from '../lib/currency';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
 
 export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: string, cardId?: string, onClose?: () => void }) {
   const isLightTheme = useSiteTheme().theme === 'light';
+  const { formatPrice } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -799,7 +801,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                 <div className="mb-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Price</p>
                   <div className="text-3xl sm:text-4xl font-black text-[var(--positive)]">
-                    {data.price_huf ? fmt(data.price_huf) : 'N/A'}
+                    {data.price_huf ? formatPrice(data.price_huf) : 'N/A'}
                   </div>
                 </div>
 

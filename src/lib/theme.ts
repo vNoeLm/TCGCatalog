@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
-export type ThemeMode = 'auto' | 'riftbound' | 'dark' | 'light' | 'custom';
-export type ActiveTheme = 'riftbound' | 'dark' | 'light' | 'custom';
+export type ThemeMode = 'auto' | 'dark' | 'light' | 'custom';
+export type ActiveTheme = 'dark' | 'light' | 'custom';
 
 export const THEME_OVERRIDE_KEY = 'tcg_theme_override';
 export const ACTIVE_GAME_KEY = 'tcg_active_game';
@@ -128,9 +128,13 @@ export function saveCustomTheme(config: Partial<CustomThemeConfig>): CustomTheme
 export function getThemeOverride(): ThemeMode {
   if (typeof window === 'undefined') return 'auto';
   try {
-    const saved = localStorage.getItem(THEME_OVERRIDE_KEY) as ThemeMode;
-    if (saved === 'riftbound' || saved === 'dark' || saved === 'light' || saved === 'custom' || saved === 'auto') {
-      return saved;
+    const saved = localStorage.getItem(THEME_OVERRIDE_KEY);
+    if (saved === 'riftbound') {
+      localStorage.setItem(THEME_OVERRIDE_KEY, 'dark');
+      return 'dark';
+    }
+    if (saved === 'dark' || saved === 'light' || saved === 'custom' || saved === 'auto') {
+      return saved as ThemeMode;
     }
   } catch (e) {}
   return 'auto';
@@ -150,7 +154,6 @@ export function getEffectiveTheme(activeGame?: string): ActiveTheme {
   if (override === 'custom') return 'custom';
   if (override === 'light') return 'light';
   if (override === 'dark') return 'dark';
-  if (override === 'riftbound') return 'riftbound';
 
   // 'auto' mode: dynamically respects OS prefers-color-scheme
   if (typeof window !== 'undefined' && window.matchMedia) {
@@ -158,15 +161,12 @@ export function getEffectiveTheme(activeGame?: string): ActiveTheme {
       return 'light';
     }
   }
-  // Dark preference or default fallback:
-  if (activeGame && activeGame !== 'riftbound') {
-    return 'dark';
-  }
-  return 'riftbound';
+  // Midnight Slate is the default dark theme
+  return 'dark';
 }
 
 export function applySiteTheme(activeGame?: string): ActiveTheme {
-  if (typeof window === 'undefined') return 'riftbound';
+  if (typeof window === 'undefined') return 'dark';
   const effective = getEffectiveTheme(activeGame);
   try {
     document.documentElement.setAttribute('data-theme', effective);
@@ -288,7 +288,7 @@ export function useSiteTheme(cardGame?: string): {
     theme,
     themeMode,
     setThemeMode: updateMode,
-    isRiftbound: theme === 'riftbound',
+    isRiftbound: false,
     isDark: theme === 'dark',
     isLight: theme === 'light',
     isCustom: theme === 'custom',

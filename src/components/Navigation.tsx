@@ -4,6 +4,7 @@ import type { UserProfile } from '../types';
 import { AuthModal } from './auth/AuthModal';
 import { fetchUnreadCount } from '../lib/messages';
 import { useExitTransition } from '../lib/useExitTransition';
+import { useCurrency } from '../lib/currency';
 
 const MESSAGES_POLL_MS = 5 * 60 * 1000; // 5 min — a basic timer check, not realtime
 
@@ -18,6 +19,7 @@ export function Navigation({ currentPath }: NavigationProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const { currency, setCurrency } = useCurrency();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownAnim = useExitTransition(dropdownOpen, 200);
   // 250ms, not the sheet's own 200ms - the backdrop (.tv-overlay) shares this timer and transitions
@@ -134,7 +136,27 @@ export function Navigation({ currentPath }: NavigationProps) {
           </a>
         )}
 
-        {/* Auth Section */}
+                {/* Currency Switcher Toggle */}
+        <div className="inline-flex items-center rounded-lg p-0.5 border text-[11px] font-bold shrink-0" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+          <button
+            type="button"
+            onClick={() => setCurrency('HUF')}
+            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+            title="Display prices in HUF (Hungarian Forints)"
+          >
+            HUF
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrency('EUR')}
+            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+            title="Display prices in EUR (Euros)"
+          >
+            EUR
+          </button>
+        </div>
+
+{/* Auth Section */}
         <div className="relative" ref={dropdownRef}>
           {loading ? (
             <div className="w-20 h-7 rounded-lg animate-pulse" style={{ background: 'var(--bg-raised)' }} />
@@ -351,7 +373,28 @@ export function Navigation({ currentPath }: NavigationProps) {
               </button>
             )}
 
-            {/* Navigation Links */}
+                        {/* Mobile Currency Switcher */}
+            <div className="px-3 py-2 flex items-center justify-between rounded-xl border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
+              <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Currency</span>
+              <div className="inline-flex items-center rounded-lg p-0.5 border text-xs font-bold" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setCurrency('HUF')}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                >
+                  HUF (Ft)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrency('EUR')}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                >
+                  EUR (€)
+                </button>
+              </div>
+            </div>
+
+{/* Navigation Links */}
             <div className="flex flex-col gap-1">
               <a
                 href="/"

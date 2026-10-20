@@ -4,69 +4,9 @@
    DESIGN TOKENS — Game Themes
 ───────────────────────────────────────────── */
 
-/* DEFAULT & RIFTBOUND: League Hextech Deep Navy & Amber Gold */
+/* DEFAULT & DARK: Midnight Slate — Clean Neutral Deep Slate / Obsidian & Electric Blue */
 :root,
 html.dark,
-html[data-theme="riftbound"] {
-  /* Backgrounds: Atmospheric Hextech Navy (NOT flat black) */
-  --bg-page:          #040914;
-  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(14, 42, 85, 0.45) 0%, rgba(4, 9, 20, 0.95) 60%), #040914;
-  --bg-surface:       #091428;
-  --bg-surface-2:     #0e1c36;
-  --bg-raised:        #122344;
-  --bg-input:         #081224;
-  --bg-header:        rgba(6, 14, 30, 0.94);
-
-  /* Borders: Hextech Gold & Deep Blue */
-  --border:           rgba(245, 158, 11, 0.25);
-  --border-subtle:    rgba(245, 158, 11, 0.12);
-  --border-hover:     rgba(245, 158, 11, 0.5);
-
-  /* Text: Clean slate scale with gold accents */
-  --text-primary:     #f8fafc;
-  --text-secondary:   #cbd5e1;
-  --text-tertiary:    #94a3b8;
-  --text-muted:       #64748b;
-  --text-placeholder: #475569;
-  --text-accent:      #fbbf24;
-  --text-on-accent:   #040914;
-
-  /* Accent: Hextech Amber & Gold */
-  --accent:           #f59e0b;
-  --accent-light:     #fbbf24;
-  /* Solid-fill CTAs (buttons, active pills): identical to --accent on the dark themes, where a
-     solid accent fill already pops; only Ivory Parchment gives this a separate, brighter value
-     (see below) because its --accent is deliberately muted for small-text contrast on white. */
-  --accent-strong:    #f59e0b;
-  /* A shared "good/positive" green - prices, success states, code highlights - used across many
-     components as a plain text-emerald-400. Kept exactly that value on the dark themes (unchanged
-     look); only Ivory Parchment needs a darker shade to stay readable on a light page. */
-  --positive:         #34d399;
-  --positive-muted:   rgba(52, 211, 153, 0.12);
-  --positive-border:  rgba(52, 211, 153, 0.4);
-  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
-  --negative:         #f87171;
-  --negative-muted:   rgba(248, 113, 113, 0.12);
-  --negative-border:  rgba(248, 113, 113, 0.4);
-  --accent-muted:     rgba(245, 158, 11, 0.15);
-  --accent-border:    rgba(245, 158, 11, 0.4);
-  --accent-glow:      rgba(245, 158, 11, 0.25);
-
-  /* Brand Logo Gradient */
-  --brand-gradient:   linear-gradient(90deg, #fde047, #f59e0b, #38bdf8);
-
-  /* Scrollbar */
-  --scrollbar-thumb:  rgba(245, 158, 11, 0.28);
-  --scrollbar-track:  #040914;
-
-  /* Shadows */
-  --shadow-card:      0 8px 32px rgba(0, 0, 0, 0.65), 0 0 16px rgba(245, 158, 11, 0.08);
-  --shadow-header:    0 1px 0 rgba(245, 158, 11, 0.18);
-
-  color-scheme: dark;
-}
-
-/* GENERIC DARK: Clean Neutral Deep Slate / Obsidian & Electric Blue */
 html[data-theme="dark"] {
   /* Backgrounds: Neutral Deep Slate / Charcoal */
   --bg-page:          #090a0f;
@@ -98,7 +38,6 @@ html[data-theme="dark"] {
   --positive:         #34d399;
   --positive-muted:   rgba(52, 211, 153, 0.12);
   --positive-border:  rgba(52, 211, 153, 0.4);
-  /* Same idea as --positive, for status/error text that was a plain rose-400/400ish hex. */
   --negative:         #f87171;
   --negative-muted:   rgba(248, 113, 113, 0.12);
   --negative-border:  rgba(248, 113, 113, 0.4);
@@ -650,4 +589,8 @@ input::placeholder, textarea::placeholder {
   background: var(--bg-input);
   color: var(--text-primary);
   border: 1px solid var(--border);
+}
+/* Marketplace listing row: hovering seller column highlights only the seller, not the whole row */
+.listing-row:hover:not(:has(.seller-col:hover)) {
+  background-color: var(--bg-surface-2);
 }

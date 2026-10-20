@@ -22,18 +22,19 @@ import {
 
 /** The color, hex codes and name each theme option shows itself by — nothing else. */
 const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
-  { mode: 'auto', name: 'Auto (System)', hex: ['#f59e0b', '#3b82f6'] },
-  { mode: 'riftbound', name: 'Hextech Navy', hex: ['#f59e0b'] },
+  { mode: 'auto', name: 'Auto (System)', hex: ['#3b82f6', '#fb7185'] },
   { mode: 'dark', name: 'Midnight Slate', hex: ['#3b82f6'] },
   { mode: 'light', name: 'Ivory Parchment', hex: ['#f3ede2', '#fb7185'] },
   { mode: 'custom', name: 'Custom Studio', hex: ['#a855f7', '#06b6d4'] },
 ];
 import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
 import { GAMES } from '../../lib/constants';
+import { useCurrency, type Currency } from '../../lib/currency';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
 export function ProfileApp() {
   const { theme: effectiveTheme, themeMode, setThemeMode } = useSiteTheme();
+  const { currency, setCurrency } = useCurrency();
   const [customConfig, setCustomConfig] = useState<CustomThemeConfig>(() => getCustomTheme());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
@@ -515,7 +516,7 @@ export function ProfileApp() {
       {themeExpanded && (
         <div className="mt-4 space-y-5">
           {/* Theme swatches: color, hex codes and its name */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {THEME_SWATCHES.map((opt) => {
               const active = themeMode === opt.mode;
               return (
@@ -560,6 +561,31 @@ export function ProfileApp() {
                 </button>
               );
             })}
+          </div>
+
+          
+          {/* Display Currency Preference */}
+          <div className="pt-4 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Display Currency</h4>
+              <p className="text-xs text-[var(--text-secondary)]">Show marketplace listings and cart prices in Hungarian Forints or Euros.</p>
+            </div>
+            <div className="inline-flex rounded-xl p-1 border gap-1 self-start sm:self-auto" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => { setCurrency('HUF'); showToast('Display currency set to HUF (Ft)'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              >
+                HUF (Ft)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCurrency('EUR'); showToast('Display currency set to EUR (€)'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              >
+                EUR (€)
+              </button>
+            </div>
           </div>
 
           {/* Custom Theme Studio: interactive color pickers and presets */}

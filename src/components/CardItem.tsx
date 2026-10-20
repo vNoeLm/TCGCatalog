@@ -1,3 +1,4 @@
+import { useCurrency } from '../lib/currency';
 import { useState, useEffect } from "react";
 import type { InventoryCard } from "../types";
 import { supabase, cardThumbProps, gridThumbSize } from "../lib/supabase";
@@ -25,6 +26,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 
 export function CardItem({ card, onClick, gridSize = 'normal', priority = false }: CardItemProps) {
   const isSmall = gridSize === 'small';
+  const { formatPrice } = useCurrency();
 
 
   const isSealed = false;
@@ -301,7 +303,7 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
         <div className={`flex items-center justify-between ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div>
             <span className={`${isSmall ? 'text-sm font-black' : 'text-lg font-black'} text-[var(--positive)]`}>
-              {card.price_huf ? new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(card.price_huf) : 'N/A'}
+              {card.price_huf ? formatPrice(card.price_huf) : 'N/A'}
             </span>
             <span style={{
               display: 'block', fontSize: isSmall ? 9 : 10, fontWeight: 700, marginTop: 1,

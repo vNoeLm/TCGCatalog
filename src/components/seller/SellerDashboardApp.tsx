@@ -5,6 +5,8 @@ import { supabase, cardThumbProps } from '../../lib/supabase';
 import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
+import { useCurrency } from '../../lib/currency';
+import { fetchShippingSettings } from '../../lib/shippingClient';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { ShippingSettingsPanel } from './ShippingSettingsPanel';
 import { CollectionSettingsPanel } from './CollectionSettingsPanel';
@@ -29,6 +31,8 @@ export function SellerDashboardApp() {
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { formatPrice, isHuf } = useCurrency();
+  const [sellerCountry, setSellerCountry] = useState<string>('HU');
 
   // Listings State
   const [listings, setListings] = useState<any[]>([]);
@@ -222,6 +226,14 @@ export function SellerDashboardApp() {
     getCurrentProfile().then(p => {
       setProfile(p);
       setLoading(false);
+      if (p) {
+        fetchShippingSettings([p.id]).then(settingsMap => {
+          const s = settingsMap[p.id];
+          if (s?.country) {
+            setSellerCountry(s.country.toUpperCase());
+          }
+        }).catch(() => {});
+      }
       if (p) {
         loadSellerListings(p.id);
         loadSellerSales(p.id);
@@ -2094,9 +2106,15 @@ export function SellerDashboardApp() {
                       {sellerOrders.length} order{sellerOrders.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    SZJA Personal Movable Exemption: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{totalRevenueHuf.toLocaleString()} / 600 000 Ft</span> ({(Math.min(100, (totalRevenueHuf / 600000) * 100)).toFixed(1)}% of annual Hungarian tax-free threshold)
-                  </div>
+                  {sellerCountry === 'HU' ? (
+                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      SZJA Personal Movable Exemption: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{totalRevenueHuf.toLocaleString()} / 600 000 Ft</span> ({(Math.min(100, (totalRevenueHuf / 600000) * 100)).toFixed(1)}% of annual Hungarian tax-free threshold)
+                    </div>
+                  ) : (
+                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Total Sales Volume: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{formatPrice(totalRevenueHuf)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">

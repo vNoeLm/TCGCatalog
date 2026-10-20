@@ -1,3 +1,4 @@
+import { useCurrency } from '../../lib/currency';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
@@ -88,6 +89,7 @@ const inputCls = 'w-full rounded-xl px-3 py-2.5 text-xs outline-none transition 
 const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
 
 export function MarketplaceCartDrawer() {
+  const { formatPrice } = useCurrency();
   const cart = useCart();
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -287,7 +289,7 @@ export function MarketplaceCartDrawer() {
             <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
             <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
           </svg>
-          <span className="text-xs font-black">{cardCount} card{cardCount === 1 ? '' : 's'} · {fmt(itemsTotal)}</span>
+          <span className="text-xs font-black">{cardCount} card{cardCount === 1 ? '' : 's'} · {formatPrice(itemsTotal)}</span>
         </button>
       )}
 
@@ -364,7 +366,7 @@ export function MarketplaceCartDrawer() {
                         <a href={`/user?id=${group.sellerId}`} className="text-xs font-black uppercase tracking-wider hover:underline" style={{ color: 'var(--text-accent)' }}>
                           {group.sellerName}
                         </a>
-                        <span className="text-xs font-black text-[var(--positive)]">{fmt(subtotal)}</span>
+                        <span className="text-xs font-black text-[var(--positive)]">{formatPrice(subtotal)}</span>
                       </div>
 
                       <div className="space-y-2 mb-3">
@@ -380,7 +382,7 @@ export function MarketplaceCartDrawer() {
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{item.cardName}</div>
                               <div className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                                {item.condition}{item.isFoil ? ' • Foil' : ''} · {fmt(item.priceHuf)}
+                                {item.condition}{item.isFoil ? ' • Foil' : ''} · {formatPrice(item.priceHuf)}
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <button
@@ -408,7 +410,7 @@ export function MarketplaceCartDrawer() {
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
-                              <span className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>{fmt(item.priceHuf * item.quantity)}</span>
+                              <span className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>{formatPrice(item.priceHuf * item.quantity)}</span>
                               <button
                                 type="button"
                                 onClick={() => removeFromCart(item.inventoryId)}
@@ -450,7 +452,7 @@ export function MarketplaceCartDrawer() {
                               >
                                 <span className={`block text-[11px] font-bold ${active ? 'text-[var(--text-accent)]' : 'text-[var(--text-secondary)]'}`}>{hm.label}</span>
                                 <span className="block text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                                  {opt.price > 0 ? fmt(opt.price) : 'Free'}
+                                  {opt.price > 0 ? formatPrice(opt.price) : 'Free'}
                                 </span>
                                 <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>
                                   {locked ? `Add ${fmt(opt.short)} more` : KIND_HINT[hm.kind]}
@@ -463,7 +465,7 @@ export function MarketplaceCartDrawer() {
                       {shipping > 0 && (
                         <div className="flex items-center justify-between text-[11px] mb-2 px-0.5" style={{ color: 'var(--text-secondary)' }}>
                           <span>Shipping ({handoverMethod(c.method)?.label})</span>
-                          <span className="font-bold">{fmt(shipping)}</span>
+                          <span className="font-bold">{formatPrice(shipping)}</span>
                         </div>
                       )}
 
@@ -548,7 +550,7 @@ export function MarketplaceCartDrawer() {
 
                 <div className="flex items-center justify-between mb-3 pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                   <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Total</span>
-                  <span className="text-base font-black text-[var(--positive)]">{fmt(total)}</span>
+                  <span className="text-base font-black text-[var(--positive)]">{formatPrice(total)}</span>
                 </div>
 
                 {errorMsg && (

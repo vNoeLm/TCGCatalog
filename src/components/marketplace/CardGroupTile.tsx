@@ -1,6 +1,7 @@
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import { cardThumbProps, gridThumbSize } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
+import { useCurrency } from '../../lib/currency';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -16,6 +17,7 @@ interface CardGroupTileProps {
 /** One card with active listings: art, lowest/average price and how many copies are for sale. */
 export function CardGroupTile({ group, onClick, gridSize = 'normal', priority = false }: CardGroupTileProps) {
   const isSmall = gridSize === 'small';
+  const { formatPrice } = useCurrency();
   const card = group.representative;
   const imagePath = card.card_image_path || card.image_path;
   const { main, sub } = splitCardTitle(card.name);
@@ -72,13 +74,13 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal', priority = 
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>From</div>
               <div className={`${isSmall ? 'text-sm' : 'text-lg'} font-black text-[var(--positive)] leading-none`}>
-                {group.lowest_price > 0 ? fmtHuf(group.lowest_price) : 'N/A'}
+                {group.lowest_price > 0 ? formatPrice(group.lowest_price) : 'N/A'}
               </div>
             </div>
             {group.avg_price > 0 && group.listing_count > 1 && (
               <div className="text-right">
                 <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Avg</div>
-                <div className={`${isSmall ? 'text-[11px]' : 'text-sm'} font-bold leading-none`} style={{ color: 'var(--text-secondary)' }}>{fmtHuf(group.avg_price)}</div>
+                <div className={`${isSmall ? 'text-[11px]' : 'text-sm'} font-bold leading-none`} style={{ color: 'var(--text-secondary)' }}>{formatPrice(group.avg_price)}</div>
               </div>
             )}
           </div>

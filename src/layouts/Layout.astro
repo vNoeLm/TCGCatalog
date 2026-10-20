@@ -51,8 +51,8 @@ const pathname = Astro.url.pathname;
               if (v && v.indexOf('cyberpunk') !== -1) sessionStorage.removeItem(k);
             });
           } catch (e) {}
-          // The old Cyberpunk ("Dark Tech") theme is gone too: that choice falls back to the default.
-          if (override === 'cyberpunk') { localStorage.removeItem('tcg_theme_override'); override = null; }
+          // The old themes fall back to the defaults (Midnight Slate / Ivory Parchment)
+          if (override === 'cyberpunk' || override === 'riftbound') { localStorage.removeItem('tcg_theme_override'); override = null; }
           if (override === 'custom') {
             document.documentElement.setAttribute('data-theme', 'custom');
             try {
@@ -69,9 +69,9 @@ const pathname = Astro.url.pathname;
               }
             } catch (e) {}
           } else {
-            var theme = (override === 'riftbound' || override === 'dark' || override === 'light')
+            var theme = (override === 'dark' || override === 'light')
               ? override
-              : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'riftbound');
+              : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
             document.documentElement.setAttribute('data-theme', theme);
           }
         } catch (e) {}
