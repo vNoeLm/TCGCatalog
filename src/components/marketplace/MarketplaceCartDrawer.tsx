@@ -26,6 +26,7 @@ import {
 import { AuthModal } from '../auth/AuthModal';
 import { methodAvailability, type MethodAvailability, type ShippingSettings } from '../../lib/shipping';
 import { fetchShippingSettings } from '../../lib/shippingClient';
+import { COUNTRIES } from '../../lib/countries';
 import type { UserProfile } from '../../types';
 
 const fmt = (n: number) =>
@@ -131,12 +132,15 @@ export function MarketplaceCartDrawer() {
     return Array.from(bySeller.values()).map((g) => {
       const subtotal = cartTotalHuf(g.items);
       const settings = shippingBySeller[g.sellerId];
+      const buyerCountry = delivery.country || 'HU';
+      const sellerCountry = settings?.country || 'HU';
+      const destination = buyerCountry === sellerCountry ? 'DOMESTIC' : 'EU';
       const options = sharedHandoverIds(g.items.map((i) => i.handoverMethods))
-        .map((id) => methodAvailability(settings, id, subtotal))
+        .map((id) => methodAvailability(settings, id, subtotal, destination))
         .filter((o) => o.offered);
       return { ...g, subtotal, options, methods: options.filter((o) => o.short === 0).map((o) => o.id) };
     });
-  }, [cart, shippingBySeller]);
+  }, [cart, shippingBySeller, delivery.country]);
 
   const sellerKey = groups.map((g) => g.sellerId).join(',');
   useEffect(() => {
@@ -234,6 +238,8 @@ export function MarketplaceCartDrawer() {
             body: JSON.stringify({
               seller_id: group.sellerId,
               buyer_phone: ships ? delivery.phone.trim() : undefined,
+              buyer_country: delivery.country || 'HU',
+              destination: (delivery.country || 'HU') === (shippingBySeller[group.sellerId]?.country || 'HU') ? 'DOMESTIC' : 'EU',
               preferred_handover: method,
               handover_details: formatHandoverDetails(method, delivery, c.custom) || undefined,
               message: c.message.trim() || undefined,
@@ -520,6 +526,23 @@ export function MarketplaceCartDrawer() {
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" autoComplete="name" value={delivery.recipientName} onChange={(e) => setDelivery({ ...delivery, recipientName: e.target.value })} placeholder="Full name *" className={inputCls} style={inputStyle} />
                       <input type="tel" autoComplete="tel" value={delivery.phone} onChange={(e) => setDelivery({ ...delivery, phone: e.target.value })} placeholder="Phone *" className={inputCls} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Delivery Country
+                      </label>
+                      <select
+                        value={delivery.country || 'HU'}
+                        onChange={(e) => setDelivery({ ...delivery, country: e.target.value })}
+                        className={`${inputCls} font-bold cursor-pointer`}
+                        style={inputStyle}
+                      >
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name} ({c.localName}) {c.code === 'HU' ? '— Domestic' : '— EU'}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     {needs('foxpost') && (
                       <div>

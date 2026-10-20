@@ -598,7 +598,11 @@ export const POST: APIRoute = async ({ request }) => {
       .then((r) => r, () => ({ data: null }));
     const shippingSettings: ShippingSettings | null = shippingRow ? normalizeShipping((shippingRow as any).options) : null;
     const subtotalHuf = lockedItems.reduce((sum, it) => sum + (it.price_huf || 0) * (it.quantity || 1), 0);
-    const availability = methodAvailability(shippingSettings, method.id, subtotalHuf);
+    const buyerCountry = (typeof body.buyer_country === 'string' && body.buyer_country.trim()) || 'HU';
+    const destination = (body.destination === 'EU' || (buyerCountry && buyerCountry !== (shippingSettings?.country || 'HU')))
+      ? 'EU'
+      : 'DOMESTIC';
+    const availability = methodAvailability(shippingSettings, method.id, subtotalHuf, destination);
     if (!availability.offered || availability.short > 0) {
       for (const locked of lockedForRollback) await restoreInventoryItem(locked.id, locked.quantity);
       return new Response(JSON.stringify({

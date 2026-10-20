@@ -821,7 +821,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         {offered.map(({ m, o }) => (
                           <span key={m.id} className="text-[11px] px-2 py-1 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
                             <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{m.label}</span>{' '}
-                            {describeOption({ price: o.price_huf, min: o.min_order_huf }, formatPrice)}
+                            {describeOption({ price: o.price_huf, min: o.min_order_huf, price_eu: (m.id === 'personal' || m.id === 'foxpost') ? undefined : o.price_eu_huf, min_eu: o.min_order_eu_huf }, formatPrice)}
                           </span>
                         ))}
                       </div>

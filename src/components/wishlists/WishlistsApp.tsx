@@ -24,6 +24,7 @@ import {
   type WishlistCard,
 } from '../../lib/wishlists';
 import { AuthModal } from '../auth/AuthModal';
+import { CardPreviewOverlay } from '../CardPreviewOverlay';
 import type { UserProfile } from '../../types';
 
 const SEARCH_FILTERS: FilterState = {
@@ -187,6 +188,7 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
   const [name, setName] = useState(list.name);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   const values = useCardValueData();
   const { formatPrice } = useCurrency();
 
@@ -311,13 +313,24 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
               const stepStyle = { borderColor: 'var(--border)', background: 'var(--bg-raised)', color: 'var(--text-secondary)' };
               return (
                 <li key={key} className="flex items-center gap-3 p-2.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
-                  <div className="w-10 h-14 rounded-md overflow-hidden shrink-0 border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewCardId(cardId)}
+                    aria-label={card?.name ? `View ${card.name}` : 'View card'}
+                    className="w-10 h-14 rounded-md overflow-hidden shrink-0 border cursor-pointer hover:opacity-80 transition p-0 text-left"
+                    style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-input)' }}
+                  >
                     {card?.image_path && <img {...cardThumbProps(card.image_path, 'avatar')} alt="" className="w-full h-full object-cover" />}
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
-                    <a href={`/?card=${cardId}`} className="text-sm font-bold truncate block hover:underline" style={{ color: 'var(--text-primary)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewCardId(cardId)}
+                      className="text-sm font-bold truncate block hover:underline text-left cursor-pointer border-none bg-transparent p-0 max-w-full"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {card?.name || 'Loading…'}
-                    </a>
+                    </button>
                     <div className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                       {card?.card_number}{foil ? ' · Foil' : ''}
                     </div>
@@ -335,6 +348,7 @@ function ListEditor({ list, game, onDeleted }: { list: Wishlist; game: string; o
         </div>
       )}
       {error && <p role="alert" className="mt-3 text-xs font-semibold" style={{ color: 'var(--negative)' }}>{error}</p>}
+      <CardPreviewOverlay cardId={previewCardId} onClose={() => setPreviewCardId(null)} zIndex={100} />
     </section>
   );
 }

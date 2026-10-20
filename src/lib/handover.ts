@@ -57,6 +57,7 @@ export function sharedHandoverIds(lists: (readonly string[] | null | undefined)[
 export interface DeliveryDetails {
   recipientName: string;
   phone: string;
+  country?: string;
   /** Foxpost locker name / ID. */
   foxpostLocker: string;
   /** Packeta pickup point name / ID. */
@@ -69,6 +70,7 @@ export interface DeliveryDetails {
 export const EMPTY_DELIVERY: DeliveryDetails = {
   recipientName: '',
   phone: '',
+  country: 'HU',
   foxpostLocker: '',
   packetaPoint: '',
   postalCode: '',
@@ -102,6 +104,7 @@ export function formatHandoverDetails(methodId: string, d: DeliveryDetails, cust
   if (!m || m.kind === 'personal') return '';
   if (m.kind === 'custom') return customText.trim();
   const lines = [`Recipient: ${d.recipientName.trim()}`, `Phone: ${d.phone.trim()}`];
+  if (d.country && d.country !== 'HU') lines.push(`Country: ${d.country.trim()}`);
   if (m.id === 'foxpost') lines.push(`Foxpost locker: ${d.foxpostLocker.trim()}`);
   if (m.id === 'packeta') lines.push(`Packeta pickup point: ${d.packetaPoint.trim()}`);
   if (m.kind === 'address') lines.push(`Address: ${d.postalCode.trim()} ${d.city.trim()}, ${d.street.trim()}`);

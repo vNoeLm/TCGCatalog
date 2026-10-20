@@ -60,4 +60,56 @@ describe('how an option is described', () => {
     expect(plain(describeOption({ price: 1500, min: 0 }))).toBe('1500 Ft');
     expect(plain(describeOption({ price: 1500, min: 12000 }))).toBe('1500 Ft · from 12 000 Ft');
   });
+
+  it('displays separate EU price when provided', () => {
+    expect(plain(describeOption({ price: 1500, min: 0, price_eu: 7500 }))).toBe('1500 Ft (EU: 7500 Ft)');
+  });
+});
+
+describe('multi-region domestic vs eu shipping', () => {
+  const multiSettings = normalizeShipping({
+    ships_domestic: true,
+    ships_eu: true,
+    foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
+    posta: { enabled: true, price_huf: 1200, min_order_huf: 0, price_eu_huf: 8500, min_order_eu_huf: 5000 },
+    packeta: { enabled: true, price_huf: 1400, min_order_huf: 0, price_eu_huf: 3800, min_order_eu_huf: 0 },
+  });
+
+  it('allows domestic orders with domestic prices', () => {
+    const postDom = methodAvailability(multiSettings, 'posta', 2000, 'DOMESTIC');
+    expect(postDom.offered).toBe(true);
+    expect(postDom.price).toBe(1200);
+
+    const foxDom = methodAvailability(multiSettings, 'foxpost', 2000, 'DOMESTIC');
+    expect(foxDom.offered).toBe(true);
+    expect(foxDom.price).toBe(1500);
+  });
+
+  it('allows EU orders with EU prices and disables domestic-only methods', () => {
+    const postEu = methodAvailability(multiSettings, 'posta', 6000, 'EU');
+    expect(postEu.offered).toBe(true);
+    expect(postEu.price).toBe(8500);
+    expect(postEu.short).toBe(0);
+
+    const packetaEu = methodAvailability(multiSettings, 'packeta', 2000, 'EU');
+    expect(packetaEu.offered).toBe(true);
+    expect(packetaEu.price).toBe(3800);
+
+    // Foxpost is HU only
+    const foxEu = methodAvailability(multiSettings, 'foxpost', 6000, 'EU');
+    expect(foxEu.offered).toBe(false);
+  });
+
+  it('respects seller opting out of EU shipping', () => {
+    const domOnly = normalizeShipping({
+      ships_domestic: true,
+      ships_eu: false,
+      posta: { enabled: true, price_huf: 1200, min_order_huf: 0, price_eu_huf: 8500 },
+    });
+    const postEu = methodAvailability(domOnly, 'posta', 10000, 'EU');
+    expect(postEu.offered).toBe(false);
+
+    const postDom = methodAvailability(domOnly, 'posta', 10000, 'DOMESTIC');
+    expect(postDom.offered).toBe(true);
+  });
 });
