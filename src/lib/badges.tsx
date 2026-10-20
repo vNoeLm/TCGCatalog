@@ -42,6 +42,9 @@ export function formatGameTitle(game: string): string {
   if (g === 'riftbound') return 'Riftbound';
   if (g === 'mtg') return 'MTG';
   if (g === 'onepiece') return 'One Piece';
+  if (g === 'lorcana') return 'Disney Lorcana';
+  if (g === 'starwars') return 'Star Wars: Unlimited';
+  if (g === 'fab') return 'Flesh and Blood';
   return g.charAt(0).toUpperCase() + g.slice(1);
 }
 
@@ -72,6 +75,13 @@ export const RARITY_DIFFICULTY_WEIGHT: Record<string, number> = {
   'super rare': 3,
   'secret rare': 4,
   'treasure rare': 5,
+  // Disney Lorcana
+  legendary: 4,
+  enchanted: 5,
+  // Flesh and Blood
+  majestic: 3,
+  fabled: 6,
+  token: 1,
 };
 /** A rarity this table doesn't name (a new one added later, or another game entirely) is treated
  * as moderately hard rather than silently as free (0) or as hard as the rarest known tier. */

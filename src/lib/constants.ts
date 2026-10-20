@@ -2,6 +2,9 @@ export const GAMES = [
   { id: 'riftbound', name: 'Riftbound', active: true },
   { id: 'mtg', name: 'Magic: The Gathering', active: true },
   { id: 'onepiece', name: 'One Piece Card Game', active: true },
+  { id: 'lorcana', name: 'Disney Lorcana', active: true },
+  { id: 'starwars', name: 'Star Wars: Unlimited', active: true },
+  { id: 'fab', name: 'Flesh and Blood', active: true },
 ];
 
 export const CATEGORIES = [
@@ -26,6 +29,21 @@ export const MTG_TYPES = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Arti
 export const ONEPIECE_RARITIES = ['Common', 'Uncommon', 'Rare', 'Super Rare', 'Secret Rare', 'Leader', 'Treasure Rare', 'Promo'];
 export const ONEPIECE_TYPES = ['Leader', 'Character', 'Event', 'Stage'];
 export const ONEPIECE_COLORS = ['Red', 'Green', 'Blue', 'Purple', 'Black', 'Yellow'];
+
+// ─── Disney Lorcana Constants ──────────────────────────────────────
+export const LORCANA_RARITIES = ['Common', 'Uncommon', 'Rare', 'Super Rare', 'Legendary', 'Enchanted', 'Special'];
+export const LORCANA_TYPES = ['Character', 'Action', 'Item', 'Location'];
+export const LORCANA_INKS = ['Amber', 'Amethyst', 'Emerald', 'Ruby', 'Sapphire', 'Steel'];
+
+// ─── Star Wars: Unlimited Constants ─────────────────────────────────
+export const STARWARS_RARITIES = ['Common', 'Uncommon', 'Rare', 'Legendary', 'Special'];
+export const STARWARS_TYPES = ['Unit', 'Event', 'Upgrade', 'Leader', 'Base'];
+export const STARWARS_ASPECTS = ['Vigilance', 'Command', 'Aggression', 'Cunning', 'Villainy', 'Heroism'];
+
+// ─── Flesh and Blood Constants ─────────────────────────────────────
+export const FAB_RARITIES = ['Common', 'Rare', 'Super Rare', 'Majestic', 'Legendary', 'Fabled', 'Token'];
+export const FAB_TYPES = ['Action', 'Attack Reaction', 'Defense Reaction', 'Instant', 'Equipment', 'Weapon', 'Hero', 'Resource', 'Ally', 'Aura', 'Item', 'Block'];
+export const FAB_CLASSES = ['Generic', 'Brute', 'Guardian', 'Ninja', 'Warrior', 'Mechanologist', 'Ranger', 'Runeblade', 'Wizard', 'Illusionist', 'Assassin', 'Necromancer'];
 
 // ─── Riftbound Constants ──────────────────────────────────────────
 export const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Showcase'];

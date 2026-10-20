@@ -6,7 +6,7 @@ export const prerender = false;
 
 const BANNERS_KEY = 'user_banners';
 const DISPLAYED_BADGES_KEY = 'user_displayed_badges';
-const ALLOWED_BADGE_GAMES = new Set(['riftbound', 'mtg', 'onepiece']);
+const ALLOWED_BADGE_GAMES = new Set(['riftbound', 'mtg', 'onepiece', 'lorcana', 'starwars', 'fab']);
 
 async function loadBannersMap(): Promise<Record<string, string>> {
   try {

@@ -9,9 +9,9 @@
  *  - Magic: main deck of at least 60, optional sideboard of up to 15, 4 copies except basic lands.
  */
 
-export type GameId = 'riftbound' | 'onepiece' | 'mtg';
+export type GameId = 'riftbound' | 'onepiece' | 'mtg' | 'lorcana' | 'starwars' | 'fab';
 
-export const GAME_IDS: GameId[] = ['riftbound', 'onepiece', 'mtg'];
+export const GAME_IDS: GameId[] = ['riftbound', 'onepiece', 'mtg', 'lorcana', 'starwars', 'fab'];
 
 export type ZoneKey = 'legend' | 'extraLegends' | 'champion' | 'mainDeck' | 'runeDeck' | 'battlefields' | 'sideboard';
 
@@ -103,7 +103,56 @@ const MTG: DeckRules = {
   ],
 };
 
-const RULES: Record<GameId, DeckRules> = { riftbound: RIFTBOUND, onepiece: ONEPIECE, mtg: MTG };
+const LORCANA: DeckRules = {
+  game: 'lorcana',
+  legendLabel: 'Character',
+  copyLimit: 4,
+  colorIdentity: false,
+  handSize: 7,
+  summary: 'At least 60 Main Deck cards, up to 4 copies per card, maximum 2 inks',
+  zones: [
+    { key: 'mainDeck', label: 'Main Deck', min: 60, max: Infinity, types: ['Character', 'Action', 'Item', 'Location'] },
+  ],
+};
+
+const STARWARS: DeckRules = {
+  game: 'starwars',
+  legendLabel: 'Leader',
+  copyLimit: 3,
+  colorIdentity: false,
+  handSize: 6,
+  summary: '1 Leader, 1 Base, at least 50 Main Deck cards, up to 10 Sideboard, up to 3 copies per card',
+  zones: [
+    { key: 'legend', label: 'Leader', max: 1, exact: true, types: ['Leader'] },
+    { key: 'battlefields', label: 'Base', max: 1, exact: true, types: ['Base'] },
+    { key: 'mainDeck', label: 'Main Deck', min: 50, max: Infinity, types: ['Unit', 'Event', 'Upgrade'] },
+    { key: 'sideboard', label: 'Sideboard', max: 10, types: ['Unit', 'Event', 'Upgrade', 'Leader', 'Base'] },
+  ],
+};
+
+const FAB: DeckRules = {
+  game: 'fab',
+  legendLabel: 'Hero',
+  copyLimit: 3,
+  colorIdentity: false,
+  handSize: 4,
+  summary: '1 Hero, Weapons & Equipment, 40 to 60 Deck cards, up to 3 copies per card',
+  zones: [
+    { key: 'legend', label: 'Hero', max: 1, exact: true, types: ['Hero'] },
+    { key: 'battlefields', label: 'Weapons & Equipment', max: 6, types: ['Weapon', 'Equipment'] },
+    { key: 'mainDeck', label: 'Deck', min: 40, max: 80, types: ['Action', 'Attack Reaction', 'Defense Reaction', 'Instant', 'Resource', 'Aura', 'Item', 'Block'] },
+    { key: 'sideboard', label: 'Inventory / Sideboard', max: 20, types: null },
+  ],
+};
+
+const RULES: Record<GameId, DeckRules> = {
+  riftbound: RIFTBOUND,
+  onepiece: ONEPIECE,
+  mtg: MTG,
+  lorcana: LORCANA,
+  starwars: STARWARS,
+  fab: FAB,
+};
 
 export function getDeckRules(game: unknown): DeckRules {
   return RULES[toGameId(game)];
@@ -142,6 +191,9 @@ export function maxCopies(game: unknown, card: NamedCard): number {
   const g = toGameId(game);
   if (g === 'mtg') return isBasicLand(card.name) ? Infinity : MTG.copyLimit;
   if (g === 'riftbound') return card.card_type === 'Rune' ? Infinity : RIFTBOUND.copyLimit;
+  if (g === 'lorcana') return LORCANA.copyLimit;
+  if (g === 'starwars') return STARWARS.copyLimit;
+  if (g === 'fab') return FAB.copyLimit;
   return ONEPIECE.copyLimit;
 }
 

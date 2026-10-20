@@ -155,7 +155,14 @@ export function GameSelector() {
               );
             }
 
-            const gameDotColor = g.id === 'riftbound' ? '#f59e0b' : g.id === 'mtg' ? '#f97316' : g.id === 'onepiece' ? '#ef4444' : '#a1a1aa';
+            const gameDotColor =
+              g.id === 'riftbound' ? '#f59e0b' :
+              g.id === 'mtg' ? '#f97316' :
+              g.id === 'onepiece' ? '#ef4444' :
+              g.id === 'lorcana' ? '#8b5cf6' :
+              g.id === 'starwars' ? '#06b6d4' :
+              g.id === 'fab' ? '#e11d48' :
+              '#a1a1aa';
 
             return (
               <button

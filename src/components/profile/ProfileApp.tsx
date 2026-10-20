@@ -105,10 +105,12 @@ export function ProfileApp() {
   const [ratingModalOrder, setRatingModalOrder] = useState<Order | null>(null);
 
   // Collection & Badge State (Per-Game)
-  const [statsByGame, setStatsByGame] = useState<Record<string, { owned: number; total: number; weightedPercentage: number }>>({
-    riftbound: { owned: 0, total: 1424, weightedPercentage: 0 },
-    mtg: { owned: 0, total: 10147, weightedPercentage: 0 },
-    onepiece: { owned: 0, total: 3618, weightedPercentage: 0 },
+  const [statsByGame, setStatsByGame] = useState<Record<string, { owned: number; total: number; weightedPercentage: number }>>(() => {
+    const init: Record<string, { owned: number; total: number; weightedPercentage: number }> = {};
+    for (const g of GAMES) {
+      init[g.id] = { owned: 0, total: 0, weightedPercentage: 0 };
+    }
+    return init;
   });
   const [displayedBadges, setDisplayedBadges] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {

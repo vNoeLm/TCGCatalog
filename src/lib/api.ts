@@ -2,7 +2,14 @@ import { supabase } from './supabase';
 import { isUnreleasedSet } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
 import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
-import { OWNER_ID, DOMAINS, RARITIES, MTG_RARITIES, ONEPIECE_RARITIES, ONEPIECE_COLORS } from './constants';
+import {
+  OWNER_ID, DOMAINS, RARITIES,
+  MTG_RARITIES,
+  ONEPIECE_RARITIES, ONEPIECE_COLORS,
+  LORCANA_RARITIES, LORCANA_INKS,
+  STARWARS_RARITIES, STARWARS_ASPECTS,
+  FAB_RARITIES, FAB_CLASSES,
+} from './constants';
 
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
@@ -203,7 +210,13 @@ export async function fetchCardsCatalog(
 
   // Validate rarities against active game
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'mtg' ? MTG_RARITIES : targetGame === 'onepiece' ? ONEPIECE_RARITIES : RARITIES;
+    const allowedRarities =
+      targetGame === 'mtg' ? MTG_RARITIES :
+      targetGame === 'onepiece' ? ONEPIECE_RARITIES :
+      targetGame === 'lorcana' ? LORCANA_RARITIES :
+      targetGame === 'starwars' ? STARWARS_RARITIES :
+      targetGame === 'fab' ? FAB_RARITIES :
+      RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('rarity', cleanRarities);
@@ -226,7 +239,7 @@ export async function fetchCardsCatalog(
     }
   }
 
-  // Validate domains / colors against active game (Riftbound / One Piece)
+  // Validate domains / colors / inks / aspects / classes against active game
   if (filters.domains && filters.domains.length > 0) {
     if (targetGame === 'riftbound') {
       const cleanDomains = filters.domains.filter(d => DOMAINS.includes(d));
@@ -238,6 +251,24 @@ export async function fetchCardsCatalog(
       const cleanColors = filters.domains.filter(c => ONEPIECE_COLORS.includes(c));
       if (cleanColors.length > 0) {
         const orQuery = cleanColors.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery);
+      }
+    } else if (targetGame === 'lorcana') {
+      const cleanInks = filters.domains.filter(i => LORCANA_INKS.includes(i));
+      if (cleanInks.length > 0) {
+        const orQuery = cleanInks.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery);
+      }
+    } else if (targetGame === 'starwars') {
+      const cleanAspects = filters.domains.filter(a => STARWARS_ASPECTS.includes(a));
+      if (cleanAspects.length > 0) {
+        const orQuery = cleanAspects.map(c => `domain.ilike.%${c}%`).join(',');
+        query = query.or(orQuery);
+      }
+    } else if (targetGame === 'fab') {
+      const cleanClasses = filters.domains.filter(cl => FAB_CLASSES.includes(cl));
+      if (cleanClasses.length > 0) {
+        const orQuery = cleanClasses.map(c => `domain.ilike.%${c}%`).join(',');
         query = query.or(orQuery);
       }
     }
@@ -390,7 +421,13 @@ export async function fetchLegacyInventory(
     query = query.eq('cards.sets.name', filters.set);
   }
   if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities = targetGame === 'mtg' ? MTG_RARITIES : targetGame === 'onepiece' ? ONEPIECE_RARITIES : RARITIES;
+    const allowedRarities =
+      targetGame === 'mtg' ? MTG_RARITIES :
+      targetGame === 'onepiece' ? ONEPIECE_RARITIES :
+      targetGame === 'lorcana' ? LORCANA_RARITIES :
+      targetGame === 'starwars' ? STARWARS_RARITIES :
+      targetGame === 'fab' ? FAB_RARITIES :
+      RARITIES;
     const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
     if (cleanRarities.length > 0) {
       query = query.in('cards.rarity', cleanRarities);
@@ -412,7 +449,12 @@ export async function fetchLegacyInventory(
     }
   }
   if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains = targetGame === 'onepiece' ? ONEPIECE_COLORS : DOMAINS;
+    const allowedDomains =
+      targetGame === 'onepiece' ? ONEPIECE_COLORS :
+      targetGame === 'lorcana' ? LORCANA_INKS :
+      targetGame === 'starwars' ? STARWARS_ASPECTS :
+      targetGame === 'fab' ? FAB_CLASSES :
+      DOMAINS;
     const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
     if (cleanDomains.length > 0) {
       const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');

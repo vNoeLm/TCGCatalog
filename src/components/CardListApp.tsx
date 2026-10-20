@@ -13,7 +13,14 @@ import { gridSizeClasses } from "../lib/gridSize";
 import { useWishlists, wishlistCardIds, createWishlist, MAX_WISHLIST_NAME } from "../lib/wishlists";
 import { useLoadMore, LoadMoreFooter } from "./LoadMore";
 import { useExitTransition } from "../lib/useExitTransition";
-import { RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames, MTG_RARITIES, MTG_TYPES, ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS } from "../lib/constants";
+import {
+  RARITIES, TYPES, SETS, DOMAINS, TAGS, GAMES, sortSetNames,
+  MTG_RARITIES, MTG_TYPES,
+  ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS,
+  LORCANA_RARITIES, LORCANA_TYPES, LORCANA_INKS,
+  STARWARS_RARITIES, STARWARS_TYPES, STARWARS_ASPECTS,
+  FAB_RARITIES, FAB_TYPES, FAB_CLASSES,
+} from "../lib/constants";
 import { resolveCard } from "./deck-builder/deckSerializer";
 import { buildCollectionBackup, importIntoCollection } from "../lib/collectionBackup";
 import { t } from "../lib/labels";
@@ -1755,9 +1762,26 @@ export function CardListApp() {
           options={{
             sets: availableSets,
             wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-            rarities: isRiftbound ? RARITIES : isOnePiece ? ONEPIECE_RARITIES : MTG_RARITIES,
-            types: isRiftbound ? TYPES : isOnePiece ? ONEPIECE_TYPES : MTG_TYPES,
-            domains: isRiftbound ? DOMAINS : isOnePiece ? ONEPIECE_COLORS : [],
+            rarities:
+              filters.game === 'mtg' ? MTG_RARITIES :
+              filters.game === 'onepiece' ? ONEPIECE_RARITIES :
+              filters.game === 'lorcana' ? LORCANA_RARITIES :
+              filters.game === 'starwars' ? STARWARS_RARITIES :
+              filters.game === 'fab' ? FAB_RARITIES :
+              RARITIES,
+            types:
+              filters.game === 'mtg' ? MTG_TYPES :
+              filters.game === 'onepiece' ? ONEPIECE_TYPES :
+              filters.game === 'lorcana' ? LORCANA_TYPES :
+              filters.game === 'starwars' ? STARWARS_TYPES :
+              filters.game === 'fab' ? FAB_TYPES :
+              TYPES,
+            domains:
+              filters.game === 'onepiece' ? ONEPIECE_COLORS :
+              filters.game === 'lorcana' ? LORCANA_INKS :
+              filters.game === 'starwars' ? STARWARS_ASPECTS :
+              filters.game === 'fab' ? FAB_CLASSES :
+              isRiftbound ? DOMAINS : [],
             tags: isRiftbound ? TAGS : [],
           }}
         />

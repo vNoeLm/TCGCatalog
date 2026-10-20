@@ -5,6 +5,7 @@ import { cardThumbProps, gridThumbSize } from "../lib/supabase";
 import { getCardPowerRequirement } from "../lib/cardPowerData";
 import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { useCardValueData, valueOfCard } from "../lib/cardValues";
+import { useCurrency } from "../lib/currency";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 
 interface CardListItemProps {
@@ -40,6 +41,7 @@ export function CardListItem(props: CardListItemProps) {
   // Estimated value: the market reference combined with what sellers here are asking. A card with
   // only a foil price (a few Commons) shows that one, marked as foil.
   const values = useCardValueData();
+  const { formatPrice } = useCurrency();
   const normalValue = valueOfCard(card, false, values).valueHuf;
   const foilValue = valueOfCard(card, true, values).valueHuf;
   const shownValue = normalValue ?? foilValue;
@@ -236,7 +238,7 @@ export function CardListItem(props: CardListItemProps) {
             title="Estimated value: the market reference combined with what sellers here are asking"
           >
             <span className="font-medium" style={{ color: 'var(--text-tertiary)' }}>Est. value{valueIsFoil ? ' (foil)' : ''}</span>
-            <span className="font-black font-mono text-[var(--positive)]">~{shownValue.toLocaleString('en-US')} Ft</span>
+            <span className="font-black font-mono text-[var(--positive)]">~{formatPrice(shownValue)}</span>
           </div>
         )}
 

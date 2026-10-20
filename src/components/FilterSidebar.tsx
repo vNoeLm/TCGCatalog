@@ -339,11 +339,17 @@ export function FilterSidebar({ filters, setFilters, options }: FilterSidebarPro
         </div>
       )}
 
-      {/* 3. DOMAIN / COLOR SECTION (Riftbound / One Piece, Default OPEN) - Balanced 3-Column Micro Grid */}
-      {!isSealedCategory && (isRiftbound || isOnePiece) && options.domains && options.domains.length > 0 && (
+      {/* 3. DOMAIN / COLOR / INK / ASPECT / CLASS SECTION (Default OPEN) - Balanced 3-Column Micro Grid */}
+      {!isSealedCategory && options.domains && options.domains.length > 0 && (
         <div className={`border-b ${sidebarTheme.divider} pb-2`}>
           <SectionHeader
-            label={isOnePiece ? "Color" : "Domain"}
+            label={
+              filters.game === 'onepiece' ? "Color" :
+              filters.game === 'lorcana' ? "Ink" :
+              filters.game === 'starwars' ? "Aspect" :
+              filters.game === 'fab' ? "Class" :
+              "Domain"
+            }
             badge={filters.domains.length}
             open={domainOpen}
             onToggle={() => setDomainOpen(o => !o)}

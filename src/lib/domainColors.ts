@@ -100,6 +100,33 @@ export const DOMAIN_STYLES: Record<string, FilterTokenStyle> = {
   Purple:     { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
   Black:      { dot: "#64748b", activeBg: "rgba(51,65,85,0.35)",    border: "rgba(148,163,184,0.7)", text: "#cbd5e1", hoverBg: "rgba(51,65,85,0.2)",    hoverBorder: "rgba(148,163,184,0.45)" },
   Yellow:     { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
+  // Disney Lorcana Inks
+  Amber:      { dot: "#f59e0b", activeBg: "rgba(245,158,11,0.22)",  border: "rgba(245,158,11,0.7)", text: "#fcd34d", hoverBg: "rgba(245,158,11,0.12)",  hoverBorder: "rgba(245,158,11,0.45)" },
+  Amethyst:   { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)", text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
+  Emerald:    { dot: "#10b981", activeBg: "rgba(16,185,129,0.22)",  border: "rgba(16,185,129,0.7)", text: "#6ee7b7", hoverBg: "rgba(16,185,129,0.12)",  hoverBorder: "rgba(16,185,129,0.45)" },
+  Ruby:       { dot: "#ef4444", activeBg: "rgba(239,68,68,0.22)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.12)",   hoverBorder: "rgba(239,68,68,0.45)" },
+  Sapphire:   { dot: "#0ea5e9", activeBg: "rgba(14,165,233,0.22)",  border: "rgba(14,165,233,0.7)", text: "#7dd3fc", hoverBg: "rgba(14,165,233,0.12)",  hoverBorder: "rgba(14,165,233,0.45)" },
+  Steel:      { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#cbd5e1", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
+  // Star Wars: Unlimited Aspects
+  Vigilance:  { dot: "#3b82f6", activeBg: "rgba(59,130,246,0.22)",  border: "rgba(59,130,246,0.7)", text: "#93c5fd", hoverBg: "rgba(59,130,246,0.12)",  hoverBorder: "rgba(59,130,246,0.45)" },
+  Command:    { dot: "#16a34a", activeBg: "rgba(22,163,74,0.22)",   border: "rgba(22,163,74,0.7)", text: "#86efac", hoverBg: "rgba(22,163,74,0.12)",   hoverBorder: "rgba(22,163,74,0.45)" },
+  Aggression: { dot: "#ef4444", activeBg: "rgba(239,68,68,0.22)",   border: "rgba(239,68,68,0.7)", text: "#fca5a5", hoverBg: "rgba(239,68,68,0.12)",   hoverBorder: "rgba(239,68,68,0.45)" },
+  Cunning:    { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)", text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
+  Villainy:   { dot: "#64748b", activeBg: "rgba(100,116,139,0.25)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(100,116,139,0.15)", hoverBorder: "rgba(148,163,184,0.45)" },
+  Heroism:    { dot: "#38bdf8", activeBg: "rgba(56,189,248,0.22)",  border: "rgba(56,189,248,0.7)", text: "#bae6fd", hoverBg: "rgba(56,189,248,0.12)",  hoverBorder: "rgba(56,189,248,0.45)" },
+  // Flesh and Blood Classes
+  Generic:       { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#e2e8f0", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
+  Brute:         { dot: "#ea580c", activeBg: "rgba(234,88,12,0.22)",  border: "rgba(234,88,12,0.7)",  text: "#fdba74", hoverBg: "rgba(234,88,12,0.12)",  hoverBorder: "rgba(234,88,12,0.45)" },
+  Guardian:      { dot: "#0284c7", activeBg: "rgba(2,132,199,0.22)",  border: "rgba(2,132,199,0.7)",  text: "#7dd3fc", hoverBg: "rgba(2,132,199,0.12)",  hoverBorder: "rgba(2,132,199,0.45)" },
+  Ninja:         { dot: "#059669", activeBg: "rgba(5,150,105,0.22)",  border: "rgba(5,150,105,0.7)",  text: "#6ee7b7", hoverBg: "rgba(5,150,105,0.12)",  hoverBorder: "rgba(5,150,105,0.45)" },
+  Warrior:       { dot: "#eab308", activeBg: "rgba(234,179,8,0.22)",   border: "rgba(234,179,8,0.7)",  text: "#fde047", hoverBg: "rgba(234,179,8,0.12)",   hoverBorder: "rgba(234,179,8,0.45)" },
+  Mechanologist: { dot: "#d97706", activeBg: "rgba(217,119,6,0.22)",  border: "rgba(217,119,6,0.7)",  text: "#fcd34d", hoverBg: "rgba(217,119,6,0.12)",  hoverBorder: "rgba(217,119,6,0.45)" },
+  Ranger:        { dot: "#16a34a", activeBg: "rgba(22,163,74,0.22)",   border: "rgba(22,163,74,0.7)",  text: "#86efac", hoverBg: "rgba(22,163,74,0.12)",   hoverBorder: "rgba(22,163,74,0.45)" },
+  Runeblade:     { dot: "#7c3aed", activeBg: "rgba(124,58,237,0.22)",  border: "rgba(124,58,237,0.7)", text: "#c4b5fd", hoverBg: "rgba(124,58,237,0.12)", hoverBorder: "rgba(124,58,237,0.45)" },
+  Wizard:        { dot: "#2563eb", activeBg: "rgba(37,99,235,0.22)",  border: "rgba(37,99,235,0.7)",  text: "#93c5fd", hoverBg: "rgba(37,99,235,0.12)",  hoverBorder: "rgba(37,99,235,0.45)" },
+  Illusionist:   { dot: "#ec4899", activeBg: "rgba(236,72,153,0.22)",  border: "rgba(236,72,153,0.7)", text: "#fbcfe8", hoverBg: "rgba(236,72,153,0.12)", hoverBorder: "rgba(236,72,153,0.45)" },
+  Assassin:      { dot: "#475569", activeBg: "rgba(71,85,105,0.3)",    border: "rgba(100,116,139,0.7)",text: "#cbd5e1", hoverBg: "rgba(71,85,105,0.2)",   hoverBorder: "rgba(100,116,139,0.45)" },
+  Necromancer:   { dot: "#9333ea", activeBg: "rgba(147,51,234,0.22)",  border: "rgba(147,51,234,0.7)", text: "#d8b4fe", hoverBg: "rgba(147,51,234,0.12)", hoverBorder: "rgba(147,51,234,0.45)" },
 };
 
 export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
@@ -117,6 +144,12 @@ export const RARITY_STYLES: Record<string, FilterTokenStyle> = {
   'Leader':        { dot: "#f59e0b", activeBg: "rgba(245,158,11,0.22)",  border: "rgba(245,158,11,0.7)",  text: "#fcd34d", hoverBg: "rgba(245,158,11,0.12)",  hoverBorder: "rgba(245,158,11,0.45)" },
   'Treasure Rare': { dot: "#10b981", activeBg: "rgba(16,185,129,0.22)",  border: "rgba(16,185,129,0.7)",  text: "#6ee7b7", hoverBg: "rgba(16,185,129,0.12)",  hoverBorder: "rgba(16,185,129,0.45)" },
   'Promo':         { dot: "#a855f7", activeBg: "rgba(168,85,247,0.22)",  border: "rgba(168,85,247,0.7)",  text: "#d8b4fe", hoverBg: "rgba(168,85,247,0.12)",  hoverBorder: "rgba(168,85,247,0.45)" },
+  // Lorcana / SWU / FaB Rarities
+  'Legendary':     { dot: "#f59e0b", activeBg: "rgba(245,158,11,0.22)",  border: "rgba(245,158,11,0.8)",  text: "#fcd34d", hoverBg: "rgba(245,158,11,0.12)",  hoverBorder: "rgba(245,158,11,0.5)" },
+  'Enchanted':     { dot: "#ec4899", activeBg: "rgba(236,72,153,0.22)", border: "rgba(236,72,153,0.8)", text: "#fbcfe8", hoverBg: "rgba(236,72,153,0.12)", hoverBorder: "rgba(236,72,153,0.5)" },
+  'Majestic':      { dot: "#8b5cf6", activeBg: "rgba(139,92,246,0.22)",  border: "rgba(139,92,246,0.8)",  text: "#c4b5fd", hoverBg: "rgba(139,92,246,0.12)",  hoverBorder: "rgba(139,92,246,0.5)" },
+  'Fabled':        { dot: "#06b6d4", activeBg: "rgba(6,182,212,0.22)",   border: "rgba(6,182,212,0.8)",   text: "#67e8f9", hoverBg: "rgba(6,182,212,0.12)",   hoverBorder: "rgba(6,182,212,0.5)" },
+  'Token':         { dot: "#94a3b8", activeBg: "rgba(148,163,184,0.22)", border: "rgba(148,163,184,0.7)", text: "#cbd5e1", hoverBg: "rgba(148,163,184,0.12)", hoverBorder: "rgba(148,163,184,0.45)" },
 };
 
 

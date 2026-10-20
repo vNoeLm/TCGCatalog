@@ -1084,17 +1084,21 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   </div>
                 )}
 
-                {card.game === 'onepiece' && (
+                {(card.game === 'onepiece' || card.game === 'lorcana' || card.game === 'starwars' || card.game === 'fab') && (
                   <>
                     {card.cost != null && (
                       <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Cost</div>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                          {card.game === 'lorcana' ? 'Ink Cost' : 'Cost'}
+                        </div>
                         <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.cost}</div>
                       </div>
                     )}
                     {card.domain && (
                       <div className="rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Color</div>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                          {card.game === 'onepiece' ? 'Color' : card.game === 'lorcana' ? 'Ink' : card.game === 'starwars' ? 'Aspect' : card.game === 'fab' ? 'Class' : 'Domain'}
+                        </div>
                         <div className="text-base font-black" style={{ color: 'var(--text-primary)' }}>{card.domain}</div>
                       </div>
                     )}
@@ -1348,9 +1352,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {card.text && (
                 <div className={card.ability ? "pt-3" : ""} style={card.ability ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
                   <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
-                    {card.game === 'mtg' || card.game === 'onepiece' ? 'Card Text' : 'Flavor Text'}
+                    {card.game && card.game !== 'riftbound' ? 'Card Text' : 'Flavor Text'}
                   </div>
-                  <div className={`text-sm sm:text-base leading-relaxed ${card.game === 'mtg' || card.game === 'onepiece' ? 'whitespace-pre-line' : 'italic'}`} style={{ color: (card.game === 'mtg' || card.game === 'onepiece') ? 'var(--text-primary)' : 'var(--text-secondary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
+                  <div className={`text-sm sm:text-base leading-relaxed ${card.game && card.game !== 'riftbound' ? 'whitespace-pre-line' : 'italic'}`} style={{ color: (card.game && card.game !== 'riftbound') ? 'var(--text-primary)' : 'var(--text-secondary)' }} dangerouslySetInnerHTML={{ __html: formatGameText(card.text) }} />
                 </div>
               )}
             </div>
@@ -1583,7 +1587,13 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
 
 function PriceChartingButton({ card }: { card: CatalogCard; isFoil?: boolean }) {
   const game = (card.game || 'riftbound').toLowerCase();
-  const cmSlug = game === 'mtg' ? 'Magic' : game === 'onepiece' ? 'OnePiece' : 'Riftbound';
+  const cmSlug =
+    game === 'mtg' ? 'Magic' :
+    game === 'onepiece' ? 'OnePiece' :
+    game === 'lorcana' ? 'Lorcana' :
+    game === 'starwars' ? 'StarWarsUnlimited' :
+    game === 'fab' ? 'FleshAndBlood' :
+    'Riftbound';
   const url = `https://www.cardmarket.com/en/${cmSlug}/Products/Search?searchString=${encodeURIComponent(card.name)}`;
 
   return (

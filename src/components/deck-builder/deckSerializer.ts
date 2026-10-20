@@ -402,6 +402,22 @@ export function exportDeckToJson(deck: DeckState, allCards: CatalogCard[], deckN
   if (game === 'onepiece') {
     exportObj.leader = legendCard ? legendCard.name : deck.legend || null;
     exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+  } else if (game === 'lorcana') {
+    exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+  } else if (game === 'starwars') {
+    exportObj.leader = legendCard ? legendCard.name : deck.legend || null;
+    exportObj.base = formatSimplifiedZoneMap(deck.battlefields, allCards);
+    exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+    if (deck.sideboard && Object.keys(deck.sideboard).length > 0) {
+      exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
+    }
+  } else if (game === 'fab') {
+    exportObj.hero = legendCard ? legendCard.name : deck.legend || null;
+    exportObj.equipment = formatSimplifiedZoneMap(deck.battlefields, allCards);
+    exportObj.deck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
+    if (deck.sideboard && Object.keys(deck.sideboard).length > 0) {
+      exportObj.sideboard = formatSimplifiedZoneMap(deck.sideboard, allCards);
+    }
   } else if (game === 'mtg') {
     exportObj.mainDeck = formatSimplifiedZoneMap(deck.mainDeck, allCards);
     if (deck.sideboard && Object.keys(deck.sideboard).length > 0) {
@@ -440,6 +456,22 @@ export function exportSavedDecksToJson(savedDecks: SavedDeck[], allCards: Catalo
     if (game === 'onepiece') {
       exportObj.leader = legendCard ? legendCard.name : sd.deck.legend || null;
       exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+    } else if (game === 'lorcana') {
+      exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+    } else if (game === 'starwars') {
+      exportObj.leader = legendCard ? legendCard.name : sd.deck.legend || null;
+      exportObj.base = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
+      exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+      if (sd.deck.sideboard && Object.keys(sd.deck.sideboard).length > 0) {
+        exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
+      }
+    } else if (game === 'fab') {
+      exportObj.hero = legendCard ? legendCard.name : sd.deck.legend || null;
+      exportObj.equipment = formatSimplifiedZoneMap(sd.deck.battlefields, allCards);
+      exportObj.deck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
+      if (sd.deck.sideboard && Object.keys(sd.deck.sideboard).length > 0) {
+        exportObj.sideboard = formatSimplifiedZoneMap(sd.deck.sideboard, allCards);
+      }
     } else if (game === 'mtg') {
       exportObj.mainDeck = formatSimplifiedZoneMap(sd.deck.mainDeck, allCards);
       if (sd.deck.sideboard && Object.keys(sd.deck.sideboard).length > 0) {
@@ -493,17 +525,33 @@ export function exportDeckToText(deck: DeckState, allCards: CatalogCard[], deckN
 
   const legendCard = allCards.find(c => c.id === deck.legend);
 
-  if (game === 'onepiece') {
+  if (game === 'onepiece' || game === 'starwars') {
     if (legendCard) {
       lines.push('// Leader');
       const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
       lines.push(`1 ${legendCard.name}${num}`);
       lines.push('');
     }
+    if (game === 'starwars') {
+      formatList(deck.battlefields, 'Base');
+    }
     formatList(deck.mainDeck, 'Main Deck');
-  } else if (game === 'mtg') {
+    if (game === 'starwars') {
+      formatList(deck.sideboard, 'Sideboard');
+    }
+  } else if (game === 'fab') {
+    if (legendCard) {
+      lines.push('// Hero');
+      const num = legendCard.card_number ? ` (${legendCard.card_number.split('/')[0]})` : '';
+      lines.push(`1 ${legendCard.name}${num}`);
+      lines.push('');
+    }
+    formatList(deck.battlefields, 'Weapons & Equipment');
+    formatList(deck.mainDeck, 'Deck');
+    formatList(deck.sideboard, 'Inventory');
+  } else if (game === 'mtg' || game === 'lorcana') {
     formatList(deck.mainDeck, 'Main Deck');
-    formatList(deck.sideboard, 'Sideboard');
+    if (game === 'mtg') formatList(deck.sideboard, 'Sideboard');
   } else {
     // Riftbound
     if (legendCard) {

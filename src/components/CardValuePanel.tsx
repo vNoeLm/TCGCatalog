@@ -18,7 +18,6 @@ interface CardValuePanelProps {
   isFoil?: boolean;
 }
 
-const ft = (n: number) => `${n.toLocaleString('en-US')} Ft`;
 
 /**
  * What a card is worth: the estimate, the market price it started from, and what sellers on the
@@ -32,7 +31,13 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
   const { formatPrice, currency } = useCurrency();
   const [tab, setTab] = useState<'value' | 'graph'>('value');
   const game = (card.game || 'riftbound').toLowerCase();
-  const cmSlug = game === 'mtg' ? 'Magic' : game === 'onepiece' ? 'OnePiece' : 'Riftbound';
+  const cmSlug =
+    game === 'mtg' ? 'Magic' :
+    game === 'onepiece' ? 'OnePiece' :
+    game === 'lorcana' ? 'Lorcana' :
+    game === 'starwars' ? 'StarWarsUnlimited' :
+    game === 'fab' ? 'FleshAndBlood' :
+    'Riftbound';
   const cmUrl = card.name
     ? `https://www.cardmarket.com/en/${cmSlug}/Products/Search?searchString=${encodeURIComponent(card.name)}`
     : `https://www.cardmarket.com/en/${cmSlug}`;
@@ -144,7 +149,7 @@ export function CardValuePanel({ card, className, isFoil }: CardValuePanelProps)
                           </span>
                           <span className="ml-2 text-xs font-medium" style={muted}>
                             from {formatPrice(estimate.site.lowest)}
-                            {estimate.site.count > 1 ? `, middle ${ft(roundHuf(estimate.site.median))}` : ''}
+                            {estimate.site.count > 1 ? `, middle ${formatPrice(estimate.site.median)}` : ''}
                           </span>
                         </>
                       ) : (

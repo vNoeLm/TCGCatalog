@@ -6,7 +6,14 @@ import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
 import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard, compareCardsByRarity } from '../../lib/cardVariants';
-import { TAGS, sortSetNames, ONEPIECE_COLORS, ONEPIECE_RARITIES, MTG_RARITIES } from '../../lib/constants';
+import {
+  TAGS, sortSetNames,
+  ONEPIECE_COLORS, ONEPIECE_RARITIES,
+  MTG_RARITIES,
+  LORCANA_RARITIES, LORCANA_INKS,
+  STARWARS_RARITIES, STARWARS_ASPECTS,
+  FAB_RARITIES, FAB_CLASSES,
+} from '../../lib/constants';
 import { maxCopies, zoneRule, type GameId } from '../../lib/deckRules';
 import { useLoadMore, LoadMoreFooter } from '../LoadMore';
 
@@ -69,6 +76,21 @@ const GAME_ZONE_TYPE_OPTIONS: Record<GameId, Record<string, string[]>> = {
   mtg: {
     mainDeck:    ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'],
     sideboard:   ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Planeswalker', 'Land', 'Battle'],
+  },
+  lorcana: {
+    mainDeck:    ['Character', 'Action', 'Item', 'Location'],
+  },
+  starwars: {
+    legend:      ['Leader'],
+    battlefields:['Base'],
+    mainDeck:    ['Unit', 'Event', 'Upgrade'],
+    sideboard:   ['Unit', 'Event', 'Upgrade', 'Leader', 'Base'],
+  },
+  fab: {
+    legend:      ['Hero'],
+    battlefields:['Weapon', 'Equipment'],
+    mainDeck:    ['Action', 'Attack Reaction', 'Defense Reaction', 'Instant', 'Resource', 'Aura', 'Item', 'Block'],
+    sideboard:   ['Action', 'Attack Reaction', 'Defense Reaction', 'Instant', 'Resource', 'Aura', 'Item', 'Block', 'Weapon', 'Equipment'],
   },
 };
 
@@ -321,6 +343,15 @@ export function DeckCatalog({
     if (activeGame === 'onepiece') {
       return ['All', ...ONEPIECE_COLORS];
     }
+    if (activeGame === 'lorcana') {
+      return ['All', ...LORCANA_INKS];
+    }
+    if (activeGame === 'starwars') {
+      return ['All', ...STARWARS_ASPECTS];
+    }
+    if (activeGame === 'fab') {
+      return ['All', ...FAB_CLASSES];
+    }
     const base = (legendCard && allowedDomains)
       ? allowedDomains
       : ['fury', 'calm', 'mind', 'body', 'chaos', 'order'];
@@ -340,7 +371,13 @@ export function DeckCatalog({
   // Available rarities sorted in defined order
   const rarityOptions = useMemo(() => {
     const present = new Set(cards.map(c => c.rarity).filter(Boolean));
-    const order = activeGame === 'mtg' ? MTG_RARITIES : activeGame === 'onepiece' ? ONEPIECE_RARITIES : RARITY_ORDER;
+    const order =
+      activeGame === 'mtg' ? MTG_RARITIES :
+      activeGame === 'onepiece' ? ONEPIECE_RARITIES :
+      activeGame === 'lorcana' ? LORCANA_RARITIES :
+      activeGame === 'starwars' ? STARWARS_RARITIES :
+      activeGame === 'fab' ? FAB_RARITIES :
+      RARITY_ORDER;
     const ordered = order.filter(r => present.has(r));
     const extras = Array.from(present).filter(r => !order.includes(r));
     return [...ordered, ...extras];
@@ -357,8 +394,19 @@ export function DeckCatalog({
       if (activeGame === 'onepiece') {
         if (activeZone === 'legend' && card.card_type !== 'Leader') return false;
         if (activeZone === 'mainDeck' && !['Character', 'Event', 'Stage'].includes(card.card_type)) return false;
+      } else if (activeGame === 'starwars') {
+        if (activeZone === 'legend' && card.card_type !== 'Leader') return false;
+        if (activeZone === 'battlefields' && card.card_type !== 'Base') return false;
+        if (activeZone === 'mainDeck' && !['Unit', 'Event', 'Upgrade'].includes(card.card_type)) return false;
+        if (activeZone === 'sideboard' && !['Unit', 'Event', 'Upgrade', 'Leader', 'Base'].includes(card.card_type)) return false;
+      } else if (activeGame === 'fab') {
+        if (activeZone === 'legend' && card.card_type !== 'Hero') return false;
+        if (activeZone === 'battlefields' && !['Weapon', 'Equipment'].includes(card.card_type)) return false;
+        if (activeZone === 'mainDeck' && !['Action', 'Attack Reaction', 'Defense Reaction', 'Instant', 'Resource', 'Aura', 'Item', 'Block'].includes(card.card_type)) return false;
       } else if (activeGame === 'mtg') {
         // MTG cards in mainDeck or sideboard: all types allowed
+      } else if (activeGame === 'lorcana') {
+        if (activeZone === 'mainDeck' && !['Character', 'Action', 'Item', 'Location'].includes(card.card_type)) return false;
       } else {
         // Riftbound
         switch (activeZone) {
@@ -753,7 +801,13 @@ export function DeckCatalog({
             {/* Row 3: Domain / Color chips (hidden for MTG or legend/rune/battlefield zones) */}
             {activeGame !== 'mtg' && !['legend', 'runeDeck', 'battlefields'].includes(activeZone) && (
               <div>
-                <label style={currentLabelStyle}>{activeGame === 'onepiece' ? 'Color' : 'Domain'}</label>
+                <label style={currentLabelStyle}>
+                  {activeGame === 'onepiece' ? 'Color' :
+                   activeGame === 'lorcana' ? 'Ink' :
+                   activeGame === 'starwars' ? 'Aspect' :
+                   activeGame === 'fab' ? 'Class' :
+                   'Domain'}
+                </label>
                 <div style={pillGrid}>
                   {domainOptions.map(d => {
                     const isActive = d === 'All' ? domainFilter.length === 0 : domainFilter.includes(d);

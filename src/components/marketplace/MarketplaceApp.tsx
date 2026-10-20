@@ -22,7 +22,11 @@ import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
   STORAGE_KEYS, EVENTS, SORT_MODES, type SortMode, sortSetNames,
-  MTG_RARITIES, MTG_TYPES, ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS
+  MTG_RARITIES, MTG_TYPES,
+  ONEPIECE_RARITIES, ONEPIECE_TYPES, ONEPIECE_COLORS,
+  LORCANA_RARITIES, LORCANA_TYPES, LORCANA_INKS,
+  STARWARS_RARITIES, STARWARS_TYPES, STARWARS_ASPECTS,
+  FAB_RARITIES, FAB_TYPES, FAB_CLASSES,
 } from '../../lib/constants';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -339,9 +343,26 @@ export function MarketplaceApp() {
       options={{
         sets: availableSets,
         wishlists: wishlists.map(w => ({ id: w.id, name: w.name })),
-        rarities: isRiftbound ? RARITIES : isOnePiece ? ONEPIECE_RARITIES : MTG_RARITIES,
-        types: isRiftbound ? TYPES : isOnePiece ? ONEPIECE_TYPES : MTG_TYPES,
-        domains: isRiftbound ? DOMAINS : isOnePiece ? ONEPIECE_COLORS : [],
+        rarities:
+          filters.game === 'mtg' ? MTG_RARITIES :
+          filters.game === 'onepiece' ? ONEPIECE_RARITIES :
+          filters.game === 'lorcana' ? LORCANA_RARITIES :
+          filters.game === 'starwars' ? STARWARS_RARITIES :
+          filters.game === 'fab' ? FAB_RARITIES :
+          RARITIES,
+        types:
+          filters.game === 'mtg' ? MTG_TYPES :
+          filters.game === 'onepiece' ? ONEPIECE_TYPES :
+          filters.game === 'lorcana' ? LORCANA_TYPES :
+          filters.game === 'starwars' ? STARWARS_TYPES :
+          filters.game === 'fab' ? FAB_TYPES :
+          TYPES,
+        domains:
+          filters.game === 'onepiece' ? ONEPIECE_COLORS :
+          filters.game === 'lorcana' ? LORCANA_INKS :
+          filters.game === 'starwars' ? STARWARS_ASPECTS :
+          filters.game === 'fab' ? FAB_CLASSES :
+          isRiftbound ? DOMAINS : [],
         tags: isRiftbound ? TAGS : [],
       }}
     />
