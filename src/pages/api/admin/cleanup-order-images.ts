@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getRequestUser } from '../../../lib/requestAuth';
 import type { Order } from '../../../types';
 
 export const prerender = false;
@@ -19,23 +20,9 @@ async function isAuthorized(request: Request): Promise<boolean> {
     return true;
   }
 
-  // 2. Admin Bearer Token check
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return false;
-
-  const token = authHeader.replace('Bearer ', '').trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return false;
-
-  if (user.email === 'vnoel05@gmail.com' || user.email === 'support@tcgxchange.net') return true;
-
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role, is_admin')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  return profile?.role === 'owner' || profile?.role === 'admin' || Boolean(profile?.is_admin);
+  // 2. Admin Bearer Token check via centralized auth
+  const caller = await getRequestUser(request);
+  return Boolean(caller?.isAdmin);
 }
 
 /**

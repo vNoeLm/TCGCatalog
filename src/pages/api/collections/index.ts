@@ -3,13 +3,14 @@ import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
 import { MAX_COLLECTIONS, MAX_COLLECTION_NAME, normalizeListDefaults } from '../../../lib/collectionDefaults';
 import { loadCollection, rowToCollection, syncAlwaysList, unlistCollection } from '../../../lib/collectionsServer';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
 
 const tableMissing = (error: any) => Boolean(error && (error.code === '42P01' || error.code === 'PGRST205'));
 const MIGRATION_MSG = 'Named collections need the database update (card_collections migration) first.';
 
-const cleanName = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, MAX_COLLECTION_NAME) : '');
+const cleanName = (v: unknown) => sanitizePlainText(v, MAX_COLLECTION_NAME);
 const cleanPrices = (v: unknown): Record<string, number> => {
   const out: Record<string, number> = {};
   if (v && typeof v === 'object') {

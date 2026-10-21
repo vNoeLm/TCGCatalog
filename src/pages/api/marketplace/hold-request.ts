@@ -6,8 +6,12 @@ import { handoverMethod, handoverLabel, listingHandoverIds, type HandoverMethodI
 import { methodAvailability, normalizeShipping, fmtHuf, type ShippingSettings } from '../../../lib/shipping';
 import { listingCollectionLinks, collectionKey } from '../../../lib/sellerNotes';
 import { adjustNamedCollectionCard } from '../../../lib/collectionsServer';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
+const holdRateMap = new Map<string, number>();
+const HOLD_RATE_LIMIT_MS = 3000;
+
 
 const BUYER_CONFIRM_DAYS_TEXT = `${CONFIRM_TIMEOUT_DAYS} days`;
 
@@ -308,37 +312,45 @@ export const GET: APIRoute = async ({ url, request }) => {
       });
     }
 
-    // Try primary table first
-    const { data: dbData, error: dbErr } = await supabaseAdmin
-      .from('hold_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
-
     let allRequests: HoldRequestRecord[] = [];
+
+    // Push filtering to database level: query only records relevant to caller
+    let dbQuery = supabaseAdmin.from('hold_requests').select('*');
+    if (user.id !== OWNER_ID) {
+      if (sellerId) {
+        dbQuery = dbQuery.eq('seller_id', user.id);
+      } else if (buyerId) {
+        dbQuery = dbQuery.eq('buyer_id', user.id);
+      } else if (inventoryId) {
+        dbQuery = dbQuery.eq('inventory_id', inventoryId).or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`);
+      } else {
+        dbQuery = dbQuery.or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`);
+      }
+    } else {
+      if (sellerId) dbQuery = dbQuery.eq('seller_id', sellerId);
+      else if (buyerId) dbQuery = dbQuery.eq('buyer_id', buyerId);
+      else if (inventoryId) dbQuery = dbQuery.eq('inventory_id', inventoryId);
+    }
+
+    const { data: dbData, error: dbErr } = await dbQuery.order('created_at', { ascending: false }).limit(200);
 
     if (!dbErr && Array.isArray(dbData)) {
       allRequests = dbData;
     } else {
-      // Fallback to settings
-      allRequests = await getFallbackHoldRequests();
+      // Fallback to settings if table is not yet created
+      const rawFallback = await getFallbackHoldRequests();
+      allRequests = rawFallback.filter(r => {
+        if (sellerId) return r.seller_id === sellerId;
+        if (buyerId) return r.buyer_id === buyerId;
+        if (inventoryId) return r.inventory_id === inventoryId && (r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID);
+        return r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID;
+      });
     }
 
     // Auto-complete any requests that have been waiting > 3 days without response from the second party
     allRequests = await autoCompleteTimedOutRequests(allRequests);
 
-    let filtered = allRequests;
-    if (sellerId) {
-      filtered = filtered.filter(r => r.seller_id === sellerId);
-    } else if (buyerId) {
-      filtered = filtered.filter(r => r.buyer_id === buyerId);
-    } else if (inventoryId) {
-      filtered = filtered.filter(r => r.inventory_id === inventoryId && (r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID));
-    } else {
-      // If neither specified, only show requests where caller is seller or buyer
-      filtered = filtered.filter(r => r.seller_id === user.id || r.buyer_id === user.id || user.id === OWNER_ID);
-    }
-
-    return new Response(JSON.stringify({ success: true, data: filtered }), {
+    return new Response(JSON.stringify({ success: true, data: allRequests }), {
       status: 200,
       headers: JSON_HEADERS,
     });
@@ -371,6 +383,69 @@ type LockResult =
  * these instead of duplicating the locking logic.
  */
 async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput, handover: HandoverMethodId): Promise<LockResult> {
+  // 1. Try marketplace_listings
+  const { data: mktRow } = await supabaseAdmin
+    .from('marketplace_listings')
+    .select('id, seller_id, status, quantity, price_huf, condition, is_foil, handover_methods')
+    .eq('id', line.inventory_id)
+    .maybeSingle();
+
+  if (mktRow) {
+    if (mktRow.status === 'Sold' || (mktRow.quantity && mktRow.quantity <= 0)) {
+      return { ok: false, error: 'This card has already been sold.', status: 400 };
+    }
+    if (mktRow.status === 'On Hold' || mktRow.status === 'Reserved') {
+      return { ok: false, error: 'This card is currently on hold for another buyer.', status: 400 };
+    }
+
+    const availableQty = Number(mktRow.quantity) || 1;
+    let requestedQty = parseInt(String(line.quantity), 10);
+    if (!Number.isFinite(requestedQty) || requestedQty < 1) requestedQty = 1;
+    if (requestedQty > availableQty) requestedQty = availableQty;
+
+    const verifiedSellerId = mktRow.seller_id || sellerIdHint;
+    const listedHandovers = Array.isArray(mktRow.handover_methods) ? mktRow.handover_methods : undefined;
+
+    if (!listingHandoverIds(listedHandovers).includes(handover)) {
+      return {
+        ok: false,
+        error: `${line.card_name || 'One of these cards'} isn't offered with ${handoverLabel(handover)} - pick one of the methods the seller listed it with.`,
+        status: 400,
+      };
+    }
+
+    const remainingAfter = availableQty - requestedQty;
+    const newStatus = remainingAfter > 0 ? mktRow.status : 'Reserved';
+
+    const { data: lockedRows, error: lockErr } = await supabaseAdmin
+      .from('marketplace_listings')
+      .update({ quantity: remainingAfter, status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', line.inventory_id)
+      .eq('quantity', availableQty)
+      .in('status', ['In Stock', 'Available'])
+      .select('id');
+
+    if (lockErr || !lockedRows || lockedRows.length === 0) {
+      return { ok: false, error: 'Another buyer just reserved or purchased this card.', status: 409 };
+    }
+
+    return {
+      ok: true,
+      verifiedSellerId,
+      item: {
+        inventory_id: line.inventory_id,
+        card_name: line.card_name || 'TCG Card',
+        card_number: line.card_number,
+        image_path: line.image_path,
+        price_huf: Math.max(0, Math.round(Number(mktRow.price_huf) || 0)),
+        quantity: requestedQty,
+        is_foil: Boolean(mktRow.is_foil),
+        condition: mktRow.condition || 'Near Mint',
+      },
+    };
+  }
+
+  // 2. Legacy fallback to inventory table
   const { data: invRow } = await supabaseAdmin
     .from('inventory')
     .select('id, status, quantity, notes, price_huf, condition, is_foil')
@@ -449,6 +524,12 @@ async function lockOneInventoryItem(sellerIdHint: string, line: CartLineInput, h
 /** Best-effort rollback for a partially-locked cart: give back what a lock reserved. */
 async function restoreInventoryItem(inventoryId: string, quantity: number): Promise<void> {
   try {
+    const { data: mktRow } = await supabaseAdmin.from('marketplace_listings').select('quantity').eq('id', inventoryId).maybeSingle();
+    if (mktRow) {
+      const current = Number(mktRow.quantity) || 0;
+      await supabaseAdmin.from('marketplace_listings').update({ quantity: current + quantity, status: 'In Stock' }).eq('id', inventoryId);
+      return;
+    }
     const { data: row } = await supabaseAdmin.from('inventory').select('quantity').eq('id', inventoryId).maybeSingle();
     const current = Number(row?.quantity) || 0;
     await supabaseAdmin.from('inventory').update({ quantity: current + quantity, status: 'In Stock' }).eq('id', inventoryId);
@@ -481,6 +562,21 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
     const buyerId = user.id;
+
+    const lastTime = holdRateMap.get(buyerId) || 0;
+    if (Date.now() - lastTime < HOLD_RATE_LIMIT_MS) {
+      return new Response(JSON.stringify({ success: false, error: 'Please wait a few seconds before submitting another request.' }), {
+        status: 429,
+        headers: JSON_HEADERS,
+      });
+    }
+    holdRateMap.set(buyerId, Date.now());
+    if (holdRateMap.size > 2000) {
+      const cutoff = Date.now() - 60000;
+      for (const [k, v] of holdRateMap.entries()) {
+        if (v < cutoff) holdRateMap.delete(k);
+      }
+    }
 
     const {
       seller_id,
@@ -524,7 +620,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     // Shipping needs somewhere to ship to; "Other" needs the arrangement described. In person
     // is worked out in the conversation, so it needs nothing up front.
-    const detailsText = typeof handover_details === 'string' ? handover_details.trim() : '';
+    const detailsText = sanitizePlainText(handover_details, 300);
     if (method.kind !== 'personal' && !detailsText) {
       return new Response(JSON.stringify({
         success: false,
@@ -629,12 +725,12 @@ export const POST: APIRoute = async ({ request }) => {
       inventory_id: first.inventory_id,
       seller_id: verifiedSellerId!,
       buyer_id: buyerId,
-      buyer_name: buyerName,
+      buyer_name: sanitizePlainText(buyerName, 100),
       buyer_email: user.email || '',
-      buyer_phone: (typeof buyer_phone === 'string' && buyer_phone.trim()) || undefined,
+      buyer_phone: buyer_phone ? sanitizePlainText(buyer_phone, 50) : undefined,
       preferred_handover: method.id,
       handover_details: detailsText || undefined,
-      message: message?.trim() || undefined,
+      message: message ? sanitizePlainText(message, 500) : undefined,
       status: 'pending',
       card_name: first.card_name,
       card_number: first.card_number,
@@ -839,6 +935,34 @@ export const PATCH: APIRoute = async ({ request }) => {
     for (const item of (newStatus === 'handed_over' || newStatus === 'buyer_received') ? [] : itemsOf(currentReq)) {
       if (!item.inventory_id) continue;
       const requestQty = Math.max(1, Number(item.quantity) || 1);
+
+      // Check marketplace_listings first
+      const { data: currentMkt } = await supabaseAdmin
+        .from('marketplace_listings')
+        .select('quantity, card_id, is_foil, collection_id')
+        .eq('id', item.inventory_id)
+        .maybeSingle();
+
+      if (currentMkt) {
+        const currentQty = Number(currentMkt.quantity) || 0;
+        const updateData: any = {};
+        if (action === 'release' || action === 'reject' || action === 'deny') {
+          updateData.quantity = currentQty + requestQty;
+          updateData.status = 'In Stock';
+        } else if (action === 'hold') {
+          updateData.status = currentQty > 0 ? 'In Stock' : 'Reserved';
+        } else if (completes) {
+          updateData.status = currentQty > 0 ? 'In Stock' : 'Sold';
+          if (currentMkt.collection_id && currentMkt.card_id) {
+            await adjustNamedCollectionCard(currentReq.seller_id, currentMkt.collection_id, collectionKey(currentMkt.card_id, Boolean(currentMkt.is_foil)), -requestQty);
+          }
+        }
+        newInventoryStatus = updateData.status || newInventoryStatus;
+        await supabaseAdmin.from('marketplace_listings').update(updateData).eq('id', item.inventory_id);
+        continue;
+      }
+
+      // Fallback to legacy inventory
       const { data: currentInv } = await supabaseAdmin
         .from('inventory')
         .select('quantity, notes, card_id, is_foil')
@@ -854,8 +978,6 @@ export const PATCH: APIRoute = async ({ request }) => {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Reserved';
       } else if (completes) {
         updateData.status = currentQty > 0 ? 'In Stock' : 'Sold';
-        // Sold copies of an always-list collection's listing leave the collection too (they were
-        // still counted in it while the buyer held them).
         const { alwaysListId } = listingCollectionLinks(currentInv?.notes);
         if (alwaysListId && currentInv?.card_id) {
           await adjustNamedCollectionCard(currentReq.seller_id, alwaysListId, collectionKey(currentInv.card_id, Boolean(currentInv.is_foil)), -requestQty);

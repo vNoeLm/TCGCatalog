@@ -423,11 +423,11 @@ export function CollectionRow({
         <div className="mt-3 pt-3 border-t flex flex-col gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
           <label className="flex flex-col gap-1">
             <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Name</span>
-            <input value={name} maxLength={MAX_COLLECTION_NAME} onChange={(e) => setName(e.target.value)} className={inputCls} style={inputStyle} />
+            <input value={name} maxLength={MAX_COLLECTION_NAME} aria-label="Collection name" onChange={(e) => setName(e.target.value)} className={inputCls} style={inputStyle} />
           </label>
 
           <label className="flex items-start gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={alwaysList} onChange={(e) => setAlwaysList(e.target.checked)} className="mt-0.5" />
+            <input type="checkbox" checked={alwaysList} aria-label="Always list on Marketplace" onChange={(e) => setAlwaysList(e.target.checked)} className="mt-0.5" />
             <span>
               <span className="block text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Always list on Marketplace</span>
               <span className="block text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
@@ -538,7 +538,7 @@ export function ManageCollectionsModal({
           </button>
         </div>
         <label className="flex items-center gap-2 mt-2.5 cursor-pointer">
-          <input type="checkbox" checked={newAlwaysList} onChange={(e) => setNewAlwaysList(e.target.checked)} />
+          <input type="checkbox" checked={newAlwaysList} aria-label="Always list on marketplace" onChange={(e) => setNewAlwaysList(e.target.checked)} />
           <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Always list - everything I add here goes on the marketplace</span>
         </label>
         {newAlwaysList && <DefaultsEditor value={newDefaults} onChange={setNewDefaults} />}

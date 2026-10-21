@@ -37,3 +37,6 @@ data/
 
 # Local exports of card data (may contain third-party/Riot assets) - never commit
 card-data-backup/
+
+desktop.ini
+thumbs.db

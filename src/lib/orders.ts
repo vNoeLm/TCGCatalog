@@ -415,9 +415,14 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
 
         // Also sync to public.orders table if it exists
         try {
+          const isUuid = (val?: string | null) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+          const validUserId = isUuid(newOrder.user_id) ? newOrder.user_id : null;
+          const validOrderId = isUuid(newOrder.id) ? newOrder.id : undefined;
+
           await supabase.from('orders').upsert({
+            ...(validOrderId ? { id: validOrderId } : {}),
             order_number: newOrder.order_number,
-            user_id: newOrder.user_id || null,
+            user_id: validUserId,
             status: newOrder.status,
             total_price_huf: newOrder.total_price_huf,
             shipping_name: newOrder.shipping_name,
@@ -586,6 +591,9 @@ export async function updateOrderStatus(
         if (json.success && json.order) {
           updatedOrder = json.order;
         }
+      } else {
+        const json = await res.json().catch(() => null);
+        return { success: false, error: json?.error || 'Failed to update payment status.' };
       }
     }
 
@@ -740,64 +748,16 @@ export async function updateOrderPayment(
         if (json.success && json.order) {
           updatedOrder = json.order;
         }
-      }
-    }
-
-    // Direct client fallback using authenticated Supabase session
-    if (!updatedOrder) {
-      try {
-        await supabase
-          .from('orders')
-          .update({
-            payment_status: paymentStatus,
-            payment_method: paymentMethod || 'stripe',
-            payment_id: paymentId || undefined,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('order_number', orderNumber);
-
-        const { data: storeRow } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'store_orders')
-          .maybeSingle();
-
-        let list: Order[] = storeRow?.value ? JSON.parse(storeRow.value) : [];
-        const idx = list.findIndex(o => o.order_number === orderNumber);
-        if (idx !== -1) {
-          list[idx] = {
-            ...list[idx],
-            payment_status: paymentStatus,
-            payment_method: paymentMethod || list[idx].payment_method || 'stripe',
-            payment_id: paymentId || list[idx].payment_id,
-            updated_at: new Date().toISOString(),
-          };
-          updatedOrder = list[idx];
-        } else if (orderData) {
-          updatedOrder = {
-            ...orderData,
-            payment_status: paymentStatus,
-            payment_method: paymentMethod || orderData.payment_method || 'stripe',
-            payment_id: paymentId || orderData.payment_id,
-            updated_at: new Date().toISOString(),
-          };
-          list.unshift(updatedOrder);
-        }
-
-        if (updatedOrder) {
-          await supabase.from('settings').upsert({
-            key: 'store_orders',
-            value: JSON.stringify(list),
-          });
-        }
-      } catch (fallbackErr) {
-        console.warn('Client fallback update payment failed:', fallbackErr);
+      } else {
+        const json = await res.json().catch(() => null);
+        return { success: false, error: json?.error || 'Failed to update payment status.' };
       }
     }
 
     if (!updatedOrder) {
       return { success: false, error: 'Failed to update payment status.' };
     }
+
 
     // Sync in local storage if present on this device
     if (typeof window !== 'undefined' && updatedOrder) {

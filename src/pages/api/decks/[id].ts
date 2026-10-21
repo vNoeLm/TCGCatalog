@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getRequestUser } from '../../../lib/requestAuth';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -7,15 +9,6 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
-
-async function getAuthedUser(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.replace('Bearer ', '').trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return null;
-  return user;
-}
 
 // GET: Fetch a single deck (public ones are visible to anyone; private ones only to their owner).
 export const GET: APIRoute = async ({ params, request }) => {
@@ -26,8 +19,8 @@ export const GET: APIRoute = async ({ params, request }) => {
     }
 
     if (!row.is_public) {
-      const user = await getAuthedUser(request);
-      if (!user || user.id !== row.user_id) {
+      const caller = await getRequestUser(request);
+      if (!caller || (caller.user.id !== row.user_id && !caller.isAdmin)) {
         return new Response(JSON.stringify({ success: false, error: 'This deck is private.' }), { status: 403, headers: JSON_HEADERS });
       }
     }
@@ -61,8 +54,8 @@ export const GET: APIRoute = async ({ params, request }) => {
 // PATCH: Rename or toggle visibility of a deck you published.
 export const PATCH: APIRoute = async ({ params, request }) => {
   try {
-    const user = await getAuthedUser(request);
-    if (!user) {
+    const caller = await getRequestUser(request);
+    if (!caller) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), { status: 401, headers: JSON_HEADERS });
     }
 
@@ -70,13 +63,16 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     if (!row) {
       return new Response(JSON.stringify({ success: false, error: 'Deck not found.' }), { status: 404, headers: JSON_HEADERS });
     }
-    if (row.user_id !== user.id) {
+    if (row.user_id !== caller.user.id && !caller.isAdmin) {
       return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your deck.' }), { status: 403, headers: JSON_HEADERS });
     }
 
     const body = await request.json().catch(() => ({}));
     const updates: any = { updated_at: new Date().toISOString() };
-    if (typeof body.name === 'string' && body.name.trim()) updates.name = body.name.trim();
+    if (typeof body.name === 'string') {
+      const clean = sanitizePlainText(body.name, 100);
+      if (clean) updates.name = clean;
+    }
     if (typeof body.is_public === 'boolean') updates.is_public = body.is_public;
 
     const { data, error } = await supabaseAdmin.from('public_decks').update(updates).eq('id', params.id).select().single();
@@ -94,8 +90,8 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 // DELETE: Remove a published deck.
 export const DELETE: APIRoute = async ({ params, request }) => {
   try {
-    const user = await getAuthedUser(request);
-    if (!user) {
+    const caller = await getRequestUser(request);
+    if (!caller) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), { status: 401, headers: JSON_HEADERS });
     }
 
@@ -103,7 +99,7 @@ export const DELETE: APIRoute = async ({ params, request }) => {
     if (!row) {
       return new Response(JSON.stringify({ success: false, error: 'Deck not found.' }), { status: 404, headers: JSON_HEADERS });
     }
-    if (row.user_id !== user.id) {
+    if (row.user_id !== caller.user.id && !caller.isAdmin) {
       return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your deck.' }), { status: 403, headers: JSON_HEADERS });
     }
 

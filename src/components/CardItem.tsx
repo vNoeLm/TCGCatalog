@@ -275,8 +275,7 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
                 className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-[var(--positive)] border border-emerald-500/30 shrink-0 inline-flex items-center gap-0.5"
                 title={card.seller_badge}
               >
-                <span>★</span>
-                <span>{card.seller_badge}</span>
+                <svg className="w-2.5 h-2.5 fill-current text-amber-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg><span>{card.seller_badge}</span>
               </span>
             ) : null}
           </a>
@@ -292,8 +291,7 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
             )}
             {card.seller_rating_avg !== null && card.seller_rating_avg !== undefined && (card.seller_rating_count || 0) > 0 && (
               <div className="flex items-center gap-0.5 font-bold text-[10px]" style={{ color: 'var(--text-accent)' }}>
-                <span>★</span>
-                <span>{card.seller_rating_avg.toFixed(1)}</span>
+                <svg className="w-2.5 h-2.5 fill-current text-amber-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg><span>{card.seller_rating_avg.toFixed(1)}</span>
               </div>
             )}
           </div>

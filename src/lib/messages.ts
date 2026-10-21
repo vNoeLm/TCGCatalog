@@ -2,6 +2,9 @@ import { supabase } from './supabase';
 import { getCurrentUser } from './auth';
 import { OPEN_HOLD_STATUSES } from './holdFlow';
 import type { ChatMessage, ConversationSummary } from '../types';
+import { sanitizePlainText } from './sanitize';
+
+export const MAX_MESSAGE_LENGTH = 2000;
 
 /**
  * Buyer/seller chat, one persistent thread per (buyer, seller) pair — every hold
@@ -147,14 +150,15 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
 }
 
 export async function sendMessage(conversationId: string, body: string): Promise<{ message: ChatMessage | null; error: any }> {
-  const trimmed = body.trim();
-  if (!trimmed) return { message: null, error: new Error('Message cannot be empty.') };
+  if (typeof body !== 'string') return { message: null, error: new Error('Invalid message payload.') };
+  const cleaned = sanitizePlainText(body, MAX_MESSAGE_LENGTH);
+  if (!cleaned) return { message: null, error: new Error('Message cannot be empty.') };
 
   try {
     const uid = await requireUserId();
     const { data, error } = await supabase
       .from('hold_request_messages')
-      .insert({ conversation_id: conversationId, sender_id: uid, body: trimmed, message_type: 'user' })
+      .insert({ conversation_id: conversationId, sender_id: uid, body: cleaned, message_type: 'user' })
       .select()
       .single();
 

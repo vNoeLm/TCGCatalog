@@ -1,9 +1,11 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getRequestUser } from '../../../lib/requestAuth';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const JSON_HEADERS = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
 
 function ok(data: object, status = 200) {
   return new Response(JSON.stringify({ success: true, ...data }), { status, headers: JSON_HEADERS });
@@ -12,9 +14,18 @@ function err(message: string, status = 400) {
   return new Response(JSON.stringify({ success: false, error: message }), { status, headers: JSON_HEADERS });
 }
 
-// POST: Add single card or sealed product to inventory
+async function requireAdmin(request: Request) {
+  const caller = await getRequestUser(request);
+  if (!caller || !caller.isAdmin) return null;
+  return caller;
+}
+
+// POST: Add single card or sealed product to inventory (Admin only)
 export const POST: APIRoute = async ({ request }) => {
   try {
+    const caller = await requireAdmin(request);
+    if (!caller) return err('Forbidden: Admin access required.', 403);
+
     const body = await request.json();
     const { category, card_id, condition, is_foil, price_huf, quantity, status, notes, image_urls,
             product_name, game, set_id, sealed_type, sealed_condition, image_path } = body;
@@ -26,6 +37,8 @@ export const POST: APIRoute = async ({ request }) => {
       return err('price_huf must be a non-negative number.');
     }
     const safeQty = Math.max(1, Number(quantity) || 1);
+    const cleanNotes = notes ? sanitizePlainText(notes, 500) : null;
+    const cleanCondition = condition ? sanitizePlainText(condition, 50) : 'Near Mint';
 
     if (category === 'single') {
       if (!card_id) return err('card_id is required for single cards.');
@@ -34,12 +47,12 @@ export const POST: APIRoute = async ({ request }) => {
         .from('inventory')
         .insert({
           card_id,
-          condition: condition || 'Near Mint',
+          condition: cleanCondition,
           is_foil: !!is_foil,
           price_huf,
           quantity: safeQty,
           status: status || 'In Stock',
-          notes: notes?.trim() || null,
+          notes: cleanNotes,
         })
         .select('id')
         .single();
@@ -60,7 +73,8 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Sealed product
-    if (!product_name?.trim()) return err('product_name is required for sealed products.');
+    const cleanProductName = product_name ? sanitizePlainText(product_name, 150) : '';
+    if (!cleanProductName) return err('product_name is required for sealed products.');
     if (!game) return err('game is required for sealed products.');
 
     let resolvedSetId: string | null = set_id ?? null;
@@ -73,18 +87,21 @@ export const POST: APIRoute = async ({ request }) => {
       resolvedSetId = setRow?.id ?? null;
     }
 
+    const cleanSealedType = sealed_type ? sanitizePlainText(sealed_type, 50) : 'Booster Box';
+    const cleanSealedCondition = sealed_condition ? sanitizePlainText(sealed_condition, 50) : 'Factory Sealed';
+
     const { data: newProd, error: prodErr } = await supabaseAdmin
       .from('cards')
       .insert({
-        name: product_name.trim(),
+        name: cleanProductName,
         game,
         set_id: resolvedSetId,
-        subtype: sealed_type || 'Booster Box',
+        subtype: cleanSealedType,
         card_type: 'Sealed',
         rarity: 'Sealed',
         card_number: 'SEALED',
         image_path: image_path?.trim() || null,
-        tags: [sealed_type || 'Booster Box'],
+        tags: [cleanSealedType],
       })
       .select()
       .single();
@@ -93,12 +110,12 @@ export const POST: APIRoute = async ({ request }) => {
 
     const { error: invErr } = await supabaseAdmin.from('inventory').insert({
       card_id: newProd.id,
-      condition: sealed_condition || 'Factory Sealed',
+      condition: cleanSealedCondition,
       is_foil: false,
       price_huf,
       quantity: safeQty,
       status: status || 'In Stock',
-      notes: notes?.trim() || null,
+      notes: cleanNotes,
     });
 
     if (invErr) return err(invErr.message, 500);
@@ -108,11 +125,14 @@ export const POST: APIRoute = async ({ request }) => {
   }
 };
 
-// PATCH: Update status or price
+// PATCH: Update status or price (Admin only)
 export const PATCH: APIRoute = async ({ request }) => {
   try {
+    const caller = await requireAdmin(request);
+    if (!caller) return err('Forbidden: Admin access required.', 403);
+
     const body = await request.json();
-    const { id, action, is_surplus } = body;
+    const { id, action } = body;
 
     if (!id || !action) return err('id and action are required.');
 
@@ -140,9 +160,12 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 };
 
-// DELETE: Soft delete (archive) or permanently remove an inventory item
+// DELETE: Soft delete (archive) or permanently remove an inventory item (Admin only)
 export const DELETE: APIRoute = async ({ request }) => {
   try {
+    const caller = await requireAdmin(request);
+    if (!caller) return err('Forbidden: Admin access required.', 403);
+
     const body = await request.json();
     const { id, permanent = false } = body;
 

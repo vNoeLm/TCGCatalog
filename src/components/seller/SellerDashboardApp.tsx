@@ -685,13 +685,21 @@ export function SellerDashboardApp() {
       return;
     }
     let cancelled = false;
-    supabase
-      .from('inventory')
-      .select('card_id, is_foil, price_huf')
-      .in('card_id', cardIds)
-      .eq('status', 'In Stock')
-      .gt('quantity', 0)
-      .then(({ data, error }) => {
+    (async () => {
+      const { data: mktData } = await supabase
+        .from('marketplace_listings')
+        .select('card_id, is_foil, price_huf')
+        .in('card_id', cardIds)
+        .eq('status', 'In Stock')
+        .gt('quantity', 0);
+      if (mktData && mktData.length > 0) return { data: mktData, error: null };
+      return supabase
+        .from('inventory')
+        .select('card_id, is_foil, price_huf')
+        .in('card_id', cardIds)
+        .eq('status', 'In Stock')
+        .gt('quantity', 0);
+    })().then(({ data, error }) => {
         if (cancelled || error || !data) return;
         const map = new Map<string, number>();
         data.forEach((row: any) => {

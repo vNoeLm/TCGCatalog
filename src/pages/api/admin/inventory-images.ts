@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getRequestUser } from '../../../lib/requestAuth';
 
 export const prerender = false;
 
@@ -8,35 +9,19 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-async function verifyAdminUser(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-
-  const token = authHeader.replace('Bearer ', '').trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return null;
-
-  if (user.email === 'vnoel05@gmail.com' || user.email === 'support@tcgxchange.net') return user;
-
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role, is_admin')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (profile?.role === 'owner' || profile?.role === 'admin' || profile?.is_admin) {
-    return user;
-  }
-  return null;
+async function requireAdmin(request: Request) {
+  const caller = await getRequestUser(request);
+  if (!caller || !caller.isAdmin) return null;
+  return caller;
 }
 
 // POST: Add photos to an inventory card (or create inventory row if needed)
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const user = await verifyAdminUser(request);
-    if (!user) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Admin access required.' }), {
-        status: 401,
+    const caller = await requireAdmin(request);
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden: Admin access required.' }), {
+        status: 403,
         headers: JSON_HEADERS,
       });
     }
@@ -147,10 +132,10 @@ export const POST: APIRoute = async ({ request }) => {
 // DELETE: Delete a photo from an inventory card
 export const DELETE: APIRoute = async ({ request, url }) => {
   try {
-    const user = await verifyAdminUser(request);
-    if (!user) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Admin access required.' }), {
-        status: 401,
+    const caller = await requireAdmin(request);
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden: Admin access required.' }), {
+        status: 403,
         headers: JSON_HEADERS,
       });
     }
@@ -195,10 +180,10 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 // PATCH: Update inventory item fields (price, condition, quantity)
 export const PATCH: APIRoute = async ({ request }) => {
   try {
-    const user = await verifyAdminUser(request);
-    if (!user) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Admin access required.' }), {
-        status: 401,
+    const caller = await requireAdmin(request);
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Forbidden: Admin access required.' }), {
+        status: 403,
         headers: JSON_HEADERS,
       });
     }

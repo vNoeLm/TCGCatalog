@@ -1,7 +1,15 @@
 import type { User } from '@supabase/supabase-js';
 import { supabaseAdmin } from './supabaseServer';
 
-const OWNER_EMAILS = ['vnoel05@gmail.com', 'support@tcgxchange.net'];
+const DEFAULT_OWNER_EMAILS = ['vnoel05@gmail.com', 'support@tcgxchange.net'];
+
+function getAdminEmails(): Set<string> {
+  const envAdmin = (process.env.ADMIN_EMAILS || (import.meta as any).env?.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return new Set([...DEFAULT_OWNER_EMAILS.map((e) => e.toLowerCase()), ...envAdmin]);
+}
 
 export interface RequestUser {
   user: User;
@@ -23,7 +31,12 @@ export async function getRequestUser(request: Request): Promise<RequestUser | nu
   if (error || !data?.user) return null;
 
   const user = data.user;
-  if (user.email && OWNER_EMAILS.includes(user.email)) return { user, isAdmin: true };
+  const isEmailConfirmed = Boolean(user.email_confirmed_at || (user as any).confirmed_at);
+  const adminEmails = getAdminEmails();
+
+  if (user.email && isEmailConfirmed && adminEmails.has(user.email.toLowerCase())) {
+    return { user, isAdmin: true };
+  }
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')

@@ -81,10 +81,13 @@ const ONE_PIECE_KEYWORDS: Record<string, string> = {
 export function formatGameText(text: string | null | undefined): string {
   if (!text) return '';
 
-  let f = text;
+  // 0. Defensive HTML escaping to prevent XSS injection before replacing with controlled tokens
+  let f = text
+    .replace(/&(?!(?:amp|lt|gt|quot|#39|#x27A4);)/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 
-  // 0. Decode HTML entities & support markdown bold (**bold**)
-  f = f.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"');
+  // Support markdown bold (**bold**) safely
   f = f.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text-primary); font-weight:800;">$1</strong>');
 
   // Helper: inline SVG icon from CDN
@@ -117,8 +120,8 @@ export function formatGameText(text: string | null | undefined): string {
   f = f.replace(/:rb_might:|\[S\]|\[M\]/g, icon(GLYPH_ICONS.might, 'Might', 18));
   f = f.replace(/:rb_exhaust:|\[T\]/g, icon(GLYPH_ICONS.exhaust, 'Exhaust', 18));
 
-  // 4. Arrow [>] / [>>]
-  f = f.replace(/\[>{1,2}\]/g, `<span style="color:var(--text-muted); font-weight:900; margin:0 3px; vertical-align:middle;">&#x27A4;</span>`);
+  // 4. Arrow [>] / [>>] / [&gt;] / [&gt;&gt;]
+  f = f.replace(/\[(?:&gt;|>){1,2}\]/g, `<span style="color:var(--text-muted); font-weight:900; margin:0 3px; vertical-align:middle;">&#x27A4;</span>`);
 
   // 5. [Action] / [Reaction] tags
   f = f.replace(/\[Action\]/gi, `<span style="display:inline-flex; align-items:center; background:rgba(234,179,8,0.18); color:#facc15; border:1px solid rgba(234,179,8,0.4); font-size:11px; font-weight:900; letter-spacing:0.05em; text-transform:uppercase; padding:1px 7px; border-radius:5px; margin:0 2px; vertical-align:middle;">Action</span>`);

@@ -1,8 +1,12 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
+
+// Cooldown tracking to prevent automated report flooding
+const recentReportsMap = new Map<string, number>();
 
 export interface ModerationReport {
   id: string;
@@ -35,6 +39,16 @@ export const POST: APIRoute = async ({ request }) => {
       return jsonResponse({ success: false, error: 'Invalid report type.' }, 400);
     }
 
+    // Flood protection: max 1 report every 5 seconds per user or IP
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const rateKey = user?.id || ip;
+    const nowMs = Date.now();
+    const lastReportTime = recentReportsMap.get(rateKey);
+    if (lastReportTime && (nowMs - lastReportTime) < 5000) {
+      return jsonResponse({ success: false, error: 'Please wait a few seconds before submitting another report.' }, 429);
+    }
+    recentReportsMap.set(rateKey, nowMs);
+
     let reporterName = 'Anonymous Collector';
     if (user) {
       const { data: prof } = await supabaseAdmin.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
@@ -44,13 +58,13 @@ export const POST: APIRoute = async ({ request }) => {
     const newReport: ModerationReport = {
       id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type: body.type,
-      target_id: String(body.target_id).slice(0, 100),
-      target_name: String(body.target_name || body.target_id).slice(0, 150),
-      target_link: String(body.target_link || '').slice(0, 300),
-      reason: String(body.reason).slice(0, 100),
-      details: body.details ? String(body.details).slice(0, 1000) : undefined,
+      target_id: sanitizePlainText(body.target_id, 100),
+      target_name: sanitizePlainText(body.target_name || body.target_id, 150),
+      target_link: sanitizePlainText(body.target_link || '', 300),
+      reason: sanitizePlainText(body.reason, 100),
+      details: body.details ? sanitizePlainText(body.details, 1000) : undefined,
       reporter_id: user?.id || null,
-      reporter_name: reporterName,
+      reporter_name: sanitizePlainText(reporterName, 100),
       status: 'pending',
       created_at: new Date().toISOString(),
     };
@@ -78,7 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
       value: JSON.stringify(existingReports),
     });
 
-    return jsonResponse({ success: true, report: newReport });
+    return jsonResponse({ success: true, report: newReport }, 201);
   } catch (err: any) {
     console.error('Error submitting report:', err);
     return jsonResponse({ success: false, error: err.message || 'Internal server error.' }, 500);

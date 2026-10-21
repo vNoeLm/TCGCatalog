@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { verifyImageMagicBytes, sanitizeFileName } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -63,17 +64,26 @@ export const POST: APIRoute = async ({ request }) => {
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      const rawExt = file.name.split('.').pop() || 'jpg';
-      const cleanExt = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `marketplace/${user.id}/${timestamp}_${i}_${safeName}`;
 
-      const contentType = file.type || (cleanExt === 'png' ? 'image/png' : cleanExt === 'webp' ? 'image/webp' : 'image/jpeg');
+      // Validate real image magic bytes (blocks SVG / HTML / scripts)
+      const verified = verifyImageMagicBytes(buffer);
+      if (!verified.valid) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Invalid file format for ${file.name}. Only genuine WebP, JPEG, and PNG images are allowed.`,
+        }), {
+          status: 400,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      const safeBase = sanitizeFileName(file.name.substring(0, file.name.lastIndexOf('.')) || 'photo');
+      const filePath = `marketplace/${user.id}/${timestamp}_${i}_${safeBase}.${verified.ext}`;
 
       const { error: uploadError } = await supabaseAdmin.storage
         .from('card-images')
         .upload(filePath, buffer, {
-          contentType,
+          contentType: verified.mime,
           upsert: true,
         });
 

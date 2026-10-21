@@ -201,15 +201,20 @@ export function DeckList({
           <span style={{ fontSize: 11, color: '#94a3b8' }}>{card.card_type}</span>
         </div>
         <button 
+          type="button"
+          aria-label={`Remove ${card.name} from ${zone}`}
           onClick={(e) => {
             e.stopPropagation();
             onRemoveCard(card.id, zone);
           }}
-          style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px 6px', fontWeight: 700, borderRadius: 4 }}
+          style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', minWidth: 28, minHeight: 28, padding: '4px 6px', fontWeight: 700, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          ✕
+          <svg style={{ width: 14, height: 14 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
       </div>
     );

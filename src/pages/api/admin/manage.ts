@@ -301,18 +301,26 @@ export const POST: APIRoute = async ({ request }) => {
       const { error } = await supabaseAdmin.from('profiles').update({ is_banned: banned }).eq('id', userId);
       if (error) throw error;
 
-      // If banning user, unlist their active marketplace inventory immediately
+      // If banning user, unlist their active marketplace listings and inventory immediately
       if (banned) {
-        const { data: invRows } = await supabaseAdmin.from('inventory').select('id, notes, status');
-        const matchingIds = (invRows || [])
-          .filter((r: any) => (extractSellerId(r.notes) || OWNER_ID) === userId && r.status !== 'Sold')
-          .map((r: any) => r.id);
-        if (matchingIds.length > 0) {
-          await supabaseAdmin
-            .from('inventory')
-            .update({ status: 'Sold', quantity: 0 })
-            .in('id', matchingIds);
-        }
+        await Promise.allSettled([
+          supabaseAdmin
+            .from('marketplace_listings')
+            .update({ status: 'Sold', quantity: 0, updated_at: new Date().toISOString() })
+            .eq('seller_id', userId),
+          (async () => {
+            const { data: invRows } = await supabaseAdmin.from('inventory').select('id, notes, status');
+            const matchingIds = (invRows || [])
+              .filter((r: any) => (extractSellerId(r.notes) || OWNER_ID) === userId && r.status !== 'Sold')
+              .map((r: any) => r.id);
+            if (matchingIds.length > 0) {
+              await supabaseAdmin
+                .from('inventory')
+                .update({ status: 'Sold', quantity: 0 })
+                .in('id', matchingIds);
+            }
+          })(),
+        ]);
       }
 
       return jsonResponse({ success: true, user_id: userId, is_banned: banned });
@@ -350,6 +358,7 @@ export const POST: APIRoute = async ({ request }) => {
 
       // Clean up related records before deleting auth user
       await Promise.allSettled([
+        supabaseAdmin.from('marketplace_listings').delete().eq('seller_id', userId),
         userInvIds.length > 0
           ? supabaseAdmin.from('inventory').delete().in('id', userInvIds)
           : Promise.resolve(),

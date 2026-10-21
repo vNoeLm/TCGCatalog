@@ -113,8 +113,7 @@ export function SellerReviewsModal({ isOpen, onClose, sellerId, sellerSummary }:
               {sellerSummary && sellerSummary.rating_count > 0 && sellerSummary.rating_avg !== null ? (
                 <>
                   <div className="flex items-center gap-1 text-amber-400 font-bold">
-                    <span>★</span>
-                    <span>{sellerSummary.rating_avg.toFixed(1)}</span>
+                    <svg className="w-3.5 h-3.5 fill-current text-amber-400 shrink-0" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg><span>{sellerSummary.rating_avg.toFixed(1)}</span>
                   </div>
                   <span>•</span>
                   <span>

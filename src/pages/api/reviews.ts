@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../lib/requestAuth';
+import { sanitizePlainText } from '../../lib/sanitize';
 import { loadTradeOrders, tradeStatsFor } from '../../lib/tradeOrders';
 import { categoriesFor, overallOf, validScores, type ReviewDirection } from '../../lib/reviewCategories';
 
@@ -117,7 +118,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     const scores = validScores(direction, body?.scores);
     if (!scores) return jsonResponse({ success: false, error: 'Rate every category from 1 to 5 stars.' }, 400);
-    const comment = typeof body?.comment === 'string' ? body.comment.trim().slice(0, 1000) : '';
+    const comment = body?.comment ? sanitizePlainText(body.comment, 1000) : '';
 
     // The order has to exist, be completed, and have the caller on the side they're reviewing from.
     const order = (await loadTradeOrders()).find((o) => o.order_number === body?.order_number);

@@ -1,3 +1,5 @@
+import { sanitizePlainText } from './sanitize';
+
 /**
  * Marketplace listings store their seller on `inventory.notes`, historically in a
  * few different shapes. This is the single reader for that field.
@@ -44,7 +46,7 @@ export function parseNotesObject(notes: string | null | undefined): Record<strin
 /** A seller's free-text description, trimmed and cut to length; null if there is nothing there. */
 export function cleanListingDescription(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const text = value.replace(/\s+/g, ' ').trim().slice(0, MAX_LISTING_DESCRIPTION);
+  const text = sanitizePlainText(value, MAX_LISTING_DESCRIPTION);
   return text || null;
 }
 

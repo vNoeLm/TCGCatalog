@@ -1068,7 +1068,7 @@ export function PriceUploadApp() {
               ) : (
                 <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Drop a CSV here, or click to choose one</span>
               )}
-              <input ref={inputRef} type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => choose(e.target.files?.[0])} />
+              <input ref={inputRef} type="file" accept=".csv,text/csv" className="sr-only" aria-label="Upload prices CSV file" onChange={(e) => choose(e.target.files?.[0])} />
             </label>
 
             <details className="mt-4 group">

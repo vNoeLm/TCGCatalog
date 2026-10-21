@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -14,8 +15,9 @@ const JSON_HEADERS = {
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json().catch(() => null);
-    const query = (body?.query || '').toString().trim();
-    const game = body?.game ? String(body.game) : null;
+    const rawQuery = (body?.query || '').toString().trim();
+    const query = sanitizePlainText(rawQuery, 100);
+    const game = body?.game ? String(body.game).slice(0, 50) : null;
     const context = body?.context === 'marketplace' ? 'marketplace' : 'catalog';
 
     if (!query || query.length < 2) {
@@ -28,7 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       let cardQuery = supabaseAdmin.from('cards').select('id').limit(1);
       if (game) cardQuery = cardQuery.eq('game', game);
-      const { data } = await cardQuery.or(`name.ilike.%${query}%,card_number.ilike.%${query}%`);
+      const safeTerm = query.replace(/[%_\\]/g, '');
+      const { data } = await cardQuery.or(`name.ilike.%${safeTerm}%,card_number.ilike.%${safeTerm}%`);
       cardId = data?.[0]?.id || null;
     } catch (e) {
       // Non-fatal — the event still gets logged without a card_id.
@@ -36,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     await supabaseAdmin.from('search_events').insert({ query, game, context, card_id: cardId });
 
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ success: true }), { status: 201, headers: JSON_HEADERS });
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false }), { status: 200, headers: JSON_HEADERS });
   }

@@ -35,6 +35,78 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // 0. Extract user if authenticated
+    let user: any = null;
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '').trim();
+      const { data } = await supabaseAdmin.auth.getUser(token);
+      user = data?.user || null;
+    }
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+               request.headers.get('x-real-ip') ||
+               'unknown';
+    const cacheKey = `${ip}:${inventory_id}:${type}`;
+    const now = Date.now();
+    const lastTracked = recentTrackingMap.get(cacheKey);
+
+    // 1. Try native marketplace_listings table first
+    const { data: mktRow } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('id, seller_id, views, clicks')
+      .eq('id', inventory_id)
+      .maybeSingle();
+
+    if (mktRow) {
+      if (user && mktRow.seller_id === user.id) {
+        return new Response(JSON.stringify({
+          success: true,
+          ignored: true,
+          reason: 'seller_own_action',
+          views: mktRow.views || 0,
+          clicks: mktRow.clicks || 0,
+        }), {
+          status: 200,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      if (lastTracked && (now - lastTracked) < COOLDOWN_MS) {
+        return new Response(JSON.stringify({
+          success: true,
+          ignored: true,
+          reason: 'cooldown',
+          views: mktRow.views || 0,
+          clicks: mktRow.clicks || 0,
+        }), {
+          status: 200,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      cleanRecentTrackingMap();
+      recentTrackingMap.set(cacheKey, now);
+
+      const nextViews = (mktRow.views || 0) + (type === 'click' ? 0 : 1);
+      const nextClicks = (mktRow.clicks || 0) + (type === 'click' ? 1 : 0);
+
+      await supabaseAdmin
+        .from('marketplace_listings')
+        .update({ views: nextViews, clicks: nextClicks, updated_at: new Date().toISOString() })
+        .eq('id', mktRow.id);
+
+      return new Response(JSON.stringify({
+        success: true,
+        views: nextViews,
+        clicks: nextClicks,
+      }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // 2. Fallback to legacy inventory table
     const { data: invRow, error: fetchErr } = await supabaseAdmin
       .from('inventory')
       .select('id, notes')
@@ -59,36 +131,23 @@ export const POST: APIRoute = async ({ request }) => {
       notesObj = { raw: invRow.notes, source: 'marketplace' };
     }
 
-    // 1. Anti-manipulation: If logged-in user is the seller, DO NOT count their own clicks or views
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '').trim();
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) {
-        const sellerId = notesObj.seller_id || notesObj.user_id;
-        const sellerEmail = notesObj.seller_email;
-        if ((sellerId && sellerId === user.id) || (sellerEmail && sellerEmail === user.email)) {
-          return new Response(JSON.stringify({
-            success: true,
-            ignored: true,
-            reason: 'seller_own_action',
-            views: notesObj.views || 0,
-            clicks: notesObj.clicks || 0,
-          }), {
-            status: 200,
-            headers: JSON_HEADERS,
-          });
-        }
+    // Anti-manipulation: If logged-in user is seller
+    if (user) {
+      const sellerId = notesObj.seller_id || notesObj.user_id;
+      const sellerEmail = notesObj.seller_email;
+      if ((sellerId && sellerId === user.id) || (sellerEmail && sellerEmail === user.email)) {
+        return new Response(JSON.stringify({
+          success: true,
+          ignored: true,
+          reason: 'seller_own_action',
+          views: notesObj.views || 0,
+          clicks: notesObj.clicks || 0,
+        }), {
+          status: 200,
+          headers: JSON_HEADERS,
+        });
       }
     }
-
-    // 2. Anti-manipulation: 1-hour IP cooldown per item and action type
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-               request.headers.get('x-real-ip') ||
-               'unknown';
-    const cacheKey = `${ip}:${inventory_id}:${type}`;
-    const now = Date.now();
-    const lastTracked = recentTrackingMap.get(cacheKey);
 
     if (lastTracked && (now - lastTracked) < COOLDOWN_MS) {
       return new Response(JSON.stringify({

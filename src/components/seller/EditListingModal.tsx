@@ -201,7 +201,7 @@ export function EditListingModal({
             <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>In stock</span>
             <div className="flex items-center gap-1.5">
               <button type="button" aria-label="One fewer" onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="w-9 h-9 rounded-lg border text-sm font-bold cursor-pointer shrink-0" style={inputStyle}>-</button>
-              <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(1, Math.round(Number(e.target.value) || 1)))} className={`${inputCls} font-mono text-center`} style={inputStyle} />
+              <input type="number" min={1} value={quantity} aria-label="Quantity in stock" onChange={(e) => setQuantity(Math.max(1, Math.round(Number(e.target.value) || 1)))} className={`${inputCls} font-mono text-center`} style={inputStyle} />
               <button type="button" aria-label="One more" onClick={() => setQuantity((q) => q + 1)} className="w-9 h-9 rounded-lg border text-sm font-bold cursor-pointer shrink-0" style={inputStyle}>+</button>
             </div>
           </label>

@@ -64,17 +64,51 @@ interface ListingRow {
 
 /** Every listing an always-list collection has made (any status), keyed by collection key. */
 async function listingsOf(collectionId: string): Promise<Map<string, ListingRow>> {
-  const { data } = await supabaseAdmin
-    .from('inventory')
-    .select('id, card_id, is_foil, quantity, price_huf, condition, status, notes')
-    .like('notes', `%"collection_id":"${collectionId}"%`);
   const map = new Map<string, ListingRow>();
-  for (const row of (data || []) as ListingRow[]) {
-    const key = row.is_foil ? `${row.card_id}_foil` : row.card_id;
-    const existing = map.get(key);
-    // One per card and finish; if an old duplicate exists, prefer the live one.
-    if (!existing || (existing.status === 'Archived' && row.status !== 'Archived')) map.set(key, row);
-  }
+
+  // 1. Check marketplace_listings first
+  try {
+    const { data: mktRows } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('id, card_id, is_foil, quantity, price_huf, condition, status, description, handover_methods')
+      .eq('collection_id', collectionId);
+
+    for (const row of (mktRows || []) as any[]) {
+      const key = row.is_foil ? `${row.card_id}_foil` : row.card_id;
+      const existing = map.get(key);
+      if (!existing || (existing.status === 'Archived' && row.status !== 'Archived')) {
+        map.set(key, {
+          id: row.id,
+          card_id: row.card_id,
+          is_foil: row.is_foil,
+          quantity: row.quantity,
+          price_huf: row.price_huf,
+          condition: row.condition,
+          status: row.status,
+          notes: JSON.stringify({
+            source: 'collection',
+            collection_id: collectionId,
+            user_notes: row.description,
+            handover_methods: row.handover_methods,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 2. Check legacy inventory as fallback
+  try {
+    const { data } = await supabaseAdmin
+      .from('inventory')
+      .select('id, card_id, is_foil, quantity, price_huf, condition, status, notes')
+      .like('notes', `%"collection_id":"${collectionId}"%`);
+    for (const row of (data || []) as ListingRow[]) {
+      const key = row.is_foil ? `${row.card_id}_foil` : row.card_id;
+      const existing = map.get(key);
+      if (!existing || (existing.status === 'Archived' && row.status !== 'Archived')) map.set(key, row);
+    }
+  } catch {}
+
   return map;
 }
 
@@ -103,6 +137,9 @@ async function reservedByListing(sellerId: string, listingIds: string[]): Promis
 
 /** Takes a listing off the marketplace for good: deleted, or archived if a past hold points at it. */
 async function retireListing(id: string): Promise<void> {
+  try {
+    await supabaseAdmin.from('marketplace_listings').delete().eq('id', id);
+  } catch {}
   await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', id);
   const { error } = await supabaseAdmin.from('inventory').delete().eq('id', id);
   if (error) await supabaseAdmin.from('inventory').update({ quantity: 0, status: 'Archived' }).eq('id', id);

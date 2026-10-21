@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
+import { getRequestUser } from '../../../lib/requestAuth';
+import { sanitizePlainText } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -43,15 +45,6 @@ async function attachDeckMeta(rows: any[]) {
   }));
 }
 
-async function getAuthedUser(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.replace('Bearer ', '').trim();
-  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !user) return null;
-  return user;
-}
-
 // GET: Browse public decks, or list a specific user's decks (their own private +
 // public ones when authenticated as that user, otherwise only their public ones).
 export const GET: APIRoute = async ({ url, request }) => {
@@ -65,8 +58,8 @@ export const GET: APIRoute = async ({ url, request }) => {
     let query = supabaseAdmin.from('public_decks').select('*', { count: 'exact' });
 
     if (userIdParam) {
-      const authedUser = await getAuthedUser(request);
-      if (authedUser && authedUser.id === userIdParam) {
+      const caller = await getRequestUser(request);
+      if (caller && (caller.user.id === userIdParam || caller.isAdmin)) {
         query = query.eq('user_id', userIdParam);
       } else {
         query = query.eq('user_id', userIdParam).eq('is_public', true);
@@ -100,13 +93,13 @@ export const GET: APIRoute = async ({ url, request }) => {
 // POST: Publish a deck (copies the current deck state into a new public_decks row).
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const user = await getAuthedUser(request);
-    if (!user) {
+    const caller = await getRequestUser(request);
+    if (!caller) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), { status: 401, headers: JSON_HEADERS });
     }
 
     const body = await request.json().catch(() => null);
-    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    const name = sanitizePlainText(body?.name, 100);
     const game = 'riftbound';
     const deck = body?.deck;
 
@@ -119,7 +112,7 @@ export const POST: APIRoute = async ({ request }) => {
     const { data, error } = await supabaseAdmin
       .from('public_decks')
       .insert({
-        user_id: user.id,
+        user_id: caller.user.id,
         name,
         game,
         deck,
@@ -134,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500, headers: JSON_HEADERS });
     }
 
-    return new Response(JSON.stringify({ success: true, deck: data }), { status: 200, headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ success: true, deck: data }), { status: 201, headers: JSON_HEADERS });
   } catch (err: any) {
     console.error('Decks POST error:', err);
     return new Response(JSON.stringify({ success: false, error: err?.message || 'Server error' }), { status: 500, headers: JSON_HEADERS });

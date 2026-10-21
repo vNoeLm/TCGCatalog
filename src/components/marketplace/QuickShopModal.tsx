@@ -198,7 +198,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
               />
 
               <div className="flex items-center gap-3 flex-wrap">
-                <input ref={fileRef} type="file" accept=".txt,.json,text/plain,application/json" onChange={handleFile} className="hidden" />
+                <input ref={fileRef} type="file" accept=".txt,.json,text/plain,application/json" onChange={handleFile} aria-label="Upload card list file" className="hidden" />
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
@@ -218,7 +218,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
                   </select>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                  <input type="checkbox" checked={allowFoil} onChange={(e) => setAllowFoil(e.target.checked)} className="w-4 h-4 accent-[var(--accent)] cursor-pointer" />
+                  <input type="checkbox" checked={allowFoil} onChange={(e) => setAllowFoil(e.target.checked)} aria-label="Allow foil for non-foil cards" className="w-4 h-4 accent-[var(--accent)] cursor-pointer" />
                   Allow foil for non-foil cards
                 </label>
               </div>

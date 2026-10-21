@@ -22,11 +22,11 @@ html[data-theme="dark"] {
   --border-subtle:    rgba(255, 255, 255, 0.06);
   --border-hover:     rgba(255, 255, 255, 0.25);
 
-  /* Text: Clean neutral high-contrast white & slate */
+  /* Text: Clean neutral high-contrast white & slate (WCAG AA compliant) */
   --text-primary:     #f8fafc;
   --text-secondary:   #cbd5e1;
   --text-tertiary:    #94a3b8;
-  --text-muted:       #64748b;
+  --text-muted:       #8292a6;
   --text-placeholder: #475569;
   --text-accent:      #60a5fa;
   --text-on-accent:   #090a0f;

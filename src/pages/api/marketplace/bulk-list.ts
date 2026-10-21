@@ -1,28 +1,27 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
-import { extractSellerId, listingSignature, collectionKey, getCopiesFromCollection, withListingNotes, listingCollectionLinks } from '../../../lib/sellerNotes';
+import { getRequestUser } from '../../../lib/requestAuth';
+import { listingSignature, collectionKey } from '../../../lib/sellerNotes';
 import { loadCollection, saveCollectionCards } from '../../../lib/collectionsServer';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401 });
+    const caller = await getRequestUser(request);
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401 });
     }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    }
+    const user = caller.user;
 
     // Check if user is banned
-    const { data: profile } = await supabaseAdmin.from('profiles').select('is_banned').eq('id', user.id).single();
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('is_banned')
+      .eq('id', user.id)
+      .maybeSingle();
     if (profile?.is_banned) {
-      return new Response(JSON.stringify({ error: 'User is banned' }), { status: 403 });
+      return new Response(JSON.stringify({ success: false, error: 'User is banned' }), { status: 403 });
     }
 
     const body = await request.json();
@@ -32,38 +31,35 @@ export const POST: APIRoute = async ({ request }) => {
     const sourceCollectionId: string | null = typeof body?.collection_id === 'string' && body.collection_id !== 'personal' ? body.collection_id : null;
     const sourceCollection = sourceCollectionId ? await loadCollection(user.id, sourceCollectionId) : null;
     if (sourceCollectionId && !sourceCollection) {
-      return new Response(JSON.stringify({ error: 'Collection not found' }), { status: 404 });
+      return new Response(JSON.stringify({ success: false, error: 'Collection not found' }), { status: 404 });
     }
     if (sourceCollection?.always_list) {
-      return new Response(JSON.stringify({ error: 'That collection already lists everything in it automatically.' }), { status: 400 });
+      return new Response(JSON.stringify({ success: false, error: 'That collection already lists everything in it automatically.' }), { status: 400 });
     }
 
     if (!Array.isArray(listings) || listings.length === 0) {
-      return new Response(JSON.stringify({ error: 'No listings provided' }), { status: 400 });
+      return new Response(JSON.stringify({ success: false, error: 'No listings provided' }), { status: 400 });
     }
 
     for (const l of listings) {
       if (!l.cardId || l.priceHuf < 1 || l.quantity < 1) {
-        return new Response(JSON.stringify({ error: 'Invalid price or quantity in batch' }), { status: 400 });
+        return new Response(JSON.stringify({ success: false, error: 'Invalid price or quantity in batch' }), { status: 400 });
       }
     }
 
     const cardIds = [...new Set(listings.map((l: any) => l.cardId))];
 
-    // What this seller already has on the market, keyed by card+condition+finish.
+    // What this seller already has on the marketplace, keyed by card+condition+finish.
     const { data: existingRows } = await supabaseAdmin
-      .from('inventory')
-      .select('id, card_id, condition, is_foil, quantity, notes')
+      .from('marketplace_listings')
+      .select('id, seller_id, card_id, condition, is_foil, quantity, collection_id')
+      .eq('seller_id', user.id)
       .in('card_id', cardIds)
       .in('status', ['In Stock', 'Available']);
 
     const existingBySignature = new Map<string, any>();
     for (const row of existingRows || []) {
-      if (extractSellerId(row.notes) !== user.id) continue;
-      // Only merge into a listing that came from the same collection, so its copies go back to the
-      // right place when unlisted; always-list listings are their collection's own business.
-      const links = listingCollectionLinks(row.notes);
-      if (links.alwaysListId || links.sourceId !== sourceCollectionId) continue;
+      if (row.collection_id !== sourceCollectionId) continue;
       existingBySignature.set(listingSignature(row.card_id, row.condition, row.is_foil), row);
     }
 
@@ -83,7 +79,7 @@ export const POST: APIRoute = async ({ request }) => {
     let collectionChanged = false;
 
     const toInsert: any[] = [];
-    const toUpdate: { id: string; quantity: number; notes: string }[] = [];
+    const toUpdate: { id: string; quantity: number }[] = [];
     let skipped = 0;
 
     for (const l of listings) {
@@ -106,10 +102,6 @@ export const POST: APIRoute = async ({ request }) => {
         continue;
       }
 
-      // Only copies that really came out of the collection are recorded as coming from it, so
-      // unlisting never adds copies to a collection that never held them.
-      const fromCollection = typeof owned === 'number' ? quantity : 0;
-
       if (typeof owned === 'number') {
         const key = collectionKey(l.cardId, isFoil);
         const next = Math.max(0, (collectionAfter[key] || 0) - quantity);
@@ -122,48 +114,41 @@ export const POST: APIRoute = async ({ request }) => {
         toUpdate.push({
           id: existing.id,
           quantity: alreadyListed + quantity,
-          notes: withListingNotes(existing.notes, {
-            from_collection: Math.min(getCopiesFromCollection(existing.notes), alreadyListed) + fromCollection,
-          }),
         });
       } else {
         toInsert.push({
+          seller_id: user.id,
           card_id: l.cardId,
           condition,
           is_foil: isFoil,
           price_huf: l.priceHuf,
           quantity,
           status: 'In Stock',
-          notes: JSON.stringify({
-            source: 'marketplace',
-            seller_id: user.id,
-            handover_methods: l.handoverMethods || ['personal'],
-            views: 0,
-            clicks: 0,
-            listed_at: new Date().toISOString(),
-            from_collection: fromCollection,
-            ...(sourceCollectionId ? { source_collection_id: sourceCollectionId } : {}),
-          })
+          handover_methods: l.handoverMethods || ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'],
+          collection_id: sourceCollectionId,
+          views: 0,
+          clicks: 0,
+          images: [],
         });
       }
     }
 
     if (toInsert.length > 0) {
-      const { error: insertError } = await supabaseAdmin.from('inventory').insert(toInsert);
+      const { error: insertError } = await supabaseAdmin.from('marketplace_listings').insert(toInsert);
       if (insertError) {
         console.error('Bulk insert error:', insertError);
-        return new Response(JSON.stringify({ error: 'Failed to insert listings' }), { status: 500 });
+        return new Response(JSON.stringify({ success: false, error: 'Failed to insert listings' }), { status: 500 });
       }
     }
 
     for (const upd of toUpdate) {
       const { error: updateError } = await supabaseAdmin
-        .from('inventory')
-        .update({ quantity: upd.quantity, notes: upd.notes })
+        .from('marketplace_listings')
+        .update({ quantity: upd.quantity, updated_at: new Date().toISOString() })
         .eq('id', upd.id);
       if (updateError) {
         console.error('Bulk merge error:', updateError);
-        return new Response(JSON.stringify({ error: 'Failed to update existing listings' }), { status: 500 });
+        return new Response(JSON.stringify({ success: false, error: 'Failed to update existing listings' }), { status: 500 });
       }
     }
 
@@ -185,11 +170,11 @@ export const POST: APIRoute = async ({ request }) => {
       merged: toUpdate.length,
       skipped,
     }), {
-      status: 200,
+      status: 201,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
     console.error('Bulk list exception:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), { status: 500 });
   }
 };

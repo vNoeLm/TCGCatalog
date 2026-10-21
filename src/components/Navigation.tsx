@@ -284,6 +284,8 @@ export function Navigation({ currentPath }: NavigationProps) {
           onClick={() => setMobileMenuOpen(prev => !prev)}
           className="h-9 px-2.5 flex items-center justify-center rounded-xl transition cursor-pointer shadow-sm active:scale-95 border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
           aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-navigation-menu"
         >
           {mobileMenuOpen ? (
             <svg className="w-5 h-5" style={{ color: 'var(--text-primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -308,6 +310,7 @@ export function Navigation({ currentPath }: NavigationProps) {
           <div
             onClick={(e) => e.stopPropagation()}
             data-state={mobileMenuAnim.state}
+            id="mobile-navigation-menu"
             className="tv-sheet-down w-full p-4 shadow-2xl flex flex-col gap-3.5"
             style={{
               background: 'var(--bg-surface)',

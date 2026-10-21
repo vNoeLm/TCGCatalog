@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
+import { sanitizePlainText, sanitizeUrl, verifyImageMagicBytes } from '../../../lib/sanitize';
 
 export const prerender = false;
 
@@ -113,7 +114,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   const metaPatch: Record<string, any> = { ...(caller.user.user_metadata || {}) };
 
   if (body.display_name !== undefined) {
-    const name = String(body.display_name || '').trim().slice(0, 50);
+    const name = sanitizePlainText(body.display_name, 50);
     if (!name) return jsonResponse({ success: false, error: 'Display name cannot be empty.' }, 400);
     profilePatch.display_name = name;
     metaPatch.display_name = name;
@@ -122,13 +123,13 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 
   if (body.avatar_url !== undefined) {
-    const avatarUrl = body.avatar_url ? String(body.avatar_url).trim().slice(0, 500) : null;
+    const avatarUrl = body.avatar_url ? sanitizeUrl(body.avatar_url) : null;
     profilePatch.avatar_url = avatarUrl;
     metaPatch.avatar_url = avatarUrl;
   }
 
   if (body.banner_url !== undefined) {
-    const bannerUrl = body.banner_url ? String(body.banner_url).trim().slice(0, 500) : null;
+    const bannerUrl = body.banner_url ? sanitizeUrl(body.banner_url) : null;
     metaPatch.banner_url = bannerUrl;
     const banners = await loadBannersMap();
     if (bannerUrl) {
@@ -193,13 +194,18 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonResponse({ success: false, error: 'Compressed avatar is too large (max 80 KB).' }, 400);
   }
 
-  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/jpeg' ? 'jpg' : 'webp';
-  const filePath = `avatars/${caller.user.id}.${ext}`;
+  // Inspect real binary magic bytes to block disguised SVG/HTML scripts
+  const verified = verifyImageMagicBytes(buffer);
+  if (!verified.valid) {
+    return jsonResponse({ success: false, error: 'Invalid file format. Only genuine WebP, JPEG, or PNG images are allowed.' }, 400);
+  }
+
+  const filePath = `avatars/${caller.user.id}.${verified.ext}`;
 
   const { error: uploadErr } = await supabaseAdmin.storage
     .from('card-images')
     .upload(filePath, buffer, {
-      contentType,
+      contentType: verified.mime,
       upsert: true,
       cacheControl: '3600',
     });

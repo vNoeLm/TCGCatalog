@@ -1713,7 +1713,7 @@ export function CardListApp() {
           </div>
 
           {/* Cards Grid */}
-          <div style={{ minHeight: "40vh" }}>
+          <div style={{ minHeight: "40vh" }} aria-busy={loading} aria-live="polite">
             {loading ? (
               <div className={`grid ${gridSizeClasses(gridSize)}`}>
                 {Array.from({ length: 12 }).map((_, i) => (

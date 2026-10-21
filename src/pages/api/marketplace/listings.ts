@@ -57,18 +57,24 @@ export const GET: APIRoute = async ({ url }) => {
     // per-card lowest/average prices, hence the higher ceiling.
     const pageSize = Math.min(500, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10)));
 
-    // 1. Fetch from inventory table (Community marketplace listings + showcase items)
-    let invQuery = supabaseAdmin
-      .from('inventory')
+    // 1. Fetch from native marketplace_listings table (primary) with fallback to legacy inventory
+    const statusParam = url.searchParams.get('status');
+    let mktQuery = supabaseAdmin
+      .from('marketplace_listings')
       .select(`
         id,
+        seller_id,
         card_id,
         condition,
         is_foil,
         price_huf,
         status,
-        notes,
+        description,
+        handover_methods,
         quantity,
+        views,
+        clicks,
+        images,
         created_at,
         updated_at,
         cards!inner (
@@ -96,71 +102,151 @@ export const GET: APIRoute = async ({ url }) => {
             code,
             release_date
           )
-        ),
-        inventory_images (
-          id,
-          image_path,
-          display_order
         )
       `);
 
-    const statusParam = url.searchParams.get('status');
-
     if (sellerId) {
+      mktQuery = mktQuery.eq('seller_id', sellerId);
       if (statusParam && statusParam !== 'all') {
         if (statusParam === 'on_hold' || statusParam === 'On Hold' || statusParam === 'Reserved') {
-          invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
+          mktQuery = mktQuery.in('status', ['Reserved', 'On Hold']);
         } else if (statusParam === 'in_stock') {
-          invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
+          mktQuery = mktQuery.eq('status', 'In Stock').gt('quantity', 0);
         } else {
-          invQuery = invQuery.eq('status', statusParam);
+          mktQuery = mktQuery.eq('status', statusParam);
         }
       }
     } else {
-      invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
+      mktQuery = mktQuery.eq('status', 'In Stock').gt('quantity', 0);
     }
 
     if (game && game !== 'all') {
-      invQuery = invQuery.eq('cards.game', game);
+      mktQuery = mktQuery.eq('cards.game', game);
     }
     if (search) {
-      // Quoted, so a comma or bracket in the search ("Azir, Ascendant") is part of the value
-      // rather than a separator in the or() filter (which made such searches find nothing).
-      const like = `"%${search.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`;
-      invQuery = invQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
+      const safeTerm = search.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); const like = '"%' + safeTerm + '%"';
+      mktQuery = mktQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
     }
     if (set) {
-      invQuery = invQuery.eq('cards.sets.name', set);
+      mktQuery = mktQuery.eq('cards.sets.name', set);
     }
     if (rarities.length > 0) {
-      invQuery = invQuery.in('cards.rarity', rarities);
+      mktQuery = mktQuery.in('cards.rarity', rarities);
     }
     if (type) {
       if (type === 'Champion') {
-        invQuery = invQuery.eq('cards.subtype', 'Champion');
+        mktQuery = mktQuery.eq('cards.subtype', 'Champion');
       } else if (type === 'Signature Spell') {
-        invQuery = invQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+        mktQuery = mktQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
       } else {
-        invQuery = invQuery.eq('cards.card_type', type);
+        mktQuery = mktQuery.eq('cards.card_type', type);
       }
     }
     if (domains.length > 0) {
       const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
-      invQuery = invQuery.or(orQuery, { foreignTable: 'cards' });
+      mktQuery = mktQuery.or(orQuery, { foreignTable: 'cards' });
     }
     if (foil === 'true') {
-      invQuery = invQuery.eq('is_foil', true);
+      mktQuery = mktQuery.eq('is_foil', true);
     }
 
-    const invRes = await invQuery;
-    // Released or not: listings of cards from a set that isn't out yet aren't shown.
-    const invRows = (invRes.data || []).filter((r: any) => !isUnreleasedSet(r.cards?.sets?.release_date));
+    const mktRes = await mktQuery;
+    let rawSourceRows: any[] = [];
+    let isNativeMarketplace = false;
+
+    if (!mktRes.error && Array.isArray(mktRes.data) && mktRes.data.length > 0) {
+      rawSourceRows = mktRes.data;
+      isNativeMarketplace = true;
+    } else {
+      let invQuery = supabaseAdmin
+        .from('inventory')
+        .select(`
+          id,
+          card_id,
+          condition,
+          is_foil,
+          price_huf,
+          status,
+          notes,
+          quantity,
+          created_at,
+          updated_at,
+          cards!inner (
+            id,
+            card_number,
+            name,
+            rarity,
+            card_type,
+            cost,
+            image_path,
+            subtype,
+            text,
+            game,
+            energy,
+            might,
+            domain,
+            tags,
+            ability,
+            artist,
+            market_price_eur,
+            market_price_foil_eur,
+            sets (
+              id,
+              name,
+              code,
+              release_date
+            )
+          ),
+          inventory_images (
+            id,
+            image_path,
+            display_order
+          )
+        `);
+
+      if (sellerId) {
+        if (statusParam && statusParam !== 'all') {
+          if (statusParam === 'on_hold' || statusParam === 'On Hold' || statusParam === 'Reserved') {
+            invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
+          } else if (statusParam === 'in_stock') {
+            invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
+          } else {
+            invQuery = invQuery.eq('status', statusParam);
+          }
+        }
+      } else {
+        invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
+      }
+
+      if (game && game !== 'all') invQuery = invQuery.eq('cards.game', game);
+      if (search) {
+        const safeTerm = search.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); const like = '"%' + safeTerm + '%"';
+        invQuery = invQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
+      }
+      if (set) invQuery = invQuery.eq('cards.sets.name', set);
+      if (rarities.length > 0) invQuery = invQuery.in('cards.rarity', rarities);
+      if (type) {
+        if (type === 'Champion') invQuery = invQuery.eq('cards.subtype', 'Champion');
+        else if (type === 'Signature Spell') invQuery = invQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
+        else invQuery = invQuery.eq('cards.card_type', type);
+      }
+      if (domains.length > 0) {
+        const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
+        invQuery = invQuery.or(orQuery, { foreignTable: 'cards' });
+      }
+      if (foil === 'true') invQuery = invQuery.eq('is_foil', true);
+
+      const invRes = await invQuery;
+      rawSourceRows = invRes.data || [];
+    }
+
+    const invRows = rawSourceRows.filter((r: any) => !isUnreleasedSet(r.cards?.sets?.release_date));
 
     // Collect all seller IDs to batch fetch user profiles
     const sellerIds = new Set<string>();
 
     invRows.forEach((r: any) => {
-      const sId = extractSellerId(r.notes);
+      const sId = isNativeMarketplace ? r.seller_id : extractSellerId(r.notes);
       if (sId) sellerIds.add(sId);
     });
 
@@ -223,9 +309,9 @@ export const GET: APIRoute = async ({ url }) => {
     const EUR_TO_HUF = 400;
     const allFormatted: any[] = [];
 
-    // Format inventory listings (with uploaded condition photos)
+    // Format listings (supporting both native marketplace_listings and legacy inventory)
     invRows.forEach((row: any) => {
-      const sId = extractSellerId(row.notes) || OWNER_ID;
+      const sId = (isNativeMarketplace ? row.seller_id : extractSellerId(row.notes)) || OWNER_ID;
       if (sellerId && sId !== sellerId) return;
 
       const prof = profileMap.get(sId);
@@ -243,20 +329,38 @@ export const GET: APIRoute = async ({ url }) => {
       let views = 0;
       let clicks = 0;
       let handoverMethods = ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
-      try {
-        if (row.notes && row.notes.startsWith('{')) {
-          const parsed = JSON.parse(row.notes);
-          views = typeof parsed.views === 'number' ? parsed.views : 0;
-          clicks = typeof parsed.clicks === 'number' ? parsed.clicks : 0;
-          if (Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
-            handoverMethods = parsed.handover_methods;
-          }
+
+      if (isNativeMarketplace) {
+        views = typeof row.views === 'number' ? row.views : 0;
+        clicks = typeof row.clicks === 'number' ? row.clicks : 0;
+        if (Array.isArray(row.handover_methods) && row.handover_methods.length > 0) {
+          handoverMethods = row.handover_methods;
         }
-      } catch (e) {}
+      } else {
+        try {
+          if (row.notes && row.notes.startsWith('{')) {
+            const parsed = JSON.parse(row.notes);
+            views = typeof parsed.views === 'number' ? parsed.views : 0;
+            clicks = typeof parsed.clicks === 'number' ? parsed.clicks : 0;
+            if (Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
+              handoverMethods = parsed.handover_methods;
+            }
+          }
+        } catch (e) {}
+      }
 
       const cardObj = row.cards;
-      const invImgs: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-      const firstCustomPhoto = invImgs.length > 0 ? invImgs[0].image_path : null;
+      let invImgs: any[] = [];
+      let firstCustomPhoto: string | null = null;
+
+      if (isNativeMarketplace) {
+        const photoUrls: string[] = Array.isArray(row.images) ? row.images : [];
+        invImgs = photoUrls.map((p: string, idx: number) => ({ id: `img_${row.id}_${idx}`, image_path: p, display_order: idx + 1 }));
+        firstCustomPhoto = photoUrls[0] || null;
+      } else {
+        invImgs = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+        firstCustomPhoto = invImgs.length > 0 ? invImgs[0].image_path : null;
+      }
 
       const displayStatus = (row.status === 'Reserved' || row.status === 'On Hold') ? 'On Hold' : row.status;
 
@@ -267,7 +371,7 @@ export const GET: APIRoute = async ({ url }) => {
         price_huf: row.price_huf,
         status: displayStatus,
         handover_methods: handoverMethods,
-        notes: row.notes,
+        notes: isNativeMarketplace ? row.description : row.notes,
         is_bulk: false,
         quantity: row.quantity,
         views,
@@ -413,92 +517,72 @@ export const POST: APIRoute = async ({ request }) => {
       ...(description ? { user_notes: description } : {}),
     });
 
-    // Merge into this seller's existing listing for the same card/condition/finish
-    // rather than creating a second row for identical cards.
+    // Merge into this seller's existing listing in marketplace_listings
     const { data: dupeCandidates } = await supabaseAdmin
-      .from('inventory')
-      .select('id, card_id, condition, is_foil, quantity, notes')
+      .from('marketplace_listings')
+      .select('id, card_id, condition, is_foil, quantity, description, images')
       .eq('card_id', card_id)
+      .eq('seller_id', user.id)
       .in('status', ['In Stock', 'Available']);
 
     const targetSignature = listingSignature(card_id, condition || 'Near Mint', Boolean(is_foil));
     const duplicate = (dupeCandidates || []).find(
-      (row: any) =>
-        extractSellerId(row.notes) === user.id &&
-        listingSignature(row.card_id, row.condition, row.is_foil) === targetSignature
+      (row: any) => listingSignature(row.card_id, row.condition, row.is_foil) === targetSignature
     );
 
-    const { data: invRow, error: invErr } = duplicate
+    const { data: mktRow, error: mktErr } = duplicate
       ? await supabaseAdmin
-          .from('inventory')
-          .update({ quantity: (duplicate.quantity || 0) + safeQty, price_huf: safePriceHuf })
+          .from('marketplace_listings')
+          .update({
+            quantity: (duplicate.quantity || 0) + safeQty,
+            price_huf: safePriceHuf,
+            condition: condition || 'Near Mint',
+            is_foil: Boolean(is_foil),
+            handover_methods: safeHandoverMethods,
+            ...(description ? { description } : {}),
+            ...(photoList.length > 0 ? { images: photoList } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', duplicate.id)
-          .select('id, card_id, condition, is_foil, price_huf, quantity, status')
+          .select('id, card_id, condition, is_foil, price_huf, quantity, status, description, images')
           .single()
       : await supabaseAdmin
-          .from('inventory')
+          .from('marketplace_listings')
           .insert({
+            seller_id: user.id,
             card_id,
             condition: condition || 'Near Mint',
             is_foil: Boolean(is_foil),
             price_huf: safePriceHuf,
             quantity: safeQty,
             status: 'In Stock',
-            notes: notesPayload,
+            handover_methods: safeHandoverMethods,
+            description: description || null,
+            images: photoList,
           })
-          .select('id, card_id, condition, is_foil, price_huf, quantity, status')
+          .select('id, card_id, condition, is_foil, price_huf, quantity, status, description, images')
           .single();
 
-    if (invErr) {
-      console.error('Failed to create inventory listing:', invErr);
-      return new Response(JSON.stringify({ success: false, error: invErr.message }), {
+    if (mktErr) {
+      console.error('Failed to create marketplace listing:', mktErr);
+      return new Response(JSON.stringify({ success: false, error: mktErr.message }), {
         status: 500,
         headers: JSON_HEADERS,
       });
     }
 
-    // Copies committed to a listing leave the seller's tracked collection immediately —
-    // not when the sale later completes — so "owned" always reflects what's actually
-    // still in their binder.
-    const taken = -(await adjustSellerCollection(user.id, card_id, Boolean(is_foil), -safeQty));
-
-    // Remember how many of this listing's copies really came out of the collection, so that taking
-    // it down later gives back only those and not copies that were never tracked. A new description
-    // on a listing that was merged into an existing one replaces the old one.
-    const baseNotes: string = duplicate ? (duplicate as any).notes : notesPayload;
-    const listedNotes = withListingNotes(baseNotes, {
-      from_collection: getCopiesFromCollection(baseNotes) + taken,
-      ...(duplicate && description ? { user_notes: description } : {}),
-    });
-    if (listedNotes !== baseNotes) {
-      await supabaseAdmin.from('inventory').update({ notes: listedNotes }).eq('id', invRow.id);
-    }
-
-    // If photos were uploaded, save them into public.inventory_images
-    if (photoList.length > 0) {
-      const imageRecords = photoList.map((url, index) => ({
-        inventory_id: invRow.id,
-        image_path: url,
-        display_order: index + 1,
-      }));
-
-      const { error: imgErr } = await supabaseAdmin
-        .from('inventory_images')
-        .insert(imageRecords);
-
-      if (imgErr) {
-        console.warn('Failed to insert inventory_images:', imgErr);
-      }
-    }
+    // Copies committed to a listing leave the seller's tracked collection immediately
+    await adjustSellerCollection(user.id, card_id, Boolean(is_foil), -safeQty);
 
     return new Response(JSON.stringify({
       success: true,
       listing: {
-        ...invRow,
+        ...mktRow,
+        inventory_id: mktRow.id,
         images: photoList,
       },
     }), {
-      status: 200,
+      status: 201,
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
@@ -538,7 +622,31 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       });
     }
 
-    // 1. Try deleting from inventory table
+    // 1. Try deleting from marketplace_listings
+    const { data: mktRow } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('id, seller_id, card_id, is_foil, quantity, collection_id')
+      .eq('id', listingId)
+      .maybeSingle();
+
+    if (mktRow) {
+      if (mktRow.seller_id !== user.id) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+      await supabaseAdmin.from('marketplace_listings').delete().eq('id', listingId);
+      return new Response(JSON.stringify({
+        success: true,
+        listing_id: listingId,
+      }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // 2. Fallback to legacy inventory table
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
       .select('id, notes, card_id, is_foil, quantity')
@@ -632,7 +740,58 @@ export const PATCH: APIRoute = async ({ request }) => {
 
     const { price_huf, quantity, status, condition } = body;
 
-    // 1. Try inventory table
+    // 1. Try marketplace_listings
+    const { data: mktRow } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('id, seller_id, status, quantity, price_huf, card_id, is_foil, description, handover_methods, images')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (mktRow) {
+      if (mktRow.seller_id !== user.id) {
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+      const updates: any = { updated_at: new Date().toISOString() };
+      if (typeof price_huf === 'number') updates.price_huf = price_huf;
+      if (typeof quantity === 'number') updates.quantity = quantity;
+      if (status) {
+        const dbStatus = (status === 'On Hold' || status === 'Reserved') ? 'Reserved' : status;
+        updates.status = dbStatus;
+        if (dbStatus === 'Sold') updates.quantity = 0;
+        else if (dbStatus === 'In Stock' && mktRow.quantity <= 0) updates.quantity = 1;
+      }
+      if (condition) updates.condition = condition;
+      if (typeof body.description === 'string') updates.description = cleanListingDescription(body.description);
+      if (Array.isArray(body.handover_methods)) updates.handover_methods = body.handover_methods;
+      if (Array.isArray(body.images)) updates.images = body.images;
+
+      const { data: updated, error: updateErr } = await supabaseAdmin
+        .from('marketplace_listings')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
+          status: 500,
+          headers: JSON_HEADERS,
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        listing: updated,
+      }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    // 2. Fallback to legacy inventory table
     const { data: invRow } = await supabaseAdmin
       .from('inventory')
       .select('id, notes, status, quantity, price_huf, card_id, is_foil')

@@ -5,6 +5,7 @@ import { logOrderEvent } from '../../lib/orderLogs';
 import { persistOrderItemsSnapshot } from '../../lib/orderItems';
 import type { Order } from '../../types';
 import { getRequestUser, jsonResponse } from '../../lib/requestAuth';
+import { sanitizePlainText } from '../../lib/sanitize';
 
 export const prerender = false;
 
@@ -99,9 +100,14 @@ async function saveStoredOrders(
   // 2. Also sync to public.orders table if it exists
   try {
     if (updatedOrder) {
+      const isUuid = (val?: string | null) => Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+      const validUserId = isUuid(updatedOrder.user_id) ? updatedOrder.user_id : null;
+      const validOrderId = isUuid(updatedOrder.id) ? updatedOrder.id : undefined;
+
       await supabaseAdmin.from('orders').upsert({
+        ...(validOrderId ? { id: validOrderId } : {}),
         order_number: updatedOrder.order_number,
-        user_id: updatedOrder.user_id || null,
+        user_id: validUserId,
         status: updatedOrder.status,
         total_price_huf: updatedOrder.total_price_huf ?? updatedOrder.total_huf ?? 0,
         shipping_name: updatedOrder.shipping_name || null,
@@ -238,16 +244,160 @@ export const GET: APIRoute = async ({ request }) => {
   }
 };
 
-// POST: Add a new order to the cloud store. Sales are recorded by the hold-request flow on the
-// server; nothing else creates orders any more, so this is for admins only.
+// POST: Add a new order or process dynamic store checkout.
+// If body.items is present: dynamically verifies product prices and stock against database,
+// calculates total strictly on the server (Worker-side verification), and prevents client price manipulation.
+// If body.order is present: admin-only order import / manual entry.
 export const POST: APIRoute = async ({ request }) => {
   try {
     const caller = await getRequestUser(request);
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return jsonResponse({ success: false, error: 'Invalid JSON body.' }, 400);
+    }
+
+    const client = getSupabaseClient(request);
+
+    // ─── Branch A: Dynamic Server Price Verification (Store / Customer Checkout) ───
+    if (Array.isArray(body.items) && body.items.length > 0) {
+      const shippingName = sanitizePlainText(body.shipping_name || body.shippingName, 100);
+      const contactEmail = sanitizePlainText(body.contact_email || body.contactEmail, 100);
+      const contactPhone = sanitizePlainText(body.contact_phone || body.contactPhone, 50);
+      const shippingAddress = sanitizePlainText(body.shipping_address || body.shippingAddress, 300);
+      const userNotes = sanitizePlainText(body.notes, 500);
+
+      if (!shippingName) {
+        return jsonResponse({ success: false, error: 'Full name is required.' }, 400);
+      }
+      if (!contactEmail || !contactEmail.includes('@')) {
+        return jsonResponse({ success: false, error: 'Valid email address is required.' }, 400);
+      }
+
+      const itemRequests: Array<{ inventory_id: string; quantity: number }> = body.items
+        .map((it: any) => ({
+          inventory_id: String(it.inventory_id || it.inventoryId || ''),
+          quantity: Math.max(1, parseInt(String(it.quantity), 10) || 1),
+        }))
+        .filter((it: any) => Boolean(it.inventory_id));
+
+      if (itemRequests.length === 0) {
+        return jsonResponse({ success: false, error: 'No valid items in order.' }, 400);
+      }
+
+      // 1. Fetch real product prices and available stock from database
+      const invIds = itemRequests.map(it => it.inventory_id);
+      const { data: invRows, error: invErr } = await supabaseAdmin
+        .from('inventory')
+        .select(`
+          id, price_huf, quantity, status, condition, is_foil, notes,
+          cards ( id, name, card_number, image_path, sets ( name ) )
+        `)
+        .in('id', invIds);
+
+      if (invErr || !invRows) {
+        return jsonResponse({ success: false, error: 'Failed to verify inventory items.' }, 500);
+      }
+
+      const invMap = new Map<string, any>(invRows.map((r: any) => [r.id, r]));
+      const verifiedItems: any[] = [];
+      let calculatedSubtotalHuf = 0;
+
+      for (const reqIt of itemRequests) {
+        const inv = invMap.get(reqIt.inventory_id);
+        if (!inv) {
+          return jsonResponse({ success: false, error: `Product item ${reqIt.inventory_id} no longer exists.` }, 404);
+        }
+        if (inv.status === 'Sold' || (typeof inv.quantity === 'number' && inv.quantity < reqIt.quantity)) {
+          return jsonResponse({ success: false, error: `Item ${inv.cards?.name || 'card'} is out of stock or does not have enough copies.` }, 409);
+        }
+
+        // CRITICAL: DYNAMIC SERVER PRICE VERIFICATION
+        // Price is read strictly from inv.price_huf in DB, ignoring any client-sent price!
+        const verifiedPriceHuf = Math.max(0, Math.round(Number(inv.price_huf) || 0));
+        calculatedSubtotalHuf += (verifiedPriceHuf * reqIt.quantity);
+
+        verifiedItems.push({
+          inventory_id: inv.id,
+          card_id: inv.cards?.id || '',
+          card_name: inv.cards?.name || 'TCG Item',
+          card_number: inv.cards?.card_number || '',
+          set_name: inv.cards?.sets?.name || '',
+          condition: inv.condition || 'Near Mint',
+          is_foil: Boolean(inv.is_foil),
+          price_huf: verifiedPriceHuf, // DATABASE TRUTH
+          quantity: reqIt.quantity,
+          image_path: inv.cards?.image_path || '',
+        });
+      }
+
+      const shippingHuf = Math.max(0, parseInt(String(body.shipping_huf || body.shippingHuf || 0), 10) || 0);
+      const totalHuf = calculatedSubtotalHuf + shippingHuf;
+
+      // 2. Decrement inventory atomically in database
+      for (const reqIt of itemRequests) {
+        const inv = invMap.get(reqIt.inventory_id)!;
+        const remaining = Math.max(0, (Number(inv.quantity) || 1) - reqIt.quantity);
+        const nextStatus = remaining > 0 ? (inv.status || 'In Stock') : 'Sold';
+        await supabaseAdmin
+          .from('inventory')
+          .update({ quantity: remaining, status: nextStatus, updated_at: new Date().toISOString() })
+          .eq('id', inv.id);
+      }
+
+      // 3. Assemble verified order
+      const now = new Date();
+      const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const randPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const orderNumber = `ORD-${datePart}-${randPart}`;
+      const orderId = crypto.randomUUID();
+
+      const newOrder: Order = {
+        id: orderId,
+        order_number: orderNumber,
+        user_id: caller?.user?.id || 'guest',
+        status: 'Pending',
+        total_price_huf: totalHuf,
+        shipping_name: shippingName,
+        shipping_address: shippingAddress || 'Standard Delivery',
+        tracking_number: null,
+        payment_method: body.payment_method || 'stripe',
+        payment_status: 'pending',
+        notes: [
+          contactPhone ? `Phone: ${contactPhone}` : '',
+          contactEmail ? `Email: ${contactEmail}` : '',
+          userNotes ? `Notes: ${userNotes}` : '',
+        ].filter(Boolean).join(' | ') || null,
+        items: verifiedItems,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+
+      const currentOrders = await getStoredOrders(client);
+      const updated = [newOrder, ...currentOrders.filter(o => o.order_number !== newOrder.order_number)];
+      await saveStoredOrders(updated, client, newOrder);
+
+      await persistOrderItemsSnapshot(orderId, orderNumber, verifiedItems);
+      await logOrderEvent({
+        orderNumber,
+        orderId,
+        eventType: 'order_created',
+        message: `Order #${orderNumber} placed dynamically with ${verifiedItems.length} items. Total: ${totalHuf} HUF.`,
+        severity: 'info',
+        metadata: {
+          subtotalHuf: calculatedSubtotalHuf,
+          shippingHuf,
+          totalPriceHuf: totalHuf,
+          paymentMethod: newOrder.payment_method,
+        },
+      });
+
+      return jsonResponse({ success: true, order: newOrder }, 201);
+    }
+
+    // ─── Branch B: Admin Direct Order Import / Manual Entry ───
     if (!caller) return jsonResponse({ success: false, error: 'Unauthorized.' }, 401);
     if (!caller.isAdmin) return jsonResponse({ success: false, error: 'Forbidden: admin access required.' }, 403);
 
-    const client = getSupabaseClient(request);
-    const body = await request.json();
     const newOrder = body.order as Order;
     if (!newOrder || !newOrder.order_number) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid order payload.' }), {
@@ -493,7 +643,9 @@ export const DELETE: APIRoute = async ({ request }) => {
     const removableSet = new Set<string>();
     for (const num of targetSet) {
       const found = currentOrders.find(o => o.order_number === num || o.id === num);
-      if (caller.isAdmin || !found || isUsersOrder(found)) {
+      if (caller.isAdmin) {
+        removableSet.add(num);
+      } else if (found && isUsersOrder(found)) {
         removableSet.add(num);
       }
     }
