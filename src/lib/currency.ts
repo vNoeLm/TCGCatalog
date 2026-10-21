@@ -85,10 +85,14 @@ export function formatCurrencyPrice(
 }
 
 export function useCurrency() {
-  const [currency, setCurrencyState] = useState<Currency>(() => getCurrency());
+  const [currency, setCurrencyState] = useState<Currency>('HUF');
   const [rate, setRate] = useState<number>(cachedRate);
 
   useEffect(() => {
+    // Sync with actual client preference from localStorage after hydration
+    const saved = getCurrency();
+    setCurrencyState(saved);
+
     getEurToHuf().then((r) => {
       if (r && Number.isFinite(r)) {
         cachedRate = r;

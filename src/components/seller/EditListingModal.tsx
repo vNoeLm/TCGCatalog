@@ -4,6 +4,8 @@ import { supabase, getCardImageUrl } from '../../lib/supabase';
 import { HANDOVER_METHODS, listingHandoverIds } from '../../lib/handover';
 import { LISTING_CONDITIONS } from '../../lib/collectionDefaults';
 import { getListingDescription, MAX_LISTING_DESCRIPTION } from '../../lib/sellerNotes';
+import { useCurrency, formatCurrencyPrice } from '../../lib/currency';
+import { compressImages } from '../../lib/imageCompression';
 
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider mb-1';
 const inputCls = 'w-full px-3 py-2 rounded-xl text-xs font-semibold outline-none border focus:border-[var(--accent)]';
@@ -31,7 +33,11 @@ export function EditListingModal({
   if (listing) last.current = listing;
   const item = last.current;
 
+  const { currency, eurHufRate, isEur } = useCurrency();
+  const effectiveRate = eurHufRate > 0 ? eurHufRate : 400;
+
   const [price, setPrice] = useState(0);
+  const [priceInput, setPriceInput] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [condition, setCondition] = useState('Near Mint');
   const [description, setDescription] = useState('');
@@ -44,7 +50,9 @@ export function EditListingModal({
 
   useEffect(() => {
     if (!listing) return;
-    setPrice(Number(listing.price_huf) || 0);
+    const p = Number(listing.price_huf) || 0;
+    setPrice(p);
+    setPriceInput(isEur ? (p / effectiveRate).toFixed(2) : String(p));
     setQuantity(Number(listing.quantity) || 1);
     setCondition(listing.condition || 'Near Mint');
     setDescription(getListingDescription(listing.notes) || '');
@@ -52,6 +60,12 @@ export function EditListingModal({
     setPhotos((listing.inventory_images || []).map((i: any) => i.image_path).filter(Boolean));
     setError('');
   }, [listing]);
+
+  useEffect(() => {
+    if (price > 0) {
+      setPriceInput(isEur ? (price / effectiveRate).toFixed(2) : String(price));
+    }
+  }, [currency, effectiveRate]);
 
   useEffect(() => {
     if (!listing) return;
@@ -75,7 +89,8 @@ export function EditListingModal({
     setError('');
     try {
       const form = new FormData();
-      files.forEach((f) => form.append('files', f));
+      const compressedFiles = await compressImages(files);
+      compressedFiles.forEach((f) => form.append('files', f));
       const res = await fetch('/api/marketplace/upload-image', { method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Upload failed.');
@@ -152,8 +167,35 @@ export function EditListingModal({
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label>
-            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Price (Ft)</span>
-            <input type="number" min={1} value={price || ''} onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))} className={`${inputCls} font-mono`} style={inputStyle} />
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Price ({currency === 'EUR' ? 'EUR €' : 'HUF Ft'})</span>
+            <input
+              type="number"
+              step={isEur ? "0.01" : "1"}
+              min={isEur ? "0.01" : "1"}
+              value={priceInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPriceInput(val);
+                const parsed = parseFloat(val);
+                if (!isNaN(parsed) && parsed > 0) {
+                  setPrice(isEur ? Math.max(1, Math.round(parsed * effectiveRate)) : Math.max(1, Math.round(parsed)));
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseFloat(priceInput);
+                if (isNaN(parsed) || parsed <= 0) {
+                  setPrice(1);
+                  setPriceInput(isEur ? (1 / effectiveRate).toFixed(2) : '1');
+                } else if (isEur) {
+                  setPriceInput(parsed.toFixed(2));
+                }
+              }}
+              className={`${inputCls} font-mono`}
+              style={inputStyle}
+            />
+            <div className="text-[10px] mt-1 font-mono text-[var(--text-tertiary)]">
+              {isEur ? `≈ ${price.toLocaleString()} Ft` : `≈ ${formatCurrencyPrice(price, 'EUR', effectiveRate)}`}
+            </div>
           </label>
           <label>
             <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>In stock</span>

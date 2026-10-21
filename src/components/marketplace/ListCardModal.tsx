@@ -8,6 +8,8 @@ import { adjustLocalCollection } from '../../lib/collectionClient';
 import { getEurToHuf, fetchSiteListingPrices } from '../../lib/prices';
 import { DEFAULT_EUR_TO_HUF, eurToHuf, roundHuf, suggestPrice } from '../../lib/priceSuggestion';
 import type { CatalogCard, InventoryCard, UserProfile } from '../../types';
+import { useCurrency, formatCurrencyPrice } from '../../lib/currency';
+import { compressImages } from '../../lib/imageCompression';
 
 interface ListCardModalProps {
   isOpen: boolean;
@@ -42,7 +44,10 @@ export function ListCardModal({
   const [condition, setCondition] = useState('Near Mint');
   const [isFoil, setIsFoil] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const { currency, formatPrice, eurHufRate, isEur } = useCurrency();
+  const effectiveRate = eurHufRate > 0 ? eurHufRate : DEFAULT_EUR_TO_HUF;
   const [priceHuf, setPriceHuf] = useState<number>(500);
+  const [priceInput, setPriceInput] = useState<string>('500');
   // Until the seller types a price themselves, the price box follows the suggestion as it firms up
   // (the listings on the site arrive a moment after the card is picked).
   const [priceTouched, setPriceTouched] = useState(false);
@@ -79,11 +84,15 @@ export function ListCardModal({
         const initialFoil = (initialCard as any).is_foil || false;
         setIsFoil(initialFoil);
         setPriceHuf(500);
+        setPriceInput(isEur ? (500 / effectiveRate).toFixed(2) : '500');
         setPriceTouched(false);
       } else {
         setSelectedCard(null);
         setSearchQuery('');
         setSearchResults([]);
+        setPriceHuf(500);
+        setPriceInput(isEur ? (500 / effectiveRate).toFixed(2) : '500');
+        setPriceTouched(false);
         setTimeout(() => searchInputRef.current?.focus(), 150);
       }
     }
@@ -154,8 +163,17 @@ export function ListCardModal({
   const suggestedHuf = suggestion.suggestedHuf;
 
   useEffect(() => {
-    if (!priceTouched && suggestedHuf) setPriceHuf(suggestedHuf);
-  }, [priceTouched, suggestedHuf]);
+    if (!priceTouched && suggestedHuf) {
+      setPriceHuf(suggestedHuf);
+      setPriceInput(isEur ? (suggestedHuf / effectiveRate).toFixed(2) : String(suggestedHuf));
+    }
+  }, [priceTouched, suggestedHuf, isEur, effectiveRate]);
+
+  useEffect(() => {
+    if (priceHuf > 0) {
+      setPriceInput(isEur ? (priceHuf / effectiveRate).toFixed(2) : String(priceHuf));
+    }
+  }, [currency, effectiveRate]);
 
   const { rendered, state } = useExitTransition(isOpen, 250);
   if (!rendered) return null;
@@ -163,6 +181,7 @@ export function ListCardModal({
   const handleSelectCard = (card: CatalogCard) => {
     setSelectedCard(card);
     setPriceHuf(500);
+    setPriceInput(isEur ? (500 / effectiveRate).toFixed(2) : '500');
     setPriceTouched(false);
     setSearchQuery('');
     setSearchResults([]);
@@ -189,7 +208,8 @@ export function ListCardModal({
       }
 
       const formData = new FormData();
-      files.forEach(f => formData.append('files', f));
+      const compressedFiles = await compressImages(files);
+      compressedFiles.forEach(f => formData.append('files', f));
 
       const res = await fetch('/api/marketplace/upload-image', {
         method: 'POST',
@@ -582,16 +602,38 @@ export function ListCardModal({
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  Unit Price (HUF)
+                  Unit Price ({currency})
                 </label>
                 <div className="relative">
                   <input
                     type="number"
-                    step={1}
-                    min={1}
-                    value={priceHuf}
-                    onChange={(e) => { setPriceTouched(true); setPriceHuf(Math.max(0, parseInt(e.target.value, 10) || 0)); }}
-                    className="w-full pl-3 pr-8 py-1.5 rounded-xl text-xs font-black border focus:outline-none focus:border-emerald-500 transition"
+                    step={isEur ? "0.01" : "1"}
+                    min={isEur ? "0.01" : "1"}
+                    value={priceInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPriceInput(val);
+                      setPriceTouched(true);
+                      const parsed = parseFloat(val);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        if (isEur) {
+                          setPriceHuf(Math.max(1, Math.round(parsed * effectiveRate)));
+                        } else {
+                          setPriceHuf(Math.max(1, Math.round(parsed)));
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      const parsed = parseFloat(priceInput);
+                      if (isNaN(parsed) || parsed <= 0) {
+                        const fallback = 1;
+                        setPriceHuf(fallback);
+                        setPriceInput(isEur ? (fallback / effectiveRate).toFixed(2) : String(fallback));
+                      } else if (isEur) {
+                        setPriceInput(parsed.toFixed(2));
+                      }
+                    }}
+                    className="w-full pl-3 pr-8 py-1.5 rounded-xl text-xs font-black border focus:outline-none focus:border-emerald-500 transition font-mono"
                     style={{
                       background: 'var(--bg-input)',
                       borderColor: 'var(--border)',
@@ -599,8 +641,11 @@ export function ListCardModal({
                     }}
                   />
                   <span className="absolute right-2.5 top-1.5 text-xs font-bold text-[var(--text-tertiary)] pointer-events-none">
-                    Ft
+                    {isEur ? '€' : 'Ft'}
                   </span>
+                </div>
+                <div className="text-[10px] mt-1 font-mono text-[var(--text-tertiary)]">
+                  {isEur ? `≈ ${priceHuf.toLocaleString()} Ft` : `≈ ${formatCurrencyPrice(priceHuf, 'EUR', effectiveRate)}`}
                 </div>
               </div>
             </div>
@@ -616,12 +661,16 @@ export function ListCardModal({
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Suggested price</div>
                       <div className="text-2xl font-black leading-tight" style={{ color: 'var(--text-primary)' }}>
-                        {suggestedHuf.toLocaleString()} Ft
+                        {formatPrice(suggestedHuf)}
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setPriceTouched(false); setPriceHuf(suggestedHuf); }}
+                      onClick={() => {
+                        setPriceTouched(false);
+                        setPriceHuf(suggestedHuf);
+                        setPriceInput(isEur ? (suggestedHuf / effectiveRate).toFixed(2) : String(suggestedHuf));
+                      }}
                       disabled={priceHuf === suggestedHuf}
                       className="px-3.5 py-2 rounded-lg text-sm font-bold border transition cursor-pointer disabled:opacity-40 disabled:cursor-default"
                       style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
@@ -637,14 +686,14 @@ export function ListCardModal({
                     <div>
                       <dt className="text-xs text-[var(--text-muted)]">Market reference</dt>
                       <dd className="font-bold" style={{ color: 'var(--text-primary)' }}>
-                        {suggestion.referenceHuf ? `~${roundHuf(suggestion.referenceHuf).toLocaleString()} Ft` : 'none'}
+                        {suggestion.referenceHuf ? `~${formatPrice(roundHuf(suggestion.referenceHuf))}` : 'none'}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-xs text-[var(--text-muted)]">Others selling here</dt>
                       <dd className="font-bold" style={{ color: 'var(--text-primary)' }}>
                         {suggestion.site
-                          ? `${suggestion.site.count} from ${roundHuf(suggestion.site.lowest).toLocaleString()} Ft`
+                          ? `${suggestion.site.count} from ${formatPrice(roundHuf(suggestion.site.lowest))}`
                           : 'nobody yet'}
                       </dd>
                     </div>
@@ -657,7 +706,7 @@ export function ListCardModal({
 
               {quantity > 1 && (
                 <div className="text-sm font-semibold text-[var(--positive)] text-right">
-                  {`Total: ${(quantity * priceHuf).toLocaleString()} HUF`}
+                  {`Total: ${formatPrice(quantity * priceHuf)}`}
                 </div>
               )}
             </div>

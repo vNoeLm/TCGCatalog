@@ -47,121 +47,6 @@ import { useCurrency } from '../lib/currency';
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
 
-const renderLorcanaRarityIcon = (rarity: string) => {
-  const r = (rarity || '').toLowerCase().trim();
-  switch (r) {
-    case 'common':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Common">
-          <circle cx="12" cy="12" r="10" fill="#9ca3af" stroke="#4b5563" strokeWidth="1.5" />
-          <circle cx="12" cy="12" r="6" fill="#4b5563" stroke="#d1d5db" strokeWidth="1" />
-          <circle cx="12" cy="12" r="2.5" fill="#f3f4f6" />
-        </svg>
-      );
-    case 'uncommon':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Uncommon">
-          <path d="M12 5 C8.5 3 4 3.5 2 5 v13 c2 -1.5 6.5 -2 10 0 c3.5 -2 8 -1.5 10 0 v-13 c-2 -1.5 -6.5 -2 -10 0 Z" fill="#f8fafc" stroke="#64748b" strokeWidth="1.5" strokeLinejoin="round" />
-          <line x1="12" y1="5" x2="12" y2="18" stroke="#64748b" strokeWidth="1.5" />
-          <path d="M6 7.5 c2 -0.5 4 -0.3 5 0.5" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" />
-          <path d="M18 7.5 c-2 -0.5 -4 -0.3 -5 0.5" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" />
-        </svg>
-      );
-    case 'rare':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Rare">
-          <polygon points="12,2 22,20 2,20" fill="#d97706" stroke="#92400e" strokeWidth="1.5" strokeLinejoin="round" />
-          <polygon points="12,6 19,18 5,18" fill="#f59e0b" />
-          <polygon points="12,10 16,17 8,17" fill="#fbbf24" opacity="0.7" />
-        </svg>
-      );
-    case 'super rare':
-    case 'super_rare':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Super Rare">
-          <polygon points="12,1 23,12 12,23 1,12" fill="#94a3b8" stroke="#475569" strokeWidth="1.5" strokeLinejoin="round" />
-          <polygon points="12,4 20,12 12,20 4,12" fill="#cbd5e1" />
-          <polygon points="12,7 17,12 12,17 7,12" fill="#f8fafc" opacity="0.8" />
-        </svg>
-      );
-    case 'legendary':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Legendary">
-          <polygon points="12,1 23,9 19,22 5,22 1,9" fill="#eab308" stroke="#a16207" strokeWidth="1.5" strokeLinejoin="round" />
-          <polygon points="12,4 20,10.5 17,20 7,20 4,10.5" fill="#facc15" />
-          <polygon points="12,7 17,12 15,18 9,18 7,12" fill="#fef08a" opacity="0.8" />
-        </svg>
-      );
-    case 'enchanted':
-      return (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 drop-shadow-sm" aria-label="Enchanted">
-          <defs>
-            <linearGradient id="lorcana-enchanted-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f43f5e" />
-              <stop offset="35%" stopColor="#d946ef" />
-              <stop offset="70%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#06b6d4" />
-            </linearGradient>
-          </defs>
-          <polygon points="12,1 22,6.8 22,17.2 12,23 2,17.2 2,6.8" fill="url(#lorcana-enchanted-grad)" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" />
-          <polygon points="12,4.5 19.5,8.8 19.5,15.2 12,19.5 4.5,15.2 4.5,8.8" fill="#ffffff" fillOpacity="0.35" />
-          <polygon points="12,7 16.5,9.5 16.5,14.5 12,17 7.5,14.5 7.5,9.5" fill="#ffffff" fillOpacity="0.5" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-};
-
-const renderFaBRarityIcon = (rarity: string) => {
-  const r = (rarity || '').toLowerCase().trim();
-  let bg = '#71717a';
-  let letter = 'C';
-  if (r.includes('rare') && !r.includes('super')) {
-    bg = '#dc2626';
-    letter = 'R';
-  } else if (r.includes('super')) {
-    bg = '#7c3aed';
-    letter = 'S';
-  } else if (r.includes('majestic')) {
-    bg = '#9333ea';
-    letter = 'M';
-  } else if (r.includes('legendary')) {
-    bg = '#d97706';
-    letter = 'L';
-  } else if (r.includes('fabled')) {
-    bg = '#4338ca';
-    letter = 'F';
-  } else if (r.includes('token')) {
-    bg = '#52525b';
-    letter = 'T';
-  } else if (r.includes('promo')) {
-    bg = '#059669';
-    letter = 'P';
-  }
-  return (
-    <span 
-      style={{ 
-        display: 'inline-flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        width: '18px', 
-        height: '18px', 
-        borderRadius: '50%', 
-        background: bg, 
-        color: '#fff', 
-        fontWeight: 900, 
-        fontSize: '10px', 
-        border: '1.5px solid rgba(255,255,255,0.4)',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.5)'
-      }} 
-      title={rarity}
-    >
-      {letter}
-    </span>
-  );
-};
-
 export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: string, cardId?: string, onClose?: () => void }) {
   const isLightTheme = useSiteTheme().theme === 'light';
   const { formatPrice } = useCurrency();
@@ -1158,20 +1043,14 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
               {/* Rarity icon + label */}
               {(() => {
                 const isRiftbound = !card.game || card.game === 'riftbound';
-                const isLorcana = card.game === 'lorcana';
-                const isFaB = card.game === 'fab';
                 const rarityKey = (card.rarity || '').toLowerCase();
                 const rarityIcon = isRiftbound ? RARITY_ICONS[rarityKey] : null;
-                const lorcanaIcon = isLorcana ? renderLorcanaRarityIcon(card.rarity) : null;
-                const fabIcon = isFaB ? renderFaBRarityIcon(card.rarity) : null;
                 return (
                   <span 
                     style={{ background: rarityStyle.bg, color: rarityStyle.text, borderColor: `${rarityStyle.text}44`, boxShadow: `0 0 12px ${rarityStyle.glow}` }}
                     className="inline-flex items-center gap-2 text-sm font-black px-3 py-1.5 rounded-xl border uppercase tracking-wider"
                   >
                     {rarityIcon && <img src={rarityIcon} alt={card.rarity} className="w-5 h-5 object-contain" />}
-                    {lorcanaIcon}
-                    {fabIcon}
                     {card.rarity}
                   </span>
                 );

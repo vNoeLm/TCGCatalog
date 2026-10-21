@@ -128,16 +128,11 @@ export function formatGameText(text: string | null | undefined): string {
   f = f.replace(/\[A\]/g, icon(GLYPH_ICONS.rune, 'Any Rune', 18));
   f = f.replace(/\[C\]/g, icon(GLYPH_ICONS.rune, 'Domain Rune', 18));
 
-  // 7. Flesh and Blood game symbols (Attack spear medallion, Defense shield, Resource, Life)
-  const fabAtkIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Attack Power (+ATK)"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><circle cx="12" cy="12" r="10" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="#fef08a" stroke-width="1" stroke-opacity="0.7"/><polygon points="6,6 18,10 13,13 10,18" fill="#18181b"/></svg></span>`;
-  const fabDefIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Defense (+DEF)"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><path d="M12 3 L20 6 V12 C20 17 12 21 12 21 C12 21 4 17 4 12 V6 Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.5"/><path d="M12 5.5 L18 7.8 V12 C18 15.8 12 19 12 19 C12 19 6 15.8 6 12 V7.8 Z" fill="#93c5fd" fill-opacity="0.5"/></svg></span>`;
-  const fabResourceIcon = `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:50%; font-weight:900; font-size:10px; width:16px; height:16px; margin:0 2px; vertical-align:middle;" title="Resource Pitch">R</span>`;
-  const fabLifeIcon = `<span style="display:inline-flex; align-items:center; vertical-align:middle; margin:0 2px;" title="Life / Health"><svg viewBox="0 0 24 24" style="width:16px; height:16px; display:inline-block;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#22c55e" stroke="#15803d" stroke-width="1.5"/></svg></span>`;
-
-  f = f.replace(/\{p\}/gi, fabAtkIcon);
-  f = f.replace(/\{d\}/gi, fabDefIcon);
-  f = f.replace(/\{r\}/gi, fabResourceIcon);
-  f = f.replace(/\{h\}/gi, fabLifeIcon);
+  // 7. Flesh and Blood game symbols
+  f = f.replace(/\{p\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#dc2626; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Attack Power">ATK</span>`);
+  f = f.replace(/\{d\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#2563eb; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Defense">DEF</span>`);
+  f = f.replace(/\{r\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#eab308; color:#000; border-radius:50%; font-weight:900; font-size:10px; width:17px; height:17px; margin:0 2px; vertical-align:middle;" title="Resource Pitch">R</span>`);
+  f = f.replace(/\{h\}/gi, `<span style="display:inline-flex; align-items:center; justify-content:center; background:#16a34a; color:#fff; border-radius:4px; font-weight:900; font-size:10px; padding:1px 5px; margin:0 2px; vertical-align:middle;" title="Life / Health">HP</span>`);
 
   // 8. Star Wars: Unlimited symbols: {C=1}, {Exhaust}
   f = f.replace(/\{C=(\d+)\}/gi, (_: string, n: string) =>
