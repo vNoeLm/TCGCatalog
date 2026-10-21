@@ -7,6 +7,8 @@ import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 import { CountryFlag } from "./CountryFlag";
 import { OWNER_ID } from "../lib/constants";
+import { addToCart, cartQuantityFor } from '../lib/marketplaceCart';
+import { useCart } from '../lib/useCart';
 
 interface CardItemProps {
   card: InventoryCard;
@@ -27,6 +29,31 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
 export function CardItem({ card, onClick, gridSize = 'normal', priority = false }: CardItemProps) {
   const isSmall = gridSize === 'small';
   const { formatPrice } = useCurrency();
+  const cart = useCart();
+  const inCart = card.inventory_id ? cartQuantityFor(cart, card.inventory_id) : 0;
+  const left = Math.max(0, (Number(card.quantity) || 1) - inCart);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (left <= 0 || !card.inventory_id) return;
+    addToCart({
+      inventoryId: card.inventory_id,
+      sellerId: card.seller_id || '',
+      sellerName: card.seller_name || 'Community Seller',
+      cardName: card.name,
+      cardNumber: card.card_number,
+      imagePath: card.image_path || undefined,
+      priceHuf: card.price_huf || 0,
+      quantity: 1,
+      maxQuantity: Math.max(1, Number(card.quantity) || 1),
+      isFoil: Boolean(card.is_foil),
+      condition: card.condition || 'Near Mint',
+      handoverMethods: (card as any).handover_methods,
+    });
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
+  };
 
 
   const isSealed = false;
@@ -316,20 +343,63 @@ export function CardItem({ card, onClick, gridSize = 'normal', priority = false 
                 : card.status}
             </span>
           </div>
-          <button
-            onClick={() => onClick(card.inventory_id)}
-            className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-4 py-1.5'} font-medium rounded-md transition-all active:scale-95`}
-            style={{
-              background: "var(--bg-raised)",
-              color: "var(--text-secondary)",
-              border: "1px solid var(--border)",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.15)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
-          >
-            View
-          </button>
+          {card.status === 'In Stock' && left > 0 ? (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-3.5 py-1.5'} font-bold rounded-lg transition-all active:scale-95 shadow-sm inline-flex items-center gap-1 cursor-pointer`}
+              style={{
+                background: justAdded ? 'var(--positive)' : 'var(--accent-strong)',
+                color: 'var(--text-on-accent, #000)',
+              }}
+              title="Add to cart"
+            >
+              {justAdded ? (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Added</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                    <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                  </svg>
+                  <span>Add</span>
+                </>
+              )}
+            </button>
+          ) : card.status === 'In Stock' && inCart > 0 ? (
+            <span
+              className={`${isSmall ? 'text-[10px] px-2 py-1' : 'text-xs px-2.5 py-1'} font-bold rounded-lg border inline-flex items-center gap-1`}
+              style={{
+                background: 'var(--positive-muted)',
+                color: 'var(--positive)',
+                borderColor: 'var(--positive-border)',
+              }}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>In Cart</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onClick(card.inventory_id)}
+              className={`${isSmall ? 'text-[10px] px-2.5 py-1' : 'text-xs px-3 py-1.5'} font-medium rounded-md transition-all active:scale-95`}
+              style={{
+                background: "var(--bg-raised)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+              }}
+            >
+              Details
+            </button>
+          )}
         </div>
       </div>
     </div>

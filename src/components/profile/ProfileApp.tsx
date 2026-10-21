@@ -1422,12 +1422,6 @@ export function ProfileApp() {
                       if (order.invoice_number) rows.push({ label: 'Invoice', value: order.invoice_number });
                       if (order.cancelled_at) rows.push({ label: 'Cancelled', value: new Date(order.cancelled_at).toLocaleString('en-GB', { hour12: false }) });
                       if (order.cancellation_reason) rows.push({ label: 'Reason', value: order.cancellation_reason });
-                      if (order.notes) {
-                        const cleanedNotes = order.notes
-                          .replace(/^Email:\s*[^|]+(\|\s*Phone:\s*[^|]+)?(\|\s*Notes:\s*)?/i, '')
-                          .trim();
-                        if (cleanedNotes) rows.push({ label: 'Notes', value: cleanedNotes });
-                      }
 
                       return (
                         <div

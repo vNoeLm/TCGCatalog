@@ -165,9 +165,8 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<stri
         phone: req.buyer_phone || '',
         name: req.buyer_name,
       },
-      // The buyer's own note (if they left one) — not a synthetic contact-info dump,
-      // which is already covered by customer_info and shipping_method/address above.
-      notes: req.message || undefined,
+      // Conversation messages belong to the chat thread, not stored as order notes
+      notes: undefined,
       items: lineItems.map((it) => ({
         inventory_id: it.inventory_id,
         card_id: it.inventory_id,

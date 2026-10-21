@@ -7,7 +7,7 @@ import { getListingDescription } from '../../lib/sellerNotes';
 import { useCurrency } from '../../lib/currency';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { StatBox } from '../StatBox';
-import { cartQuantityFor } from '../../lib/marketplaceCart';
+import { cartQuantityFor, addToCart } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 import { CountryFlag } from '../CountryFlag';
 
@@ -28,7 +28,7 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 // had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
 // their 150px floors, so Description effectively vanished into Condition and the row still didn't
 // fit, forcing the whole thing to scroll horizontally.
-const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1.4fr)_64px_110px_84px]';
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1.8fr)_minmax(0,1.5fr)_60px_105px_96px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -73,6 +73,31 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
   }, [group, sort, foilOnly, condition]);
 
   const rowSeller = (l: InventoryCard) => l.seller_name || 'Community Seller';
+
+  const [addedId, setAddedId] = useState<string | null>(null);
+
+  const handleAddToCart = (e: React.MouseEvent, l: InventoryCard) => {
+    e.stopPropagation();
+    if (leftFor(l) <= 0) return;
+    addToCart({
+      inventoryId: l.inventory_id,
+      sellerId: l.seller_id || '',
+      sellerName: rowSeller(l),
+      cardName: card.name,
+      cardNumber: card.card_number,
+      imagePath: imagePath || undefined,
+      priceHuf: l.price_huf || 0,
+      quantity: 1,
+      maxQuantity: Math.max(1, l.quantity || 1),
+      isFoil: Boolean(l.is_foil),
+      condition: l.condition || 'Near Mint',
+      handoverMethods: (l as any).handover_methods,
+    });
+    setAddedId(l.inventory_id);
+    setTimeout(() => {
+      setAddedId((curr) => (curr === l.inventory_id ? null : curr));
+    }, 1200);
+  };
 
   // No isOpen prop - the parent mounts/unmounts this directly, so there's no signal to hold it
   // for an exit transition. This still gives a real entrance instead of an instant pop-in.
@@ -165,6 +190,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                 Foil only
               </button>
             )}
+            <span className="hidden sm:inline text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Click any listing to view photos &amp; details</span>
             <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{visible.length} shown</span>
           </div>
 
@@ -175,7 +201,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
               <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
               <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
-              <div className="pl-3 text-center">Action</div>
+              <div className="pl-2 text-center">Cart</div>
             </div>
             {visible.length === 0 ? (
               <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
@@ -187,7 +213,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                     <div
                       key={l.inventory_id}
                       onClick={() => onSelectListing(l.inventory_id)}
-                      className={`listing-row grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer transition-colors group`}
+                      title="Click to view full photos and seller details"
+                      className={`listing-row grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer transition-all hover:bg-[var(--bg-surface-2)]/80 group`}
                       style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
                       role="button"
                       tabIndex={0}
@@ -266,20 +293,40 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       {/* Condition Column */}
-                      <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
-                        {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
-                        {(l.inventory_images || []).length > 0 && (
-                          <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }} title="Condition photos attached">Photos</span>
-                        )}
-                        {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                        {inCartFor(l) > 0 && (
-                          <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}>
-                            {inCartFor(l)} in your cart
-                          </span>
-                        )}
-                        <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
-                      </div>
+                      {(() => {
+                        const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
+                        const photoCount = (l.inventory_images && l.inventory_images.length > 0)
+                          ? l.inventory_images.length
+                          : (((l as any).images && (l as any).images.length > 0)
+                          ? (l as any).images.length
+                          : (l.inventory_image ? 1 : 0));
+                        return (
+                          <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
+                            {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
+                            {hasPhotos && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border cursor-pointer shadow-sm hover:brightness-125 transition-all"
+                                style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.45)' }}
+                                title={`${photoCount} real photo${photoCount > 1 ? 's' : ''} available. Click to view listing details and full photos.`}
+                              >
+                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                                  <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <span>{photoCount > 1 ? `${photoCount} Photos` : 'Photos'}</span>
+                              </span>
+                            )}
+                            {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
+                            {inCartFor(l) > 0 && (
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}>
+                                {inCartFor(l)} in cart
+                              </span>
+                            )}
+                            <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Amount Column */}
                       <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
@@ -291,19 +338,55 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                         {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
                       </div>
 
-                      {/* View Button Column */}
-                      <div className="order-3 @[720px]:order-6 @[720px]:pl-3 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectListing(l.inventory_id);
-                          }}
-                          className="w-[68px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition text-center hover:brightness-110 active:scale-95 shadow-sm"
-                          style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
-                        >
-                          View
-                        </button>
+                      {/* Add to Cart Column */}
+                      <div className="order-3 @[720px]:order-6 @[720px]:pl-2 flex justify-center">
+                        {addedId === l.inventory_id ? (
+                          <span
+                            className="inline-flex items-center justify-center gap-1 w-[82px] py-1.5 rounded-lg text-xs font-bold border"
+                            style={{
+                              background: 'var(--positive-muted)',
+                              color: 'var(--positive)',
+                              borderColor: 'var(--positive-border)',
+                            }}
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>Added</span>
+                          </span>
+                        ) : leftFor(l) > 0 ? (
+                          <button
+                            type="button"
+                            onClick={(e) => handleAddToCart(e, l)}
+                            className="inline-flex items-center justify-center gap-1.5 w-[82px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition hover:brightness-110 active:scale-95 shadow-sm whitespace-nowrap"
+                            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                            title={`Add to cart from ${rowSeller(l)}`}
+                          >
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                              <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                            </svg>
+                            <span>Add</span>
+                          </button>
+                        ) : inCartFor(l) > 0 ? (
+                          <span
+                            className="inline-flex items-center justify-center gap-1 w-[82px] py-1.5 rounded-lg text-[11px] font-bold border"
+                            style={{
+                              background: 'var(--positive-muted)',
+                              color: 'var(--positive)',
+                              borderColor: 'var(--positive-border)',
+                            }}
+                          >
+                            <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>In cart</span>
+                          </span>
+                        ) : (
+                          <span className="w-[82px] py-1.5 text-center text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                            Sold out
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
