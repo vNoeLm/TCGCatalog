@@ -89,7 +89,7 @@ const pathname = Astro.url.pathname;
             </span>
           </a>
           <div class="h-4 sm:h-5 w-px bg-[var(--border)] opacity-60" />
-          <GameSelector client:load />
+          <GameSelector disabled={pathname.startsWith('/store')} client:load />
         </div>
         <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Navigation currentPath={pathname} client:load />

@@ -252,9 +252,8 @@ html[data-theme="light"] .placeholder\:text-zinc-500::placeholder { color: var(-
 
 /* ─────────────────────────────────────────────
    HOVER FEEDBACK
-   Stronger, unmistakable hover feedback across all clickable buttons, links, pills, and cards.
+   Crisp, hardware-accelerated hover feedback across clickable buttons and links.
 ───────────────────────────────────────────── */
-.cursor-pointer,
 button:not(:disabled),
 a[href],
 [role="button"] {
@@ -262,27 +261,23 @@ a[href],
     transform 150ms var(--ease-out),
     box-shadow 150ms var(--ease-out),
     border-color 150ms var(--ease-out),
-    filter 150ms var(--ease-out),
     background-color 150ms var(--ease-out),
-    color 150ms var(--ease-out);
+    color 150ms var(--ease-out),
+    opacity 150ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .cursor-pointer:hover:not(:disabled),
-  button:hover:not(:disabled),
-  a[href]:hover {
-    filter: brightness(1.16) saturate(1.06);
+  /* Subtle lighting for buttons without expensive filter animations across entire cards */
+  button:not(:disabled):not(.group\/card):hover {
+    filter: brightness(1.1);
   }
-  html[data-theme="light"] .cursor-pointer:hover:not(:disabled),
-  html[data-theme="light"] button:hover:not(:disabled),
-  html[data-theme="light"] a[href]:hover {
-    filter: brightness(0.93) contrast(1.04);
+  html[data-theme="light"] button:not(:disabled):not(.group\/card):hover {
+    filter: brightness(0.95);
   }
 
-  /* Bordered buttons, pills, and clickable cards get a clear border highlight + subtle lift */
-  button.border:hover:not(:disabled),
-  a.border[href]:hover,
-  .cursor-pointer.border:hover:not(:disabled) {
+  /* Bordered buttons and standalone pills get clear border highlight + subtle lift */
+  button.border:hover:not(:disabled):not(.group\/card),
+  a.border[href]:hover {
     border-color: var(--border-hover) !important;
     transform: translateY(-1px);
     box-shadow: 0 4px 14px var(--accent-glow);
@@ -292,16 +287,13 @@ a[href],
 /* ─────────────────────────────────────────────
    PRESS FEEDBACK
 ───────────────────────────────────────────── */
-.cursor-pointer:active:not(:disabled),
-button:active:not(:disabled) {
-  transform: scale(0.97) !important;
+button:active:not(:disabled):not(.group\/card) {
+  transform: scale(0.97);
 }
 @media (prefers-reduced-motion: reduce) {
-  .cursor-pointer:active:not(:disabled),
   button:active:not(:disabled),
   button.border:hover:not(:disabled),
-  a.border[href]:hover,
-  .cursor-pointer.border:hover:not(:disabled) {
+  a.border[href]:hover {
     transform: none !important;
   }
 }

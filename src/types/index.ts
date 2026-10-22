@@ -61,6 +61,7 @@ export interface InventoryCard {
   seller_badge?: string;
   seller_country?: string;
   seller_ships_to?: string;
+  is_verified_store?: boolean;
 }
 
 export interface CatalogCard {
@@ -329,3 +330,39 @@ export interface ConversationSummary {
   unread_count: number;
 }
 
+
+
+export type StoreProductCategory =
+  | 'sealed'
+  | 'sleeves'
+  | 'deck_boxes'
+  | 'binders'
+  | 'playmats'
+  | 'protection'
+  | 'storage'
+  | 'dice'
+  | 'accessories'
+  | 'other';
+
+export type StoreProductStatus = 'draft' | 'active' | 'archived' | 'out_of_stock';
+
+export interface StoreProduct {
+  id: string;
+  name: string;
+  slug: string;
+  category: StoreProductCategory;
+  brand: string;
+  game: string | null;
+  sku?: string | null;
+  price_huf: number;
+  original_price_huf?: number | null;
+  stock_quantity: number;
+  status: StoreProductStatus;
+  description?: string | null;
+  images: string[];
+  attributes: Record<string, any>;
+  is_featured: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}

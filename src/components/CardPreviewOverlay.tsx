@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { CardDetail } from './CardDetail';
 import { useExitTransition } from '../lib/useExitTransition';
 
@@ -28,7 +29,7 @@ export function CardPreviewOverlay({ cardId, inventoryId, onClose, zIndex = 9999
 
   if (!rendered) return null;
 
-  return (
+  const content = (
     <div
       onClick={(e) => {
         // Stops the click from also reaching a backdrop this is nested inside (e.g. deck
@@ -39,7 +40,19 @@ export function CardPreviewOverlay({ cardId, inventoryId, onClose, zIndex = 9999
       }}
       data-state={state}
       className="tv-overlay"
-      style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 12, overflowY: 'auto', overscrollBehavior: 'contain' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.85)',
+        padding: 12,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        willChange: 'opacity',
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -50,10 +63,13 @@ export function CardPreviewOverlay({ cardId, inventoryId, onClose, zIndex = 9999
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 30px var(--accent-glow)',
+          willChange: 'transform, opacity',
         }}
       >
         <CardDetail cardId={lastRef.current.cardId ?? undefined} inventoryId={lastRef.current.inventoryId ?? undefined} onClose={onClose} />
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

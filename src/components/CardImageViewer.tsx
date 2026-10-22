@@ -74,7 +74,7 @@ export function CardImageViewer({ src, alt, open, onClose, landscapeCard = false
       aria-label={`${alt} - full view`}
       data-state={anim.state}
       className="tv-overlay fixed inset-0 z-[10001] flex items-center justify-center overflow-hidden pt-4 pb-20"
-      style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(0,0,0,0.92)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <img

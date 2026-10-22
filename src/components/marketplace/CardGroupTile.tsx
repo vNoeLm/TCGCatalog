@@ -1,10 +1,8 @@
+import React from 'react';
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import { cardThumbProps, gridThumbSize } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 import { useCurrency } from '../../lib/currency';
-
-const fmtHuf = (n: number) =>
-  new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
 
 interface CardGroupTileProps {
   group: CardListingGroup;
@@ -15,7 +13,7 @@ interface CardGroupTileProps {
 }
 
 /** One card with active listings: art, lowest/average price and how many copies are for sale. */
-export function CardGroupTile({ group, onClick, gridSize = 'normal', priority = false }: CardGroupTileProps) {
+export const CardGroupTile = React.memo(function CardGroupTile({ group, onClick, gridSize = 'normal', priority = false }: CardGroupTileProps) {
   const isSmall = gridSize === 'small';
   const { formatPrice } = useCurrency();
   const card = group.representative;
@@ -91,4 +89,4 @@ export function CardGroupTile({ group, onClick, gridSize = 'normal', priority = 
       </div>
     </button>
   );
-}
+});

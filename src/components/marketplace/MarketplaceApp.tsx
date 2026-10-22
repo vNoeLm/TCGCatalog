@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { isUnreleasedSet } from '../../lib/cardPreview';
 import { t } from '../../lib/labels';
@@ -75,6 +75,9 @@ export function MarketplaceApp() {
   // Both overlays live in the URL - ?card= for a card's listings, ?listing= for one listing - so
   // Back closes the top one and either can be shared as a link.
   const [selectedGroupCardId, openGroup, closeGroup] = useUrlOverlay('card');
+  const handleOpenGroup = useCallback((group: CardListingGroup) => {
+    openGroup(group.card_id);
+  }, [openGroup]);
 
   // Listings State
   const [cards, setCards] = useState<InventoryCard[]>([]);
@@ -673,7 +676,7 @@ export function MarketplaceApp() {
                 <CardGroupTile
                   key={group.card_id}
                   group={group}
-                  onClick={(g) => openGroup(g.card_id)}
+                  onClick={handleOpenGroup}
                   gridSize={gridSize}
                   priority={i < 4}
                 />
@@ -685,7 +688,7 @@ export function MarketplaceApp() {
                 <CardItem
                   key={card.inventory_id}
                   card={card}
-                  onClick={(id) => openListing(id)}
+                  onClick={openListing}
                   gridSize={gridSize}
                   priority={i < 4}
                 />

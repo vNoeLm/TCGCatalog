@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { printLanguage } from '../lib/cardPreview';
 import type { CatalogCard } from "../types";
 import { cardThumbProps, gridThumbSize } from "../lib/supabase";
@@ -34,7 +34,7 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; glow: string; bo
   Showcase:        { bg: "rgba(113, 63, 18, 0.95)", text: "#fde047", glow: "rgba(250, 204, 21, 0.6)",  border: "#fde047" },
 };
 
-export function CardListItem(props: CardListItemProps) {
+export const CardListItem = React.memo(function CardListItem(props: CardListItemProps) {
   const { card, onClick, gridSize = 'normal', priority = false } = props;
   const isSmall = gridSize === 'small';
 
@@ -326,4 +326,4 @@ export function CardListItem(props: CardListItemProps) {
       </div>
     </div>
   );
-}
+});

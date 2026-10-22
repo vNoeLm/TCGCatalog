@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import type { InventoryCard } from '../../types';
 import { cardThumbProps } from '../../lib/supabase';
@@ -10,6 +11,7 @@ import { StatBox } from '../StatBox';
 import { cartQuantityFor, addToCart } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 import { CountryFlag } from '../CountryFlag';
+import { OWNER_ID } from '../../lib/constants';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -28,7 +30,7 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 // had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
 // their 150px floors, so Description effectively vanished into Condition and the row still didn't
 // fit, forcing the whole thing to scroll horizontally.
-const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1.8fr)_minmax(0,1.5fr)_60px_105px_96px]';
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.5fr)_minmax(0,1.6fr)_minmax(0,1.5fr)_60px_105px_96px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -107,18 +109,30 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return (
+  const content = (
     <div
       onClick={onClose}
       data-state={entered ? 'open' : 'closed'}
-      style={{ position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', padding: 'clamp(8px, 1.2vw, 20px)', overflowY: 'auto', overscrollBehavior: 'contain' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 90,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.85)',
+        padding: 'clamp(8px, 1.2vw, 20px)',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        willChange: 'opacity',
+      }}
       className="tv-overlay"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         data-state={entered ? 'open' : 'closed'}
         className="tv-modal-panel w-full h-full max-w-none relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', willChange: 'transform, opacity' }}
       >
         <button
           type="button"
@@ -209,6 +223,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               <div className="flex flex-col">
                 {visible.map((l, i) => {
                   const onHold = l.status === 'On Hold' || l.status === 'Reserved';
+                  const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
+                  const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
                   return (
                     <div
                       key={l.inventory_id}
@@ -248,40 +264,65 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                               {rowSeller(l)[0].toUpperCase()}
                             </span>
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                               <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
                               <span className="truncate">{rowSeller(l)}</span>
                             </div>
-                            <div className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                            <div className="text-[11px] flex items-center gap-1.5 flex-wrap mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              {isOwner && (
+                                <span
+                                  className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
+                                  style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                  title="Platform Owner"
+                                >
+                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                                  </svg>
+                                  <span>Owner</span>
+                                </span>
+                              )}
+                              {isVerifiedStore && (
+                                <span
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
+                                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                                  title="Official Verified Store"
+                                >
+                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                    <polyline points="9 22 9 12 15 12 15 22" />
+                                  </svg>
+                                  <span>Verified Store</span>
+                                </span>
+                              )}
+                              {!isOwner && !isVerifiedStore && l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
                               {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
-                                <span className="font-bold inline-flex items-center gap-0.5" style={{ color: 'var(--text-accent)' }}>
+                                <span className="font-bold inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--text-accent)' }}>
                                   <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                                   </svg>
                                   <span>{l.seller_rating_avg.toFixed(1)}</span>
                                 </span>
                               )}
-                              {l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
                             </div>
                           </div>
                         </a>
                       </div>
 
                       {/* Description Column */}
-                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)] @[720px]:text-center flex @[720px]:justify-center items-center">
                         {(() => {
                           const description = getListingDescription(l.notes);
                           if (!description) {
-                            return <span className="hidden @[720px]:inline text-center block" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                            return <span className="hidden @[720px]:inline text-center block w-full" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
                           }
                           return (
-                            <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="flex items-center @[720px]:justify-center gap-1.5 min-w-0 w-full text-center">
                               <svg className="w-3 h-3 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
                                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                               </svg>
                               <span
-                                className="truncate block max-w-full"
+                                className="truncate block max-w-full @[720px]:text-center"
                                 style={{ color: 'var(--text-secondary)' }}
                                 title={description}
                               >
@@ -399,4 +440,6 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

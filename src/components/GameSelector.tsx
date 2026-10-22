@@ -3,7 +3,11 @@ import { GAMES, STORAGE_KEYS, EVENTS } from '../lib/constants';
 import { applySiteTheme } from '../lib/theme';
 import { useExitTransition } from '../lib/useExitTransition';
 
-export function GameSelector() {
+interface GameSelectorProps {
+  disabled?: boolean;
+}
+
+export function GameSelector({ disabled = false }: GameSelectorProps) {
   const [activeGame, setActiveGame] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_GAME);
@@ -83,6 +87,28 @@ export function GameSelector() {
 
 
   const currentGame = GAMES.find(g => g.id === activeGame) || GAMES[0];
+
+  if (disabled) {
+    return (
+      <div className="relative inline-block text-left" title="Store catalog includes accessories and all games. Dedicated store filters are available on the page.">
+        <div
+          className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold select-none whitespace-nowrap cursor-not-allowed opacity-60 transition"
+          style={{
+            background: 'var(--bg-surface-2)',
+            borderColor: 'var(--border)',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--text-muted)' }} />
+          <span className="tracking-wide">Store Mode</span>
+          <svg className="w-3.5 h-3.5 ml-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+      </div>
+    );
+  }
 
   // With a single game there is nothing to pick - just say which game the site is for.
   if (GAMES.filter(g => g.active !== false).length === 1) {

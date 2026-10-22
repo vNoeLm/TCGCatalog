@@ -110,7 +110,7 @@ export function Modal({
         if (e.target === overlayRef.current) onClose();
       }}
       data-state={state}
-      className="tv-overlay fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+      className="tv-overlay fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/85 overflow-y-auto"
     >
       <div
         ref={panelRef}

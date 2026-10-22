@@ -41,7 +41,7 @@ export function FilterDrawer({ open, onClose, title, activeCount, applyLabel, ch
     <div
       onClick={onClose}
       data-state={state}
-      style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', background: 'rgba(0,0,0,0.7)' }}
       className="tv-overlay"
     >
       <div

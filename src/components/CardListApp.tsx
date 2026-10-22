@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { CatalogCard, FilterState, UserProfile } from "../types";
 import { supabase } from "../lib/supabase";
 import { isUnreleasedSet } from "../lib/cardPreview";
@@ -583,7 +583,7 @@ export function CardListApp() {
   // A change the server couldn't make (or limited) for a named collection.
   useEffect(() => onCollectionsMessage((msg) => showToast(msg, 'error')), []);
 
-  const updateCardCount = (cardId: string, isFoil: boolean, delta: number) => {
+  const updateCardCount = useCallback((cardId: string, isFoil: boolean, delta: number) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
     if (activeNamed) {
       const price = activeNamed.always_list && delta > 0 ? alwaysListPrice(cardId, isFoil, activeNamed.list_defaults) : null;
@@ -603,7 +603,7 @@ export function CardListApp() {
 
       return next;
     });
-  };
+  }, [activeNamed]);
 
   // Bulk-entry shortcut: type a card number/name in the search box and press Enter
   // to add 1 copy instantly (Shift+Enter for foil), without ever reaching for the mouse.
@@ -635,7 +635,7 @@ export function CardListApp() {
     requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
-  const toggleOwnership = (cardId: string, isFoil?: boolean) => {
+  const toggleOwnership = useCallback((cardId: string, isFoil?: boolean) => {
     const targetKey = isFoil ? `${cardId}_foil` : cardId;
     if (activeNamed) {
       const current = activeNamed.cards[targetKey] || 0;
@@ -653,7 +653,7 @@ export function CardListApp() {
 
       return next;
     });
-  };
+  }, [activeNamed, updateCardCount]);
 
   useEffect(() => {
     const check = () => setIsWide(window.innerWidth >= BREAKPOINT);
@@ -1737,7 +1737,7 @@ export function CardListApp() {
                     isFoilOwned={(collection[`${card.id}_foil`] || 0) > 0}
                     onUpdateCount={updateCardCount}
                     onToggle={toggleOwnership}
-                    onClick={() => openCard(card.id)}
+                    onClick={openCard}
                     gridSize={gridSize}
                     priority={i < 4}
                   />
