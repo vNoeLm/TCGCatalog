@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StoreProduct } from '../../types';
 import { STORE_CATEGORIES, STORE_GAMES, STORE_PUBLIC_LAUNCH, STORE_VARIANT_KINDS } from '../../lib/storeConstants';
 import { useCurrency } from '../../lib/currency';
@@ -32,7 +32,24 @@ export function StoreProductApp() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [expandedDesc, setExpandedDesc] = useState(false);
+  const [canExpandDesc, setCanExpandDesc] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    setExpandedDesc(false);
+    const check = () => {
+      const el = descRef.current;
+      if (!el) return;
+      setCanExpandDesc(el.scrollHeight > el.clientHeight + 1);
+    };
+    const id = requestAnimationFrame(check);
+    window.addEventListener('resize', check);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('resize', check);
+    };
+  }, [product?.id, product?.description]);
 
   const images = product?.images || [];
 
@@ -314,12 +331,13 @@ export function StoreProductApp() {
           {product.description && (
             <div className="mt-6">
               <p
+                ref={descRef}
                 className={`text-sm leading-relaxed whitespace-pre-line ${expandedDesc ? '' : 'line-clamp-3'}`}
                 style={{ color: 'var(--text-secondary)' }}
               >
                 {product.description}
               </p>
-              {product.description.length > 120 && (
+              {canExpandDesc && (
                 <button
                   type="button"
                   onClick={() => setExpandedDesc((prev) => !prev)}

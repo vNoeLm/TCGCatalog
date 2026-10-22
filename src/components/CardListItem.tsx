@@ -206,8 +206,8 @@ export const CardListItem = React.memo(function CardListItem(props: CardListItem
                   </p>
                 </>
               ) : (
-                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold leading-tight line-clamp-2`} style={{ color: 'var(--text-primary)' }}>
-                  {card.name}
+                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>
+                  {main}
                 </h3>
               )}
             </div>

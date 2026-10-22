@@ -163,11 +163,11 @@ export function StoreShopApp() {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-6 mb-6">
+        <div className="lg:w-64 lg:shrink-0">
           <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Store</h1>
         </div>
-        <div className="flex-1 flex items-center justify-end gap-2 max-w-2xl">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <input
             type="search"
             value={filters.search}

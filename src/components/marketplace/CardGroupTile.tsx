@@ -57,7 +57,9 @@ export const CardGroupTile = React.memo(function CardGroupTile({ group, onClick,
             <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
           </div>
         ) : (
-          <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-semibold leading-tight line-clamp-2`} style={{ color: 'var(--text-primary)' }}>{card.name}</h3>
+          <div className="text-center my-0.5">
+            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>{main}</h3>
+          </div>
         )}
         <p className={`${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`} style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}

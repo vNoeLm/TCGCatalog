@@ -43,6 +43,7 @@ import { listPriceForCard } from '../lib/collectionPricing';
 import { printLanguage } from '../lib/cardPreview';
 import { useCardValueData } from '../lib/cardValues';
 import { useCurrency } from '../lib/currency';
+import { OWNER_ID } from '../lib/constants';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style:'currency', currency:'HUF', maximumFractionDigits:0 }).format(n);
@@ -718,11 +719,25 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         </span>
                       )}
                       {(() => {
-                        const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner');
+                        const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner' || data?.seller_id === OWNER_ID);
+                        const isVerifiedStore = isOwner || Boolean((sellerSummary as any)?.is_verified_store || (data as any)?.is_verified_store || (sellerSummary as any)?.badge === 'Verified Store' || data?.seller_badge === 'Verified Store');
                         const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner, isLightTheme);
                         return (
                           <>
                             {isOwner && <SiteOwnerTag />}
+                            {isVerifiedStore && (
+                              <span
+                                className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
+                                style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                                title="Official Verified Store"
+                              >
+                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                  <polyline points="9 22 9 12 15 12 15 22" />
+                                </svg>
+                                <span>Verified Store</span>
+                              </span>
+                            )}
                             <span
                               className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
                               style={tier.badgeStyle}

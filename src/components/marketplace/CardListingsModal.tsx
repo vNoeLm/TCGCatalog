@@ -149,12 +149,14 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
             <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
               {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
             </div>
-            <div className="min-w-0 flex-1 pr-8 lg:pr-2 [container-type:inline-size]">
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
-              {sub && <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
-              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
-              </p>
+            <div className="min-w-0 flex-1 pr-8 lg:pr-2 [container-type:inline-size] flex flex-col justify-center">
+              <div className="text-center">
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
+                {sub && <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
+                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 @[420px]:grid-cols-4 gap-2 mt-4">
                 {[
