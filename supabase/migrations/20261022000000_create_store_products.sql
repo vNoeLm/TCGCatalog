@@ -35,6 +35,24 @@ CREATE INDEX IF NOT EXISTS idx_store_products_game ON public.store_products(game
 CREATE INDEX IF NOT EXISTS idx_store_products_status ON public.store_products(status);
 CREATE INDEX IF NOT EXISTS idx_store_products_created_at ON public.store_products(created_at DESC);
 
+-- Helper function for admin/owner checks
+CREATE OR REPLACE FUNCTION public.is_admin_or_owner()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+      AND (
+        role IN ('admin', 'owner')
+        OR is_admin = true
+      )
+  );
+$$;
+
 -- Enable RLS
 ALTER TABLE public.store_products ENABLE ROW LEVEL SECURITY;
 
