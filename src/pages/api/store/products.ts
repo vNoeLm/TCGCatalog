@@ -37,8 +37,9 @@ function parseProductInput(body: any, mode: 'create' | 'update'): ParsedInput {
   if (has('name')) product.name = sanitizePlainText(body.name, 200);
   if (has('brand')) product.brand = sanitizePlainText(body.brand, 100);
   if (has('category')) {
-    if (!CATEGORY_IDS.has(body.category)) return { product, priv, error: 'Invalid category.' };
-    product.category = body.category;
+    const rawCat = sanitizePlainText(body.category, 60).trim().toLowerCase().replace(/\s+/g, '_');
+    if (!rawCat || !/^[a-z0-9_-]{2,60}$/.test(rawCat)) return { product, priv, error: 'Invalid category format.' };
+    product.category = rawCat;
   }
   if (has('game')) product.game = body.game && body.game !== 'universal' ? sanitizePlainText(body.game, 50) : null;
   if (has('sku')) product.sku = sanitizePlainText(body.sku, 80) || null;

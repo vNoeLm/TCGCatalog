@@ -15,7 +15,7 @@ import {
   type StoreSort,
 } from '../../lib/storeProducts';
 import { StoreFilterPanel } from './StoreFilterPanel';
-import { StoreClosed, StorePreviewBanner, StoreSpinner } from './StoreStates';
+import { StoreClosed, StoreSpinner } from './StoreStates';
 import { storeApi, useStoreAuth } from './storeClient';
 
 export const productHref = (p: Pick<StoreProduct, 'slug'>) => `/store/product?slug=${encodeURIComponent(p.slug)}`;
@@ -104,9 +104,30 @@ export function StoreShopApp() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<StoreFilters>(EMPTY_STORE_FILTERS);
+  const [filters, setFilters] = useState<StoreFilters>(() => {
+    if (typeof window === 'undefined') return EMPTY_STORE_FILTERS;
+    const p = new URLSearchParams(window.location.search);
+    const cat = p.get('category');
+    const brand = p.get('brand');
+    const game = p.get('game');
+    const q = p.get('q') || p.get('search');
+    return {
+      ...EMPTY_STORE_FILTERS,
+      category: cat || 'all',
+      brands: brand ? [brand] : [],
+      games: game ? [game] : [],
+      search: q || '',
+    };
+  });
   const [sort, setSort] = useState<StoreSort>('newest');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 16;
+
+  // Reset page when filters or sort change
+  useEffect(() => {
+    setPage(1);
+  }, [filters, sort]);
 
   const canView = STORE_PUBLIC_LAUNCH || isAdmin;
 
@@ -125,6 +146,11 @@ export function StoreShopApp() {
   }, [authLoading, canView]);
 
   const visible = useMemo(() => sortStoreProducts(applyStoreFilters(products, filters), sort), [products, filters, sort]);
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const paginatedVisible = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return visible.slice(start, start + PAGE_SIZE);
+  }, [visible, page]);
   const optionCounts = useMemo(() => variantCounts(products), [products]);
   const active = activeFilterCount(filters);
 
@@ -135,7 +161,6 @@ export function StoreShopApp() {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
-      {!STORE_PUBLIC_LAUNCH && <StorePreviewBanner />}
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
         <div>
@@ -215,11 +240,60 @@ export function StoreShopApp() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {visible.map((p) => (
-                <ProductCard key={p.id} product={p} optionCount={p.variant_group ? optionCounts.get(p.variant_group) || 1 : 1} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {paginatedVisible.map((p) => (
+                  <ProductCard key={p.id} product={p} optionCount={p.variant_group ? optionCounts.get(p.variant_group) || 1 : 1} />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-3 mt-8 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Showing <strong style={{ color: 'var(--text-primary)' }}>{(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, visible.length)}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{visible.length}</strong> products
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--bg-raised)]"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: totalPages }).map((_, idx) => {
+                      const pNum = idx + 1;
+                      const active = pNum === page;
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => { setPage(pNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          className="w-8 h-8 rounded-lg border text-xs font-bold cursor-pointer transition"
+                          style={
+                            active
+                              ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent-strong)' }
+                              : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }
+                          }
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--bg-raised)]"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

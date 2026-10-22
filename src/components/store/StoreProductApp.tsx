@@ -3,7 +3,7 @@ import type { StoreProduct } from '../../types';
 import { STORE_CATEGORIES, STORE_GAMES, STORE_PUBLIC_LAUNCH, STORE_VARIANT_KINDS } from '../../lib/storeConstants';
 import { useCurrency } from '../../lib/currency';
 import { gameOf, isSoldOut } from '../../lib/storeProducts';
-import { StoreClosed, StorePreviewBanner, StoreSpinner } from './StoreStates';
+import { StoreClosed, StoreSpinner } from './StoreStates';
 import { storeApi, useStoreAuth } from './storeClient';
 
 const slugFromUrl = () => new URLSearchParams(window.location.search).get('slug');
@@ -31,6 +31,7 @@ export function StoreProductApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
+  const [expandedDesc, setExpandedDesc] = useState(false);
 
   const canView = STORE_PUBLIC_LAUNCH || isAdmin;
 
@@ -109,17 +110,29 @@ export function StoreProductApp() {
   const images = product.images || [];
   const hasVariants = siblings.length > 1 && Boolean(product.variant_group);
   const margin = isAdmin && product.cost_price_huf ? product.price_huf - product.cost_price_huf : null;
+  const marginPercent = (margin !== null && product.price_huf > 0) ? Math.round((margin / product.price_huf) * 100) : null;
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
-      {!STORE_PUBLIC_LAUNCH && <StorePreviewBanner />}
 
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs mb-5 flex-wrap" style={{ color: 'var(--text-muted)' }}>
-        <a href="/store" className="hover:underline cursor-pointer">Store</a>
+        <a href="/store" className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>Store</a>
         <span>/</span>
-        <span>{category}</span>
+        <a href={`/store?category=${encodeURIComponent(product.category)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+          {category}
+        </a>
+        {product.game && (
+          <>
+            <span>/</span>
+            <a href={`/store?category=${encodeURIComponent(product.category)}&game=${encodeURIComponent(product.game)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+              {gameLabel}
+            </a>
+          </>
+        )}
         <span>/</span>
-        <span className="font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>{product.brand}</span>
+        <a href={`/store?brand=${encodeURIComponent(product.brand)}`} className="hover:underline cursor-pointer font-semibold" style={{ color: 'var(--text-secondary)' }}>
+          {product.brand}
+        </a>
       </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
@@ -160,13 +173,26 @@ export function StoreProductApp() {
           <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-accent)' }}>{product.brand}</p>
           <h1 className="text-2xl sm:text-3xl font-black leading-tight mb-3" style={{ color: 'var(--text-primary)' }}>{product.name}</h1>
 
-          <div className="flex items-baseline gap-3 mb-1">
+          <div className="flex items-baseline gap-3 mb-2">
             <span className="text-3xl font-black text-[var(--positive)]">{formatPrice(product.price_huf)}</span>
             {onSale && <span className="text-base line-through" style={{ color: 'var(--text-placeholder)' }}>{formatPrice(product.original_price_huf!)}</span>}
           </div>
-          <p className="text-xs font-bold mb-5" style={{ color: soldOut ? 'var(--negative)' : product.stock_quantity <= 3 ? '#f59e0b' : 'var(--positive)' }}>
-            {soldOut ? 'Sold out' : product.stock_quantity <= 3 ? `Only ${product.stock_quantity} left` : 'In stock'}
-          </p>
+
+          <div className="flex items-center gap-2 mb-5">
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
+              style={
+                soldOut
+                  ? { borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }
+                  : product.stock_quantity <= 3
+                  ? { borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }
+                  : { borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.1)', color: '#10b981' }
+              }
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              {soldOut ? 'Out of stock' : `${product.stock_quantity} in stock`}
+            </span>
+          </div>
 
           {hasVariants && (
             <div className="mb-6">
@@ -212,12 +238,31 @@ export function StoreProductApp() {
           </button>
 
           {product.description && (
-            <p className="text-sm leading-relaxed mt-6 whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>{product.description}</p>
+            <div className="mt-6">
+              <p
+                className={`text-sm leading-relaxed whitespace-pre-line ${expandedDesc ? '' : 'line-clamp-3'}`}
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {product.description}
+              </p>
+              {product.description.length > 120 && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedDesc((prev) => !prev)}
+                  className="text-xs font-bold mt-2 underline underline-offset-2 cursor-pointer hover:opacity-80 block"
+                  style={{ color: 'var(--text-accent)' }}
+                >
+                  {expandedDesc ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
           )}
 
           <dl className="mt-6">
             <Spec label="Category" value={category} />
-            <Spec label="Game" value={gameLabel} />
+            {product.game && <Spec label="Game" value={gameLabel} />}
+            <Spec label="Brand" value={product.brand} />
+            <Spec label="Stock" value={soldOut ? '0 units (out of stock)' : `${product.stock_quantity} units available`} />
             <Spec label="Size" value={product.attributes?.size} />
             <Spec label="Color" value={product.attributes?.color} />
             <Spec label="SKU" value={product.sku} />
@@ -225,16 +270,28 @@ export function StoreProductApp() {
           </dl>
 
           {isAdmin && (
-            <div className="mt-6 p-4 rounded-xl border text-xs" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-              <p className="font-black uppercase tracking-wider text-[10px] mb-2" style={{ color: 'var(--text-muted)' }}>Admin only</p>
-              <dl>
-                <Spec label="Status" value={product.status} />
-                <Spec label="Stock" value={String(product.stock_quantity)} />
-                <Spec label="Supplier" value={product.supplier} />
-                <Spec label="Cost" value={product.cost_price_huf ? formatPrice(product.cost_price_huf) : null} />
-                <Spec label="Margin" value={margin !== null ? formatPrice(margin) : null} />
-              </dl>
-              <a href="/store/admin" className="inline-block mt-3 font-bold underline underline-offset-2 cursor-pointer" style={{ color: 'var(--text-accent)' }}>
+            <div className="mt-6 p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs flex-wrap" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-bold text-[10px] px-2 py-0.5 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 uppercase">
+                  Admin view
+                </span>
+                {product.cost_price_huf && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    Cost: <strong style={{ color: 'var(--text-primary)' }}>{formatPrice(product.cost_price_huf)}</strong>
+                  </span>
+                )}
+                {margin !== null && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    Margin: <strong style={{ color: margin >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
+                      {formatPrice(margin)} {marginPercent !== null && `(${marginPercent}%)`}
+                    </strong>
+                  </span>
+                )}
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Status: <strong className="capitalize" style={{ color: 'var(--text-secondary)' }}>{product.status}</strong>
+                </span>
+              </div>
+              <a href="/store/admin" className="font-bold underline text-xs shrink-0 cursor-pointer" style={{ color: 'var(--text-accent)' }}>
                 Edit in store admin
               </a>
             </div>

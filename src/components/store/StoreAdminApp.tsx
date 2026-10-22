@@ -101,6 +101,19 @@ export function StoreAdminApp() {
   }, [products, search, tab, category, brand, game, lowOnly]);
 
   const filtersActive = search || category !== 'all' || brand !== 'all' || game !== 'all' || lowOnly || tab !== 'all';
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, tab, category, brand, game, lowOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const paginatedVisible = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return visible.slice(start, start + PAGE_SIZE);
+  }, [visible, page]);
+
   const clearFilters = () => {
     setSearch('');
     setTab('all');
@@ -180,6 +193,10 @@ export function StoreAdminApp() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <a href="/admin" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)] inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+            <svg {...svgProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+            Admin console
+          </a>
           <a href="/store" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)]" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
             View shop
           </a>
@@ -284,9 +301,10 @@ export function StoreAdminApp() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((p) => {
+              {paginatedVisible.map((p) => {
                 const st = STATUS_STYLE[p.status === 'archived' ? 'draft' : p.status] ?? STATUS_STYLE.draft;
                 const margin = p.cost_price_huf ? p.price_huf - p.cost_price_huf : null;
+                const marginPercent = (margin !== null && p.price_huf > 0) ? Math.round((margin / p.price_huf) * 100) : null;
                 const low = p.stock_quantity <= LOW_STOCK;
                 return (
                   <tr key={p.id} className="border-t align-middle" style={{ borderColor: 'var(--border-subtle)' }}>
@@ -308,7 +326,16 @@ export function StoreAdminApp() {
                     <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{STORE_CATEGORIES.find((c) => c.id === p.category)?.label || p.category}</td>
                     <td className="px-3 py-2.5 text-right font-bold whitespace-nowrap" style={{ color: 'var(--positive)' }}>{formatPrice(p.price_huf)}</td>
                     <td className="px-3 py-2.5 text-right whitespace-nowrap" style={{ color: margin === null ? 'var(--text-placeholder)' : margin < 0 ? 'var(--negative)' : 'var(--text-secondary)' }}>
-                      {margin === null ? '-' : formatPrice(margin)}
+                      {margin === null ? '-' : (
+                        <div>
+                          <span className="font-bold">{formatPrice(margin)}</span>
+                          {marginPercent !== null && (
+                            <span className="text-[11px] block font-normal" style={{ color: margin >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
+                              {marginPercent}%
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-center gap-1">
@@ -338,6 +365,53 @@ export function StoreAdminApp() {
               })}
             </tbody>
           </table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 p-4 border-t flex-wrap" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Showing <strong style={{ color: 'var(--text-primary)' }}>{(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, visible.length)}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{visible.length}</strong> products
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--bg-raised)]"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }).map((_, idx) => {
+                  const pNum = idx + 1;
+                  const active = pNum === page;
+                  return (
+                    <button
+                      key={pNum}
+                      type="button"
+                      onClick={() => setPage(pNum)}
+                      className="w-8 h-8 rounded-lg border text-xs font-bold cursor-pointer transition"
+                      style={
+                        active
+                          ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent-strong)' }
+                          : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }
+                      }
+                    >
+                      {pNum}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--bg-raised)]"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -346,6 +420,7 @@ export function StoreAdminApp() {
           product={form.product}
           template={form.template}
           existingGroups={groups}
+          existingBrands={brands}
           onClose={() => setForm(null)}
           onSaved={() => {
             setForm(null);

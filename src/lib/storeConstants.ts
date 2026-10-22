@@ -31,7 +31,7 @@ export const STORE_BRANDS = [
   'Wizards of the Coast',
   'Fantasy Flight Games',
   'Legend Story Studios',
-  'Riftbound',
+  'Riot Games',
   'Other',
 ] as const;
 
