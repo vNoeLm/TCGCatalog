@@ -576,14 +576,14 @@ export function ProfileApp() {
               <button
                 type="button"
                 onClick={() => { setCurrency('HUF'); showToast('Display currency set to HUF (Ft)'); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
               >
                 HUF (Ft)
               </button>
               <button
                 type="button"
                 onClick={() => { setCurrency('EUR'); showToast('Display currency set to EUR (€)'); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
               >
                 EUR (€)
               </button>
@@ -1212,7 +1212,7 @@ export function ProfileApp() {
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
                       orderStatusFilter === st.key
                         ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]'
-                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
+                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--accent-muted)]/40 hover:text-[var(--text-primary)] hover:border-[var(--accent-border)]'
                     }`}
                   >
                     {st.label}
@@ -1234,7 +1234,7 @@ export function ProfileApp() {
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer border shrink-0 whitespace-nowrap ${
                       orderDateFilter === dt.key
                         ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--text-accent)] font-bold shadow-[0_0_10px_var(--accent-glow)]'
-                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]'
+                        : 'bg-[var(--bg-input)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--accent-muted)]/40 hover:text-[var(--text-primary)] hover:border-[var(--accent-border)]'
                     }`}
                   >
                     {dt.label}
@@ -1686,7 +1686,7 @@ export function ProfileApp() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-black truncate" style={{ color: ct.color }}>
+                          <span className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
                             {ct.nameEn}
                           </span>
                           <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>
@@ -1694,7 +1694,7 @@ export function ProfileApp() {
                           </span>
                         </div>
                         <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{g.name}</span> • {ct.ownedCount.toLocaleString()} / {ct.totalCount.toLocaleString()} cards
+                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{g.name}</span> • {ct.ownedCount.toLocaleString()} / {ct.totalCount.toLocaleString()} cards
                         </div>
                       </div>
                     </div>

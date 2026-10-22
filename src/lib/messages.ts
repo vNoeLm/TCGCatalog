@@ -5,6 +5,7 @@ import type { ChatMessage, ConversationSummary } from '../types';
 import { sanitizePlainText } from './sanitize';
 
 export const MAX_MESSAGE_LENGTH = 2000;
+export const CHAT_IMAGE_EXPIRY_DAYS = 14;
 
 /**
  * Buyer/seller chat, one persistent thread per (buyer, seller) pair — every hold
@@ -149,16 +150,30 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
   return data || [];
 }
 
-export async function sendMessage(conversationId: string, body: string): Promise<{ message: ChatMessage | null; error: any }> {
+export async function sendMessage(
+  conversationId: string,
+  body: string,
+  metadata?: Record<string, any>
+): Promise<{ message: ChatMessage | null; error: any }> {
   if (typeof body !== 'string') return { message: null, error: new Error('Invalid message payload.') };
   const cleaned = sanitizePlainText(body, MAX_MESSAGE_LENGTH);
-  if (!cleaned) return { message: null, error: new Error('Message cannot be empty.') };
+  const hasImages = Array.isArray(metadata?.images) && metadata.images.length > 0;
+  if (!cleaned && !hasImages) return { message: null, error: new Error('Message cannot be empty.') };
 
   try {
     const uid = await requireUserId();
+    const payload: Record<string, any> = {
+      conversation_id: conversationId,
+      sender_id: uid,
+      body: cleaned || (hasImages ? 'Shared photo' : ''),
+      message_type: 'user',
+    };
+    if (metadata && Object.keys(metadata).length > 0) {
+      payload.metadata = metadata;
+    }
     const { data, error } = await supabase
       .from('hold_request_messages')
-      .insert({ conversation_id: conversationId, sender_id: uid, body: cleaned, message_type: 'user' })
+      .insert(payload)
       .select()
       .single();
 

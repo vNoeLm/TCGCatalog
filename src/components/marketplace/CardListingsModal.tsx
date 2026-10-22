@@ -8,7 +8,7 @@ import { getListingDescription } from '../../lib/sellerNotes';
 import { useCurrency } from '../../lib/currency';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { StatBox } from '../StatBox';
-import { cartQuantityFor, addToCart } from '../../lib/marketplaceCart';
+import { cartQuantityFor, addToCart, removeFromCart, updateCartItemQuantity } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 import { CountryFlag } from '../CountryFlag';
 import { OWNER_ID } from '../../lib/constants';
@@ -383,20 +383,53 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
                       {/* Add to Cart Column */}
                       <div className="order-3 @[720px]:order-6 @[720px]:pl-2 flex justify-center">
-                        {addedId === l.inventory_id ? (
-                          <span
-                            className="inline-flex items-center justify-center gap-1 w-[82px] py-1.5 rounded-lg text-xs font-bold border"
-                            style={{
-                              background: 'var(--positive-muted)',
-                              color: 'var(--positive)',
-                              borderColor: 'var(--positive-border)',
-                            }}
+                        {inCartFor(l) > 0 ? (
+                          <div
+                            className="inline-flex items-center rounded-lg border overflow-hidden shadow-xs h-[30px]"
+                            style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}
                           >
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span>Added</span>
-                          </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const cur = inCartFor(l);
+                                if (cur <= 1) {
+                                  removeFromCart(l.inventory_id);
+                                } else {
+                                  updateCartItemQuantity(l.inventory_id, cur - 1);
+                                }
+                              }}
+                              aria-label="Decrease quantity in cart"
+                              title="Decrease quantity or remove"
+                              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                              </svg>
+                            </button>
+                            <span
+                              className="min-w-[28px] px-1 text-center text-xs font-black tabular-nums"
+                              style={{ color: 'var(--text-accent)' }}
+                              title={`${inCartFor(l)} in cart`}
+                            >
+                              {inCartFor(l)}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={leftFor(l) <= 0}
+                              onClick={(e) => handleAddToCart(e, l)}
+                              aria-label="Increase quantity in cart"
+                              title={leftFor(l) <= 0 ? 'No more copies available' : 'Add another copy'}
+                              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                              </svg>
+                            </button>
+                          </div>
                         ) : leftFor(l) > 0 ? (
                           <button
                             type="button"
@@ -411,20 +444,6 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                             </svg>
                             <span>Add</span>
                           </button>
-                        ) : inCartFor(l) > 0 ? (
-                          <span
-                            className="inline-flex items-center justify-center gap-1 w-[82px] py-1.5 rounded-lg text-[11px] font-bold border"
-                            style={{
-                              background: 'var(--positive-muted)',
-                              color: 'var(--positive)',
-                              borderColor: 'var(--positive-border)',
-                            }}
-                          >
-                            <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            <span>In cart</span>
-                          </span>
                         ) : (
                           <span className="w-[82px] py-1.5 text-center text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
                             Sold out

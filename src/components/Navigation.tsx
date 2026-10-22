@@ -141,7 +141,7 @@ export function Navigation({ currentPath }: NavigationProps) {
           <button
             type="button"
             onClick={() => setCurrency('HUF')}
-            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
             title="Display prices in HUF (Hungarian Forints)"
           >
             HUF
@@ -149,7 +149,7 @@ export function Navigation({ currentPath }: NavigationProps) {
           <button
             type="button"
             onClick={() => setCurrency('EUR')}
-            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+            className={`px-2 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
             title="Display prices in EUR (Euros)"
           >
             EUR
@@ -383,14 +383,14 @@ export function Navigation({ currentPath }: NavigationProps) {
                 <button
                   type="button"
                   onClick={() => setCurrency('HUF')}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'HUF' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
                 >
                   HUF (Ft)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCurrency('EUR')}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${currency === 'EUR' ? 'bg-[var(--accent-strong)] text-[var(--text-on-accent)] shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
                 >
                   EUR (€)
                 </button>

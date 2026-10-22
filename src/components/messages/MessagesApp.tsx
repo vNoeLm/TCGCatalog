@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getCurrentProfile } from '../../lib/auth';
-import { cardThumbProps } from '../../lib/supabase';
-import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest } from '../../lib/messages';
+import { supabase, cardThumbProps } from '../../lib/supabase';
+import { fetchConversations, fetchMessages, sendMessage, markThreadRead, resolveConversationIdFromHoldRequest, CHAT_IMAGE_EXPIRY_DAYS } from '../../lib/messages';
 import { AuthModal } from '../auth/AuthModal';
 import { HoldPanel } from './HoldPanel';
 import { ReportModal } from '../common/ReportModal';
@@ -85,6 +85,52 @@ export function MessagesApp() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const validFiles = files.filter((f) => allowedTypes.includes(f.type) && f.size <= 10 * 1024 * 1024);
+    if (validFiles.length < files.length) {
+      alert('Only PNG, JPG, or WebP images up to 10MB are supported.');
+    }
+    setAttachedFiles((prev) => [...prev, ...validFiles].slice(0, 5));
+    e.target.value = '';
+  };
+
+  const removeAttachedFile = (idx: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const uploadAttachments = async (files: File[]): Promise<Array<{ url: string; expires_at: string }>> => {
+    if (!files.length) return [];
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session?.access_token) throw new Error('Not authenticated.');
+
+    const fd = new FormData();
+    files.forEach((f) => fd.append('files', f));
+
+    const res = await fetch('/api/marketplace/upload-image', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success || !Array.isArray(data.urls)) {
+      throw new Error(data.error || 'Failed to upload image(s).');
+    }
+
+    const expiresAt = new Date(Date.now() + CHAT_IMAGE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    return data.urls.map((url: string) => ({
+      url,
+      expires_at: expiresAt,
+    }));
+  };
 
   const threadRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -161,24 +207,48 @@ export function MessagesApp() {
   }, [messages, selectedId]);
 
   const submitDraft = async () => {
-    if (!selectedId || !draft.trim() || sending) return;
+    if (!selectedId || (!draft.trim() && attachedFiles.length === 0) || sending) return;
     setSending(true);
     const body = draft;
+    const filesToSend = [...attachedFiles];
     setDraft('');
+    setAttachedFiles([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    const { message, error } = await sendMessage(selectedId, body);
-    if (message) {
-      setMessages((prev) => [...prev, message]);
-      setConversations((prev) =>
-        prev.map((c) => (c.conversation_id === selectedId ? { ...c, last_message: message.body, last_message_at: message.created_at } : c))
-      );
-    } else {
+
+    try {
+      let uploadedImages: Array<{ url: string; expires_at: string }> = [];
+      if (filesToSend.length > 0) {
+        setUploadingImages(true);
+        uploadedImages = await uploadAttachments(filesToSend);
+        setUploadingImages(false);
+      }
+
+      const metadata = uploadedImages.length > 0 ? { images: uploadedImages } : undefined;
+      const { message, error } = await sendMessage(selectedId, body, metadata);
+      if (message) {
+        setMessages((prev) => [...prev, message]);
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.conversation_id === selectedId
+              ? { ...c, last_message: message.body, last_message_at: message.created_at }
+              : c
+          )
+        );
+      } else {
+        setDraft(body);
+        setAttachedFiles(filesToSend);
+        alert(error?.message || 'Failed to send message.');
+      }
+    } catch (err: any) {
       setDraft(body);
-      alert(error?.message || 'Failed to send message.');
+      setAttachedFiles(filesToSend);
+      alert(err?.message || 'Failed to send message.');
+    } finally {
+      setSending(false);
+      setUploadingImages(false);
     }
-    setSending(false);
   };
 
   const handleSend = async (e: React.FormEvent) => {
@@ -571,10 +641,12 @@ export function MessagesApp() {
                         </div>
                       ) : (() => {
                         const mine = m.sender_id === profile.id;
+                        const images: Array<{ url: string; expires_at?: string }> = Array.isArray(m.metadata?.images) ? m.metadata.images : [];
+                        const isBodyPlaceholder = m.body === 'Shared photo' || m.body === '[Photo]';
                         return (
                           <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                             <div
-                              className={`max-w-[82%] sm:max-w-[72%] px-3.5 py-2.5 rounded-2xl border text-[13.5px] sm:text-sm font-medium leading-relaxed shadow-xs ${
+                              className={`max-w-[85%] sm:max-w-[75%] px-3.5 py-2.5 rounded-2xl border text-[13.5px] sm:text-sm font-medium leading-relaxed shadow-xs ${
                                 mine ? 'rounded-br-sm' : 'rounded-bl-sm'
                               }`}
                               style={
@@ -591,7 +663,61 @@ export function MessagesApp() {
                                     }
                               }
                             >
-                              <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                              {images.length > 0 && (
+                                <div className="flex flex-col gap-2 mb-2">
+                                  {images.map((img, i) => {
+                                    const isExpired = img.expires_at ? new Date(img.expires_at).getTime() <= Date.now() : false;
+                                    if (isExpired) {
+                                      return (
+                                        <div
+                                          key={i}
+                                          className="flex items-center gap-2.5 p-3 rounded-xl border select-none opacity-80"
+                                          style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}
+                                        >
+                                          <svg className="w-5 h-5 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                          </svg>
+                                          <div className="flex flex-col text-xs">
+                                            <span className="font-bold opacity-80">Photo expired</span>
+                                            <span className="text-[11px] opacity-60">14-day retention limit reached</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                    const daysLeft = img.expires_at ? Math.max(1, Math.ceil((new Date(img.expires_at).getTime() - Date.now()) / 86400000)) : 14;
+                                    return (
+                                      <div key={i} className="relative group rounded-xl overflow-hidden border inline-block max-w-full" style={{ borderColor: 'var(--border)' }}>
+                                        <a href={img.url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
+                                          <img
+                                            src={img.url}
+                                            alt="Shared attachment"
+                                            loading="lazy"
+                                            className="max-h-64 sm:max-h-80 w-auto max-w-full rounded-xl object-contain bg-black/10"
+                                          />
+                                        </a>
+                                        {img.expires_at && (
+                                          <div
+                                            className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md border shadow-xs flex items-center gap-1 select-none pointer-events-none"
+                                            style={{ background: 'rgba(0,0,0,0.65)', color: '#fff', borderColor: 'rgba(255,255,255,0.2)' }}
+                                          >
+                                            <svg className="w-2.5 h-2.5 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                              <circle cx="12" cy="12" r="10" />
+                                              <polyline points="12 6 12 12 16 14" />
+                                            </svg>
+                                            <span>{daysLeft}d left</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {(!isBodyPlaceholder || images.length === 0) && (
+                                <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                              )}
+
                               <div
                                 className="text-[11px] font-semibold mt-1.5 flex items-center justify-end gap-1.5 select-none"
                                 style={{ color: 'var(--text-tertiary)' }}
@@ -611,44 +737,91 @@ export function MessagesApp() {
             </div>
 
             {/* Composer */}
-            <form
-              onSubmit={handleSend}
-              className="flex items-end gap-2 p-3 border-t shrink-0"
-              style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}
-            >
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void submitDraft();
-                  }
-                }}
-                placeholder="Write a message…"
-                maxLength={1000}
-                className="flex-1 border rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--accent)] transition resize-none leading-snug overflow-y-hidden"
-                style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)', maxHeight: 130 }}
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim() || sending}
-                className="h-10 px-4 rounded-xl font-black text-xs transition cursor-pointer disabled:opacity-50 shrink-0 inline-flex items-center gap-1.5"
-                style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+            <div className="flex flex-col border-t shrink-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
+              {attachedFiles.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 border-b overflow-x-auto" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
+                  {attachedFiles.map((file, idx) => {
+                    const objUrl = URL.createObjectURL(file);
+                    return (
+                      <div key={idx} className="relative w-14 h-14 rounded-lg overflow-hidden border shrink-0 group" style={{ borderColor: 'var(--border)' }}>
+                        <img src={objUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeAttachedFile(idx)}
+                          className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/75 text-white flex items-center justify-center cursor-pointer transition hover:bg-black"
+                          title="Remove photo"
+                        >
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <span className="text-[11px] font-semibold opacity-70 ml-1 shrink-0">
+                    Photos auto-expire in 14 days
+                  </span>
+                </div>
+              )}
+              <form
+                onSubmit={handleSend}
+                className="flex items-end gap-2 p-3"
               >
-                <span>{sending ? 'Sending…' : 'Send'}</span>
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
-            </form>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach photo (expires in 14 days)"
+                  disabled={sending || uploadingImages}
+                  className="h-10 w-10 rounded-xl border flex items-center justify-center cursor-pointer transition shrink-0 hover:bg-[var(--accent-muted)]/40 hover:border-[var(--accent-border)] disabled:opacity-50"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                </button>
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void submitDraft();
+                    }
+                  }}
+                  placeholder="Write a message…"
+                  maxLength={1000}
+                  className="flex-1 border rounded-xl px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--accent)] transition resize-none leading-snug overflow-y-hidden"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)', maxHeight: 130 }}
+                />
+                <button
+                  type="submit"
+                  disabled={(!draft.trim() && attachedFiles.length === 0) || sending || uploadingImages}
+                  className="h-10 px-4 rounded-xl font-black text-xs transition cursor-pointer disabled:opacity-50 shrink-0 inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                >
+                  <span>{uploadingImages ? 'Uploading…' : sending ? 'Sending…' : 'Send'}</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </div>

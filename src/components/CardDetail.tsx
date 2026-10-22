@@ -21,7 +21,7 @@ import { TYPE_ICONS, RUNE_ICONS, RARITY_ICONS } from '../lib/riftboundIcons';
 import { isOvernumbered, isSigned, isAltArt } from '../lib/cardVariants';
 import { getCardPowerRequirement } from '../lib/cardPowerData';
 import { isNeutralCard } from '../lib/riftboundRules';
-import { addToCart, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
+import { addToCart, removeFromCart, updateCartItemQuantity, cartQuantityFor, openCart, type MarketplaceCartItem } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
 import { CardImageViewer } from './CardImageViewer';
 import { useUrlOverlay } from '../lib/useUrlOverlay';
@@ -915,7 +915,47 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                   )}
 
                   {/* Add to the cart */}
-                  {data.status === 'In Stock' && !isSeller && (
+                  {data.status === 'In Stock' && !isSeller && inCart > 0 && (
+                    <div className="inline-flex items-center rounded-xl border overflow-hidden shadow-xs h-[40px]" style={{ borderColor: 'var(--border)', background: 'var(--bg-surface-2)' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (inCart <= 1) {
+                            removeFromCart(data.inventory_id);
+                          } else {
+                            updateCartItemQuantity(data.inventory_id, inCart - 1);
+                          }
+                        }}
+                        aria-label="Decrease quantity in cart"
+                        title="Decrease quantity or remove"
+                        className="w-10 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                      </button>
+                      <span className="min-w-[42px] px-2 text-center text-xs sm:text-sm font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                        {inCart} in cart
+                      </span>
+                      <button
+                        type="button"
+                        disabled={copiesLeft === 0}
+                        onClick={() => {
+                          addToCart(cartItemForListing());
+                          setJustAdded(true);
+                          if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
+                          justAddedTimer.current = setTimeout(() => setJustAdded(false), 1400);
+                        }}
+                        aria-label="Increase quantity in cart"
+                        title={copiesLeft === 0 ? 'No more copies available' : 'Add another copy'}
+                        className="w-10 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                      </button>
+                    </div>
+                  )}
+
+                  {data.status === 'In Stock' && !isSeller && inCart === 0 && (
                     <button
                       type="button"
                       disabled={copiesLeft === 0}
@@ -944,7 +984,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         </svg>
                       )}
                       <span aria-live="polite">
-                        {justAdded ? 'Added to cart' : copiesLeft === 0 ? 'All in your cart' : inCart > 0 ? 'Add another' : 'Add to Cart'}
+                        {justAdded ? 'Added to cart' : 'Add to Cart'}
                       </span>
                     </button>
                   )}

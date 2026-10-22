@@ -49,6 +49,24 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
   const [unratedOrders, setUnratedOrders] = useState<Order[]>([]);
   const [justRatedByOrder, setJustRatedByOrder] = useState<Record<string, TradeReview>>({});
   const [ratingTarget, setRatingTarget] = useState<{ orderNumber: string; direction: ReviewDirection } | null>(null);
+  const [dismissedOrders, setDismissedOrders] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('tcg_dismissed_reviews');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const dismissReview = (orderNumber: string) => {
+    setDismissedOrders((prev) => {
+      const next = [...prev, orderNumber];
+      try {
+        localStorage.setItem('tcg_dismissed_reviews', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const load = async () => {
     const { data } = await supabase
@@ -106,7 +124,7 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
     }
   };
 
-  const visibleUnrated = unratedOrders.filter((o) => !justRatedByOrder[o.order_number]);
+  const visibleUnrated = unratedOrders.filter((o) => !justRatedByOrder[o.order_number] && !dismissedOrders.includes(o.order_number));
   const recentlyRatedList = Object.values(justRatedByOrder);
 
   if (holds.length === 0 && visibleUnrated.length === 0 && recentlyRatedList.length === 0) return null;
@@ -162,7 +180,7 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
         );
       })}
 
-      {visibleUnrated.slice(0, 2).map((o) => {
+      {visibleUnrated.slice(0, 1).map((o) => {
         const isSeller = o.seller_id === myId;
         const direction: ReviewDirection = isSeller ? 'seller_to_buyer' : 'buyer_to_seller';
         const roleTarget = isSeller ? 'buyer' : 'seller';
@@ -200,6 +218,19 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
                 <path d="M12 2.5l2.9 6.1 6.7.9-4.9 4.6 1.2 6.6L12 17.5 6.1 20.7l1.2-6.6-4.9-4.6 6.7-.9L12 2.5z" />
               </svg>
               <span>Rate {roleTarget}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => dismissReview(o.order_number)}
+              className="h-8 w-8 rounded-lg flex items-center justify-center border cursor-pointer transition hover:bg-[var(--bg-raised)] shrink-0"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
+              aria-label="Dismiss review reminder"
+              title="Dismiss reminder"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         );

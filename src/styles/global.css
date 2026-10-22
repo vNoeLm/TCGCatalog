@@ -187,9 +187,9 @@ html[data-theme="custom"] {
   --tag-gold-border:  rgba(245, 158, 11, 0.5);
 }
 html[data-theme="light"] {
-  --tag-gold:         #fbbf24;
-  --tag-gold-bg:      #18181b;
-  --tag-gold-border:  #f59e0b;
+  --tag-gold:         #0a0a0a;
+  --tag-gold-bg:      rgba(245, 158, 11, 0.18);
+  --tag-gold-border:  rgba(217, 119, 6, 0.45);
 }
 
 /* Destructive / reset buttons: the theme's red, in every theme. */

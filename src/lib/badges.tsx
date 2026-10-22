@@ -322,135 +322,91 @@ export function getSellerTier(
 ): SellerTier {
   const sold = Math.max(0, salesCount);
 
-  if (sold >= 100) {
+  if (sold === 0) {
     return {
-      tier: 5,
-      nameEn: 'Diamond Merchant',
+      tier: 0,
+      nameEn: 'New Seller',
       icon: '★',
-      iconType: 'gem',
-      salesCount: sold,
-      minSales: 100,
-      nextTierSales: 100,
+      iconType: 'leaf',
+      salesCount: 0,
+      minSales: 0,
+      nextTierSales: 1,
       ratingAvg,
       isOwner,
-      color: '#38bdf8',
-      bg: 'rgba(56, 189, 248, 0.2)',
-      border: 'rgba(56, 189, 248, 0.5)',
+      color: '#a1a1aa',
+      bg: 'rgba(255, 255, 255, 0.06)',
+      border: 'rgba(255, 255, 255, 0.15)',
       badgeStyle: {
-        background: 'rgba(56, 189, 248, 0.2)',
-        borderColor: 'rgba(56, 189, 248, 0.5)',
-        color: isLight ? '#0369a1' : '#7dd3fc',
-        boxShadow: '0 0 14px rgba(56, 189, 248, 0.3)',
+        background: isLight ? '#ede6d8' : 'rgba(255, 255, 255, 0.06)',
+        borderColor: isLight ? 'rgba(24, 24, 27, 0.2)' : 'rgba(255, 255, 255, 0.15)',
+        color: isLight ? '#52525b' : '#d4d4d8',
       },
     };
   }
 
-  if (sold >= 50) {
-    return {
-      tier: 4,
-      nameEn: 'Gold Merchant',
-      icon: '★',
-      iconType: 'award',
-      salesCount: sold,
-      minSales: 50,
-      nextTierSales: 100,
-      ratingAvg,
-      isOwner,
-      color: '#facc15',
-      bg: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.18)',
-      border: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.45)',
-      badgeStyle: {
-        background: isLight ? '#18181b' : 'rgba(250, 204, 21, 0.18)',
-        borderColor: isLight ? '#eab308' : 'rgba(250, 204, 21, 0.45)',
-        color: '#fef08a',
-      },
-    };
+  const baseThresholds = [1, 5, 15, 50, 150, 500, 1500, 5000];
+  let tierNumber = 1;
+  let minSales = 1;
+  let nextTierSales = 5;
+
+  if (sold >= baseThresholds[baseThresholds.length - 1]) {
+    let currentMin = baseThresholds[baseThresholds.length - 1];
+    tierNumber = baseThresholds.length;
+    while (sold >= currentMin * 3) {
+      currentMin *= 3;
+      tierNumber++;
+    }
+    minSales = currentMin;
+    nextTierSales = currentMin * 3;
+  } else {
+    for (let i = 0; i < baseThresholds.length; i++) {
+      if (sold >= baseThresholds[i]) {
+        tierNumber = i + 1;
+        minSales = baseThresholds[i];
+        nextTierSales = baseThresholds[i + 1] || minSales * 3;
+      } else {
+        break;
+      }
+    }
   }
 
-  if (sold >= 20) {
-    return {
-      tier: 3,
-      nameEn: 'Silver Merchant',
-      icon: '★',
-      iconType: 'shield',
-      salesCount: sold,
-      minSales: 20,
-      nextTierSales: 50,
-      ratingAvg,
-      isOwner,
-      color: '#e2e8f0',
-      bg: 'rgba(226, 232, 240, 0.15)',
-      border: 'rgba(226, 232, 240, 0.4)',
-      badgeStyle: {
-        background: 'rgba(226, 232, 240, 0.15)',
-        borderColor: 'rgba(226, 232, 240, 0.4)',
-        color: isLight ? '#334155' : '#f8fafc',
-      },
-    };
-  }
+  // Tier appearance palettes
+  const colorPalettes: Array<{
+    color: string;
+    bg: string;
+    border: string;
+    lightColor: string;
+    darkColor: string;
+    iconType: BadgeIconType;
+  }> = [
+    { color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.45)', lightColor: '#047857', darkColor: '#6ee7b7', iconType: 'verified' },
+    { color: '#fdba74', bg: 'rgba(251, 146, 60, 0.15)', border: 'rgba(251, 146, 60, 0.4)', lightColor: '#c2410c', darkColor: '#fed7aa', iconType: 'star' },
+    { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.4)', lightColor: '#334155', darkColor: '#f1f5f9', iconType: 'shield' },
+    { color: '#facc15', bg: 'rgba(250, 204, 21, 0.18)', border: 'rgba(250, 204, 21, 0.45)', lightColor: '#a16207', darkColor: '#fef08a', iconType: 'award' },
+    { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: 'rgba(56, 189, 248, 0.5)', lightColor: '#0369a1', darkColor: '#7dd3fc', iconType: 'gem' },
+    { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.2)', border: 'rgba(168, 85, 247, 0.5)', lightColor: '#7e22ce', darkColor: '#d8b4fe', iconType: 'crown' },
+  ];
 
-  if (sold >= 5) {
-    return {
-      tier: 2,
-      nameEn: 'Bronze Merchant',
-      icon: '★',
-      iconType: 'star',
-      salesCount: sold,
-      minSales: 5,
-      nextTierSales: 20,
-      ratingAvg,
-      isOwner,
-      color: '#fdba74',
-      bg: 'rgba(251, 146, 60, 0.15)',
-      border: 'rgba(251, 146, 60, 0.4)',
-      badgeStyle: {
-        background: 'rgba(251, 146, 60, 0.15)',
-        borderColor: 'rgba(251, 146, 60, 0.4)',
-        color: isLight ? '#c2410c' : '#fed7aa',
-      },
-    };
-  }
-
-  if (sold >= 1) {
-    return {
-      tier: 1,
-      nameEn: 'Active Seller',
-      icon: '★',
-      iconType: 'verified',
-      salesCount: sold,
-      minSales: 1,
-      nextTierSales: 5,
-      ratingAvg,
-      isOwner,
-      color: '#34d399',
-      bg: 'rgba(16, 185, 129, 0.15)',
-      border: 'rgba(16, 185, 129, 0.45)',
-      badgeStyle: {
-        background: 'rgba(16, 185, 129, 0.15)',
-        borderColor: 'rgba(16, 185, 129, 0.45)',
-        color: isLight ? '#047857' : '#6ee7b7',
-        boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
-      },
-    };
-  }
+  const palette = colorPalettes[(tierNumber - 1) % colorPalettes.length];
 
   return {
-    tier: 0,
-    nameEn: 'New Seller',
+    tier: tierNumber,
+    nameEn: `Tier ${tierNumber} Active Seller`,
     icon: '★',
-    iconType: 'leaf',
-    salesCount: 0,
-    minSales: 0,
-    nextTierSales: 1,
+    iconType: palette.iconType,
+    salesCount: sold,
+    minSales,
+    nextTierSales,
     ratingAvg,
     isOwner,
-    color: '#a1a1aa',
-    bg: 'rgba(255, 255, 255, 0.06)',
-    border: 'rgba(255, 255, 255, 0.15)',
+    color: palette.color,
+    bg: palette.bg,
+    border: palette.border,
     badgeStyle: {
-      background: 'rgba(255, 255, 255, 0.06)',
-      borderColor: 'rgba(255, 255, 255, 0.15)',
-      color: isLight ? '#52525b' : '#d4d4d8',
+      background: palette.bg,
+      borderColor: palette.border,
+      color: isLight ? palette.lightColor : palette.darkColor,
+      boxShadow: `0 0 10px ${palette.bg}`,
     },
   };
 }
