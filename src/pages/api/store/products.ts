@@ -1,242 +1,261 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
-import { slugify } from '../../../lib/storeConstants';
+import { STORE_CATEGORIES, STORE_PUBLIC_LAUNCH, STORE_STATUSES, STORE_VARIANT_KINDS, buildProductSlug } from '../../../lib/storeConstants';
+import { sanitizePlainText, sanitizeUrl } from '../../../lib/sanitize';
 
 export const prerender = false;
 
+const CATEGORY_IDS = new Set<string>(STORE_CATEGORIES.map((c) => c.id));
+const STATUS_IDS = new Set<string>(STORE_STATUSES);
+const KIND_IDS = new Set<string>(STORE_VARIANT_KINDS.map((k) => k.id));
+
+/** What a shopper may see: live products, including sold-out ones (shown as such), never drafts or archived. */
+const PUBLIC_STATUSES = ['active', 'out_of_stock'];
+
+const toInt = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+interface ParsedInput {
+  product: Record<string, any>;
+  priv: { supplier?: string | null; cost_price_huf?: number | null };
+  error?: string;
+}
+
 /**
- * GET /api/store/products
- * Fetch products from the store_products table.
- * Public users only receive active, in-stock products.
- * Admins can see drafts, out of stock, and filter by status.
+ * Whitelists and sanitises an admin payload. Anything not listed here (id, slug, created_at,
+ * deleted_at...) can never be set from the request body.
+ */
+function parseProductInput(body: any, mode: 'create' | 'update'): ParsedInput {
+  const product: Record<string, any> = {};
+  const priv: ParsedInput['priv'] = {};
+  const has = (k: string) => body[k] !== undefined;
+
+  if (has('name')) product.name = sanitizePlainText(body.name, 200);
+  if (has('brand')) product.brand = sanitizePlainText(body.brand, 100);
+  if (has('category')) {
+    if (!CATEGORY_IDS.has(body.category)) return { product, priv, error: 'Invalid category.' };
+    product.category = body.category;
+  }
+  if (has('game')) product.game = body.game && body.game !== 'universal' ? sanitizePlainText(body.game, 50) : null;
+  if (has('sku')) product.sku = sanitizePlainText(body.sku, 80) || null;
+  if (has('ean')) product.ean = sanitizePlainText(body.ean, 32) || null;
+  if (has('description')) product.description = sanitizePlainText(body.description, 4000) || null;
+  if (has('is_featured')) product.is_featured = Boolean(body.is_featured);
+
+  if (has('price_huf')) {
+    const n = toInt(body.price_huf);
+    if (n === null) return { product, priv, error: 'Invalid price.' };
+    product.price_huf = n;
+  }
+  if (has('original_price_huf')) product.original_price_huf = toInt(body.original_price_huf);
+  if (has('stock_quantity')) {
+    const n = toInt(body.stock_quantity);
+    if (n === null) return { product, priv, error: 'Invalid stock quantity.' };
+    product.stock_quantity = n;
+  }
+  if (has('status')) {
+    if (!STATUS_IDS.has(body.status)) return { product, priv, error: 'Invalid status.' };
+    product.status = body.status;
+  }
+
+  if (has('images')) {
+    const list = Array.isArray(body.images) ? body.images : [];
+    const urls = list.map((u: unknown) => sanitizeUrl(u)).filter((u: string | null): u is string => Boolean(u));
+    if (urls.length !== list.length) return { product, priv, error: 'An image URL is not a valid http(s) link.' };
+    product.images = urls;
+  }
+  if (has('attributes')) {
+    const a = body.attributes && typeof body.attributes === 'object' ? body.attributes : {};
+    product.attributes = {
+      ...(a.color ? { color: sanitizePlainText(a.color, 60) } : {}),
+      ...(a.size ? { size: sanitizePlainText(a.size, 60) } : {}),
+    };
+  }
+
+  if (has('variant_group')) product.variant_group = sanitizePlainText(body.variant_group, 120) || null;
+  if (has('variant_label')) product.variant_label = sanitizePlainText(body.variant_label, 80) || null;
+  if (has('variant_kind')) {
+    if (body.variant_kind && !KIND_IDS.has(body.variant_kind)) return { product, priv, error: 'Invalid variant kind.' };
+    product.variant_kind = body.variant_kind || null;
+  }
+  if (product.variant_group && has('variant_label') && !product.variant_label) {
+    return { product, priv, error: 'A product in a variant group needs a variant label (e.g. "Black").' };
+  }
+
+  if (has('supplier')) priv.supplier = sanitizePlainText(body.supplier, 120) || null;
+  if (has('cost_price_huf')) priv.cost_price_huf = toInt(body.cost_price_huf);
+
+  if (mode === 'create') {
+    for (const k of ['name', 'brand', 'category', 'price_huf']) {
+      if (product[k] === undefined || product[k] === '') return { product, priv, error: `Missing required field: ${k}.` };
+    }
+    product.status = product.status ?? 'draft';
+    product.stock_quantity = product.stock_quantity ?? 0;
+  }
+  return { product, priv };
+}
+
+async function writePrivate(productId: string, priv: ParsedInput['priv']) {
+  if (Object.keys(priv).length === 0) return null;
+  const { error } = await supabaseAdmin
+    .from('store_product_private')
+    .upsert({ product_id: productId, ...priv, updated_at: new Date().toISOString() }, { onConflict: 'product_id' });
+  return error;
+}
+
+async function withPrivate<T extends { id: string }>(products: T[]): Promise<(T & { supplier: string | null; cost_price_huf: number | null })[]> {
+  if (products.length === 0) return [];
+  const { data } = await supabaseAdmin.from('store_product_private').select('product_id, supplier, cost_price_huf');
+  const byId = new Map((data || []).map((r: any) => [r.product_id, r]));
+  return products.map((p) => ({
+    ...p,
+    supplier: (byId.get(p.id) as any)?.supplier ?? null,
+    cost_price_huf: (byId.get(p.id) as any)?.cost_price_huf ?? null,
+  }));
+}
+
+const adminOnly = async (request: Request) => {
+  const auth = await getRequestUser(request);
+  return auth?.isAdmin ? auth : null;
+};
+
+/**
+ * GET /api/store/products             -> the catalogue
+ * GET /api/store/products?slug=...    -> one product plus its variant siblings (the product page)
+ *
+ * Until STORE_PUBLIC_LAUNCH is true only admins get an answer. Admins also see drafts and the
+ * supplier / cost columns; those are never part of a public response.
  */
 export const GET: APIRoute = async ({ request }) => {
   try {
     const auth = await getRequestUser(request);
     const isAdmin = Boolean(auth?.isAdmin);
 
-    const url = new URL(request.url);
-    const category = url.searchParams.get('category');
-    const brand = url.searchParams.get('brand');
-    const game = url.searchParams.get('game');
-    const status = url.searchParams.get('status');
-    const search = url.searchParams.get('search')?.trim();
-    const sort = url.searchParams.get('sort') || 'newest';
-
-    let query = supabaseAdmin.from('store_products').select('*');
-
-    // Soft delete check: never return deleted products
-    query = query.is('deleted_at', null);
-
-    // Access control: non-admins only see active products with stock
-    if (!isAdmin) {
-      query = query.eq('status', 'active').gt('stock_quantity', 0);
-    } else if (status && status !== 'all') {
-      query = query.eq('status', status);
+    if (!isAdmin && !STORE_PUBLIC_LAUNCH) {
+      return jsonResponse({ error: 'The store is not open yet.' }, 403);
     }
 
-    if (category && category !== 'all') {
-      query = query.eq('category', category);
-    }
+    const slug = new URL(request.url).searchParams.get('slug');
 
-    if (brand && brand !== 'all') {
-      query = query.eq('brand', brand);
-    }
+    let query = supabaseAdmin.from('store_products').select('*').is('deleted_at', null);
+    if (!isAdmin) query = query.in('status', PUBLIC_STATUSES);
 
-    if (game && game !== 'all') {
-      if (game === 'universal') {
-        query = query.or('game.is.null,game.eq.universal');
-      } else {
-        query = query.eq('game', game);
+    if (slug) {
+      const { data: product, error } = await query.eq('slug', slug).maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 500);
+      if (!product) return jsonResponse({ error: 'Product not found.' }, 404);
+
+      let siblings: any[] = [];
+      if (product.variant_group) {
+        let sib = supabaseAdmin
+          .from('store_products')
+          .select('*')
+          .is('deleted_at', null)
+          .eq('variant_group', product.variant_group)
+          .order('variant_label', { ascending: true });
+        if (!isAdmin) sib = sib.in('status', PUBLIC_STATUSES);
+        const { data } = await sib;
+        siblings = data || [];
       }
+      const [withCost] = isAdmin ? await withPrivate([product]) : [product];
+      return jsonResponse({ product: withCost, siblings, isAdmin });
     }
 
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,brand.ilike.%${search}%,sku.ilike.%${search}%`);
-    }
-
-    // Sorting
-    switch (sort) {
-      case 'price_asc':
-        query = query.order('price_huf', { ascending: true });
-        break;
-      case 'price_desc':
-        query = query.order('price_huf', { ascending: false });
-        break;
-      case 'name':
-        query = query.order('name', { ascending: true });
-        break;
-      case 'newest':
-      default:
-        query = query.order('created_at', { ascending: false });
-        break;
-    }
-
-    const { data, error } = await query;
-
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(2000);
     if (error) {
-      // If the table doesn't exist yet on Supabase, return friendly empty response with warning
+      // 42P01: the migration has not been applied yet. Say so instead of a bare 500.
       if ((error as any).code === '42P01') {
-        return jsonResponse({
-          products: [],
-          total: 0,
-          warning: 'Table public.store_products not yet created. Run migration 20261022000000_create_store_products.sql',
-        });
+        return jsonResponse({ products: [], isAdmin, warning: 'Run the store_products migrations (20261022000000, 20261022010000).' });
       }
       return jsonResponse({ error: error.message }, 500);
     }
 
-    return jsonResponse({
-      products: data || [],
-      total: data?.length || 0,
-      isAdmin,
-    });
+    const products = isAdmin ? await withPrivate(data || []) : data || [];
+    return jsonResponse({ products, isAdmin });
   } catch (err: any) {
     return jsonResponse({ error: err.message || 'Internal Server Error' }, 500);
   }
 };
 
-/**
- * POST /api/store/products
- * Create a new store product. Admin only.
- */
+/** POST: create one product (admin). */
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const auth = await getRequestUser(request);
-    if (!auth?.isAdmin) {
-      return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
-    }
+    if (!(await adminOnly(request))) return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
 
     const body = await request.json().catch(() => null);
-    if (!body) {
-      return jsonResponse({ error: 'Invalid request body' }, 400);
+    if (!body) return jsonResponse({ error: 'Invalid request body' }, 400);
+
+    const { product, priv, error } = parseProductInput(body, 'create');
+    if (error) return jsonResponse({ error }, 400);
+
+    product.slug = buildProductSlug(product.name, product.sku, product.variant_label);
+
+    const { data, error: insertError } = await supabaseAdmin.from('store_products').insert(product).select().single();
+    if (insertError) {
+      const dup = (insertError as any).code === '23505';
+      return jsonResponse({ error: dup ? 'A product with this SKU already exists.' : insertError.message }, dup ? 409 : 500);
     }
 
-    const {
-      name,
-      category,
-      brand,
-      game,
-      sku,
-      price_huf,
-      original_price_huf,
-      stock_quantity,
-      status,
-      description,
-      images,
-      attributes,
-      is_featured,
-    } = body;
+    const privError = await writePrivate(data.id, priv);
+    if (privError) return jsonResponse({ error: privError.message }, 500);
 
-    if (!name || !category || !brand || price_huf == null) {
-      return jsonResponse({ error: 'Missing required fields (name, category, brand, price_huf)' }, 400);
-    }
-
-    const baseSlug = slugify(name);
-    const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
-
-    const newProduct = {
-      name: name.trim(),
-      slug: uniqueSlug,
-      category,
-      brand: brand.trim(),
-      game: game && game !== 'universal' ? game : null,
-      sku: sku ? sku.trim() : null,
-      price_huf: Math.max(0, parseInt(price_huf, 10) || 0),
-      original_price_huf: original_price_huf ? Math.max(0, parseInt(original_price_huf, 10)) : null,
-      stock_quantity: Math.max(0, parseInt(stock_quantity, 10) || 0),
-      status: status || 'draft',
-      description: description ? description.trim() : null,
-      images: Array.isArray(images) ? images : [],
-      attributes: attributes && typeof attributes === 'object' ? attributes : {},
-      is_featured: Boolean(is_featured),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabaseAdmin.from('store_products').insert(newProduct).select().single();
-
-    if (error) {
-      return jsonResponse({ error: error.message }, 500);
-    }
-
-    return jsonResponse({ success: true, product: data }, 201);
+    return jsonResponse({ success: true, product: { ...data, ...priv } }, 201);
   } catch (err: any) {
     return jsonResponse({ error: err.message || 'Internal Server Error' }, 500);
   }
 };
 
-/**
- * PATCH /api/store/products
- * Update a store product (e.g. stock, price, status, metadata). Admin only.
- */
+/** PATCH: update one product (admin). The slug is never regenerated, so product links keep working. */
 export const PATCH: APIRoute = async ({ request }) => {
   try {
-    const auth = await getRequestUser(request);
-    if (!auth?.isAdmin) {
-      return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
-    }
+    if (!(await adminOnly(request))) return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.id) {
-      return jsonResponse({ error: 'Product ID is required for update' }, 400);
+    if (!body?.id) return jsonResponse({ error: 'Product ID is required for update' }, 400);
+
+    const { product, priv, error } = parseProductInput(body, 'update');
+    if (error) return jsonResponse({ error }, 400);
+
+    let data: any = null;
+    if (Object.keys(product).length > 0) {
+      product.updated_at = new Date().toISOString();
+      const res = await supabaseAdmin.from('store_products').update(product).eq('id', body.id).select().single();
+      if (res.error) {
+        const dup = (res.error as any).code === '23505';
+        return jsonResponse({ error: dup ? 'A product with this SKU already exists.' : res.error.message }, dup ? 409 : 500);
+      }
+      data = res.data;
+    } else {
+      const res = await supabaseAdmin.from('store_products').select('*').eq('id', body.id).single();
+      data = res.data;
     }
 
-    const { id, ...updates } = body;
-    updates.updated_at = new Date().toISOString();
+    const privError = await writePrivate(body.id, priv);
+    if (privError) return jsonResponse({ error: privError.message }, 500);
 
-    if (updates.name && !updates.slug) {
-      updates.slug = `${slugify(updates.name)}-${Math.random().toString(36).substring(2, 7)}`;
-    }
-
-    if (updates.game === 'universal') {
-      updates.game = null;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('store_products')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      return jsonResponse({ error: error.message }, 500);
-    }
-
-    return jsonResponse({ success: true, product: data });
+    return jsonResponse({ success: true, product: { ...data, ...priv } });
   } catch (err: any) {
     return jsonResponse({ error: err.message || 'Internal Server Error' }, 500);
   }
 };
 
-/**
- * DELETE /api/store/products
- * Soft delete a product. Admin only.
- */
+/** DELETE: archive (soft delete) a product (admin). */
 export const DELETE: APIRoute = async ({ request }) => {
   try {
-    const auth = await getRequestUser(request);
-    if (!auth?.isAdmin) {
-      return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
-    }
+    if (!(await adminOnly(request))) return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
 
-    const url = new URL(request.url);
-    const id = url.searchParams.get('id');
-
-    if (!id) {
-      return jsonResponse({ error: 'Product ID is required' }, 400);
-    }
+    const id = new URL(request.url).searchParams.get('id');
+    if (!id) return jsonResponse({ error: 'Product ID is required' }, 400);
 
     const { error } = await supabaseAdmin
       .from('store_products')
       .update({ deleted_at: new Date().toISOString(), status: 'archived' })
       .eq('id', id);
-
-    if (error) {
-      return jsonResponse({ error: error.message }, 500);
-    }
+    if (error) return jsonResponse({ error: error.message }, 500);
 
     return jsonResponse({ success: true, id });
   } catch (err: any) {

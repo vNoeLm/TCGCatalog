@@ -344,6 +344,8 @@ export type StoreProductCategory =
   | 'accessories'
   | 'other';
 
+export type StoreVariantKind = 'color' | 'set' | 'size' | 'other';
+
 export type StoreProductStatus = 'draft' | 'active' | 'archived' | 'out_of_stock';
 
 export interface StoreProduct {
@@ -354,6 +356,14 @@ export interface StoreProduct {
   brand: string;
   game: string | null;
   sku?: string | null;
+  ean?: string | null;
+  /** Products sharing a group are switchable on the product page (colours, sets, sizes). */
+  variant_group?: string | null;
+  variant_label?: string | null;
+  variant_kind?: StoreVariantKind | null;
+  /** Admin-only: never sent to non-admins. */
+  supplier?: string | null;
+  cost_price_huf?: number | null;
   price_huf: number;
   original_price_huf?: number | null;
   stock_quantity: number;
