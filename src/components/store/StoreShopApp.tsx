@@ -145,38 +145,36 @@ export function StoreShopApp() {
     };
   }, [authLoading, canView]);
 
-  const visible = useMemo(() => sortStoreProducts(applyStoreFilters(products, filters), sort), [products, filters, sort]);
+  const publicProducts = useMemo(() => products.filter((p) => p.status !== 'draft'), [products]);
+  const visible = useMemo(() => sortStoreProducts(applyStoreFilters(publicProducts, filters), sort), [publicProducts, filters, sort]);
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const paginatedVisible = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return visible.slice(start, start + PAGE_SIZE);
   }, [visible, page]);
-  const optionCounts = useMemo(() => variantCounts(products), [products]);
+  const optionCounts = useMemo(() => variantCounts(publicProducts), [publicProducts]);
   const active = activeFilterCount(filters);
 
   if (authLoading) return <StoreSpinner />;
   if (!canView) return <StoreClosed />;
 
-  const panel = <StoreFilterPanel products={products} filters={filters} onChange={setFilters} />;
+  const panel = <StoreFilterPanel products={publicProducts} filters={filters} onChange={setFilters} />;
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Store</h1>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            Sealed product, sleeves, deck boxes and accessories.
-          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center justify-end gap-2 max-w-2xl">
           <input
             type="search"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            placeholder="Search products..."
+            placeholder="Search products by name, brand, SKU..."
             aria-label="Search products"
-            className="w-full sm:w-64 px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+            className="flex-1 min-w-[200px] px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
           <select

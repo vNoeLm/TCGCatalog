@@ -32,6 +32,32 @@ export function StoreProductApp() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [expandedDesc, setExpandedDesc] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const images = product?.images || [];
+
+  const prevImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (images.length <= 1) return;
+    setImageIndex((i) => (i > 0 ? i - 1 : images.length - 1));
+  };
+
+  const nextImage = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (images.length <= 1) return;
+    setImageIndex((i) => (i < images.length - 1 ? i + 1 : 0));
+  };
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false);
+      else if (e.key === 'ArrowLeft') prevImage();
+      else if (e.key === 'ArrowRight') nextImage();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxOpen, images.length]);
 
   const canView = STORE_PUBLIC_LAUNCH || isAdmin;
 
@@ -105,9 +131,8 @@ export function StoreProductApp() {
   const onSale = Boolean(product.original_price_huf && product.original_price_huf > product.price_huf);
   const category = STORE_CATEGORIES.find((c) => c.id === product.category)?.label || product.category;
   const game = gameOf(product);
-  const gameLabel = game === 'universal' ? 'Universal (any game)' : STORE_GAMES.find((g) => g.id === game)?.name || game;
+  const gameLabel = game === 'universal' ? 'Universal Accessories' : STORE_GAMES.find((g) => g.id === game)?.name || game;
   const kind = STORE_VARIANT_KINDS.find((k) => k.id === (product.variant_kind || 'other'))?.label || 'Option';
-  const images = product.images || [];
   const hasVariants = siblings.length > 1 && Boolean(product.variant_group);
   const margin = isAdmin && product.cost_price_huf ? product.price_huf - product.cost_price_huf : null;
   const marginPercent = (margin !== null && product.price_huf > 0) ? Math.round((margin / product.price_huf) * 100) : null;
@@ -138,15 +163,51 @@ export function StoreProductApp() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
         {/* Gallery */}
         <div>
-          <div className="aspect-square w-full rounded-2xl border overflow-hidden flex items-center justify-center" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+          <div
+            className={`relative group aspect-square w-full rounded-2xl border overflow-hidden flex items-center justify-center ${images.length > 0 ? 'cursor-zoom-in' : ''}`}
+            onClick={() => images.length > 0 && setLightboxOpen(true)}
+            style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}
+            title={images.length > 0 ? 'Click to view fullscreen' : undefined}
+          >
             {images[imageIndex] ? (
-              <img src={images[imageIndex]} alt={product.name} className={`w-full h-full object-contain p-4 ${soldOut ? 'opacity-60' : ''}`} />
+              <img src={images[imageIndex]} alt={product.name} className={`w-full h-full object-contain p-4 transition duration-300 ${soldOut ? 'opacity-60' : ''}`} />
             ) : (
               <svg className="w-16 h-16 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
               </svg>
+            )}
+
+            {/* Gallery Navigation Arrows */}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={prevImage}
+                  aria-label="Previous image"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border flex items-center justify-center transition opacity-80 hover:opacity-100 hover:scale-105 cursor-pointer shadow-md"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={nextImage}
+                  aria-label="Next image"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border flex items-center justify-center transition opacity-80 hover:opacity-100 hover:scale-105 cursor-pointer shadow-md"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+                <span className="absolute bottom-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-xs" style={{ background: 'rgba(0,0,0,0.6)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+                  {imageIndex + 1} / {images.length}
+                </span>
+              </>
             )}
           </div>
           {images.length > 1 && (
@@ -170,6 +231,19 @@ export function StoreProductApp() {
 
         {/* Details */}
         <div className="min-w-0">
+          {product.status === 'draft' && (
+            <div className="mb-4 p-3 rounded-xl border flex items-center justify-between gap-3 text-xs" style={{ background: 'rgba(234, 179, 8, 0.15)', borderColor: 'rgba(234, 179, 8, 0.4)', color: '#f59e0b' }}>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider text-black bg-amber-400">
+                  DRAFT
+                </span>
+                <span className="font-bold">Admin preview only · Hidden from shoppers</span>
+              </div>
+              <a href="/store/admin" className="underline font-bold hover:opacity-80 cursor-pointer">
+                Edit in store admin
+              </a>
+            </div>
+          )}
           <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-accent)' }}>{product.brand}</p>
           <h1 className="text-2xl sm:text-3xl font-black leading-tight mb-3" style={{ color: 'var(--text-primary)' }}>{product.name}</h1>
 
@@ -269,35 +343,58 @@ export function StoreProductApp() {
             <Spec label="EAN" value={product.ean} />
           </dl>
 
-          {isAdmin && (
-            <div className="mt-6 p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs flex-wrap" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-bold text-[10px] px-2 py-0.5 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 uppercase">
-                  Admin view
-                </span>
-                {product.cost_price_huf && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    Cost: <strong style={{ color: 'var(--text-primary)' }}>{formatPrice(product.cost_price_huf)}</strong>
-                  </span>
-                )}
-                {margin !== null && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    Margin: <strong style={{ color: margin >= 0 ? 'var(--positive)' : 'var(--negative)' }}>
-                      {formatPrice(margin)} {marginPercent !== null && `(${marginPercent}%)`}
-                    </strong>
-                  </span>
-                )}
-                <span style={{ color: 'var(--text-muted)' }}>
-                  Status: <strong className="capitalize" style={{ color: 'var(--text-secondary)' }}>{product.status}</strong>
-                </span>
-              </div>
-              <a href="/store/admin" className="font-bold underline text-xs shrink-0 cursor-pointer" style={{ color: 'var(--text-accent)' }}>
-                Edit in store admin
-              </a>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Lightbox Fullscreen Modal */}
+      {lightboxOpen && images[imageIndex] && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Close fullscreen view"
+            className="absolute top-4 right-4 p-2.5 rounded-full border cursor-pointer hover:bg-white/10 text-white z-10 transition"
+            style={{ borderColor: 'rgba(255,255,255,0.2)', background: 'rgba(0,0,0,0.5)' }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div className="relative max-w-4xl max-h-[85vh] w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <img src={images[imageIndex]} alt={product.name} className="max-w-full max-h-[85vh] object-contain rounded-xl select-none" />
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={prevImage}
+                  aria-label="Previous image"
+                  className="absolute left-2 sm:-left-12 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border flex items-center justify-center transition hover:scale-110 cursor-pointer text-white shadow-xl"
+                  style={{ background: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.2)' }}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={nextImage}
+                  aria-label="Next image"
+                  className="absolute right-2 sm:-right-12 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border flex items-center justify-center transition hover:scale-110 cursor-pointer text-white shadow-xl"
+                  style={{ background: 'rgba(0,0,0,0.7)', borderColor: 'rgba(255,255,255,0.2)' }}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

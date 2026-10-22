@@ -10,6 +10,8 @@ interface StoreProductFormProps {
   template?: Partial<StoreProduct> | null;
   existingGroups: string[];
   existingBrands?: string[];
+  availableCategories?: { id: string; label: string }[];
+  availableGames?: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -27,12 +29,24 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-export function StoreProductForm({ product, template, existingGroups, existingBrands = [], onClose, onSaved }: StoreProductFormProps) {
+export function StoreProductForm({
+  product,
+  template,
+  existingGroups,
+  existingBrands = [],
+  availableCategories,
+  availableGames,
+  onClose,
+  onSaved,
+}: StoreProductFormProps) {
+  const categoryList = availableCategories && availableCategories.length > 0 ? availableCategories : STORE_CATEGORIES;
+  const gameList = availableGames && availableGames.length > 0 ? availableGames : STORE_GAMES;
+
   const src = product ?? template ?? {};
   const [name, setName] = useState(src.name ?? '');
 
   // Category: standard or custom
-  const isCustomCategoryInit = Boolean(src.category && !STORE_CATEGORIES.some((c) => c.id === src.category));
+  const isCustomCategoryInit = Boolean(src.category && !categoryList.some((c) => c.id === src.category));
   const [categorySelect, setCategorySelect] = useState<string>(isCustomCategoryInit ? '__custom__' : (src.category ?? 'sleeves'));
   const [customCategory, setCustomCategory] = useState<string>(isCustomCategoryInit ? (src.category || '') : '');
 
@@ -40,7 +54,7 @@ export function StoreProductForm({ product, template, existingGroups, existingBr
   const [brand, setBrand] = useState(src.brand ?? 'Ultimate Guard');
 
   // Game: standard or custom
-  const isCustomGameInit = Boolean(src.game && src.game !== 'universal' && !STORE_GAMES.some((g) => g.id === src.game));
+  const isCustomGameInit = Boolean(src.game && src.game !== 'universal' && !gameList.some((g) => g.id === src.game));
   const [gameSelect, setGameSelect] = useState<string>(isCustomGameInit ? '__custom__' : (src.game ?? 'universal'));
   const [customGame, setCustomGame] = useState<string>(isCustomGameInit ? (src.game || '') : '');
 
@@ -224,7 +238,7 @@ export function StoreProductForm({ product, template, existingGroups, existingBr
                     className={`${inputClass} cursor-pointer`}
                     style={inputStyle}
                   >
-                    {STORE_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    {categoryList.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                     <option value="__custom__">+ Custom category...</option>
                   </select>
                 </Field>
@@ -265,7 +279,7 @@ export function StoreProductForm({ product, template, existingGroups, existingBr
                     className={`${inputClass} cursor-pointer`}
                     style={inputStyle}
                   >
-                    {STORE_GAMES.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    {gameList.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                     <option value="__custom__">+ Custom game...</option>
                   </select>
                 </Field>

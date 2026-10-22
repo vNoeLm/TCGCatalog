@@ -6,11 +6,13 @@ import { gameOf, isSoldOut } from '../../lib/storeProducts';
 import { StoreClosed, StoreSpinner } from './StoreStates';
 import { StoreProductForm } from './StoreProductForm';
 import { StoreImportModal } from './StoreImportModal';
+import { StoreTaxonomyModal } from './StoreTaxonomyModal';
 import { storeApi, useStoreAuth } from './storeClient';
+import type { StoreTaxonomies } from '../../pages/api/store/taxonomies';
 
 type StatusTab = 'all' | 'active' | 'draft' | 'out_of_stock';
 
-const LOW_STOCK = 3;
+const LOW_STOCK = 5;
 const selectClass = 'px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)] cursor-pointer';
 const selectStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
 
@@ -55,6 +57,12 @@ export function StoreAdminApp() {
 
   const [form, setForm] = useState<null | { product: StoreProduct | null; template: Partial<StoreProduct> | null }>(null);
   const [importing, setImporting] = useState(false);
+  const [taxonomiesOpen, setTaxonomiesOpen] = useState(false);
+  const [customTaxonomies, setCustomTaxonomies] = useState<StoreTaxonomies>({
+    customBrands: [],
+    customCategories: [],
+    customGames: [],
+  });
 
   const load = useCallback(async () => {
     const res = await storeApi<{ products?: StoreProduct[]; warning?: string; error?: string }>('/api/store/products');
@@ -68,9 +76,19 @@ export function StoreAdminApp() {
     setLoading(false);
   }, []);
 
+  const loadTaxonomies = useCallback(async () => {
+    const res = await storeApi<StoreTaxonomies>('/api/store/taxonomies');
+    if (res.ok && res.data) {
+      setCustomTaxonomies(res.data);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!authLoading && isAdmin) load();
-  }, [authLoading, isAdmin, load]);
+    if (!authLoading && isAdmin) {
+      load();
+      loadTaxonomies();
+    }
+  }, [authLoading, isAdmin, load, loadTaxonomies]);
 
   const counts = useMemo(
     () => ({
@@ -82,7 +100,48 @@ export function StoreAdminApp() {
     [products]
   );
 
-  const brands = useMemo(() => [...new Set([...STORE_BRANDS, ...products.map((p) => p.brand)])].sort(), [products]);
+  const allCategories = useMemo(() => {
+    const map = new Map<string, string>();
+    STORE_CATEGORIES.forEach((c) => map.set(c.id, c.label));
+    (customTaxonomies.customCategories || []).forEach((c) => {
+      if (!map.has(c.id)) map.set(c.id, c.label);
+    });
+    products.forEach((p) => {
+      if (p.category && !map.has(p.category)) {
+        map.set(p.category, p.category.charAt(0).toUpperCase() + p.category.slice(1));
+      }
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [customTaxonomies, products]);
+
+  const allGames = useMemo(() => {
+    const map = new Map<string, string>();
+    STORE_GAMES.forEach((g) => map.set(g.id, g.name));
+    (customTaxonomies.customGames || []).forEach((g) => {
+      if (!map.has(g.id)) map.set(g.id, g.name);
+    });
+    products.forEach((p) => {
+      const g = p.game || (p.attributes?.game as string);
+      if (g && !map.has(g)) {
+        map.set(g, g.charAt(0).toUpperCase() + g.slice(1));
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [customTaxonomies, products]);
+
+  const brands = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...STORE_BRANDS,
+          ...(customTaxonomies.customBrands || []),
+          ...products.map((p) => p.brand),
+        ]),
+      ]
+        .filter(Boolean)
+        .sort(),
+    [products, customTaxonomies]
+  );
   const groups = useMemo(() => [...new Set(products.map((p) => p.variant_group).filter((g): g is string => Boolean(g)))].sort(), [products]);
 
   const visible = useMemo(() => {
@@ -171,7 +230,8 @@ export function StoreAdminApp() {
   if (!isAdmin) return <StoreClosed />;
 
   const totalUnits = products.reduce((n, p) => n + p.stock_quantity, 0);
-  const lowCount = products.filter((p) => p.status !== 'draft' && p.stock_quantity <= LOW_STOCK).length;
+  const lowCount = products.filter((p) => p.status !== 'draft' && p.stock_quantity > 0 && p.stock_quantity <= LOW_STOCK).length;
+  const outCount = products.filter((p) => p.status !== 'draft' && p.stock_quantity === 0).length;
 
   const tabs: { id: StatusTab; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -189,7 +249,9 @@ export function StoreAdminApp() {
           </span>
           <h1 className="text-xl sm:text-2xl font-black mt-1.5" style={{ color: 'var(--text-primary)' }}>Store products</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {products.length} products, {totalUnits} units in stock{lowCount > 0 && <>, <span style={{ color: '#f59e0b' }}>{lowCount} low or out</span></>}
+            {products.length} products, {totalUnits} units in stock{(lowCount > 0 || outCount > 0) && (
+              <>, <span style={{ color: '#f59e0b' }}>{lowCount} low, {outCount} out of stock</span></>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -200,6 +262,15 @@ export function StoreAdminApp() {
           <a href="/store" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)]" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
             View shop
           </a>
+          <button
+            type="button"
+            onClick={() => setTaxonomiesOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)] inline-flex items-center gap-1.5"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)', background: 'var(--bg-surface-2)' }}
+          >
+            <svg {...svgProps}><path d="M4 6h16M4 12h16M4 18h7" /></svg>
+            Taxonomies
+          </button>
           <button type="button" onClick={() => setImporting(true)} className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)]" style={{ borderColor: 'var(--border)', color: 'var(--text-primary)', background: 'var(--bg-surface-2)' }}>
             Import CSV
           </button>
@@ -247,7 +318,7 @@ export function StoreAdminApp() {
         <div className="flex gap-2 flex-wrap items-center">
           <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category" className={selectClass} style={selectStyle}>
             <option value="all">All categories</option>
-            {STORE_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {allCategories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
           <select value={brand} onChange={(e) => setBrand(e.target.value)} aria-label="Brand" className={selectClass} style={selectStyle}>
             <option value="all">All brands</option>
@@ -255,7 +326,7 @@ export function StoreAdminApp() {
           </select>
           <select value={game} onChange={(e) => setGame(e.target.value)} aria-label="Game" className={selectClass} style={selectStyle}>
             <option value="all">All games</option>
-            {STORE_GAMES.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            {allGames.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
           <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer px-1" style={{ color: 'var(--text-secondary)' }}>
             <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} className="w-3.5 h-3.5 cursor-pointer" style={{ accentColor: 'var(--accent)' }} />
@@ -421,6 +492,8 @@ export function StoreAdminApp() {
           template={form.template}
           existingGroups={groups}
           existingBrands={brands}
+          availableCategories={allCategories}
+          availableGames={allGames}
           onClose={() => setForm(null)}
           onSaved={() => {
             setForm(null);
@@ -429,6 +502,15 @@ export function StoreAdminApp() {
         />
       )}
       {importing && <StoreImportModal onClose={() => setImporting(false)} onDone={load} />}
+      {taxonomiesOpen && (
+        <StoreTaxonomyModal
+          onClose={() => setTaxonomiesOpen(false)}
+          onSaved={() => {
+            loadTaxonomies();
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

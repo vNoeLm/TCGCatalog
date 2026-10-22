@@ -98,9 +98,9 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
 
   return (
-    <div>
+    <div className="pt-3">
       {active > 0 && (
-        <div className="pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="pb-3 border-b mb-1" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             type="button"
             onClick={() => onChange({ ...EMPTY_STORE_FILTERS, search: filters.search })}
@@ -141,7 +141,7 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
       </Section>
 
       <Section title="Game">
-        <CheckList entries={games} selected={filters.games} label={(v) => (v === 'universal' ? 'Universal (any game)' : gameName(v))} onToggle={(v) => set({ games: toggle(filters.games, v) })} />
+        <CheckList entries={games} selected={filters.games} label={(v) => (v === 'universal' ? 'Universal Accessories' : gameName(v))} onToggle={(v) => set({ games: toggle(filters.games, v) })} />
       </Section>
 
       {(sizes.length > 0 || filters.sizes.length > 0) && (
