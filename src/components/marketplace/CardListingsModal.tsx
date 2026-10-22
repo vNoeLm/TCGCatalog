@@ -361,11 +361,6 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                               </span>
                             )}
                             {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                            {inCartFor(l) > 0 && (
-                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}>
-                                {inCartFor(l)} in cart
-                              </span>
-                            )}
                             <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
                           </div>
                         );
@@ -382,54 +377,62 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       </div>
 
                       {/* Add to Cart Column */}
-                      <div className="order-3 @[720px]:order-6 @[720px]:pl-2 flex justify-center">
+                      <div className="order-3 @[720px]:order-6 @[720px]:pl-2 flex flex-col items-center justify-center gap-1">
                         {inCartFor(l) > 0 ? (
-                          <div
-                            className="inline-flex items-center rounded-lg border overflow-hidden shadow-xs h-[30px]"
-                            style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const cur = inCartFor(l);
-                                if (cur <= 1) {
-                                  removeFromCart(l.inventory_id);
-                                } else {
-                                  updateCartItemQuantity(l.inventory_id, cur - 1);
-                                }
-                              }}
-                              aria-label="Decrease quantity in cart"
-                              title="Decrease quantity or remove"
-                              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
-                              style={{ color: 'var(--text-secondary)' }}
-                            >
-                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                              </svg>
-                            </button>
+                          <>
                             <span
-                              className="min-w-[28px] px-1 text-center text-xs font-black tabular-nums"
-                              style={{ color: 'var(--text-accent)' }}
-                              title={`${inCartFor(l)} in cart`}
+                              className="text-[10px] font-bold tracking-tight select-none leading-none"
+                              style={{ color: 'var(--positive)' }}
                             >
-                              {inCartFor(l)}
+                              {inCartFor(l)} in cart
                             </span>
-                            <button
-                              type="button"
-                              disabled={leftFor(l) <= 0}
-                              onClick={(e) => handleAddToCart(e, l)}
-                              aria-label="Increase quantity in cart"
-                              title={leftFor(l) <= 0 ? 'No more copies available' : 'Add another copy'}
-                              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
-                              style={{ color: 'var(--text-secondary)' }}
+                            <div
+                              className="inline-flex items-center rounded-lg border overflow-hidden shadow-xs h-[28px]"
+                              style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}
                             >
-                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                              </svg>
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const cur = inCartFor(l);
+                                  if (cur <= 1) {
+                                    removeFromCart(l.inventory_id);
+                                  } else {
+                                    updateCartItemQuantity(l.inventory_id, cur - 1);
+                                  }
+                                }}
+                                aria-label="Decrease quantity in cart"
+                                title="Decrease quantity or remove"
+                                className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                  <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                              </button>
+                              <span
+                                className="min-w-[28px] px-1 text-center text-xs font-black tabular-nums"
+                                style={{ color: 'var(--text-accent)' }}
+                                title={`${inCartFor(l)} in cart`}
+                              >
+                                {inCartFor(l)}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={leftFor(l) <= 0}
+                                onClick={(e) => handleAddToCart(e, l)}
+                                aria-label="Increase quantity in cart"
+                                title={leftFor(l) <= 0 ? 'No more copies available' : 'Add another copy'}
+                                className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                style={{ color: 'var(--text-secondary)' }}
+                              >
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                  <line x1="12" y1="5" x2="12" y2="19" />
+                                  <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </>
                         ) : leftFor(l) > 0 ? (
                           <button
                             type="button"

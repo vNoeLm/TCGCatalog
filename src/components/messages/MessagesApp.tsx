@@ -87,6 +87,7 @@ export function MessagesApp() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -667,7 +668,8 @@ export function MessagesApp() {
                                 <div className="flex flex-col gap-2 mb-2">
                                   {images.map((img, i) => {
                                     const isExpired = img.expires_at ? new Date(img.expires_at).getTime() <= Date.now() : false;
-                                    if (isExpired) {
+                                    const isBroken = Boolean(brokenImages[img.url]);
+                                    if (isExpired || isBroken) {
                                       return (
                                         <div
                                           key={i}
@@ -679,8 +681,10 @@ export function MessagesApp() {
                                             <polyline points="12 6 12 12 16 14" />
                                           </svg>
                                           <div className="flex flex-col text-xs">
-                                            <span className="font-bold opacity-80">Photo expired</span>
-                                            <span className="text-[11px] opacity-60">14-day retention limit reached</span>
+                                            <span className="font-bold opacity-80">{isBroken ? 'Photo unavailable' : 'Photo expired'}</span>
+                                            <span className="text-[11px] opacity-60">
+                                              {isBroken ? 'Photo was deleted or could not be loaded' : '14-day retention limit reached'}
+                                            </span>
                                           </div>
                                         </div>
                                       );
@@ -693,6 +697,7 @@ export function MessagesApp() {
                                             src={img.url}
                                             alt="Shared attachment"
                                             loading="lazy"
+                                            onError={() => setBrokenImages((prev) => ({ ...prev, [img.url]: true }))}
                                             className="max-h-64 sm:max-h-80 w-auto max-w-full rounded-xl object-contain bg-black/10"
                                           />
                                         </a>
