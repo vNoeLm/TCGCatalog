@@ -203,7 +203,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
       : fmtDay(t);
 
   return (
-    <section className={large ? 'p-2' : 'px-4 sm:px-6 py-4 border-b'} style={large ? undefined : { borderColor: 'var(--border-subtle)' }}>
+    <section className={large ? 'p-2' : 'px-4 sm:px-6 py-4 border-b lg:border-b-0'} style={large ? undefined : { borderColor: 'var(--border-subtle)' }}>
       <div className="flex items-center gap-x-4 gap-y-2 flex-wrap mb-3">
         <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>Price history</h3>
         <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>

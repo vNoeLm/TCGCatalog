@@ -7,7 +7,6 @@ import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText'
 import { getListingDescription } from '../../lib/sellerNotes';
 import { useCurrency } from '../../lib/currency';
 import { PriceHistoryChart } from './PriceHistoryChart';
-import { StatBox } from '../StatBox';
 import { cartQuantityFor, addToCart, removeFromCart, updateCartItemQuantity } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 import { CountryFlag } from '../CountryFlag';
@@ -30,7 +29,7 @@ type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 // had room for it: the Description track (min 0) collapsed to zero while Seller/Condition held
 // their 150px floors, so Description effectively vanished into Condition and the row still didn't
 // fit, forcing the whole thing to scroll horizontally.
-const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.5fr)_minmax(0,1.6fr)_minmax(0,1.5fr)_60px_105px_96px]';
+const ROW_COLUMNS = '@[720px]:grid-cols-[minmax(0,1.5fr)_minmax(0,1.8fr)_minmax(0,1.3fr)_80px_110px_96px]';
 
 interface CardListingsModalProps {
   group: CardListingGroup;
@@ -109,6 +108,89 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  const renderCartAction = (l: InventoryCard) => {
+    if (inCartFor(l) > 0) {
+      return (
+        <div className="flex flex-col items-center gap-1">
+          <span
+            className="text-[10px] font-bold tracking-tight select-none leading-none"
+            style={{ color: 'var(--positive)' }}
+          >
+            {inCartFor(l)} in cart
+          </span>
+          <div
+            className="inline-flex items-center rounded-lg border overflow-hidden shadow-xs h-[28px]"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const cur = inCartFor(l);
+                if (cur <= 1) {
+                  removeFromCart(l.inventory_id);
+                } else {
+                  updateCartItemQuantity(l.inventory_id, cur - 1);
+                }
+              }}
+              aria-label="Decrease quantity in cart"
+              title="Decrease quantity or remove"
+              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <span
+              className="min-w-[28px] px-1 text-center text-xs font-black tabular-nums"
+              style={{ color: 'var(--text-accent)' }}
+              title={`${inCartFor(l)} in cart`}
+            >
+              {inCartFor(l)}
+            </span>
+            <button
+              type="button"
+              disabled={leftFor(l) <= 0}
+              onClick={(e) => handleAddToCart(e, l)}
+              aria-label="Increase quantity in cart"
+              title={leftFor(l) <= 0 ? 'No more copies available' : 'Add another copy'}
+              className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (leftFor(l) > 0) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => handleAddToCart(e, l)}
+          className="inline-flex items-center justify-center gap-1.5 w-[82px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition hover:brightness-110 active:scale-95 shadow-sm whitespace-nowrap"
+          style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+          title={`Add to cart from ${rowSeller(l)}`}
+        >
+          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+          </svg>
+          <span>Add</span>
+        </button>
+      );
+    }
+    return (
+      <span className="w-[82px] py-1.5 text-center text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+        Sold out
+      </span>
+    );
+  };
+
   const content = (
     <div
       onClick={onClose}
@@ -131,335 +213,301 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
       <div
         onClick={(e) => e.stopPropagation()}
         data-state={entered ? 'open' : 'closed'}
-        className="tv-modal-panel w-full h-full max-w-none relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="tv-modal-panel w-full max-w-6xl 2xl:max-w-7xl h-full max-h-[94vh] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', willChange: 'transform, opacity' }}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-lg hover:brightness-110 cursor-pointer transition" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
+          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-lg hover:brightness-110 cursor-pointer transition shadow-sm"
+          style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)' }}
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
 
-        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:flex lg:flex-row custom-scrollbar">
-         <div className="lg:w-[380px] xl:w-[440px] 2xl:w-[500px] lg:shrink-0 lg:overflow-y-auto lg:border-r custom-scrollbar" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="flex gap-4 sm:gap-6 p-4 sm:p-6 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="w-28 sm:w-40 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
-              {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
-            </div>
-            <div className="min-w-0 flex-1 pr-8 lg:pr-2 [container-type:inline-size] flex flex-col justify-center">
-              <div className="text-center">
-                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
-                {sub && <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
-                </p>
-              </div>
+        {/* Modal Scroll Container */}
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col">
+          {/* Top Section: Card Info on Left & Price History on Right (side-by-side on lg+) */}
+          <div className="flex flex-col lg:flex-row border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+            {/* Card Info & Cardmarket-style Stats */}
+            <div className="p-4 sm:p-6 lg:w-[460px] xl:w-[500px] 2xl:w-[540px] lg:shrink-0 lg:border-r flex flex-col justify-center" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex gap-4 sm:gap-6 items-start">
+                <div className="w-24 sm:w-32 lg:w-36 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border shadow-md" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+                  {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
+                </div>
+                <div className="min-w-0 flex-1 flex flex-col justify-center">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
+                    {sub && <p className="text-xs font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
+                    </p>
+                  </div>
 
-              <div className="grid grid-cols-2 @[420px]:grid-cols-4 gap-2 mt-4">
-                {[
-                  { label: 'Lowest', value: group.lowest_price > 0 ? formatPrice(group.lowest_price) : 'N/A', accent: true },
-                  { label: 'Average', value: group.avg_price > 0 ? formatPrice(group.avg_price) : 'N/A' },
-                  { label: 'Listings', value: String(group.listing_count) },
-                  { label: 'Copies', value: String(group.total_quantity) },
-                ].map(stat => (
-                  <StatBox key={stat.label} label={stat.label} value={stat.value} valueClassName={stat.accent ? 'text-[var(--positive)]' : undefined} />
-                ))}
+                  {/* Cardmarket-style Stats List */}
+                  <div className="mt-3.5 rounded-xl border divide-y overflow-hidden text-xs" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface-2)' }}>
+                    <div className="flex items-center justify-between px-3.5 py-1.5">
+                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Lowest price</span>
+                      <span className="font-black text-sm text-[var(--positive)]">
+                        {group.lowest_price > 0 ? formatPrice(group.lowest_price) : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3.5 py-1.5" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Average price</span>
+                      <span className="font-black text-sm" style={{ color: 'var(--text-primary)' }}>
+                        {group.avg_price > 0 ? formatPrice(group.avg_price) : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3.5 py-1.5" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Available items</span>
+                      <span className="font-bold text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        {group.listing_count}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3.5 py-1.5" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Total copies</span>
+                      <span className="font-bold text-sm" style={{ color: 'var(--text-secondary)' }}>
+                        {group.total_quantity}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Price History Chart */}
+            <div className="flex-1 min-w-0 lg:pr-14">
+              <PriceHistoryChart
+                cardId={group.card_id}
+                card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }}
+                initialFoil={foilOnly}
+              />
             </div>
           </div>
 
-          <PriceHistoryChart cardId={group.card_id} card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }} initialFoil={foilOnly} />
-         </div>
-
-         <div className="lg:flex-1 lg:min-w-0 lg:overflow-y-auto custom-scrollbar flex flex-col">
-          <div className="flex items-center gap-2 flex-wrap pl-4 sm:pl-6 pr-14 py-3 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as ListingSort)}
-              className="h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-            >
-              <option value="price_asc">Price: low to high</option>
-              <option value="price_desc">Price: high to low</option>
-              <option value="condition">Condition: best first</option>
-              <option value="quantity">Most copies</option>
-            </select>
-            {conditions.length > 1 && (
+          {/* Bottom Section: Full-width Listings Table */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="sticky top-0 z-10 flex items-center gap-2 flex-wrap px-4 sm:px-6 py-3 border-b shrink-0 shadow-xs" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
               <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as ListingSort)}
                 className="h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
               >
-                <option value="All">All conditions</option>
-                {conditions.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="price_asc">Price: low to high</option>
+                <option value="price_desc">Price: high to low</option>
+                <option value="condition">Condition: best first</option>
+                <option value="quantity">Most copies</option>
               </select>
-            )}
-            {group.has_foil && (
-              <button
-                type="button"
-                onClick={() => setFoilOnly(f => !f)}
-                className={`h-8 px-3 rounded-lg text-xs font-bold border transition cursor-pointer ${foilOnly ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' : 'hover:text-[var(--text-secondary)]'}`}
-                style={foilOnly ? undefined : { background: 'var(--bg-input)', color: 'var(--text-tertiary)', borderColor: 'var(--border)' }}
-              >
-                Foil only
-              </button>
-            )}
-            <span className="hidden sm:inline text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Click any listing to view photos &amp; details</span>
-            <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{visible.length} shown</span>
-          </div>
-
-          <div className="px-3 sm:px-4 py-2 [container-type:inline-size] flex-1">
-            <div className={`hidden @[720px]:grid ${ROW_COLUMNS} items-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
-              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Seller</div>
-              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Description</div>
-              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
-              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
-              <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
-              <div className="pl-2 text-center">Cart</div>
+              {conditions.length > 1 && (
+                <select
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value)}
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold border cursor-pointer" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  <option value="All">All conditions</option>
+                  {conditions.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              )}
+              {group.has_foil && (
+                <button
+                  type="button"
+                  onClick={() => setFoilOnly(f => !f)}
+                  className={`h-8 px-3 rounded-lg text-xs font-bold border transition cursor-pointer ${foilOnly ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' : 'hover:text-[var(--text-secondary)]'}`}
+                  style={foilOnly ? undefined : { background: 'var(--bg-input)', color: 'var(--text-tertiary)', borderColor: 'var(--border)' }}
+                >
+                  Foil only
+                </button>
+              )}
+              <span className="hidden sm:inline text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Click any listing to view photos &amp; details</span>
+              <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>{visible.length} shown</span>
             </div>
-            {visible.length === 0 ? (
-              <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
-            ) : (
-              <div className="flex flex-col">
-                {visible.map((l, i) => {
-                  const onHold = l.status === 'On Hold' || l.status === 'Reserved';
-                  const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
-                  const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
-                  return (
-                    <div
-                      key={l.inventory_id}
-                      onClick={() => onSelectListing(l.inventory_id)}
-                      title="Click to view full photos and seller details"
-                      className={`listing-row grid grid-cols-[minmax(0,1fr)_auto_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3.5 sm:py-4 rounded-xl cursor-pointer transition-all hover:bg-[var(--bg-surface-2)]/80 group`}
-                      style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onSelectListing(l.inventory_id);
-                        }
-                      }}
-                    >
-                      {/* Seller Column */}
+
+            <div className="px-3 sm:px-6 py-2 [container-type:inline-size] flex-1">
+              <div className={`hidden @[720px]:grid ${ROW_COLUMNS} items-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b`} style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
+                <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Seller</div>
+                <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Description</div>
+                <div className="px-3 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Condition</div>
+                <div className="px-1.5 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Amount</div>
+                <div className="px-2 border-r text-center" style={{ borderColor: 'var(--border-subtle)' }}>Price</div>
+                <div className="pl-2 text-center">Cart</div>
+              </div>
+              {visible.length === 0 ? (
+                <p className="text-center text-sm py-10" style={{ color: 'var(--text-muted)' }}>No listings match these filters.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {visible.map((l, i) => {
+                    const onHold = l.status === 'On Hold' || l.status === 'Reserved';
+                    const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
+                    const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
+                    return (
                       <div
-                        className="seller-col order-1 min-w-0 px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (l.seller_id) {
-                            window.location.href = `/user?id=${l.seller_id}`;
+                        key={l.inventory_id}
+                        onClick={() => onSelectListing(l.inventory_id)}
+                        title="Click to view full photos and seller details"
+                        className={`listing-row grid grid-cols-[minmax(0,1fr)_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3 sm:py-3.5 rounded-xl cursor-pointer transition-all hover:bg-[var(--bg-surface-2)]/80 group`}
+                        style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelectListing(l.inventory_id);
                           }
                         }}
                       >
-                        <a
-                          href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-2 min-w-0 p-1.5 -m-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-raised)] transition-all cursor-pointer group/seller"
-                          title={`View ${rowSeller(l)}'s profile`}
+                        {/* Seller Column */}
+                        <div
+                          className="seller-col order-1 min-w-0 px-1 sm:px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (l.seller_id) {
+                              window.location.href = `/user?id=${l.seller_id}`;
+                            }
+                          }}
                         >
-                          {l.seller_avatar ? (
-                            <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
-                          ) : (
-                            <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-                              {rowSeller(l)[0].toUpperCase()}
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                              <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
-                              <span className="truncate">{rowSeller(l)}</span>
-                            </div>
-                            <div className="text-[11px] flex items-center gap-1.5 flex-wrap mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                              {isOwner && (
-                                <span
-                                  className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
-                                  style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
-                                  title="Platform Owner"
-                                >
-                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-                                  </svg>
-                                  <span>Owner</span>
-                                </span>
-                              )}
-                              {isVerifiedStore && (
-                                <span
-                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
-                                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                                  title="Official Verified Store"
-                                >
-                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                    <polyline points="9 22 9 12 15 12 15 22" />
-                                  </svg>
-                                  <span>Verified Store</span>
-                                </span>
-                              )}
-                              {!isOwner && !isVerifiedStore && l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
-                              {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
-                                <span className="font-bold inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--text-accent)' }}>
-                                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                                  </svg>
-                                  <span>{l.seller_rating_avg.toFixed(1)}</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </a>
-                      </div>
-
-                      {/* Description Column */}
-                      <div className="order-5 @[720px]:order-2 col-span-3 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)] @[720px]:text-center flex @[720px]:justify-center items-center">
-                        {(() => {
-                          const description = getListingDescription(l.notes);
-                          if (!description) {
-                            return <span className="hidden @[720px]:inline text-center block w-full" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
-                          }
-                          return (
-                            <span className="flex items-center @[720px]:justify-center gap-1.5 min-w-0 w-full text-center">
-                              <svg className="w-3 h-3 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
-                                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                              </svg>
-                              <span
-                                className="truncate block max-w-full @[720px]:text-center"
-                                style={{ color: 'var(--text-secondary)' }}
-                                title={description}
-                              >
-                                {description}
-                              </span>
-                            </span>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Condition Column */}
-                      {(() => {
-                        const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
-                        const photoCount = (l.inventory_images && l.inventory_images.length > 0)
-                          ? l.inventory_images.length
-                          : (((l as any).images && (l as any).images.length > 0)
-                          ? (l as any).images.length
-                          : (l.inventory_image ? 1 : 0));
-                        return (
-                          <div className="order-4 @[720px]:order-3 col-span-3 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
-                            {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
-                            {hasPhotos && (
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border cursor-pointer shadow-sm hover:brightness-125 transition-all"
-                                style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.45)' }}
-                                title={`${photoCount} real photo${photoCount > 1 ? 's' : ''} available. Click to view listing details and full photos.`}
-                              >
-                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                                  <circle cx="12" cy="13" r="4" />
-                                </svg>
-                                <span>{photoCount > 1 ? `${photoCount} Photos` : 'Photos'}</span>
+                          <a
+                            href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-2 min-w-0 p-1.5 -m-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-raised)] transition-all cursor-pointer group/seller"
+                            title={`View ${rowSeller(l)}'s profile`}
+                          >
+                            {l.seller_avatar ? (
+                              <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
+                            ) : (
+                              <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                                {rowSeller(l)[0].toUpperCase()}
                               </span>
                             )}
-                            {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                            <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Amount Column */}
-                      <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
-                        {leftFor(l)}&times;
-                      </div>
-
-                      {/* Price Column */}
-                      <div className="order-2 @[720px]:order-5 text-base font-black text-[var(--positive)] text-center whitespace-nowrap @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                        {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
-                      </div>
-
-                      {/* Add to Cart Column */}
-                      <div className="order-3 @[720px]:order-6 @[720px]:pl-2 flex flex-col items-center justify-center gap-1">
-                        {inCartFor(l) > 0 ? (
-                          <>
-                            <span
-                              className="text-[10px] font-bold tracking-tight select-none leading-none"
-                              style={{ color: 'var(--positive)' }}
-                            >
-                              {inCartFor(l)} in cart
-                            </span>
-                            <div
-                              className="inline-flex items-center rounded-lg border overflow-hidden shadow-xs h-[28px]"
-                              style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}
-                            >
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const cur = inCartFor(l);
-                                  if (cur <= 1) {
-                                    removeFromCart(l.inventory_id);
-                                  } else {
-                                    updateCartItemQuantity(l.inventory_id, cur - 1);
-                                  }
-                                }}
-                                aria-label="Decrease quantity in cart"
-                                title="Decrease quantity or remove"
-                                className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition"
-                                style={{ color: 'var(--text-secondary)' }}
-                              >
-                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                  <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                              </button>
-                              <span
-                                className="min-w-[28px] px-1 text-center text-xs font-black tabular-nums"
-                                style={{ color: 'var(--text-accent)' }}
-                                title={`${inCartFor(l)} in cart`}
-                              >
-                                {inCartFor(l)}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={leftFor(l) <= 0}
-                                onClick={(e) => handleAddToCart(e, l)}
-                                aria-label="Increase quantity in cart"
-                                title={leftFor(l) <= 0 ? 'No more copies available' : 'Add another copy'}
-                                className="w-7 h-full flex items-center justify-center cursor-pointer hover:bg-[var(--bg-raised)] transition disabled:opacity-30 disabled:cursor-not-allowed"
-                                style={{ color: 'var(--text-secondary)' }}
-                              >
-                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                  <line x1="12" y1="5" x2="12" y2="19" />
-                                  <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                              </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                                <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
+                                <span className="truncate">{rowSeller(l)}</span>
+                              </div>
+                              <div className="text-[11px] flex items-center gap-1.5 flex-wrap mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                {isOwner && (
+                                  <span
+                                    className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
+                                    style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                    title="Platform Owner"
+                                  >
+                                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                                    </svg>
+                                    <span>Owner</span>
+                                  </span>
+                                )}
+                                {isVerifiedStore && (
+                                  <span
+                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
+                                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                                    title="Official Verified Store"
+                                  >
+                                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                      <polyline points="9 22 9 12 15 12 15 22" />
+                                    </svg>
+                                    <span>Verified Store</span>
+                                  </span>
+                                )}
+                                {!isOwner && !isVerifiedStore && l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
+                                {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
+                                  <span className="font-bold inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--text-accent)' }}>
+                                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                    </svg>
+                                    <span>{l.seller_rating_avg.toFixed(1)}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </>
-                        ) : leftFor(l) > 0 ? (
-                          <button
-                            type="button"
-                            onClick={(e) => handleAddToCart(e, l)}
-                            className="inline-flex items-center justify-center gap-1.5 w-[82px] py-1.5 rounded-lg text-xs font-bold cursor-pointer transition hover:brightness-110 active:scale-95 shadow-sm whitespace-nowrap"
-                            style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
-                            title={`Add to cart from ${rowSeller(l)}`}
-                          >
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-                              <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-                            </svg>
-                            <span>Add</span>
-                          </button>
-                        ) : (
-                          <span className="w-[82px] py-1.5 text-center text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-                            Sold out
-                          </span>
-                        )}
+                          </a>
+                        </div>
+
+                        {/* Mobile Action Column: Price Stacked Above Add/Cart Controls */}
+                        <div className="order-2 @[720px]:hidden flex flex-col items-end justify-center gap-1 shrink-0">
+                          <div className="text-sm sm:text-base font-black text-[var(--positive)] whitespace-nowrap">
+                            {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
+                          </div>
+                          {renderCartAction(l)}
+                        </div>
+
+                        {/* Description Column */}
+                        <div className="order-4 @[720px]:order-2 col-span-2 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)] @[720px]:text-center flex @[720px]:justify-center items-center">
+                          {(() => {
+                            const description = getListingDescription(l.notes);
+                            if (!description) {
+                              return <span className="hidden @[720px]:inline text-center block w-full" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
+                            }
+                            return (
+                              <span className="flex items-center @[720px]:justify-center gap-1.5 min-w-0 w-full text-center">
+                                <svg className="w-3 h-3 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
+                                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                                </svg>
+                                <span
+                                  className="truncate block max-w-full @[720px]:text-center"
+                                  style={{ color: 'var(--text-secondary)' }}
+                                  title={description}
+                                >
+                                  {description}
+                                </span>
+                              </span>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Condition Column */}
+                        {(() => {
+                          const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
+                          const photoCount = (l.inventory_images && l.inventory_images.length > 0)
+                            ? l.inventory_images.length
+                            : (((l as any).images && (l as any).images.length > 0)
+                            ? (l as any).images.length
+                            : (l.inventory_image ? 1 : 0));
+                          return (
+                            <div className="order-3 @[720px]:order-3 col-span-2 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
+                              {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
+                              {hasPhotos && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border cursor-pointer shadow-sm hover:brightness-125 transition-all"
+                                  style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.45)' }}
+                                  title={`${photoCount} real photo${photoCount > 1 ? 's' : ''} available. Click to view listing details and full photos.`}
+                                >
+                                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                  </svg>
+                                  <span>{photoCount > 1 ? `${photoCount} Photos` : 'Photos'}</span>
+                                </span>
+                              )}
+                              {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
+                              <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Amount Column (Desktop) */}
+                        <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-center @[720px]:px-1.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
+                          {leftFor(l)}&times;
+                        </div>
+
+                        {/* Price Column (Desktop) */}
+                        <div className="hidden @[720px]:block @[720px]:order-5 text-sm font-black text-[var(--positive)] text-center whitespace-nowrap @[720px]:px-2 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
+                          {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
+                        </div>
+
+                        {/* Add to Cart Column (Desktop) */}
+                        <div className="hidden @[720px]:flex @[720px]:order-6 @[720px]:pl-2 flex-col items-center justify-center gap-1">
+                          {renderCartAction(l)}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-         </div>
         </div>
       </div>
     </div>
