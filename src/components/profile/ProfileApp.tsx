@@ -27,7 +27,7 @@ const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
   { mode: 'light', name: 'Ivory Parchment', hex: ['#f3ede2', '#fb7185'] },
   { mode: 'custom', name: 'Custom Studio', hex: ['#a855f7', '#06b6d4'] },
 ];
-import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
+import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag, type CollectorTier } from '../../lib/badges';
 import { GAMES } from '../../lib/constants';
 import { useCurrency, type Currency } from '../../lib/currency';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
@@ -1033,11 +1033,11 @@ export function ProfileApp() {
               <div className="col-span-2 sm:col-start-2 sm:row-start-2 w-full flex items-center justify-start gap-1.5 sm:gap-2 flex-wrap">
                 {profile.is_admin || profile.role === 'admin' ? (
                   <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border shadow-sm backdrop-blur-md"
                     style={{
-                      background: 'var(--tag-gold-bg)',
-                      borderColor: 'var(--tag-gold-border)',
-                      color: 'var(--tag-gold)',
+                      background: 'var(--accent-muted)',
+                      borderColor: 'var(--accent-border)',
+                      color: 'var(--text-accent)',
                     }}
                   >
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1047,7 +1047,7 @@ export function ProfileApp() {
                   </span>
                 ) : (
                   <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-md border"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-md border backdrop-blur-md"
                     style={{
                       background: 'var(--bg-surface-2)',
                       borderColor: 'var(--border-subtle)',
@@ -1061,25 +1061,15 @@ export function ProfileApp() {
                   </span>
                 )}
 
-                {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5" />}
+                {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5 backdrop-blur-md" />}
                 {isVerifiedStore && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md border shadow-sm"
-                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                    title="Official Verified Store"
-                  >
-                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <span>Verified Store</span>
-                  </span>
+                  <VerifiedStoreTag className="!text-[11px] !px-2.5 !py-0.5" />
                 )}
 
                 {/* Upgraded Seller Badge */}
                 <a
                   href="/seller"
-                  className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border transition hover:opacity-90 cursor-pointer shadow-sm"
+                  className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-md border transition hover:opacity-90 cursor-pointer shadow-sm backdrop-blur-md"
                   style={sellerTier.badgeStyle}
                   title={`${sellerTier.nameEn} — Click for Seller Dashboard`}
                 >
@@ -1094,7 +1084,7 @@ export function ProfileApp() {
             <div className="grid grid-cols-2 sm:flex sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
               <a
                 href={`/user?id=${profile.id}`}
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border backdrop-blur-md hover:brightness-110 active:scale-95"
                 style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
                 title="See your profile the way other collectors see it - ratings, sales, purchases and reviews"
               >
@@ -1106,7 +1096,7 @@ export function ProfileApp() {
               </a>
               <a
                 href="/seller"
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border backdrop-blur-md hover:brightness-110 active:scale-95"
                 style={{
                   background: 'var(--bg-surface-2)',
                   borderColor: 'var(--border)',
@@ -1121,11 +1111,11 @@ export function ProfileApp() {
               {(isOwner || profile.is_admin) && (
                 <a
                   href="/admin"
-                  className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border"
+                  className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border backdrop-blur-md hover:brightness-110 active:scale-95"
                   style={{
-                    background: 'var(--tag-gold-bg)',
-                    borderColor: 'var(--tag-gold-border)',
-                    color: 'var(--tag-gold)',
+                    background: 'var(--accent-muted)',
+                    borderColor: 'var(--accent-border)',
+                    color: 'var(--text-accent)',
                   }}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1136,7 +1126,7 @@ export function ProfileApp() {
               )}
               <button
                 onClick={handleSignOut}
-                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border inline-flex items-center justify-center gap-1.5 hover:brightness-110"
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border inline-flex items-center justify-center gap-1.5 backdrop-blur-md hover:brightness-110 active:scale-95"
                 style={{
                   background: 'var(--negative-muted)',
                   borderColor: 'var(--negative-border)',

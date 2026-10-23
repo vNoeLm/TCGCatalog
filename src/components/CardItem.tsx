@@ -7,6 +7,7 @@ import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 import { CountryFlag } from "./CountryFlag";
 import { OWNER_ID } from "../lib/constants";
+import { VerifiedStoreTag } from "../lib/badges";
 import { addToCart, cartQuantityFor } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
 
@@ -335,17 +336,7 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                   </span>
                 )}
                 {isVerifiedStore && (
-                  <span
-                    className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 inline-flex items-center gap-1"
-                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                    title="Official Verified Store"
-                  >
-                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <span>Verified Store</span>
-                  </span>
+                  <VerifiedStoreTag className="text-[8px] px-1.5 py-0.5" iconClassName="w-2.5 h-2.5" />
                 )}
                 {!isOwner && !isVerifiedStore && card.seller_badge && (
                   <span

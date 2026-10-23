@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeOption, methodAvailability, normalizeShipping, shippingOption } from '../src/lib/shipping';
+import { describeOption, methodAvailability, normalizeShipping, shippingOption, sellerShipsTo } from '../src/lib/shipping';
+import { getSellerTier } from '../src/lib/badges';
 
 // In person free, Foxpost 1500 Ft from a 5000 Ft order, GLS 2500 Ft from 10000 Ft, Packeta off.
 const SETTINGS = normalizeShipping({
@@ -111,5 +112,32 @@ describe('multi-region domestic vs eu shipping', () => {
 
     const postDom = methodAvailability(domOnly, 'posta', 10000, 'DOMESTIC');
     expect(postDom.offered).toBe(true);
+  });
+
+  it('sellerShipsTo accurately checks domestic vs EU eligibility', () => {
+    const domOnly = normalizeShipping({ ships_domestic: true, ships_eu: false });
+    expect(sellerShipsTo(domOnly, 'DOMESTIC')).toBe(true);
+    expect(sellerShipsTo(domOnly, 'EU')).toBe(false);
+
+    const euSeller = normalizeShipping({ ships_domestic: true, ships_eu: true });
+    expect(sellerShipsTo(euSeller, 'DOMESTIC')).toBe(true);
+    expect(sellerShipsTo(euSeller, 'EU')).toBe(true);
+  });
+});
+
+describe('badges theme-dynamic styling', () => {
+  it('tier >= 1 sellers receive dynamic theme variables instead of hardcoded hex', () => {
+    const tier1 = getSellerTier(1, 5, false, false);
+    expect(tier1.nameEn).toBe('Tier 1 Seller');
+    expect(tier1.badgeStyle.color).toBe('var(--text-accent)');
+    expect(tier1.badgeStyle.background).toBe('var(--accent-muted)');
+    expect(tier1.badgeStyle.borderColor).toBe('var(--accent-border)');
+  });
+
+  it('new seller (0 sales) receives subtle surface styling', () => {
+    const tier0 = getSellerTier(0, null, false, false);
+    expect(tier0.nameEn).toBe('New Seller');
+    expect(tier0.badgeStyle.color).toBe('var(--text-secondary)');
+    expect(tier0.badgeStyle.background).toBe('var(--bg-surface-2)');
   });
 });

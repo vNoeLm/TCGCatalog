@@ -181,15 +181,15 @@ html[data-theme="custom"] {
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* Site Owner / Admin tags: true bright gold in every theme (never muddy brown). */
-  --tag-gold:         #fbbf24;
-  --tag-gold-bg:      rgba(245, 158, 11, 0.16);
-  --tag-gold-border:  rgba(245, 158, 11, 0.5);
+  /* Site Owner / Admin tags: follow active accent dynamically */
+  --tag-gold:         var(--text-accent, #fbbf24);
+  --tag-gold-bg:      var(--accent-muted, rgba(245, 158, 11, 0.16));
+  --tag-gold-border:  var(--accent-border, rgba(245, 158, 11, 0.5));
 }
 html[data-theme="light"] {
-  --tag-gold:         #0a0a0a;
-  --tag-gold-bg:      rgba(245, 158, 11, 0.18);
-  --tag-gold-border:  rgba(217, 119, 6, 0.45);
+  --tag-gold:         var(--text-accent, #a855f7);
+  --tag-gold-bg:      var(--accent-muted, rgba(168, 85, 247, 0.16));
+  --tag-gold-border:  var(--accent-border, rgba(168, 85, 247, 0.45));
 }
 
 /* Destructive / reset buttons: the theme's red, in every theme. */

@@ -4,7 +4,7 @@ import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache, getDisp
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
-import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag } from '../lib/badges';
 import { useSiteTheme } from '../lib/theme';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
@@ -726,17 +726,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                           <>
                             {isOwner && <SiteOwnerTag />}
                             {isVerifiedStore && (
-                              <span
-                                className="text-[10px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
-                                style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                                title="Official Verified Store"
-                              >
-                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                  <polyline points="9 22 9 12 15 12 15 22" />
-                                </svg>
-                                <span>Verified Store</span>
-                              </span>
+                              <VerifiedStoreTag className="text-[10px] px-2 py-0.5" />
                             )}
                             <span
                               className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"

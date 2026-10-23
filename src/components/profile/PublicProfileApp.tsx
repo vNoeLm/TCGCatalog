@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cardThumbProps, supabase } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchReputation } from '../../lib/reviews';
 import { ReputationBreakdown, ReviewCard, Stars } from '../reviews/ReviewParts';
-import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag } from '../../lib/badges';
 import { BannerContainerBackground } from './AvatarBannerModal';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
@@ -175,17 +175,7 @@ export function PublicProfileApp() {
                 </h1>
                 {isOwner && <SiteOwnerTag />}
                 {isVerifiedStore && (
-                  <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 shrink-0"
-                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                    title="Official Verified Store"
-                  >
-                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <span>Verified Store</span>
-                  </span>
+                  <VerifiedStoreTag className="text-[10px] px-2 py-0.5 !rounded-full" />
                 )}
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"

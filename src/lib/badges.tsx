@@ -333,13 +333,14 @@ export function getSellerTier(
       nextTierSales: 1,
       ratingAvg,
       isOwner,
-      color: '#a1a1aa',
-      bg: 'rgba(255, 255, 255, 0.06)',
-      border: 'rgba(255, 255, 255, 0.15)',
+      color: 'var(--text-secondary)',
+      bg: 'var(--bg-surface-2)',
+      border: 'var(--border-subtle)',
       badgeStyle: {
-        background: isLight ? '#ede6d8' : 'rgba(255, 255, 255, 0.06)',
-        borderColor: isLight ? 'rgba(24, 24, 27, 0.2)' : 'rgba(255, 255, 255, 0.15)',
-        color: isLight ? '#52525b' : '#d4d4d8',
+        background: 'var(--bg-surface-2)',
+        borderColor: 'var(--border-subtle)',
+        color: 'var(--text-secondary)',
+        backdropFilter: 'blur(8px)',
       },
     };
   }
@@ -370,43 +371,29 @@ export function getSellerTier(
     }
   }
 
-  // Tier appearance palettes
-  const colorPalettes: Array<{
-    color: string;
-    bg: string;
-    border: string;
-    lightColor: string;
-    darkColor: string;
-    iconType: BadgeIconType;
-  }> = [
-    { color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.45)', lightColor: '#047857', darkColor: '#6ee7b7', iconType: 'verified' },
-    { color: '#fdba74', bg: 'rgba(251, 146, 60, 0.15)', border: 'rgba(251, 146, 60, 0.4)', lightColor: '#c2410c', darkColor: '#fed7aa', iconType: 'star' },
-    { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.4)', lightColor: '#334155', darkColor: '#f1f5f9', iconType: 'shield' },
-    { color: '#facc15', bg: 'rgba(250, 204, 21, 0.18)', border: 'rgba(250, 204, 21, 0.45)', lightColor: '#a16207', darkColor: '#fef08a', iconType: 'award' },
-    { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.2)', border: 'rgba(56, 189, 248, 0.5)', lightColor: '#0369a1', darkColor: '#7dd3fc', iconType: 'gem' },
-    { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.2)', border: 'rgba(168, 85, 247, 0.5)', lightColor: '#7e22ce', darkColor: '#d8b4fe', iconType: 'crown' },
-  ];
-
-  const palette = colorPalettes[(tierNumber - 1) % colorPalettes.length];
+  // Tier appearance palettes - use dynamic theme accent variables for readability and active customization
+  const icons: BadgeIconType[] = ['verified', 'star', 'shield', 'award', 'gem', 'crown'];
+  const iconType = icons[(tierNumber - 1) % icons.length];
 
   return {
     tier: tierNumber,
     nameEn: `Tier ${tierNumber} Seller`,
     icon: '★',
-    iconType: palette.iconType,
+    iconType,
     salesCount: sold,
     minSales,
     nextTierSales,
     ratingAvg,
     isOwner,
-    color: palette.color,
-    bg: palette.bg,
-    border: palette.border,
+    color: 'var(--text-accent)',
+    bg: 'var(--accent-muted)',
+    border: 'var(--accent-border)',
     badgeStyle: {
-      background: palette.bg,
-      borderColor: palette.border,
-      color: isLight ? palette.lightColor : palette.darkColor,
-      boxShadow: `0 0 10px ${palette.bg}`,
+      background: 'var(--accent-muted)',
+      borderColor: 'var(--accent-border)',
+      color: 'var(--text-accent)',
+      backdropFilter: 'blur(8px)',
+      boxShadow: '0 0 10px var(--accent-glow, rgba(0, 0, 0, 0.15))',
     },
   };
 }
@@ -422,16 +409,39 @@ export function getTierBadgeLabel(badge: CollectorTier | SellerTier): string {
 export function SiteOwnerTag({ className = '' }: { className?: string }) {
   return (
     <span
-      className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 border ${className}`}
+      className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 border shadow-sm backdrop-blur-md ${className}`}
       style={{
-        background: 'var(--tag-gold-bg)',
-        borderColor: 'var(--tag-gold-border)',
-        color: 'var(--tag-gold)',
+        background: 'var(--accent-muted)',
+        borderColor: 'var(--accent-border)',
+        color: 'var(--text-accent)',
       }}
       title="Owner"
     >
       <BadgeIconSvg iconType="crown" className="w-3 h-3" />
       <span>Owner</span>
+    </span>
+  );
+}
+
+/**
+ * Official Verified Store badge that follows active theme colors dynamically.
+ */
+export function VerifiedStoreTag({ className = '', iconClassName = 'w-3 h-3' }: { className?: string; iconClassName?: string }) {
+  return (
+    <span
+      className={`font-bold rounded border inline-flex items-center gap-1 shrink-0 shadow-sm backdrop-blur-md ${className}`}
+      style={{
+        background: 'var(--accent-muted)',
+        borderColor: 'var(--accent-border)',
+        color: 'var(--text-accent)',
+      }}
+      title="Official Verified Store"
+    >
+      <svg className={`${iconClassName} shrink-0`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+      <span>Verified Store</span>
     </span>
   );
 }
