@@ -37,6 +37,8 @@ export function MoveCardsModal({
   const [fromId, setFromId] = useState(PERSONAL_COLLECTION_ID);
   const [toId, setToId] = useState('');
   const [keep, setKeep] = useState(3);
+  // 'keep': leave N of every card behind and move the rest. 'exact': move exactly N of every card (or all of them if it has fewer).
+  const [mode, setMode] = useState<'keep' | 'exact'>('keep');
   const [moving, setMoving] = useState(false);
 
   // Default target: an "Inventory"-like collection if there is one, else the first named one.
@@ -62,11 +64,16 @@ export function MoveCardsModal({
   const moves = useMemo(() => {
     const out: Record<string, number> = {};
     for (const [key, count] of Object.entries(cardsOf(fromId))) {
-      if (count > keep) out[key] = count - keep;
+      if (mode === 'exact') {
+        const n = Math.min(count, keep);
+        if (n > 0) out[key] = n;
+      } else if (count > keep) {
+        out[key] = count - keep;
+      }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromId, keep, personalCards, named]);
+  }, [fromId, keep, mode, personalCards, named]);
 
   const moveKeys = Object.keys(moves);
   const moveCopies = Object.values(moves).reduce((s, n) => s + n, 0);
@@ -94,7 +101,7 @@ export function MoveCardsModal({
       }
 
       const fromCards = { ...cardsOf(fromId) };
-      for (const k of moveKeys) fromCards[k] = keep;
+      for (const k of moveKeys) fromCards[k] = Math.max(0, (fromCards[k] || 0) - moves[k]);
       if (fromId === PERSONAL_COLLECTION_ID) {
         applyPersonal(fromCards);
       } else if (!(await setCollectionCards(fromId, fromCards))) {
@@ -109,7 +116,7 @@ export function MoveCardsModal({
   };
 
   return (
-    <CollectionModal open={open} onClose={onClose} title="Move cards" subtitle="Keep a set amount of every card in one collection and move the rest to another" maxWidth="max-w-lg" closeDisabled={moving}>
+    <CollectionModal open={open} onClose={onClose} title="Move cards" subtitle="Keep a set amount of every card, or move an exact amount of every card, between collections" maxWidth="max-w-lg" closeDisabled={moving}>
       {named.length === 0 ? (
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           Create a second collection first (for example "Inventory") under New / manage collections, then move cards into it here.
@@ -131,8 +138,24 @@ export function MoveCardsModal({
             </label>
           </div>
 
+          <div className="flex gap-1.5">
+            {([{ m: 'keep', label: 'Keep N, move the rest' }, { m: 'exact', label: 'Move exactly N' }] as const).map((o) => (
+              <button
+                key={o.m}
+                type="button"
+                onClick={() => setMode(o.m)}
+                className="h-7 px-2.5 rounded-lg border text-[11px] font-bold cursor-pointer"
+                style={mode === o.m
+                  ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
+                  : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
           <label className="flex flex-col gap-1">
-            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>Keep in {nameOf(fromId)}</span>
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{mode === 'exact' ? "Move from ${nameOf(fromId)}" : "Keep in ${nameOf(fromId)}"}</span>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -144,12 +167,15 @@ export function MoveCardsModal({
                 style={fieldStyle}
               />
               <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                of every card - normal and foil counted separately{keep === 3 ? ' (a playset)' : ''}
+                {mode === 'exact' ? 'of every card (all of it if fewer) - normal and foil counted separately' : 'of every card - normal and foil counted separately'}{mode === 'keep' && keep === 3 ? ' (a playset)' : ''}
               </span>
             </div>
           </label>
           <div className="flex gap-1.5">
-            {[{ n: 3, label: 'Playset (3)' }, { n: 1, label: 'Keep 1' }, { n: 0, label: 'Move all' }].map((p) => (
+            {(mode === 'exact'
+              ? [{ n: 1, label: 'Move 1' }, { n: 2, label: 'Move 2' }, { n: 3, label: 'Move 3' }, { n: 99, label: 'Move all' }]
+              : [{ n: 3, label: 'Playset (3)' }, { n: 1, label: 'Keep 1' }, { n: 0, label: 'Move all' }]
+            ).map((p) => (
               <button
                 key={p.n}
                 type="button"
@@ -166,7 +192,7 @@ export function MoveCardsModal({
 
           <div className="rounded-xl border p-3" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
             {moveCopies === 0 ? (
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Nothing to move - no card in {nameOf(fromId)} has more than {keep}.</p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{mode === 'exact' ? <>Nothing to move - set an amount above 0.</> : <>Nothing to move - no card in {nameOf(fromId)} has more than {keep}.</>}</p>
             ) : (
               <>
                 <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>

@@ -61,9 +61,11 @@ import { useCollectionsStore, activeNamedCollection, changeCollectionCard, setCo
 import { listPriceForCard } from "../lib/collectionPricing";
 import { parseCollectionKey } from "../lib/sellerNotes";
 import type { ListDefaults, NamedCollection } from "../lib/collectionDefaults";
+import { PERSONAL_COLLECTION_ID } from "../lib/collectionDefaults";
 import { CollectionSwitcher } from "./collection/CollectionSwitcher";
 import { ManageCollectionsModal } from "./collection/ManageCollectionsModal";
 import { MoveCardsModal } from "./collection/MoveCardsModal";
+import { MoveCardModal } from "./collection/MoveCardModal";
 
 const DEFAULT_FILTERS: FilterState = {
   category: "singles",
@@ -159,6 +161,7 @@ export function CardListApp() {
   const collection = activeNamed ? activeNamed.cards : personalCollection;
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [showMoveCards, setShowMoveCards] = useState(false);
+  const [moveSingle, setMoveSingle] = useState<{ card: CatalogCard; isFoil: boolean } | null>(null);
   const [collectionFilter, setCollectionFilter] = useState<"All" | "Owned" | "Playset" | "Missing">("All");
   const [sortMode, setSortMode] = useState<
     "Card Number (Asc)" | "Card Number (Desc)" |
@@ -1737,6 +1740,7 @@ export function CardListApp() {
                     isFoilOwned={(collection[`${card.id}_foil`] || 0) > 0}
                     onUpdateCount={updateCardCount}
                     onToggle={toggleOwnership}
+                    onMove={collectionsStore.collections.length > 0 ? (c, f) => setMoveSingle({ card: c, isFoil: f }) : undefined}
                     onClick={openCard}
                     gridSize={gridSize}
                     priority={i < 4}
@@ -1984,6 +1988,19 @@ export function CardListApp() {
           const card = allCards.find(c => c.id === id) || cards.find(c => c.id === id);
           return card ? card.name : null;
         }}
+        onToast={(msg, type) => showToast(msg, type || 'info')}
+      />
+
+      <MoveCardModal
+        open={moveSingle !== null}
+        onClose={() => setMoveSingle(null)}
+        card={moveSingle ? { id: moveSingle.card.id, name: moveSingle.card.name } : null}
+        hasFoil={moveSingle ? hasFoilVariant(moveSingle.card) : false}
+        initialFoil={moveSingle?.isFoil ?? false}
+        sourceId={activeNamed ? activeNamed.id : PERSONAL_COLLECTION_ID}
+        personalCards={personalCollection}
+        applyPersonal={(next) => { setCollection(next); saveLocalCollection(next); }}
+        pricesFor={(coll, defaults, cardsMap) => alwaysListPrices(coll, defaults, cardsMap)}
         onToast={(msg, type) => showToast(msg, type || 'info')}
       />
 

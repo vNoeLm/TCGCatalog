@@ -20,6 +20,8 @@ interface CardListItemProps {
   onToggle?: (id: string, isFoil?: boolean) => void;
   onToggleCollected?: (e: React.MouseEvent) => void;
   onToggleFoilCollected?: (e: React.MouseEvent) => void;
+  /** Opens the "move copies" dialog for this card; the button only shows on owned cards. */
+  onMove?: (card: CatalogCard, isFoil: boolean) => void;
   onClick: (id: string) => void;
   gridSize?: "small" | "normal" | "large";
   /** One of the first cards on the page: load its image right away. */
@@ -323,6 +325,29 @@ export const CardListItem = React.memo(function CardListItem(props: CardListItem
             )
           )}
         </div>
+
+        {props.onMove && isAnyOwned && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Open on whichever finish the user actually has (normal first).
+              props.onMove!(card, normalQty === 0 && foilQty > 0);
+            }}
+            className="mt-2 w-full h-7 rounded-lg border text-[11px] font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition hover:brightness-110 active:scale-95"
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+            title="Move some of your copies to another collection"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 3l4 4-4 4" />
+              <path d="M3 7h18" />
+              <path d="M7 21l-4-4 4-4" />
+              <path d="M21 17H3" />
+            </svg>
+            <span>Move copies</span>
+          </button>
+        )}
       </div>
     </div>
   );
