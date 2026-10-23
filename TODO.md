@@ -1,45 +1,101 @@
-# TCG Vault Fejlesztési Feladatlista & Roadmap (TODO)
+# TCG Vault Development Roadmap & Task List (TODO)
 
-## 1. Piacvédelem & Készletbiztonság (Anti-Scalping & Fair Play)
+## 1. Market Protection & Stock Security (Anti-Scalping & Fair Play)
 
-- [/] **Vevőnkénti vásárlási limit (Limit per customer / order - Anti-Scalping)**
-  - [x] Termékszintű `max_per_order` mező támogatása a Store termékmodellben (JSONB `attributes.max_per_order`) és az Admin felületen (pl. Max 1 vagy 2 Booster Box / rendelés).
-  - [x] Vizuális jelvény a termékkártyán a boltban (*"Limit X/order"*) és a részletes termékoldalon (*"Limit: Max X per customer"*).
-  - [ ] Mennyiségválasztó léptető korlátozása a termékoldalon és a kosárban (Store kosár/checkout aktiválásakor).
-  - [ ] Backend checkout validáció a rendelés véglegesítésekor.
-- [ ] **Piactéri foglalási plafon (Buyer open holds cap)**
-  - [ ] Maximális egyidejűleg nyitott `pending` foglalások korlátozása vevőnként (pl. maximum 5 vagy 10 aktív kérés egyszerre), megakadályozva, hogy egy fiók rosszindulatúan zárolja több eladó készletét.
+- [/] **Per-customer purchase limits (Limit per customer / order - Anti-Scalping)**
+  - [x] Support product-level `max_per_order` in the Store product model (JSONB `attributes.max_per_order`) and Admin Console (e.g. Max 1 or 2 Booster Boxes / order).
+  - [x] Visual badge on store product cards (_"Limit X/order"_) and on the detailed product page (_"Limit: Max X per customer"_).
+  - [ ] Enforce quantity stepper limit on product pages and in the cart (when Store cart/checkout is activated).
+  - [ ] Backend checkout validation when finalizing an order.
+- [ ] **Marketplace open holds cap (Buyer open holds cap)**
+  - [ ] Limit maximum concurrent `pending` hold requests per buyer (e.g. max 5 or 10 active requests simultaneously) to prevent malicious locking of multiple sellers' inventory.
 
-## 2. Piactér & Tranzakciók (Marketplace P2P)
+## 2. Marketplace & Transactions (Marketplace P2P)
 
-- [ ] **Függőben lévő foglalások automatikus lejárata (Pending Hold Expiry)**
-  - [ ] A válasz nélkül maradt `pending` foglalások automatikus visszavonása és a kártyák készletbe való visszakerülése (pl. 48 óra után).
-  - [ ] Automatikus rendszerüzenet a chatben a lejáratról.
-- [ ] **Értesítési rendszer (Email & Push)**
-  - [ ] Eladói e-mail értesítés új foglalási kérés (Hold Request) beérkezésekor (Resend API integráció).
-  - [ ] Vevői e-mail értesítés, ha az eladó elfogadta vagy elutasította a foglalást.
-- [ ] **Tranzakciós megbízhatóság javítása**
-  - [ ] Az `autoCompleteTimedOutRequests` metódusban a néma hibaelnyelések (`empty catch`) felszámolása, és a státusz csak a sikeres adatbázis-mentés utáni frissítése.
+- [ ] **Automatic expiration for pending hold requests (Pending Hold Expiry)**
+  - [ ] Automatically cancel unresponded `pending` holds and release cards back to seller inventory (e.g. after 48 hours).
+  - [ ] Automated system message in trade chat notifying parties of the expiration.
+- [ ] **Notification system (Email & Push)**
+  - [ ] Seller email notification when a new Hold Request is received (Resend API integration).
+  - [ ] Buyer email notification when a seller accepts or rejects a hold request.
+- [ ] **Transaction reliability improvements**
+  - [ ] Eliminate silent error swallowing (`empty catch`) in the `autoCompleteTimedOutRequests` method, and update order status only after successful database commit.
+- [ ] **Marketplace layout & spacing polish**
+  - [ ] Optimize whitespace between the price trend graph and card price details in the listings view to make the layout more compact and readable (Low priority).
+  - [ ] Investigate missing Tier X badge on the "By Listings" marketplace view (space constraint check).
 
-## 3. Hivatalos Bolt (Store B2C)
+## 3. Official Webstore (Store B2C)
 
-- [ ] **Store Kosár modul (Store Cart Drawer)**
-  - [ ] Külön kosár a hivatalos bolt termékeihez (Displayek, Starter deckek, Katana sleeve-ek, Boulder dobozok).
-  - [ ] Összesített rendelési érték és szállítási díj számítás.
-- [ ] **Készletértesítő (Back-in-Stock Notifications)**
-  - [ ] Kifogyott termékeknél (Sold out) *"Értesítést kérek, ha újra elérhető"* e-mail feliratkozási doboz.
-  - [ ] Automatikus értesítő küldés az adminból új készlet beérkezésekor.
-- [ ] **Fizetés és számlázás előkészítés (Cégalapítás utáni aktiválásra)**
-  - [ ] Barion Smart Gateway tesztkörnyezet (Sandbox) bekötése.
-  - [ ] Számlázz.hu Agent API integráció az automatikus e-számla kiállításához.
-- [ ] **Kombinált kezdőcsomagok (Bundles)**
-  - [ ] Csomagajánlatok létrehozása az adminban (pl. 1 Booster Box + 1 Katana Sleeve + 1 Deck Box kedvezményes áron).
+- [ ] **Store Cart Drawer (Store Cart Module)**
+  - [ ] Dedicated shopping cart for official store products (Displays, Starter Decks, Katana sleeves, Boulder deck boxes).
+  - [ ] Real-time total order value and shipping fee calculation.
+- [ ] **Back-in-Stock Notifications**
+  - [ ] _"Notify me when back in stock"_ email subscription box on sold-out products.
+  - [ ] Automated notification dispatch from admin console when new inventory arrives.
+- [ ] **Product Requests**
+  - [ ] "Request a Product" form/modal linked from the footer for shoppers looking for products not currently listed (Low priority).
+- [ ] **Payment & invoicing preparation (For activation post-company formation)**
+  - [ ] Barion Smart Gateway sandbox environment integration.
+  - [ ] Számlázz.hu Agent API integration for automated electronic invoice issuance.
+- [ ] **Combined starter bundles (Bundles)**
+  - [ ] Bundle offer creation in admin console (e.g. 1 Booster Box + 1 Katana Sleeve + 1 Deck Box at a discounted bundle price).
+- [ ] **Demo Products & Inventory Seeding**
+  - [ ] Seed realistic demo products for Store testing: Riftbound product vault items, official playmats, and One Piece TCG products.
 
-## 4. Gyűjteménykezelő & Game Night Eszközök
+## 4. Collection Management & Game Night Tools
 
-- [x] **Pontos kártyamozgatás a gyűjtemények között (Move copies)**
-  - [x] Kártyánkénti mozgatás modál (tetszőleges darabszám, normál/fólia választó).
-  - [x] Tömeges mozgatás kibővítése "Pontosan N darab mozgatása" móddal.
-  - [x] Automatikus piacra listázás a célgyűjtemény szabályai szerint.
-- [ ] **QR-kódos azonnali profilmegosztás**
-  - [ ] Egygombos QR-kód megjelenítő a felhasználói profilon, hogy a játékesteken a játékostársak egyetlen beolvasással megnyithassák a cserebere-mappát.
+- [x] **Precise card copy movement between collections (Move copies)**
+  - [x] Per-card move modal (custom quantity, normal/foil selector).
+  - [x] Bulk move expanded with "Move exactly N copies" mode.
+  - [x] Automatic marketplace listing according to destination collection rules.
+- [ ] **Move button placement polish**
+  - [ ] Relocate "Move copies" button from the card list item into the card OnClick detail modal under the "My Collection Tracker" section.
+- [ ] **Instant QR code profile sharing**
+  - [ ] One-click QR code viewer on user profile so players at game nights can open trade binders with a single scan.
+
+## 5. UI / UX, Theming & Visual Polish (Light/Dark Mode & Charts)
+
+- [ ] **Store Light Mode contrast & filter fix**
+  - [ ] Fix the "Sold Out" text color in light mode (currently too dark/hard to read against its background).
+  - [ ] Remove/adjust the CSS opacity/filter that makes store product cards appear blurry or washed-out in light mode.
+- [ ] **Theme consistency for badges**
+  - [ ] Ensure "Verified Store" and "Tier X Seller" badges on opened marketplace listing views adapt properly to active theme CSS variables (matching the card detail modal).
+  - [ ] Add descriptive on-hover tooltip text to the Tier X badge (Low priority).
+- [ ] **Price chart point scaling**
+  - [ ] Reduce dot radius on price history charts when `/Year` view is selected so large data points do not obscure trend lines.
+- [ ] **Button hover color consistency**
+  - [ ] Replace lingering brown/beige hover states with the cohesive light mode accent hover style (matching the pinkish hover border color).
+
+## 6. Navigation, Layout & Admin Console
+
+- [ ] **Navbar & Admin tab order swap**
+  - [ ] Swap "Marketplace" and "Store" order in the main site NAVBAR so "Store" appears before "Marketplace".
+  - [ ] Swap the tab order in the Admin Panel so "Store" is listed first before "Marketplace".
+
+## 7. Auth, Legal & Compliance
+
+- [ ] **Country/Region selection on registration**
+  - [ ] Add region selector to the signup flow for shipping defaults, currency context, and localized terms.
+- [ ] **Digital withdrawal form (Elállási jog) & Admin view**
+  - [ ] Online withdrawal form so customers can submit withdrawal requests directly without manual emails.
+  - [ ] Admin panel view to review and manage incoming customer withdrawal requests.
+  - [ ] Add missing Hungarian "Elállási jog" legal link and text in the footer.
+
+## 8. Market Data & Pricing Engine
+
+- [ ] **Multi-game price sync audit**
+  - [ ] Fix price data updates for games other than Riftbound (One Piece, Lorcana, MTG, Pokémon, Star Wars) so automated sync and on-demand refreshes run reliably.
+
+## 9. Localization & Multi-Currency (i18n / l10n)
+
+- [ ] **Language & Currency pairing (HUF/EUR <-> HUN/ENG)**
+  - [ ] Link currency selector to also toggle language between Hungarian and English (keeping price conversion in sync).
+  - [ ] Translate UI where appropriate, leaving untranslatable game-specific terminology intact (e.g. "Domain") (Very low priority).
+
+## 10. Tools & Asset Automation
+
+- [ ] **Product background removal script**
+  - [ ] Script/utility to batch-remove backgrounds from product photos to produce clean, transparent catalog images.
+
+## New
+
