@@ -1,6 +1,7 @@
 ---
 import DocLayout from '../../layouts/DocLayout.astro';
 import { CONTACT_EMAIL } from '../../lib/site';
+import { WithdrawalForm } from '../../components/legal/WithdrawalForm';
 ---
 
 <DocLayout
@@ -61,10 +62,12 @@ import { CONTACT_EMAIL } from '../../lib/site';
       </li>
     </ul>
 
-    <h2>4. Hivatalos Elállási Nyilatkozatminta (45/2014. Korm. rend. 2. melléklet)</h2>
+    <h2>4. Hivatalos Elállási Nyilatkozatminta és Online Űrlap</h2>
     <p>
-      Amennyiben elállási jogoddal kívánsz élni, az alábbi nyilatkozatot töltsd ki, és juttasd el hozzánk elektronikus úton a <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> címre, vagy postai úton.
+      Amennyiben elállási jogoddal kívánsz élni, az alábbi hivatalos online űrlap beküldésével azonnal rögzítheted igényedet a rendszerünkben, vagy választhatod a papíralapú postai nyilatkozatmintát.
     </p>
+
+    <WithdrawalForm client:load />
 
     <div class="rounded-xl border p-4 my-4" style="background: var(--bg-surface-2); border-color: var(--border);">
       <div class="flex items-center justify-between gap-3 mb-3 pb-2 border-b" style="border-color: var(--border-subtle);">

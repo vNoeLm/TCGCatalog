@@ -60,7 +60,7 @@ const fmtDate24 = (iso: string | null | undefined) => {
 
 export function PriceUploadApp() {
   const [access, setAccess] = useState<Access>('checking');
-  const [activeTab, setActiveTab] = useState<MainTab>('store');
+  const [activeTab, setActiveTab] = useState<MainTab>('marketplace');
   const [siteSubTab, setSiteSubTab] = useState<SiteSubTab>('users');
   const [marketplaceSubTab, setMarketplaceSubTab] = useState<MarketplaceSubTab>('orders');
 
@@ -393,6 +393,18 @@ export function PriceUploadApp() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           {
+            key: 'marketplace' as const,
+            label: 'Marketplace',
+            desc: `${orders.length} orders · ${holds.length} holds · ${listings.length} listings`,
+            icon: (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            ),
+          },
+          {
             key: 'store' as const,
             label: 'Store Admin',
             desc: 'Catalogue, stock & analytics',
@@ -411,18 +423,6 @@ export function PriceUploadApp() {
             icon: (
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            ),
-          },
-          {
-            key: 'marketplace' as const,
-            label: 'Marketplace',
-            desc: `${orders.length} orders · ${holds.length} holds · ${listings.length} listings`,
-            icon: (
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
             ),
           },

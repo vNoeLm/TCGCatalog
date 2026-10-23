@@ -8,6 +8,7 @@ import { StoreProductForm } from './StoreProductForm';
 import { StoreImportModal } from './StoreImportModal';
 import { StoreTaxonomyModal } from './StoreTaxonomyModal';
 import { StoreAnalyticsTab } from './StoreAnalyticsTab';
+import { StoreWithdrawalsTab, type StoreWithdrawal } from './StoreWithdrawalsTab';
 import { storeApi, useStoreAuth } from './storeClient';
 import type { StoreTaxonomies } from '../../pages/api/store/taxonomies';
 
@@ -23,6 +24,13 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; b
   draft: { label: 'Draft', bg: 'rgba(234,179,8,0.15)', color: '#eab308', border: 'rgba(234,179,8,0.4)' },
   out_of_stock: { label: 'Out of stock', bg: 'var(--negative-muted)', color: 'var(--negative)', border: 'var(--negative-border)' },
 };
+
+function getEffectiveStatus(p: StoreProduct): 'draft' | 'out_of_stock' | 'low_stock' | 'active' {
+  if (p.status === 'draft' || p.status === 'archived') return 'draft';
+  if (p.stock_quantity === 0 || isSoldOut(p)) return 'out_of_stock';
+  if (p.stock_quantity <= LOW_STOCK) return 'low_stock';
+  return 'active';
+}
 
 function IconButton({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
   return (
@@ -57,10 +65,13 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
   const [game, setGame] = useState('all');
   const [lowOnly, setLowOnly] = useState(false);
 
-  // View mode switcher: products catalogue vs stock analytics
-  const [viewMode, setViewMode] = useState<'products' | 'analytics'>('products');
+  // View mode switcher: products catalogue vs stock analytics vs withdrawals
+  const [viewMode, setViewMode] = useState<'products' | 'analytics' | 'withdrawals'>('products');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [withdrawals, setWithdrawals] = useState<StoreWithdrawal[]>([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [updatingWithdrawalId, setUpdatingWithdrawalId] = useState<string | null>(null);
 
   const [form, setForm] = useState<null | { product: StoreProduct | null; template: Partial<StoreProduct> | null }>(null);
   const [importing, setImporting] = useState(false);
@@ -70,6 +81,37 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
     customCategories: [],
     customGames: [],
   });
+
+  const loadWithdrawals = useCallback(async () => {
+    setLoadingWithdrawals(true);
+    try {
+      const res = await storeApi<{ withdrawals?: StoreWithdrawal[]; success?: boolean }>('/api/store/withdrawals');
+      if (res.ok && res.data.withdrawals) {
+        setWithdrawals(res.data.withdrawals);
+      }
+    } catch (e) {
+      console.error('Failed to load withdrawals:', e);
+    } finally {
+      setLoadingWithdrawals(false);
+    }
+  }, []);
+
+  const updateWithdrawalStatus = async (id: string, status: StoreWithdrawal['status'], adminNotes?: string) => {
+    setUpdatingWithdrawalId(id);
+    try {
+      const res = await storeApi('/api/store/withdrawals', {
+        method: 'PATCH',
+        body: JSON.stringify({ id, status, admin_notes: adminNotes }),
+      });
+      if (res.ok) {
+        setWithdrawals((prev) => prev.map((w) => (w.id === id ? { ...w, status, admin_notes: adminNotes !== undefined ? adminNotes : w.admin_notes } : w)));
+      }
+    } catch (e) {
+      console.error('Failed to update withdrawal:', e);
+    } finally {
+      setUpdatingWithdrawalId(null);
+    }
+  };
 
   const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -109,8 +151,9 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
     if (!authLoading && isAdmin) {
       load();
       loadTaxonomies();
+      loadWithdrawals();
     }
-  }, [authLoading, isAdmin, load, loadTaxonomies]);
+  }, [authLoading, isAdmin, load, loadTaxonomies, loadWithdrawals]);
 
   const counts = useMemo(
     () => ({
@@ -311,14 +354,39 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
                 </svg>
                 <span>Analytics & Stock</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('withdrawals');
+                  if (withdrawals.length === 0) loadWithdrawals();
+                }}
+                className="px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition flex items-center gap-1.5"
+                style={viewMode === 'withdrawals' ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' } : { color: 'var(--text-secondary)' }}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                <span>Withdrawals ({withdrawals.length})</span>
+                {withdrawals.filter((w) => w.status === 'pending').length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                )}
+              </button>
             </div>
           </div>
           <h1 className="text-xl sm:text-2xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
-            {viewMode === 'products' ? 'Store products' : 'Stock & Sales Analytics'}
+            {viewMode === 'products' ? 'Store products' : viewMode === 'analytics' ? 'Stock & Sales Analytics' : 'Consumer Withdrawals (Elállási jog)'}
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {products.length} products, {totalUnits} units in stock{(lowCount > 0 || outCount > 0) && (
-              <>, <span style={{ color: '#f59e0b' }}>{lowCount} low, {outCount} out of stock</span></>
+            {viewMode === 'withdrawals' ? (
+              <>{withdrawals.length} withdrawal notices · <span style={{ color: '#f59e0b' }}>{withdrawals.filter((w) => w.status === 'pending').length} pending</span></>
+            ) : (
+              <>{products.length} products, {totalUnits} units in stock{(lowCount > 0 || outCount > 0) && (
+                <>, <span style={{ color: '#f59e0b' }}>{lowCount} low, {outCount} out of stock</span></>
+              )}</>
             )}
           </p>
         </div>
@@ -365,6 +433,14 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
           onRefreshOrders={loadOrders}
           onQuickUpdateStock={setExactStock}
           onEditProduct={(p) => setForm({ product: p, template: null })}
+        />
+      ) : viewMode === 'withdrawals' ? (
+        <StoreWithdrawalsTab
+          withdrawals={withdrawals}
+          loading={loadingWithdrawals}
+          onRefresh={loadWithdrawals}
+          onUpdateStatus={updateWithdrawalStatus}
+          updatingId={updatingWithdrawalId}
         />
       ) : (
         <>
@@ -454,7 +530,7 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
             </thead>
             <tbody>
               {paginatedVisible.map((p) => {
-                const st = STATUS_STYLE[p.status === 'archived' ? 'draft' : p.status] ?? STATUS_STYLE.draft;
+                const st = STATUS_STYLE[getEffectiveStatus(p)] ?? STATUS_STYLE.draft;
                 const margin = p.cost_price_huf ? p.price_huf - p.cost_price_huf : null;
                 const marginPercent = (margin !== null && p.price_huf > 0) ? Math.round((margin / p.price_huf) * 100) : null;
                 const low = p.stock_quantity <= LOW_STOCK;
