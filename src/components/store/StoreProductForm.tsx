@@ -63,6 +63,7 @@ export function StoreProductForm({
   const [price, setPrice] = useState(src.price_huf !== undefined ? String(src.price_huf) : '');
   const [originalPrice, setOriginalPrice] = useState(src.original_price_huf ? String(src.original_price_huf) : '');
   const [stock, setStock] = useState(product ? String(src.stock_quantity ?? 0) : '0');
+  const [maxPerOrder, setMaxPerOrder] = useState(src.attributes?.max_per_order ? String(src.attributes.max_per_order) : '');
   const [status, setStatus] = useState<StoreProductStatus>(product ? src.status ?? 'draft' : 'draft');
   const [cost, setCost] = useState(src.cost_price_huf ? String(src.cost_price_huf) : '');
   const [color, setColor] = useState(product ? src.attributes?.color ?? '' : '');
@@ -159,7 +160,11 @@ export function StoreProductForm({
       cost_price_huf: cost || null,
       description: description.trim() || null,
       images,
-      attributes: { color: color.trim(), size: size.trim() },
+      attributes: {
+        color: color.trim(),
+        size: size.trim(),
+        ...(maxPerOrder.trim() ? { max_per_order: Math.max(1, parseInt(maxPerOrder, 10) || 1) } : {}),
+      },
       variant_group: variantGroup.trim() || null,
       variant_label: variantGroup.trim() ? variantLabel.trim() : null,
       variant_kind: variantGroup.trim() ? variantKind : null,
@@ -300,15 +305,18 @@ export function StoreProductForm({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Field label="Price (HUF) *">
                 <input required type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} style={inputStyle} placeholder="4290" />
               </Field>
               <Field label="Old price">
                 <input type="number" min={0} value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} className={inputClass} style={inputStyle} placeholder="4590" />
               </Field>
-              <Field label="Stock (units) *">
+              <Field label="Stock *">
                 <input required type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} className={inputClass} style={inputStyle} />
+              </Field>
+              <Field label="Max/order" hint="Anti-scalping limit per customer">
+                <input type="number" min={1} value={maxPerOrder} onChange={(e) => setMaxPerOrder(e.target.value)} className={inputClass} style={inputStyle} placeholder="e.g. 2" />
               </Field>
               <Field label="Status">
                 <select value={status} onChange={(e) => setStatus(e.target.value as StoreProductStatus)} className={`${inputClass} cursor-pointer`} style={inputStyle}>

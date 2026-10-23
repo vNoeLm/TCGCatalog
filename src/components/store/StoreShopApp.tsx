@@ -98,7 +98,16 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
               {optionCount} options
             </span>
           )}
-          {!product.variant_label && <span className="text-[10px]" style={{ color: 'var(--text-placeholder)' }}>{category}</span>}
+          {Boolean(product.attributes?.max_per_order) && (
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded border"
+              style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
+              title={`Limited to max ${product.attributes.max_per_order} units per customer`}
+            >
+              Limit {product.attributes.max_per_order}/order
+            </span>
+          )}
+          {!product.variant_label && !product.attributes?.max_per_order && <span className="text-[10px]" style={{ color: 'var(--text-placeholder)' }}>{category}</span>}
         </div>
         <div className="mt-auto flex items-baseline gap-2">
           <span className="text-base font-black text-[var(--positive)]">{formatPrice(product.price_huf)}</span>

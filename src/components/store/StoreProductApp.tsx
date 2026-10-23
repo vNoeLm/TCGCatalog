@@ -155,6 +155,7 @@ export function StoreProductApp() {
   const hasVariants = siblings.length > 1 && Boolean(product.variant_group);
   const margin = isAdmin && product.cost_price_huf ? product.price_huf - product.cost_price_huf : null;
   const marginPercent = (margin !== null && product.price_huf > 0) ? Math.round((margin / product.price_huf) * 100) : null;
+  const maxPerOrder = product.attributes?.max_per_order ? Number(product.attributes.max_per_order) : null;
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
@@ -277,7 +278,7 @@ export function StoreProductApp() {
             {onSale && <span className="text-base line-through" style={{ color: 'var(--text-placeholder)' }}>{formatPrice(product.original_price_huf!)}</span>}
           </div>
 
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex flex-wrap items-center gap-2 mb-5">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
               style={
@@ -291,6 +292,14 @@ export function StoreProductApp() {
               <span className="w-1.5 h-1.5 rounded-full bg-current" />
               {soldOut ? 'Out of stock' : `${product.stock_quantity} in stock`}
             </span>
+            {maxPerOrder && (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
+                style={{ borderColor: 'rgba(234, 179, 8, 0.4)', background: 'rgba(234, 179, 8, 0.15)', color: '#f59e0b' }}
+              >
+                Limit: Max {maxPerOrder} per customer
+              </span>
+            )}
           </div>
 
           {hasVariants && (
@@ -363,6 +372,7 @@ export function StoreProductApp() {
             {isRealGame && gameLabel && <Spec label="Game" value={gameLabel} />}
             {hasBrand && <Spec label="Brand" value={product.brand} />}
             <Spec label="Stock" value={soldOut ? '0 units (out of stock)' : `${product.stock_quantity} units available`} />
+            {maxPerOrder && <Spec label="Order limit" value={`Max ${maxPerOrder} per customer`} />}
             <Spec label="Size" value={product.attributes?.size} />
             <Spec label="Color" value={product.attributes?.color} />
             <Spec label="SKU" value={product.sku} />

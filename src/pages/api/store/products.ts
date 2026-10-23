@@ -74,6 +74,7 @@ function parseProductInput(body: any, mode: 'create' | 'update'): ParsedInput {
     product.attributes = {
       ...(a.color ? { color: sanitizePlainText(a.color, 60) } : {}),
       ...(a.size ? { size: sanitizePlainText(a.size, 60) } : {}),
+      ...(toInt(a.max_per_order) ? { max_per_order: toInt(a.max_per_order) } : {}),
     };
   }
 
