@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cardThumbProps, supabase } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchReputation } from '../../lib/reviews';
 import { ReputationBreakdown, ReviewCard, Stars } from '../reviews/ReviewParts';
-import { getSellerTier, getCollectorTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { BannerContainerBackground } from './AvatarBannerModal';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
@@ -114,14 +114,8 @@ export function PublicProfileApp() {
   }
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
+  const isVerifiedStore = isOwner || Boolean((summary as any)?.is_verified_store || summary.role === 'owner');
   const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
-  const collectorTiers: CollectorTier[] = displayedBadges
-    .map((game) => {
-      const gameStats = collectionStatsByGame[game];
-      if (!gameStats) return null;
-      return getCollectorTier(gameStats.owned, gameStats.total, game, isLightTheme, gameStats.weightedPercentage);
-    })
-    .filter((b): b is CollectorTier => Boolean(b));
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
     ? new Date(summary.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
@@ -180,6 +174,19 @@ export function PublicProfileApp() {
                   {displayName}
                 </h1>
                 {isOwner && <SiteOwnerTag />}
+                {isVerifiedStore && (
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 shrink-0"
+                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                    title="Official Verified Store"
+                  >
+                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span>Verified Store</span>
+                  </span>
+                )}
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
                   style={tier.badgeStyle}
@@ -187,18 +194,7 @@ export function PublicProfileApp() {
                   <BadgeIconSvg iconType={tier.iconType} className="w-3 h-3" />
                   <span>{tier.nameEn}</span>
                 </span>
-                {collectorTiers.map((ct) => (
-                  <span
-                    key={ct.game}
-                    className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
-                    style={ct.badgeStyle}
-                    title={`${ct.nameEn} (${ct.ownedCount.toLocaleString()}/${ct.totalCount.toLocaleString()} cards)`}
-                  >
-                    <BadgeIconSvg iconType={ct.iconType} className="w-3 h-3" />
-                    <span>{ct.nameEn}</span>
-                  </span>
-                ))}
-              </div>
+                              </div>
 
               <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                 <span

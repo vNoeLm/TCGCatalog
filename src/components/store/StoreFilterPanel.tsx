@@ -141,7 +141,7 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
       </Section>
 
       <Section title="Game">
-        <CheckList entries={games} selected={filters.games} label={(v) => (v === 'universal' ? 'Universal Accessories' : gameName(v))} onToggle={(v) => set({ games: toggle(filters.games, v) })} />
+        <CheckList entries={games.filter(([v]) => v !== 'universal')} selected={filters.games} label={(v) => gameName(v)} onToggle={(v) => set({ games: toggle(filters.games, v) })} />
       </Section>
 
       {(sizes.length > 0 || filters.sizes.length > 0) && (

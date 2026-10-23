@@ -1,0 +1,140 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="404 - Page Not Found | TCG XChange">
+  <main class="min-h-[calc(100vh-var(--header-h,60px)-180px)] flex items-center justify-center p-4 sm:p-8">
+    <div class="max-w-2xl w-full text-center flex flex-col items-center py-6 sm:py-12">
+      
+      <!-- Minimalist Glowing 404 Display -->
+      <div class="relative mb-6 select-none">
+        <span
+          class="text-7xl sm:text-9xl font-black tracking-tighter block"
+          style="font-family: var(--font-display); background: linear-gradient(180deg, var(--text-primary) 30%, var(--accent-strong) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"
+        >
+          404
+        </span>
+        <div class="absolute -inset-4 -z-10 rounded-full blur-3xl opacity-20 pointer-events-none" style="background: var(--accent);"></div>
+      </div>
+
+      <!-- Error Badge -->
+      <span
+        class="text-xs font-black tracking-widest uppercase px-3.5 py-1 rounded-full border mb-4 shadow-xs"
+        style="background: var(--accent-muted); border-color: var(--accent-border); color: var(--text-accent);"
+      >
+        Error 404
+      </span>
+
+      <!-- Headline -->
+      <h1 class="text-2xl sm:text-4xl font-black mb-3 tracking-tight" style="color: var(--text-primary); font-family: var(--font-display);">
+        Page Not Found
+      </h1>
+
+      <p class="text-sm sm:text-base max-w-md mx-auto mb-10 sm:mb-12 leading-relaxed" style="color: var(--text-secondary);">
+        The page, card, or collection you are looking for has been banished, removed, or never existed in this realm.
+      </p>
+
+      <!-- Primary Action Buttons with Generous Spacing -->
+      <div class="flex items-center justify-center gap-3 sm:gap-4 flex-wrap mb-14 sm:mb-16 w-full sm:w-auto">
+        <a
+          href="/"
+          class="h-11 px-6 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 inline-flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
+          style="background: var(--accent-strong); color: var(--text-on-accent, #000);"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span>Return Home</span>
+        </a>
+
+        <button
+          type="button"
+          onclick="if (history.length > 1) { history.back(); } else { window.location.href = '/'; }"
+          class="h-11 px-5 rounded-xl text-xs sm:text-sm font-bold border transition-all active:scale-95 inline-flex items-center justify-center gap-2 cursor-pointer hover:bg-[var(--bg-raised)] shadow-xs"
+          style="background: var(--bg-surface-2); border-color: var(--border); color: var(--text-primary);"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          <span>Go Back</span>
+        </button>
+      </div>
+
+      <!-- Quick Helpful Navigation Links with Clean Distance from Buttons -->
+      <div class="w-full pt-10 border-t" style="border-color: var(--border-subtle);">
+        <p class="text-[11px] font-black uppercase tracking-widest mb-4" style="color: var(--text-tertiary);">
+          Popular Destinations
+        </p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
+          <a
+            href="/"
+            class="p-3.5 rounded-xl border transition hover:border-[var(--border-hover)] hover:bg-[var(--bg-raised)] group"
+            style="background: var(--bg-surface); border-color: var(--border);"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <span class="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition">Catalog</span>
+            </div>
+            <p class="text-[11px] leading-tight" style="color: var(--text-muted);">Card database & prices</p>
+          </a>
+
+          <a
+            href="/marketplace"
+            class="p-3.5 rounded-xl border transition hover:border-[var(--border-hover)] hover:bg-[var(--bg-raised)] group"
+            style="background: var(--bg-surface); border-color: var(--border);"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              <span class="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition">Marketplace</span>
+            </div>
+            <p class="text-[11px] leading-tight" style="color: var(--text-muted);">P2P community singles</p>
+          </a>
+
+          <a
+            href="/store"
+            class="p-3.5 rounded-xl border transition hover:border-[var(--border-hover)] hover:bg-[var(--bg-raised)] group"
+            style="background: var(--bg-surface); border-color: var(--border);"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <svg class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              <span class="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition">Store</span>
+            </div>
+            <p class="text-[11px] leading-tight" style="color: var(--text-muted);">Sleeves, binders & boxes</p>
+          </a>
+
+          <a
+            href="/deck-builder"
+            class="p-3.5 rounded-xl border transition hover:border-[var(--border-hover)] hover:bg-[var(--bg-raised)] group"
+            style="background: var(--bg-surface); border-color: var(--border);"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+              <span class="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--text-accent)] transition">Decks</span>
+            </div>
+            <p class="text-[11px] leading-tight" style="color: var(--text-muted);">Build & share decks</p>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</Layout>

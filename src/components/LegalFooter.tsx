@@ -11,6 +11,7 @@ const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: 'Catalog', href: '/' },
       { label: 'Marketplace', href: '/marketplace' },
+      { label: 'Store', href: '/store' },
       { label: 'Deck Builder', href: '/deck-builder' },
       { label: 'Community decks', href: '/decks' },
       { label: 'Binder Map', href: '/binder' },

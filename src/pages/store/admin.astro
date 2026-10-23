@@ -1,8 +1,4 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { StoreAdminApp } from '../../components/store/StoreAdminApp';
+export const prerender = false;
+return Astro.redirect('/admin?tab=store');
 ---
-
-<Layout title="Store Admin | TCG XChange">
-  <StoreAdminApp client:load />
-</Layout>

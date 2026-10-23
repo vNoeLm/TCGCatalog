@@ -26,6 +26,19 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
   const onSale = Boolean(product.original_price_huf && product.original_price_huf > product.price_huf);
   const category = STORE_CATEGORIES.find((c) => c.id === product.category)?.label || product.category;
   const game = gameOf(product);
+  const isUniversal = !game || game === 'universal';
+  const gameDef = !isUniversal ? STORE_GAMES.find((g) => g.id === game) : null;
+  const gameLabel = gameDef?.name ? gameDef.name.split(':')[0].trim() : null;
+
+  // Show brand if it exists, isn't 'None' / 'Default' / 'Other' / empty, and isn't redundant with the game
+  const showBrand = Boolean(
+    product.brand &&
+    product.brand.trim() &&
+    product.brand !== 'None' &&
+    product.brand !== 'Default' &&
+    product.brand !== 'Other' &&
+    (!gameLabel || product.brand.toLowerCase() !== gameLabel.toLowerCase())
+  );
 
   return (
     <a
@@ -65,10 +78,12 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
       </div>
 
       <div className="p-3.5 flex flex-col flex-1">
-        <div className="flex items-center justify-between gap-2 mb-1 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-          <span className="truncate">{product.brand}</span>
-          <span className="shrink-0">{game === 'universal' ? 'Universal' : STORE_GAMES.find((g) => g.id === game)?.name.split(':')[0]}</span>
-        </div>
+        {(showBrand || gameLabel) && (
+          <div className="flex items-center justify-between gap-2 mb-1 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+            <span className="truncate">{showBrand ? product.brand : ''}</span>
+            {gameLabel && <span className="shrink-0">{gameLabel}</span>}
+          </div>
+        )}
         <h3 className="text-sm font-bold line-clamp-2 mb-1.5" style={{ color: 'var(--text-primary)' }} title={product.name}>
           {product.name}
         </h3>
@@ -163,10 +178,43 @@ export function StoreShopApp() {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-6 mb-6">
-        <div className="lg:w-64 lg:shrink-0">
-          <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Store</h1>
+      <div className="flex items-center gap-2 sm:gap-3 mb-6">
+        {/* Mobile Filters Trigger (on the left, replacing the redundant Store title) */}
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="lg:hidden shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border cursor-pointer shadow-sm active:scale-95"
+          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+        >
+          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          </svg>
+          <span>Filters</span>
+          {active > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}>
+              {active}
+            </span>
+          )}
+        </button>
+
+        {/* Desktop left spacer matching the 64 (w-64) sidebar */}
+        <div className="hidden lg:flex w-64 shrink-0 items-center justify-between pr-4">
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+            Filters {active > 0 && `(${active})`}
+          </span>
+          {active > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilters({ ...EMPTY_STORE_FILTERS, search: filters.search })}
+              className="text-[11px] font-bold cursor-pointer hover:underline"
+              style={{ color: 'var(--text-accent)' }}
+            >
+              Reset
+            </button>
+          )}
         </div>
+
+        {/* Search input with min-w-0 so it gracefully flexes without causing horizontal overflow */}
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <input
             type="search"
@@ -174,14 +222,14 @@ export function StoreShopApp() {
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             placeholder="Search products by name, brand, SKU..."
             aria-label="Search products"
-            className="flex-1 min-w-[200px] px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+            className="flex-1 min-w-0 px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as StoreSort)}
             aria-label="Sort products"
-            className="px-3 py-2 text-xs rounded-xl border focus:outline-none cursor-pointer shrink-0"
+            className="px-2.5 sm:px-3 py-2 text-xs rounded-xl border focus:outline-none cursor-pointer shrink-0"
             style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           >
             <option value="newest">Newest</option>
@@ -189,14 +237,6 @@ export function StoreShopApp() {
             <option value="price_desc">Price: high to low</option>
             <option value="name">Name A-Z</option>
           </select>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="lg:hidden shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border cursor-pointer"
-            style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-          >
-            Filters{active > 0 && <span className="px-1.5 rounded-full text-[10px]" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent)' }}>{active}</span>}
-          </button>
         </div>
       </div>
 

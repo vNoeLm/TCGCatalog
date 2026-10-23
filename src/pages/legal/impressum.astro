@@ -1,0 +1,199 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+import { CONTACT_EMAIL } from '../../lib/site';
+---
+
+<DocLayout
+  title="Impressum & Company Disclosures"
+  titleHu="Impresszum és Cégadatok"
+  lead="Mandatory legal entity disclosures, contact information, and hosting service provider data under Hungarian and European Union law."
+  leadHu="A 2001. évi CVIII. törvény (Ekertv.) 4. §-a és az Európai Unió jogszabályai alapján kötelezően közzéteendő szolgáltatói és vállalkozási adatok (Impresszum)."
+  group="legal"
+  updated="23 October 2026"
+  updatedHu="2026. október 23."
+>
+  <div class="lang-hu">
+    <p class="doc-note">
+      <strong>Tájékoztatás:</strong> Az alábbiakban találhatók a TCG XChange felületét és hivatalos webáruházát (Store) üzemeltető vállalkozás kötelező jogi adatai, ügyfélszolgálati elérhetőségei és hatósági felügyeleti szervei.
+    </p>
+
+    <h2>1. A szolgáltató és a webáruházat üzemeltető vállalkozás adatai (Ekertv. 4. §)</h2>
+    <table>
+      <tbody>
+        <tr>
+          <td style="width: 35%;"><strong>Hivatalos cégnév / Vállalkozó neve:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. TCG Vault Kft. / Egyéni Vállalkozó Neve]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Székhely:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. 1000 Budapest, Minta utca 1.]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Levelezési és csomagvisszaküldési cím:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. 1000 Budapest, Minta utca 1.]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Cégjegyzékszám / Nyilvántartási szám:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. 01-09-123456 / EV-123456]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Adószám:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. 12345678-2-41]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Közösségi adószám (EU VAT):</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. HU12345678]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Nyilvántartásba vevő bíróság / hatóság:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. Fővárosi Törvényszék Cégbírósága / Kormányhivatal]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Kamarai tagság:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. Budapesti Kereskedelmi és Iparkamara (BKIK)]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Főtevékenység / TEÁOR kód:</strong></td>
+          <td><code>[KITÖLTENDŐ: pl. 4791 - Csomagküldő, internetes kiskereskedelem]</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Ügyfélszolgálat és közvetlen elérhetőségek</h2>
+    <ul>
+      <li><strong>Elektronikus ügyfélszolgálati e-mail cím:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>Telefonszám:</strong> <code>[KITÖLTENDŐ: pl. +36 1 234 5678]</code></li>
+      <li><strong>Ügyfélszolgálat elérhetőségi ideje:</strong> <code>[KITÖLTENDŐ: Munkanapokon 9:00 - 17:00 óra között]</code></li>
+      <li><strong>Hivatalos nyelv:</strong> Magyar és angol</li>
+    </ul>
+
+    <h2>3. Tárhelyszolgáltatók adatai (Ekertv. 4. § h) pont)</h2>
+    <ul>
+      <li>
+        <strong>Webtárhely, CDN és kiszolgáló infrastruktúra:</strong><br />
+        Cloudflare Inc.<br />
+        Székhely: 101 Townsend St, San Francisco, CA 94107, Amerikai Egyesült Államok<br />
+        Weboldal: <a href="https://cloudflare.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a><br />
+        E-mail: <code>privacy@cloudflare.com</code>
+      </li>
+      <li>
+        <strong>Adatbázis és hitelesítési infrastruktúra:</strong><br />
+        Supabase Inc.<br />
+        Székhely: 970 Toa Payoh North #07-04, Singapore 318992<br />
+        Európai adatbázis régió: Frankfurt, Németország (AWS eu-central-1)<br />
+        Weboldal: <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">supabase.com</a><br />
+        E-mail: <code>support@supabase.io</code>
+      </li>
+      <li>
+        <strong>Képtárhely és fájltároló (R2 Object Storage):</strong><br />
+        Cloudflare R2 (Cloudflare Inc., 101 Townsend St, San Francisco, CA 94107, USA)
+      </li>
+    </ul>
+
+    <h2>4. Felügyeleti szervek és jogérvényesítési lehetőségek</h2>
+    <p>Fogyasztói panasz vagy jogvita esetén a vásárló az alábbi szervekhez fordulhat:</p>
+    <ul>
+      <li>
+        <strong>Fogyasztóvédelmi Hatóság:</strong> A területileg illetékes Kormányhivatal Műszaki Engedélyezési és Fogyasztóvédelmi Főosztálya (<a href="https://kormanyhivatalok.hu" target="_blank" rel="noopener noreferrer">kormanyhivatalok.hu</a>).
+      </li>
+      <li>
+        <strong>Békéltető Testület:</strong> A vállalkozás székhelye vagy a fogyasztó lakóhelye szerint illetékes Békéltető Testület (Központi elérhetőség: <a href="https://bekeltetes.hu" target="_blank" rel="noopener noreferrer">bekeltetes.hu</a>).
+      </li>
+      <li>
+        <strong>Európai Bizottság Online Vitarendezési Platformja (ODR):</strong> Határon átnyúló jogvita esetén igénybe vehető az EU vitarendezési felülete: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.
+      </li>
+    </ul>
+  </div>
+
+  <div class="lang-en">
+    <p class="doc-note">
+      <strong>Notice:</strong> This page contains the mandatory corporate identification, customer support contact details, and hosting provider disclosures for TCG XChange and its official webstore under Hungarian and European Union law.
+    </p>
+
+    <h2>1. Service Provider &amp; Operator Identification</h2>
+    <table>
+      <tbody>
+        <tr>
+          <td style="width: 35%;"><strong>Legal Entity / Business Name:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. TCG Vault Ltd. / Sole Proprietor Name]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Registered Office (Headquarters):</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. 1000 Budapest, Example Street 1, Hungary]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Mailing &amp; Returns Address:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. 1000 Budapest, Example Street 1, Hungary]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Company Registration Number:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. 01-09-123456 / Sole Trader Reg. No.]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Tax Number (National):</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. 12345678-2-41]</code></td>
+        </tr>
+        <tr>
+          <td><strong>EU VAT Number:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. HU12345678]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Registering Court / Authority:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. Court of Registration of the Budapest-Capital Regional Court]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Chamber of Commerce:</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. Budapest Chamber of Commerce and Industry (BKIK)]</code></td>
+        </tr>
+        <tr>
+          <td><strong>Principal Activity Code (NACE / TEÁOR):</strong></td>
+          <td><code>[TO BE COMPLETED: e.g. 4791 - Retail sale via mail order houses or via Internet]</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Customer Support &amp; Direct Contact</h2>
+    <ul>
+      <li><strong>Email Support:</strong> <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+      <li><strong>Telephone:</strong> <code>[TO BE COMPLETED: e.g. +36 1 234 5678]</code></li>
+      <li><strong>Support Hours:</strong> <code>[TO BE COMPLETED: Business days 9:00 - 17:00 CET]</code></li>
+      <li><strong>Official Communications Languages:</strong> Hungarian and English</li>
+    </ul>
+
+    <h2>3. Hosting &amp; Technical Infrastructure Providers</h2>
+    <ul>
+      <li>
+        <strong>Web Hosting, Edge CDN &amp; Runtime:</strong><br />
+        Cloudflare Inc.<br />
+        101 Townsend St, San Francisco, CA 94107, USA<br />
+        Website: <a href="https://cloudflare.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a><br />
+        Email: <code>privacy@cloudflare.com</code>
+      </li>
+      <li>
+        <strong>Database &amp; User Authentication:</strong><br />
+        Supabase Inc.<br />
+        970 Toa Payoh North #07-04, Singapore 318992<br />
+        EU Database Hosting Region: Frankfurt, Germany (AWS eu-central-1)<br />
+        Website: <a href="https://supabase.com" target="_blank" rel="noopener noreferrer">supabase.com</a><br />
+        Email: <code>support@supabase.io</code>
+      </li>
+      <li>
+        <strong>Image Storage &amp; Asset CDN (R2):</strong><br />
+        Cloudflare R2 (Cloudflare Inc., 101 Townsend St, San Francisco, CA 94107, USA)
+      </li>
+    </ul>
+
+    <h2>4. Supervisory Authorities &amp; Dispute Resolution</h2>
+    <ul>
+      <li>
+        <strong>Consumer Protection Authority:</strong> Department of Technical Licensing and Consumer Protection of the Competent County Government Office (<a href="https://kormanyhivatalok.hu" target="_blank" rel="noopener noreferrer">kormanyhivatalok.hu</a>).
+      </li>
+      <li>
+        <strong>Conciliation Board (Békéltető Testület):</strong> Budapest Conciliation Board or the regional conciliation board based on the consumer's domicile (<a href="https://bekeltetes.hu" target="_blank" rel="noopener noreferrer">bekeltetes.hu</a>).
+      </li>
+      <li>
+        <strong>EU Online Dispute Resolution (ODR) Platform:</strong> Cross-border consumer disputes can be submitted via: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.
+      </li>
+    </ul>
+  </div>
+</DocLayout>

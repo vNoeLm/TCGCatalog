@@ -59,6 +59,9 @@ export interface InventoryCard {
   views?: number;
   clicks?: number;
   seller_badge?: string;
+  seller_tier?: number;
+  seller_sales_count?: number;
+  seller_items_sold?: number;
   seller_country?: string;
   seller_ships_to?: string;
   is_verified_store?: boolean;

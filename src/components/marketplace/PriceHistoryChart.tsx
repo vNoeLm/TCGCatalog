@@ -255,8 +255,8 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
         </p>
       ) : (
         <>
-          <div className="relative">
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label="Price history chart" onMouseLeave={() => setHover(null)}>
+          <div className={`relative ${large ? '' : 'max-w-[760px] mx-auto'}`}>
+            <svg viewBox={`0 0 ${W} ${H}`} className={`w-full h-auto block ${large ? '' : 'max-h-[220px]'}`} role="img" aria-label="Price history chart" onMouseLeave={() => setHover(null)}>
               {chart.yTicks.map((v) => (
                 <g key={v}>
                   <line x1={PAD.left} x2={W - PAD.right} y1={chart.y(v)} y2={chart.y(v)} stroke="currentColor" strokeOpacity="0.09" style={{ color: 'var(--border)' }} />

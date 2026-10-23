@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { StoreProduct } from '../../types';
+import type { StoreProduct, Order } from '../../types';
 import { STORE_BRANDS, STORE_CATEGORIES, STORE_GAMES } from '../../lib/storeConstants';
 import { useCurrency } from '../../lib/currency';
 import { gameOf, isSoldOut } from '../../lib/storeProducts';
@@ -7,10 +7,11 @@ import { StoreClosed, StoreSpinner } from './StoreStates';
 import { StoreProductForm } from './StoreProductForm';
 import { StoreImportModal } from './StoreImportModal';
 import { StoreTaxonomyModal } from './StoreTaxonomyModal';
+import { StoreAnalyticsTab } from './StoreAnalyticsTab';
 import { storeApi, useStoreAuth } from './storeClient';
 import type { StoreTaxonomies } from '../../pages/api/store/taxonomies';
 
-type StatusTab = 'all' | 'active' | 'draft' | 'out_of_stock';
+type StatusTab = 'all' | 'active' | 'low_stock' | 'out_of_stock' | 'draft';
 
 const LOW_STOCK = 5;
 const selectClass = 'px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)] cursor-pointer';
@@ -18,6 +19,7 @@ const selectStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)
 
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; border: string }> = {
   active: { label: 'Live', bg: 'var(--positive-muted)', color: 'var(--positive)', border: 'var(--positive-border)' },
+  low_stock: { label: 'Low stock', bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.4)' },
   draft: { label: 'Draft', bg: 'rgba(234,179,8,0.15)', color: '#eab308', border: 'rgba(234,179,8,0.4)' },
   out_of_stock: { label: 'Out of stock', bg: 'var(--negative-muted)', color: 'var(--negative)', border: 'var(--negative-border)' },
 };
@@ -40,7 +42,7 @@ function IconButton({ label, onClick, danger, children }: { label: string; onCli
 const svgProps = { className: 'w-3.5 h-3.5', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 /** /store/admin - manage the store catalogue. Admins only. */
-export function StoreAdminApp() {
+export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading: authLoading, isAdmin } = useStoreAuth();
   const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<StoreProduct[]>([]);
@@ -55,6 +57,11 @@ export function StoreAdminApp() {
   const [game, setGame] = useState('all');
   const [lowOnly, setLowOnly] = useState(false);
 
+  // View mode switcher: products catalogue vs stock analytics
+  const [viewMode, setViewMode] = useState<'products' | 'analytics'>('products');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
   const [form, setForm] = useState<null | { product: StoreProduct | null; template: Partial<StoreProduct> | null }>(null);
   const [importing, setImporting] = useState(false);
   const [taxonomiesOpen, setTaxonomiesOpen] = useState(false);
@@ -63,6 +70,21 @@ export function StoreAdminApp() {
     customCategories: [],
     customGames: [],
   });
+
+  const loadOrders = useCallback(async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.orders) setOrders(data.orders);
+      }
+    } catch (e) {
+      console.error('Failed to load store orders for analytics:', e);
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const res = await storeApi<{ products?: StoreProduct[]; warning?: string; error?: string }>('/api/store/products');
@@ -94,8 +116,9 @@ export function StoreAdminApp() {
     () => ({
       all: products.length,
       active: products.filter((p) => p.status === 'active' && !isSoldOut(p)).length,
-      draft: products.filter((p) => p.status === 'draft').length,
+      low_stock: products.filter((p) => p.status !== 'draft' && p.stock_quantity > 0 && p.stock_quantity <= LOW_STOCK).length,
       out_of_stock: products.filter((p) => p.status !== 'draft' && isSoldOut(p)).length,
+      draft: products.filter((p) => p.status === 'draft').length,
     }),
     [products]
   );
@@ -129,19 +152,16 @@ export function StoreAdminApp() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [customTaxonomies, products]);
 
-  const brands = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...STORE_BRANDS,
-          ...(customTaxonomies.customBrands || []),
-          ...products.map((p) => p.brand),
-        ]),
-      ]
-        .filter(Boolean)
-        .sort(),
-    [products, customTaxonomies]
-  );
+  const brands = useMemo(() => {
+    const list = Array.isArray(customTaxonomies.brands) && customTaxonomies.brands.length > 0
+      ? customTaxonomies.brands
+      : Array.from(new Set([...STORE_BRANDS, ...(customTaxonomies.customBrands || [])]));
+    const set = new Set([...list, ...products.map((p) => p.brand)]);
+    set.delete('None');
+    set.delete('Default');
+    set.delete('');
+    return Array.from(set).filter(Boolean).sort();
+  }, [products, customTaxonomies]);
   const groups = useMemo(() => [...new Set(products.map((p) => p.variant_group).filter((g): g is string => Boolean(g)))].sort(), [products]);
 
   const visible = useMemo(() => {
@@ -149,6 +169,7 @@ export function StoreAdminApp() {
     return products.filter((p) => {
       if (q && !`${p.name} ${p.brand} ${p.sku ?? ''} ${p.ean ?? ''} ${p.variant_group ?? ''} ${p.supplier ?? ''}`.toLowerCase().includes(q)) return false;
       if (tab === 'active' && !(p.status === 'active' && !isSoldOut(p))) return false;
+      if (tab === 'low_stock' && !(p.status !== 'draft' && p.stock_quantity > 0 && p.stock_quantity <= LOW_STOCK)) return false;
       if (tab === 'draft' && p.status !== 'draft') return false;
       if (tab === 'out_of_stock' && !(p.status !== 'draft' && isSoldOut(p))) return false;
       if (category !== 'all' && p.category !== category) return false;
@@ -188,6 +209,18 @@ export function StoreAdminApp() {
     const status = next === 0 && p.status === 'active' ? 'out_of_stock' : next > 0 && p.status === 'out_of_stock' ? 'active' : p.status;
     setProducts((cur) => cur.map((x) => (x.id === p.id ? { ...x, stock_quantity: next, status } : x)));
     const res = await storeApi('/api/store/products', { method: 'PATCH', body: JSON.stringify({ id: p.id, stock_quantity: next, status }) });
+    if (!res.ok) {
+      setProducts((cur) => cur.map((x) => (x.id === p.id ? p : x)));
+      setError('Could not update the stock.');
+    }
+  };
+
+  const setExactStock = async (p: StoreProduct, next: number) => {
+    const nextStock = Math.max(0, next);
+    if (nextStock === p.stock_quantity) return;
+    const status = nextStock === 0 && p.status === 'active' ? 'out_of_stock' : nextStock > 0 && p.status === 'out_of_stock' ? 'active' : p.status;
+    setProducts((cur) => cur.map((x) => (x.id === p.id ? { ...x, stock_quantity: nextStock, status } : x)));
+    const res = await storeApi('/api/store/products', { method: 'PATCH', body: JSON.stringify({ id: p.id, stock_quantity: nextStock, status }) });
     if (!res.ok) {
       setProducts((cur) => cur.map((x) => (x.id === p.id ? p : x)));
       setError('Could not update the stock.');
@@ -236,18 +269,53 @@ export function StoreAdminApp() {
   const tabs: { id: StatusTab; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'active', label: 'Live' },
-    { id: 'draft', label: 'Draft' },
+    { id: 'low_stock', label: 'Low stock' },
     { id: 'out_of_stock', label: 'Out of stock' },
+    { id: 'draft', label: 'Draft' },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+    <div className={embedded ? 'space-y-4' : 'max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8'}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl border mb-5" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <div>
-          <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-            Store admin
-          </span>
-          <h1 className="text-xl sm:text-2xl font-black mt-1.5" style={{ color: 'var(--text-primary)' }}>Store products</h1>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+              Store admin
+            </span>
+            {/* View Mode Switcher */}
+            <div className="inline-flex rounded-lg border p-0.5" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('products')}
+                className="px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition flex items-center gap-1.5"
+                style={viewMode === 'products' ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' } : { color: 'var(--text-secondary)' }}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                </svg>
+                <span>Products ({products.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('analytics');
+                  if (orders.length === 0) loadOrders();
+                }}
+                className="px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition flex items-center gap-1.5"
+                style={viewMode === 'analytics' ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' } : { color: 'var(--text-secondary)' }}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                <span>Analytics & Stock</span>
+              </button>
+            </div>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
+            {viewMode === 'products' ? 'Store products' : 'Stock & Sales Analytics'}
+          </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {products.length} products, {totalUnits} units in stock{(lowCount > 0 || outCount > 0) && (
               <>, <span style={{ color: '#f59e0b' }}>{lowCount} low, {outCount} out of stock</span></>
@@ -255,10 +323,12 @@ export function StoreAdminApp() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <a href="/admin" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)] inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-            <svg {...svgProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-            Admin console
-          </a>
+          {!embedded && (
+            <a href="/admin" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)] inline-flex items-center gap-1.5" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+              <svg {...svgProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              Admin console
+            </a>
+          )}
           <a href="/store" className="px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)]" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
             View shop
           </a>
@@ -287,8 +357,19 @@ export function StoreAdminApp() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="p-3 sm:p-4 rounded-2xl border mb-4 space-y-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+      {viewMode === 'analytics' ? (
+        <StoreAnalyticsTab
+          products={products}
+          orders={orders}
+          loadingOrders={loadingOrders}
+          onRefreshOrders={loadOrders}
+          onQuickUpdateStock={setExactStock}
+          onEditProduct={(p) => setForm({ product: p, template: null })}
+        />
+      ) : (
+        <>
+          {/* Toolbar */}
+          <div className="p-3 sm:p-4 rounded-2xl border mb-4 space-y-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <div className="flex gap-2 flex-wrap items-center">
           <div role="tablist" aria-label="Status" className="inline-flex rounded-xl border p-0.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-input)' }}>
             {tabs.map((t) => (
@@ -485,6 +566,8 @@ export function StoreAdminApp() {
           )}
         </div>
       )}
+      </>
+      )}
 
       {form && (
         <StoreProductForm
@@ -504,6 +587,7 @@ export function StoreAdminApp() {
       {importing && <StoreImportModal onClose={() => setImporting(false)} onDone={load} />}
       {taxonomiesOpen && (
         <StoreTaxonomyModal
+          products={products}
           onClose={() => setTaxonomiesOpen(false)}
           onSaved={() => {
             loadTaxonomies();

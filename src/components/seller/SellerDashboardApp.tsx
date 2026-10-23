@@ -13,7 +13,7 @@ import { CollectionSettingsPanel } from './CollectionSettingsPanel';
 import { InfoTip, TipTerm } from './InfoTip';
 import { SelectBox } from './SelectBox';
 import { AuthModal } from '../auth/AuthModal';
-import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, type CollectorTier, type SellerTier } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag, type SellerTier } from '../../lib/badges';
 import { fetchReputation, fetchReviewsWrittenBy } from '../../lib/reviews';
 import { BuyerTrustLine, ReviewCard, Stars } from '../reviews/ReviewParts';
 import { RateTradeModal } from '../reviews/RateTradeModal';
@@ -685,21 +685,12 @@ export function SellerDashboardApp() {
       return;
     }
     let cancelled = false;
-    (async () => {
-      const { data: mktData } = await supabase
-        .from('marketplace_listings')
-        .select('card_id, is_foil, price_huf')
-        .in('card_id', cardIds)
-        .eq('status', 'In Stock')
-        .gt('quantity', 0);
-      if (mktData && mktData.length > 0) return { data: mktData, error: null };
-      return supabase
-        .from('inventory')
-        .select('card_id, is_foil, price_huf')
-        .in('card_id', cardIds)
-        .eq('status', 'In Stock')
-        .gt('quantity', 0);
-    })().then(({ data, error }) => {
+    supabase
+      .from('inventory')
+      .select('card_id, is_foil, price_huf')
+      .in('card_id', cardIds)
+      .eq('status', 'In Stock')
+      .gt('quantity', 0).then(({ data, error }) => {
         if (cancelled || error || !data) return;
         const map = new Map<string, number>();
         data.forEach((row: any) => {
@@ -765,10 +756,6 @@ export function SellerDashboardApp() {
     return getSellerTier(completedSalesCount, averageRating, isOwner, isLightTheme);
   }, [completedSalesCount, averageRating, isOwner, isLightTheme]);
 
-  // Collector Tier Calculation
-  const collectorTier: CollectorTier = useMemo(() => {
-    return getCollectorTier(ownedCardCount, totalCardCount, 'riftbound', isLightTheme);
-  }, [ownedCardCount, totalCardCount, isLightTheme]);
 
   const filteredListings = useMemo(() => {
     if (!searchQuery.trim()) return activeListings;
@@ -972,7 +959,7 @@ export function SellerDashboardApp() {
               <p className="text-xs leading-relaxed mt-1" style={{ color: 'var(--text-tertiary)' }}>
                 {completedSalesCount >= 1
                   ? `Active community seller with ${completedSalesCount} completed ${completedSalesCount === 1 ? 'sale' : 'sales'}.`
-                  : 'Complete at least 1 sale to unlock the "Active Seller" badge!'}
+                  : 'Complete at least 1 sale to unlock the "Tier 1 Seller" badge!'}
               </p>
             </div>
 

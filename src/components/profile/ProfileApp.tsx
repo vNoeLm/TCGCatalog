@@ -39,7 +39,6 @@ export function ProfileApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
-  const [showBadgesModal, setShowBadgesModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -371,6 +370,7 @@ export function ProfileApp() {
   }, []);
 
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com' || profile?.email === 'support@tcgxchange.net');
+  const isVerifiedStore = isOwner || Boolean((profile as any)?.is_verified_store || profile?.role === 'owner');
   const isLightTheme = effectiveTheme === 'light';
   // The same rating the public profile uses, so the seller badge here matches what others see.
   const [sellerRatingAvg, setSellerRatingAvg] = useState<number | null>(null);
@@ -1062,6 +1062,19 @@ export function ProfileApp() {
                 )}
 
                 {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5" />}
+                {isVerifiedStore && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-md border shadow-sm"
+                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                    title="Official Verified Store"
+                  >
+                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span>Verified Store</span>
+                  </span>
+                )}
 
                 {/* Upgraded Seller Badge */}
                 <a
@@ -1074,27 +1087,7 @@ export function ProfileApp() {
                   <span>{sellerTier.nameEn}</span>
                 </a>
 
-                {/* Badges Modal Trigger */}
-                <button
-                  type="button"
-                  onClick={() => setShowBadgesModal(true)}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-md border transition hover:brightness-110 cursor-pointer shadow-sm"
-                  style={{
-                    background: 'var(--bg-surface-2)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-secondary)',
-                  }}
-                  title="View and choose collector badges to display"
-                >
-                  <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <span>Badges</span>
-                  {displayedBadges.length > 0 && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-                  )}
-                </button>
-              </div>
+                              </div>
             </div>
 
             {/* Actions */}
@@ -1594,155 +1587,6 @@ export function ProfileApp() {
           showToast('Profile picture and banner updated!');
         }}
       />
-
-      {/* Collector Badges Modal */}
-      {showBadgesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div
-            className="w-full max-w-lg rounded-2xl border p-5 sm:p-6 shadow-2xl relative flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
-            style={{
-              background: 'var(--bg-surface)',
-              borderColor: 'var(--border)',
-              boxShadow: 'var(--shadow-modal)',
-            }}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center border shrink-0"
-                  style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
-                >
-                  <svg className="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>
-                    Collector Badges
-                  </h3>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Choose which badges to display on your public profile
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBadgesModal(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center border cursor-pointer hover:brightness-110 transition"
-                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-                title="Close"
-                aria-label="Close badges modal"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
-                Your Collection Progress
-              </span>
-              {displayedBadges.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveDisplayedBadgesPreference([]);
-                    showToast('Hidden all collector badges from profile');
-                  }}
-                  className="text-[11px] font-bold px-2 py-0.5 rounded-md border cursor-pointer transition hover:brightness-110"
-                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}
-                >
-                  Hide all
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {GAMES.filter((g) => g.active).map((g) => {
-                const ct = collectorTiersByGame[g.id];
-                if (!ct) return null;
-                const isShown = displayedBadges.includes(g.id);
-                return (
-                  <div
-                    key={g.id}
-                    className="p-3.5 rounded-xl border flex items-center justify-between gap-3"
-                    style={{
-                      background: 'var(--bg-surface-2)',
-                      borderColor: isShown ? ct.border : 'var(--border-subtle)',
-                    }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
-                        style={{
-                          background: ct.badgeStyle.background,
-                          borderColor: ct.border,
-                          color: ct.color,
-                        }}
-                      >
-                        <BadgeIconSvg iconType={ct.iconType} className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black truncate" style={{ color: 'var(--text-primary)' }}>
-                            {ct.nameEn}
-                          </span>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-surface)', color: 'var(--text-secondary)' }}>
-                            {ct.percentage}%
-                          </span>
-                        </div>
-                        <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{g.name}</span> • {ct.ownedCount.toLocaleString()} / {ct.totalCount.toLocaleString()} cards
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleDisplayedBadge(g.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold border shrink-0 cursor-pointer inline-flex items-center gap-1.5 transition"
-                      style={
-                        isShown
-                          ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }
-                          : { background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-tertiary)' }
-                      }
-                      title={isShown ? 'Click to hide from profile' : 'Click to display on profile'}
-                    >
-                      {isShown ? (
-                        <>
-                          <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          <span>Displayed</span>
-                        </>
-                      ) : (
-                        <span>Show</span>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowBadgesModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition border"
-                style={{
-                  background: 'var(--bg-surface-2)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Rate the other side of a completed order */}
       <RateTradeModal

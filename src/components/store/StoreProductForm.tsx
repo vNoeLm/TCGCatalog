@@ -50,8 +50,8 @@ export function StoreProductForm({
   const [categorySelect, setCategorySelect] = useState<string>(isCustomCategoryInit ? '__custom__' : (src.category ?? 'sleeves'));
   const [customCategory, setCustomCategory] = useState<string>(isCustomCategoryInit ? (src.category || '') : '');
 
-  // Brand: free text input with datalist suggestions
-  const [brand, setBrand] = useState(src.brand ?? 'Ultimate Guard');
+  // Brand: optional text input with datalist suggestions
+  const [brand, setBrand] = useState(src.brand && src.brand !== 'None' ? src.brand : '');
 
   // Game: standard or custom
   const isCustomGameInit = Boolean(src.game && src.game !== 'universal' && !gameList.some((g) => g.id === src.game));
@@ -130,12 +130,8 @@ export function StoreProductForm({
       return;
     }
 
-    // Resolve brand
-    const finalBrand = brand.trim();
-    if (!finalBrand) {
-      setError('Please specify a brand.');
-      return;
-    }
+    // Resolve brand (optional, defaults to 'None' for schema compatibility)
+    const finalBrand = brand.trim() || 'None';
 
     // Resolve game
     const finalGame = gameSelect === 'universal'
@@ -255,15 +251,14 @@ export function StoreProductForm({
               </div>
 
               <div>
-                <Field label="Brand * (type or pick)" hint="Manufacturer or publisher">
+                <Field label="Brand (optional)" hint="Manufacturer or publisher (can be left blank)">
                   <input
-                    required
                     list="store-brands"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
                     className={inputClass}
                     style={inputStyle}
-                    placeholder="Ultimate Guard, Riot Games..."
+                    placeholder="Leave empty or specify brand..."
                   />
                   <datalist id="store-brands">
                     {allBrands.map((b) => <option key={b} value={b} />)}

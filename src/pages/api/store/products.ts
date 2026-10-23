@@ -35,7 +35,7 @@ function parseProductInput(body: any, mode: 'create' | 'update'): ParsedInput {
   const has = (k: string) => body[k] !== undefined;
 
   if (has('name')) product.name = sanitizePlainText(body.name, 200);
-  if (has('brand')) product.brand = sanitizePlainText(body.brand, 100);
+  if (has('brand')) product.brand = sanitizePlainText(body.brand, 100) || 'None';
   if (has('category')) {
     const rawCat = sanitizePlainText(body.category, 60).trim().toLowerCase().replace(/\s+/g, '_');
     if (!rawCat || !/^[a-z0-9_-]{2,60}$/.test(rawCat)) return { product, priv, error: 'Invalid category format.' };

@@ -54,7 +54,7 @@ export function StorePreviewBanner() {
       style={{ background: 'rgba(234, 179, 8, 0.1)', borderColor: 'rgba(234, 179, 8, 0.3)', color: '#eab308' }}
     >
       <span>Preview: the store is not public yet, only admins can see this page.</span>
-      <a href="/store/admin" className="underline underline-offset-2 cursor-pointer">Open store admin</a>
+      <a href="/admin?tab=store" className="underline underline-offset-2 cursor-pointer">Open store admin</a>
     </div>
   );
 }

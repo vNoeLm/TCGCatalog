@@ -308,7 +308,7 @@ export function getCollectorTier(
  * Calculates a seller tier based on the number of completed, distinct sales
  * (orders), not total units/cards sold — a buyer purchasing many cards in a
  * single order should not by itself vault a seller to the top tier.
- * Sellers with >= 1 completed sale receive the "Active Seller" badge.
+ * Sellers with >= 1 completed sale receive a "Tier X Seller" badge.
  *
  * The site owner earns tiers the same way everyone else does; `isOwner` is
  * carried through only so the UI can render a separate "Site Owner" tag.
@@ -391,7 +391,7 @@ export function getSellerTier(
 
   return {
     tier: tierNumber,
-    nameEn: `Tier ${tierNumber} Active Seller`,
+    nameEn: `Tier ${tierNumber} Seller`,
     icon: '★',
     iconType: palette.iconType,
     salesCount: sold,

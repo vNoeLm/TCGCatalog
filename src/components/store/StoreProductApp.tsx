@@ -148,7 +148,9 @@ export function StoreProductApp() {
   const onSale = Boolean(product.original_price_huf && product.original_price_huf > product.price_huf);
   const category = STORE_CATEGORIES.find((c) => c.id === product.category)?.label || product.category;
   const game = gameOf(product);
-  const gameLabel = game === 'universal' ? 'Universal Accessories' : STORE_GAMES.find((g) => g.id === game)?.name || game;
+  const isRealGame = Boolean(product.game && product.game !== 'universal');
+  const gameLabel = isRealGame ? (STORE_GAMES.find((g) => g.id === product.game)?.name || product.game) : null;
+  const hasBrand = Boolean(product.brand && product.brand.trim() && product.brand !== 'None' && product.brand !== 'Default' && product.brand !== 'Other');
   const kind = STORE_VARIANT_KINDS.find((k) => k.id === (product.variant_kind || 'other'))?.label || 'Option';
   const hasVariants = siblings.length > 1 && Boolean(product.variant_group);
   const margin = isAdmin && product.cost_price_huf ? product.price_huf - product.cost_price_huf : null;
@@ -163,18 +165,22 @@ export function StoreProductApp() {
         <a href={`/store?category=${encodeURIComponent(product.category)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
           {category}
         </a>
-        {product.game && (
+        {isRealGame && gameLabel && (
           <>
             <span>/</span>
-            <a href={`/store?category=${encodeURIComponent(product.category)}&game=${encodeURIComponent(product.game)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+            <a href={`/store?category=${encodeURIComponent(product.category)}&game=${encodeURIComponent(product.game!)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
               {gameLabel}
             </a>
           </>
         )}
-        <span>/</span>
-        <a href={`/store?brand=${encodeURIComponent(product.brand)}`} className="hover:underline cursor-pointer font-semibold" style={{ color: 'var(--text-secondary)' }}>
-          {product.brand}
-        </a>
+        {hasBrand && (
+          <>
+            <span>/</span>
+            <a href={`/store?brand=${encodeURIComponent(product.brand)}`} className="hover:underline cursor-pointer font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              {product.brand}
+            </a>
+          </>
+        )}
       </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
@@ -256,12 +262,14 @@ export function StoreProductApp() {
                 </span>
                 <span className="font-bold">Admin preview only · Hidden from shoppers</span>
               </div>
-              <a href="/store/admin" className="underline font-bold hover:opacity-80 cursor-pointer">
+              <a href="/admin?tab=store" className="underline font-bold hover:opacity-80 cursor-pointer">
                 Edit in store admin
               </a>
             </div>
           )}
-          <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-accent)' }}>{product.brand}</p>
+          {hasBrand && (
+            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-accent)' }}>{product.brand}</p>
+          )}
           <h1 className="text-2xl sm:text-3xl font-black leading-tight mb-3" style={{ color: 'var(--text-primary)' }}>{product.name}</h1>
 
           <div className="flex items-baseline gap-3 mb-2">
@@ -352,8 +360,8 @@ export function StoreProductApp() {
 
           <dl className="mt-6">
             <Spec label="Category" value={category} />
-            {product.game && <Spec label="Game" value={gameLabel} />}
-            <Spec label="Brand" value={product.brand} />
+            {isRealGame && gameLabel && <Spec label="Game" value={gameLabel} />}
+            {hasBrand && <Spec label="Brand" value={product.brand} />}
             <Spec label="Stock" value={soldOut ? '0 units (out of stock)' : `${product.stock_quantity} units available`} />
             <Spec label="Size" value={product.attributes?.size} />
             <Spec label="Color" value={product.attributes?.color} />

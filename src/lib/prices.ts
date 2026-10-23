@@ -29,29 +29,6 @@ export function getEurToHuf(): Promise<number> {
  * compared with themselves.
  */
 export async function fetchSiteListingPrices(cardId: string, isFoil: boolean, excludeSellerId?: string | null): Promise<number[]> {
-  // Query marketplace_listings first
-  let query = supabase
-    .from('marketplace_listings')
-    .select('price_huf, seller_id')
-    .eq('card_id', cardId)
-    .eq('is_foil', isFoil)
-    .eq('status', 'In Stock')
-    .gt('quantity', 0)
-    .is('deleted_at', null)
-    .limit(200);
-
-  if (excludeSellerId) {
-    query = query.neq('seller_id', excludeSellerId);
-  }
-
-  const { data: mktData, error: mktErr } = await query;
-  if (!mktErr && mktData && mktData.length > 0) {
-    return mktData
-      .map((row: any) => Number(row.price_huf))
-      .filter((price: number) => Number.isFinite(price) && price > 0);
-  }
-
-  // Fallback to inventory table
   const { data, error } = await supabase
     .from('inventory')
     .select('price_huf, notes')
@@ -75,27 +52,6 @@ export async function fetchSiteListingPrices(cardId: string, isFoil: boolean, ex
 export async function fetchAllSitePrices(): Promise<Map<string, number[]>> {
   const byCard = new Map<string, number[]>();
 
-  // Fetch from marketplace_listings
-  const { data: mktData } = await supabase
-    .from('marketplace_listings')
-    .select('card_id, is_foil, price_huf')
-    .eq('status', 'In Stock')
-    .gt('quantity', 0)
-    .is('deleted_at', null)
-    .limit(5000);
-
-  if (mktData && mktData.length > 0) {
-    for (const row of mktData as any[]) {
-      const price = Number(row.price_huf);
-      if (!row.card_id || !Number.isFinite(price) || price <= 0) continue;
-      const key = siteKey(row.card_id, Boolean(row.is_foil));
-      const list = byCard.get(key);
-      if (list) list.push(price);
-      else byCard.set(key, [price]);
-    }
-  }
-
-  // Also include store inventory
   const { data } = await supabase
     .from('inventory')
     .select('card_id, is_foil, price_huf')

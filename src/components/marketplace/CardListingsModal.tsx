@@ -29,9 +29,16 @@ function shortCondition(c?: string): string {
   }
 }
 
-function formatSellerTierBadge(badge?: string): string {
+function formatSellerTierBadge(badge?: string, tier?: number): string {
+  if (typeof tier === 'number' && tier > 0) {
+    return `Tier ${tier} Seller`;
+  }
   if (!badge) return '';
-  return badge.replace(/\s*Active\s*/i, ' ').trim();
+  const cleaned = badge.replace(/\bActive\b/gi, '').replace(/\s+/g, ' ').trim();
+  if (cleaned.toLowerCase() === 'seller') {
+    return 'Tier 1 Seller';
+  }
+  return cleaned;
 }
 
 type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
@@ -246,9 +253,9 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
         {/* Modal Scroll Container */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col">
           {/* Top Section: Card Info on Left & Price History on Right (side-by-side on lg+) */}
-          <div className="flex flex-col lg:flex-row border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex flex-col lg:flex-row border-b shrink-0 items-start lg:items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
             {/* Card Info & Cardmarket-style Stats */}
-            <div className="p-4 sm:p-6 lg:w-[460px] xl:w-[500px] 2xl:w-[540px] lg:shrink-0 lg:border-r flex flex-col justify-center" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="p-4 sm:p-5 lg:w-[460px] xl:w-[500px] lg:shrink-0 lg:border-r flex flex-col justify-center self-stretch" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex gap-4 sm:gap-6 items-start">
                 <div className="w-24 sm:w-32 lg:w-36 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border shadow-md" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
                   {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
@@ -293,8 +300,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               </div>
             </div>
 
-            {/* Price History Chart */}
-            <div className="flex-1 min-w-0 lg:pr-14">
+            {/* Price History Chart - cleanly constrained so it doesn't balloon into a giant on wide screens */}
+            <div className="flex-1 min-w-0 max-w-4xl lg:pr-14 p-1 sm:p-2 flex flex-col justify-center">
               <PriceHistoryChart
                 cardId={group.card_id}
                 card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }}
@@ -356,7 +363,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   {visible.map((l, i) => {
                     const onHold = l.status === 'On Hold' || l.status === 'Reserved';
                     const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
-                    const sellerTierBadge = !isOwner ? formatSellerTierBadge(l.seller_badge) : '';
+                    const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
+                    const sellerTierBadge = formatSellerTierBadge(l.seller_badge, l.seller_tier) || (isOwner ? 'Tier 1 Seller' : '');
                     const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
                     const photoCount = (l.inventory_images && l.inventory_images.length > 0)
                       ? l.inventory_images.length
@@ -413,6 +421,19 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                                     <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                                   </svg>
                                   <span>Owner</span>
+                                </span>
+                              )}
+                              {isVerifiedStore && (
+                                <span
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
+                                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                                  title="Official Verified Store"
+                                >
+                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                    <polyline points="9 22 9 12 15 12 15 22" />
+                                  </svg>
+                                  <span>Verified Store</span>
                                 </span>
                               )}
                               {sellerTierBadge && (
@@ -524,6 +545,19 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                                         <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
                                       </svg>
                                       <span>Owner</span>
+                                    </span>
+                                  )}
+                                  {isVerifiedStore && (
+                                    <span
+                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
+                                      style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
+                                      title="Official Verified Store"
+                                    >
+                                      <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                        <polyline points="9 22 9 12 15 12 15 22" />
+                                      </svg>
+                                      <span>Verified Store</span>
                                     </span>
                                   )}
                                   {sellerTierBadge && (
