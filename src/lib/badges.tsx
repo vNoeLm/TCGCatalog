@@ -403,6 +403,26 @@ export function getTierBadgeLabel(badge: CollectorTier | SellerTier): string {
 }
 
 /**
+ * Normalizes seller tier string for badge display.
+ */
+export function formatSellerTierBadge(badge?: string, tier?: number): string {
+  if (typeof tier === 'number' && tier > 0) {
+    return `Tier ${tier} Seller`;
+  }
+  if (!badge) return '';
+  const cleaned = badge.replace(/\bActive\b/gi, '').replace(/\s+/g, ' ').trim();
+  if (cleaned.toLowerCase() === 'seller') {
+    return 'Tier 1 Seller';
+  }
+  const match = cleaned.match(/Tier\s*\d+\s*Seller/i);
+  if (match) return match[0];
+  if (cleaned.toLowerCase() === 'new seller') {
+    return '';
+  }
+  return cleaned;
+}
+
+/**
  * Identity tag marking the account that runs the site. Separate from seller
  * tiers, which the owner earns through sales like anyone else.
  */

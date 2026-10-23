@@ -328,7 +328,7 @@ export const GET: APIRoute = async ({ url }) => {
 
       let views = 0;
       let clicks = 0;
-      let handoverMethods = ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
+      let handoverMethods = ['personal', 'foxpost', 'packeta', 'other'];
 
       if (isNativeMarketplace) {
         views = typeof row.views === 'number' ? row.views : 0;
@@ -506,7 +506,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const safeHandoverMethods = Array.isArray(handover_methods) && handover_methods.length > 0
       ? handover_methods
-      : ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
+      : ['personal', 'foxpost', 'packeta', 'other'];
 
     const notesPayload = JSON.stringify({
       source: 'marketplace',

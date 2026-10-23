@@ -59,8 +59,6 @@ export function ListCardModal({
     'personal',
     'foxpost',
     'packeta',
-    'gls',
-    'posta',
     'other',
   ]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -842,13 +840,11 @@ export function ListCardModal({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { id: 'personal', label: 'Personal pickup', desc: 'In person' },
                   { id: 'foxpost', label: 'Foxpost', desc: 'Parcel locker' },
-                  { id: 'packeta', label: 'Packeta', desc: 'Pickup point' },
-                  { id: 'gls', label: 'GLS', desc: 'Home delivery' },
-                  { id: 'posta', label: 'Magyar Posta', desc: 'Post' },
+                  { id: 'packeta', label: 'Packeta', desc: 'Pickup point / Z-Box' },
                   { id: 'other', label: 'Other arrangement', desc: 'Custom' },
                 ].map((m) => {
                   const isChecked = allowedHandovers.includes(m.id);

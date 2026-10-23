@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { describeOption, methodAvailability, normalizeShipping, shippingOption, sellerShipsTo } from '../src/lib/shipping';
 import { getSellerTier } from '../src/lib/badges';
 
-// In person free, Foxpost 1500 Ft from a 5000 Ft order, GLS 2500 Ft from 10000 Ft, Packeta off.
+// In person free, Foxpost 1500 Ft from a 5000 Ft order, Packeta 1400 Ft from 8000 Ft, Other off.
 const SETTINGS = normalizeShipping({
   personal: { enabled: true, price_huf: 0, min_order_huf: 0 },
   foxpost: { enabled: true, price_huf: 1500, min_order_huf: 5000 },
-  gls: { enabled: true, price_huf: 2500, min_order_huf: 10000 },
-  packeta: { enabled: false, price_huf: 990, min_order_huf: 0 },
+  packeta: { enabled: true, price_huf: 1400, min_order_huf: 8000 },
+  other: { enabled: false, price_huf: 0, min_order_huf: 0 },
 });
 
 describe('shipping minimum order', () => {
@@ -17,16 +17,15 @@ describe('shipping minimum order', () => {
 
   it('at or over the minimum it is usable', () => {
     expect(methodAvailability(SETTINGS, 'foxpost', 5000).short).toBe(0);
-    expect(methodAvailability(SETTINGS, 'gls', 12000).short).toBe(0);
+    expect(methodAvailability(SETTINGS, 'packeta', 10000).short).toBe(0);
   });
 
   it('a method the seller switched off is not offered; one they never set up is off too', () => {
-    expect(methodAvailability(SETTINGS, 'packeta', 50000).offered).toBe(false);
-    expect(methodAvailability(SETTINGS, 'posta', 50000).offered).toBe(false);
+    expect(methodAvailability(SETTINGS, 'other', 50000).offered).toBe(false);
   });
 
   it('a seller with no settings at all offers every method for free', () => {
-    expect(shippingOption({}, 'gls')).toEqual({ enabled: true, price_huf: 0, min_order_huf: 0 });
+    expect(shippingOption({}, 'packeta')).toEqual({ enabled: true, price_huf: 0, min_order_huf: 0 });
     expect(shippingOption(null, 'foxpost')).toEqual({ enabled: true, price_huf: 0, min_order_huf: 0 });
   });
 });
@@ -35,14 +34,17 @@ describe('cleaning stored settings', () => {
   it('rounds to whole forints, never negative, capped, and drops unknown methods', () => {
     const clean = normalizeShipping({
       foxpost: { enabled: 1, price_huf: '1499.6', min_order_huf: -50 },
-      gls: { enabled: true, price_huf: 5_000_000, min_order_huf: 'abc' },
+      packeta: { enabled: true, price_huf: 5_000_000, min_order_huf: 'abc' },
       pigeon: { enabled: true, price_huf: 1, min_order_huf: 1 },
     });
     expect(clean).toEqual({
       country: 'HU',
-      ships_to: 'EU',
+      ships_to: 'DOMESTIC',
+      ships_domestic: true,
+      ships_eu: false,
+      ships_world: false,
       foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
-      gls: { enabled: true, price_huf: 1_000_000, min_order_huf: 0 },
+      packeta: { enabled: true, price_huf: 1_000_000, min_order_huf: 0 },
     });
   });
 
@@ -61,67 +63,33 @@ describe('how an option is described', () => {
     expect(plain(describeOption({ price: 1500, min: 0 }))).toBe('1500 Ft');
     expect(plain(describeOption({ price: 1500, min: 12000 }))).toBe('1500 Ft · from 12 000 Ft');
   });
-
-  it('displays separate EU price when provided', () => {
-    expect(plain(describeOption({ price: 1500, min: 0, price_eu: 7500 }))).toBe('1500 Ft (EU: 7500 Ft)');
-  });
 });
 
-describe('multi-region domestic vs eu shipping', () => {
-  const multiSettings = normalizeShipping({
-    ships_domestic: true,
-    ships_eu: true,
+describe('domestic hungary shipping', () => {
+  const domSettings = normalizeShipping({
     foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
-    posta: { enabled: true, price_huf: 1200, min_order_huf: 0, price_eu_huf: 8500, min_order_eu_huf: 5000 },
-    packeta: { enabled: true, price_huf: 1400, min_order_huf: 0, price_eu_huf: 3800, min_order_eu_huf: 0 },
+    packeta: { enabled: true, price_huf: 1400, min_order_huf: 0 },
   });
 
   it('allows domestic orders with domestic prices', () => {
-    const postDom = methodAvailability(multiSettings, 'posta', 2000, 'DOMESTIC');
-    expect(postDom.offered).toBe(true);
-    expect(postDom.price).toBe(1200);
-
-    const foxDom = methodAvailability(multiSettings, 'foxpost', 2000, 'DOMESTIC');
+    const foxDom = methodAvailability(domSettings, 'foxpost', 2000, 'DOMESTIC');
     expect(foxDom.offered).toBe(true);
     expect(foxDom.price).toBe(1500);
+
+    const packetaDom = methodAvailability(domSettings, 'packeta', 2000, 'DOMESTIC');
+    expect(packetaDom.offered).toBe(true);
+    expect(packetaDom.price).toBe(1400);
   });
 
-  it('allows EU orders with EU prices and disables domestic-only methods', () => {
-    const postEu = methodAvailability(multiSettings, 'posta', 6000, 'EU');
-    expect(postEu.offered).toBe(true);
-    expect(postEu.price).toBe(8500);
-    expect(postEu.short).toBe(0);
+  it('sellerShipsTo allows domestic and rejects non-domestic', () => {
+    expect(sellerShipsTo(domSettings, 'DOMESTIC')).toBe(true);
+    expect(sellerShipsTo(domSettings, 'EU')).toBe(false);
+    expect(sellerShipsTo(domSettings, 'WORLD')).toBe(false);
+  });
 
-    const packetaEu = methodAvailability(multiSettings, 'packeta', 2000, 'EU');
-    expect(packetaEu.offered).toBe(true);
-    expect(packetaEu.price).toBe(3800);
-
-    // Foxpost is HU only
-    const foxEu = methodAvailability(multiSettings, 'foxpost', 6000, 'EU');
+  it('disallows non-domestic destinations in methodAvailability', () => {
+    const foxEu = methodAvailability(domSettings, 'foxpost', 6000, 'EU');
     expect(foxEu.offered).toBe(false);
-  });
-
-  it('respects seller opting out of EU shipping', () => {
-    const domOnly = normalizeShipping({
-      ships_domestic: true,
-      ships_eu: false,
-      posta: { enabled: true, price_huf: 1200, min_order_huf: 0, price_eu_huf: 8500 },
-    });
-    const postEu = methodAvailability(domOnly, 'posta', 10000, 'EU');
-    expect(postEu.offered).toBe(false);
-
-    const postDom = methodAvailability(domOnly, 'posta', 10000, 'DOMESTIC');
-    expect(postDom.offered).toBe(true);
-  });
-
-  it('sellerShipsTo accurately checks domestic vs EU eligibility', () => {
-    const domOnly = normalizeShipping({ ships_domestic: true, ships_eu: false });
-    expect(sellerShipsTo(domOnly, 'DOMESTIC')).toBe(true);
-    expect(sellerShipsTo(domOnly, 'EU')).toBe(false);
-
-    const euSeller = normalizeShipping({ ships_domestic: true, ships_eu: true });
-    expect(sellerShipsTo(euSeller, 'DOMESTIC')).toBe(true);
-    expect(sellerShipsTo(euSeller, 'EU')).toBe(true);
   });
 });
 

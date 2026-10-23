@@ -7,7 +7,7 @@ import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 import { CountryFlag } from "./CountryFlag";
 import { OWNER_ID } from "../lib/constants";
-import { VerifiedStoreTag } from "../lib/badges";
+import { VerifiedStoreTag, formatSellerTierBadge } from "../lib/badges";
 import { addToCart, cartQuantityFor } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
 
@@ -281,7 +281,8 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
         {/* Seller Info (centered, 2-line layout for perfect balance and verified store badge) */}
         {(() => {
           const isOwner = card.seller_id === OWNER_ID || card.seller_role === 'owner' || card.seller_badge === 'Owner';
-          const isVerifiedStore = isOwner || Boolean(card.is_verified_store || card.seller_badge === 'Verified Store');
+          const isVerifiedStore = !isOwner && Boolean(card.is_verified_store || card.seller_badge === 'Verified Store');
+          const sellerTierBadge = formatSellerTierBadge(card.seller_badge, card.seller_tier) || (isOwner ? 'Tier 1 Seller' : '');
 
           return (
             <div className={`mt-auto ${isSmall ? 'pt-1.5 pb-1' : 'pt-2 pb-1.5'} border-t text-[10px] flex flex-col items-center justify-center text-center gap-1`} style={{ borderColor: 'var(--border-subtle)' }}>
@@ -321,8 +322,8 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                 )}
               </a>
 
-              {/* Bottom row: Badges (Owner, Verified Store, etc.) */}
-              <div className="flex items-center justify-center gap-1 flex-wrap">
+              {/* Bottom row: Badges (Owner, Verified Store, Tier X, etc.) */}
+              <div className="flex items-center justify-center gap-1 flex-wrap w-full">
                 {isOwner && (
                   <span
                     className="text-[8px] font-black px-1.5 py-0.5 rounded border shrink-0 uppercase tracking-wider inline-flex items-center gap-1"
@@ -338,12 +339,13 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                 {isVerifiedStore && (
                   <VerifiedStoreTag className="text-[8px] px-1.5 py-0.5" iconClassName="w-2.5 h-2.5" />
                 )}
-                {!isOwner && !isVerifiedStore && card.seller_badge && (
+                {sellerTierBadge && (
                   <span
                     className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 inline-flex items-center gap-0.5"
-                    style={{ background: 'var(--bg-raised)', color: 'var(--text-muted)', borderColor: 'var(--border)' }}
+                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                    title={sellerTierBadge}
                   >
-                    <span>{card.seller_badge}</span>
+                    <span>{sellerTierBadge}</span>
                   </span>
                 )}
                 {typeof card.views === 'number' && card.views > 0 && (

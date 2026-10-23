@@ -14,6 +14,7 @@ export const HOLD_ACTION_LABEL: Record<HoldAction, string> = {
   confirm_received: 'I received it',
   confirm_sale: 'Complete sale',
   deny: 'Deny',
+  update_tracking: 'Update tracking',
 };
 
 export function getHoldActionLabel(action: HoldAction, status?: string, role?: HoldRole): string {
@@ -78,7 +79,7 @@ export function holdStepText(
 }
 
 /** Asks (for the steps that need it), then takes the step. Returns an error message, or null. */
-export async function performHoldAction(holdId: string, action: HoldAction, currentStatus?: string): Promise<string | null | 'cancelled'> {
+export async function performHoldAction(holdId: string, action: HoldAction, currentStatus?: string, trackingNumber?: string | null): Promise<string | null | 'cancelled'> {
   let prompt = HOLD_ACTION_CONFIRM[action];
   if (action === 'confirm_received' && currentStatus === 'held') {
     prompt = 'Confirm you have the card? The seller then has 3 days to OK it, or it auto-completes.';
@@ -96,7 +97,7 @@ export async function performHoldAction(holdId: string, action: HoldAction, curr
   const res = await fetch('/api/marketplace/hold-request', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-    body: JSON.stringify({ id: holdId, action }),
+    body: JSON.stringify({ id: holdId, action, ...(trackingNumber ? { tracking_number: trackingNumber } : {}) }),
   });
   const json = await res.json().catch(() => ({}));
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('tcg-marketplace-changed'));

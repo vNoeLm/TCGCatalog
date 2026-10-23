@@ -11,6 +11,8 @@ import { cartQuantityFor, addToCart, removeFromCart, updateCartItemQuantity } fr
 import { useCart } from '../../lib/useCart';
 import { CountryFlag } from '../CountryFlag';
 import { OWNER_ID } from '../../lib/constants';
+import { formatSellerTierBadge } from '../../lib/badges';
+import { isOvernumbered, isAltArt } from '../../lib/cardVariants';
 
 const fmtHuf = (n: number) =>
   new Intl.NumberFormat('hu-HU', { style: 'currency', currency: 'HUF', maximumFractionDigits: 0 }).format(n);
@@ -27,18 +29,6 @@ function shortCondition(c?: string): string {
     case 'damaged': return 'DMG';
     default: return c || 'NM';
   }
-}
-
-function formatSellerTierBadge(badge?: string, tier?: number): string {
-  if (typeof tier === 'number' && tier > 0) {
-    return `Tier ${tier} Seller`;
-  }
-  if (!badge) return '';
-  const cleaned = badge.replace(/\bActive\b/gi, '').replace(/\s+/g, ' ').trim();
-  if (cleaned.toLowerCase() === 'seller') {
-    return 'Tier 1 Seller';
-  }
-  return cleaned;
 }
 
 type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
@@ -255,18 +245,56 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
           {/* Top Section: Card Info on Left & Price History on Right (side-by-side on lg+) */}
           <div className="flex flex-col lg:flex-row border-b shrink-0 items-start lg:items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
             {/* Card Info & Cardmarket-style Stats */}
-            <div className="p-4 sm:p-5 lg:w-[460px] xl:w-[500px] lg:shrink-0 lg:border-r flex flex-col justify-center self-stretch" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="p-4 sm:p-5 lg:w-[420px] xl:w-[460px] lg:shrink-0 lg:border-r flex flex-col justify-center self-stretch" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex gap-4 sm:gap-6 items-start">
-                <div className="w-24 sm:w-32 lg:w-36 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border shadow-md" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
+                <div className="relative w-24 sm:w-32 lg:w-36 shrink-0 aspect-[63/88] rounded-xl overflow-hidden border shadow-md" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)' }}>
                   {imagePath && <img {...cardThumbProps(imagePath, 'avatar')} alt={card.name} className="w-full h-full object-cover" />}
+                  <div className="absolute bottom-1.5 left-1.5 flex flex-col items-start gap-1" style={{ zIndex: 3 }}>
+                    {isAltArt(card) && (
+                      <span
+                        className="px-1.5 py-0.5 text-[9px] font-black rounded uppercase tracking-wider"
+                        style={{
+                          background: "rgba(219, 39, 119, 0.95)",
+                          color: "#ffffff",
+                          border: "1px solid #f472b6",
+                        }}
+                      >
+                        ALT ART
+                      </span>
+                    )}
+                    {isOvernumbered(card) && (
+                      <span
+                        className="px-1.5 py-0.5 text-[9px] font-black rounded uppercase tracking-wider"
+                        style={{
+                          background: "rgba(99, 102, 241, 0.95)",
+                          color: "#ffffff",
+                          border: "1px solid #818cf8",
+                        }}
+                      >
+                        ON
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1 flex flex-col justify-center">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>{main}</h2>
                     {sub && <p className="text-xs font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
-                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
+                      </span>
+                      {isAltArt(card) && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-pink-300 bg-pink-950/60 border border-pink-500/40 shrink-0">
+                          Alt Art
+                        </span>
+                      )}
+                      {isOvernumbered(card) && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-indigo-300 bg-indigo-950/60 border border-indigo-500/40 shrink-0">
+                          Overnumbered
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Cardmarket-style Stats List */}
@@ -300,8 +328,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               </div>
             </div>
 
-            {/* Price History Chart - cleanly constrained so it doesn't balloon into a giant on wide screens */}
-            <div className="flex-1 min-w-0 max-w-4xl lg:pr-14 p-1 sm:p-2 flex flex-col justify-center">
+            {/* Price History Chart - cleanly positioned without excess dead whitespace */}
+            <div className="flex-1 min-w-0 max-w-4xl p-2 sm:p-4 flex flex-col justify-center">
               <PriceHistoryChart
                 cardId={group.card_id}
                 card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }}

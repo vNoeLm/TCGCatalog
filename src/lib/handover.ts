@@ -19,11 +19,8 @@ export interface HandoverMethod {
 
 export const HANDOVER_METHODS: HandoverMethod[] = [
   { id: 'personal', label: 'In person', kind: 'personal' },
-  { id: 'foxpost', label: 'Foxpost (HU)', kind: 'locker', finderUrl: 'https://foxpost.hu/csomagautomatak' },
-  { id: 'packeta', label: 'Packeta (EU)', kind: 'locker', finderUrl: 'https://www.packeta.hu/atvevohelyek' },
-  { id: 'gls', label: 'GLS Courier', kind: 'address' },
-  { id: 'posta', label: 'National Post / Posta', kind: 'address' },
-  { id: 'dhl', label: 'DHL Express (Intl)', kind: 'address' },
+  { id: 'foxpost', label: 'Foxpost', kind: 'locker', finderUrl: 'https://foxpost.hu/csomagautomatak' },
+  { id: 'packeta', label: 'Packeta', kind: 'locker', finderUrl: 'https://www.packeta.hu/atvevohelyek' },
   { id: 'other', label: 'Other / Custom', kind: 'custom' },
 ];
 
@@ -32,7 +29,13 @@ export const ALL_HANDOVER_IDS: HandoverMethodId[] = HANDOVER_METHODS.map((m) => 
 export function handoverMethod(id: string | null | undefined): HandoverMethod | undefined {
   // 'pickup' is what older requests stored for in-person.
   const normalized = id === 'pickup' ? 'personal' : id;
-  return HANDOVER_METHODS.find((m) => m.id === normalized);
+  const found = HANDOVER_METHODS.find((m) => m.id === normalized);
+  if (found) return found;
+  // Backward compatibility for legacy listings/requests with legacy couriers:
+  if (normalized === 'gls') return { id: 'gls', label: 'GLS Courier', kind: 'address' };
+  if (normalized === 'posta') return { id: 'posta', label: 'Posta', kind: 'address' };
+  if (normalized === 'dhl') return { id: 'dhl', label: 'DHL Express', kind: 'address' };
+  return undefined;
 }
 
 export function handoverLabel(id: string | null | undefined): string {

@@ -23,7 +23,8 @@ export type HoldAction =
   | 'mark_handed_over'  // seller met up / sent the package
   | 'confirm_received'  // buyer has the card (moves held -> buyer_received, or completes if already handed_over)
   | 'confirm_sale'      // OKs handover/receipt, or completes after 3-day timeout of silence
-  | 'deny';             // either side denies handover / receipt within the 3-day window
+  | 'deny'
+  | 'update_tracking';             // either side denies handover / receipt within the 3-day window
 
 export type HoldRole = 'seller' | 'buyer';
 

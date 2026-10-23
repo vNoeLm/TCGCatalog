@@ -17,6 +17,7 @@ interface BuyerHold {
   condition: string | null;
   items: HoldRequestItem[] | null;
   shipping_huf?: number | null;
+  tracking_number?: string | null;
   conversation_id: string | null;
   preferred_handover: string | null;
   created_at: string;
@@ -148,6 +149,17 @@ export function BuyerHolds({ userId }: { userId: string }) {
                     ))}
                   </div>
                   <p className="text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>{holdStepText(h, 'buyer', actions)}</p>
+                  {h.tracking_number && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border" style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}>
+                      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="3" width="15" height="13" />
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                        <circle cx="5.5" cy="18.5" r="2.5" />
+                        <circle cx="18.5" cy="18.5" r="2.5" />
+                      </svg>
+                      <span>Tracking: {h.tracking_number}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-span-2 sm:col-span-1 flex flex-wrap sm:flex-col items-stretch gap-2">

@@ -60,6 +60,7 @@ export interface HoldRequestRecord {
   items?: HoldRequestItem[];
   /** What the buyer pays for the chosen handover method (seller shipping options). */
   shipping_huf?: number;
+  tracking_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,7 +158,7 @@ async function recordCompletedSaleInOrders(req: HoldRequestRecord): Promise<stri
       shipping_name: req.buyer_name,
       shipping_method: req.preferred_handover,
       shipping_address: req.handover_details || undefined,
-      tracking_number: null,
+      tracking_number: req.tracking_number || null,
       payment_method: 'cash_or_transfer',
       payment_status: 'paid',
       customer_info: {
@@ -867,6 +868,52 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
+    if (action === 'update_tracking') {
+      if (!isSeller) {
+        return new Response(JSON.stringify({ success: false, error: 'Only the seller can update tracking.' }), {
+          status: 403,
+          headers: JSON_HEADERS,
+        });
+      }
+      const trackingNumber = typeof body.tracking_number === 'string' ? body.tracking_number.trim() : null;
+      const nowIso = new Date().toISOString();
+      const updatedReq: HoldRequestRecord = {
+        ...currentReq,
+        tracking_number: trackingNumber,
+        updated_at: nowIso,
+      };
+      if (dbItem) {
+        try {
+          await supabaseAdmin
+            .from('hold_requests')
+            .update({ tracking_number: trackingNumber, updated_at: nowIso })
+            .eq('id', id);
+        } catch (e) {
+          console.warn('Could not update tracking_number directly:', e);
+        }
+      }
+      const fallbackList = await getFallbackHoldRequests();
+      const idx = fallbackList.findIndex(r => r.id === id);
+      if (idx >= 0) fallbackList[idx] = updatedReq;
+      else fallbackList.unshift(updatedReq);
+      await saveFallbackHoldRequests(fallbackList);
+
+      if (currentReq.conversation_id && trackingNumber) {
+        await postSystemMessage(currentReq.conversation_id, user.id, `Tracking number added: ${trackingNumber}`, {
+          holdRequestId: id,
+          metadata: { action: 'update_tracking', tracking_number: trackingNumber },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: updatedReq,
+      }), {
+        status: 200,
+        headers: JSON_HEADERS,
+      });
+    }
+
     const allowed = allowedHoldActions(currentReq.status, isSeller ? 'seller' : 'buyer', currentReq.updated_at);
     if (!allowed.includes(action)) {
       const error = action === 'confirm_sale' && currentReq.status === 'handed_over'
@@ -883,6 +930,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
 
     const completes = (action === 'confirm_received' && currentReq.status === 'handed_over') || action === 'confirm_sale';
+    const trackingNumber = typeof body.tracking_number === 'string' ? body.tracking_number.trim() : currentReq.tracking_number;
     const newStatus: HoldStatus =
       action === 'hold' ? 'held'
       : action === 'reject' ? 'rejected'
@@ -898,17 +946,30 @@ export const PATCH: APIRoute = async ({ request }) => {
       ...currentReq,
       status: newStatus,
       updated_at: nowIso,
+      tracking_number: trackingNumber,
     };
 
     // 1. Update hold request table or fallback. Only if it's still in the state it was read in -
     // two clicks (or both people) acting at once must not complete a sale twice.
     if (dbItem) {
-      const { data: changed } = await supabaseAdmin
-        .from('hold_requests')
-        .update({ status: newStatus, updated_at: nowIso })
-        .eq('id', id)
-        .eq('status', currentReq.status)
-        .select('id');
+      let changed = null;
+      try {
+        const res = await supabaseAdmin
+          .from('hold_requests')
+          .update({ status: newStatus, updated_at: nowIso, ...(trackingNumber ? { tracking_number: trackingNumber } : {}) })
+          .eq('id', id)
+          .eq('status', currentReq.status)
+          .select('id');
+        changed = res.data;
+      } catch {
+        const res = await supabaseAdmin
+          .from('hold_requests')
+          .update({ status: newStatus, updated_at: nowIso })
+          .eq('id', id)
+          .eq('status', currentReq.status)
+          .select('id');
+        changed = res.data;
+      }
       if (!changed || changed.length === 0) {
         return new Response(JSON.stringify({ success: false, error: 'This request was just updated - refresh and try again.' }), {
           status: 409,
@@ -1008,7 +1069,12 @@ export const PATCH: APIRoute = async ({ request }) => {
         deny: currentReq.status === 'handed_over'
           ? { body: 'Buyer reported they did not receive the card — hold cancelled.', sender: user.id }
           : { body: 'Seller reported the card was not handed over — hold cancelled.', sender: user.id },
-        mark_handed_over: { body: 'Marked as handed over / sent. The buyer has 3 days to confirm or deny before it auto-completes.', sender: currentReq.seller_id },
+        mark_handed_over: {
+          body: trackingNumber
+            ? `Marked as handed over / sent (Tracking: ${trackingNumber}). The buyer has 3 days to confirm or deny before it auto-completes.`
+            : 'Marked as handed over / sent. The buyer has 3 days to confirm or deny before it auto-completes.',
+          sender: currentReq.seller_id
+        },
         confirm_received: newStatus === 'buyer_received'
           ? { body: 'Confirmed receiving the card — waiting for seller OK or denial (auto-completes in 3 days).', sender: currentReq.buyer_id || user.id }
           : { body: 'Received the card — sale completed!', sender: currentReq.buyer_id || user.id },

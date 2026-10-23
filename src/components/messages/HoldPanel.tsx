@@ -16,6 +16,7 @@ interface OpenHold {
   status: string;
   card_name: string | null;
   items: { card_name?: string; quantity?: number }[] | null;
+  tracking_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -154,6 +155,11 @@ export function HoldPanel({ conversationId, myId, counterpartId, counterpartName
               <div className="text-xs leading-snug mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {holdStepText(h, role, actions)}
               </div>
+              {h.tracking_number && (
+                <div className="text-[11px] font-mono font-semibold mt-0.5" style={{ color: 'var(--text-accent)' }}>
+                  Tracking: {h.tracking_number}
+                </div>
+              )}
               {role === 'seller' && <BuyerTrustLine buyerId={h.buyer_id} className="mt-0.5" />}
             </div>
             <div className="flex items-center gap-2 shrink-0">

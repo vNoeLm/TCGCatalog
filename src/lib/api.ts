@@ -625,7 +625,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
   if (error) throw error;
 
   let sellerId = OWNER_ID;
-  let handoverMethods: string[] = ['personal', 'foxpost', 'packeta', 'gls', 'posta', 'other'];
+  let handoverMethods: string[] = ['personal', 'foxpost', 'packeta', 'other'];
   if (data.notes) {
     try {
       if (typeof data.notes === 'string' && data.notes.startsWith('{')) {

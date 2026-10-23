@@ -542,7 +542,13 @@ export function SellerDashboardApp() {
   };
 
   // Hold Request Management Actions
-  const handleHoldAction = async (requestId: string, action: HoldAction) => {
+  const handleHoldAction = async (requestId: string, action: HoldAction, trackingNumberParam?: string) => {
+    let trackingNumber = trackingNumberParam;
+    if (action === 'mark_handed_over' && trackingNumber === undefined) {
+      const entered = window.prompt('Enter tracking number (optional, leave blank for in-person / untracked):');
+      if (entered === null) return;
+      if (entered.trim()) trackingNumber = entered.trim();
+    }
     const targetReq = holdRequests.find(r => r.id === requestId);
     const confirmPrompt =
       action === 'confirm_sale'
@@ -573,12 +579,15 @@ export function SellerDashboardApp() {
         body: JSON.stringify({
           id: requestId,
           action,
+          ...(trackingNumber ? { tracking_number: trackingNumber } : {}),
         }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
         showToast(
-          action === 'confirm_sale'
+          action === 'update_tracking'
+            ? ('Tracking number updated.')
+            : action === 'confirm_sale'
             ? ('Sale completed and recorded.')
             : action === 'deny'
             ? ('Hold denied and cancelled. Card returned to In Stock.')
@@ -1702,6 +1711,18 @@ export function SellerDashboardApp() {
                             </div>
                           )}
 
+                          {req.tracking_number && (
+                            <div className="mt-1 flex items-center gap-1.5 text-xs font-mono font-semibold" style={{ color: 'var(--text-accent)' }}>
+                              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="1" y="3" width="15" height="13" />
+                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                                <circle cx="5.5" cy="18.5" r="2.5" />
+                                <circle cx="18.5" cy="18.5" r="2.5" />
+                              </svg>
+                              <span>Tracking: {req.tracking_number}</span>
+                            </div>
+                          )}
+
                           <div className="text-[11px] text-[var(--text-muted)] mt-1">
                             Requested at:{' '}
                             {new Date(req.created_at).toLocaleString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
@@ -1720,6 +1741,28 @@ export function SellerDashboardApp() {
                           </svg>
                           <span>Message</span>
                         </a>
+                        {(isHeld || isHandedOver) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const entered = window.prompt('Enter tracking number:', req.tracking_number || '');
+                              if (entered !== null) {
+                                handleHoldAction(req.id, 'update_tracking' as any, entered.trim());
+                              }
+                            }}
+                            disabled={processingHoldId === req.id}
+                            className="px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer bg-[var(--bg-raised)] hover:brightness-110 text-[var(--text-secondary)] border border-[var(--border)] flex items-center gap-1.5 disabled:opacity-50"
+                            title="Add or edit package tracking number"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="1" y="3" width="15" height="13" />
+                              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                              <circle cx="5.5" cy="18.5" r="2.5" />
+                              <circle cx="18.5" cy="18.5" r="2.5" />
+                            </svg>
+                            <span>{req.tracking_number ? 'Edit tracking' : 'Add tracking'}</span>
+                          </button>
+                        )}
                         {isPending && (
                           <>
                             <button

@@ -26,7 +26,6 @@ import {
 import { AuthModal } from '../auth/AuthModal';
 import { methodAvailability, sellerShipsTo, type MethodAvailability, type ShippingSettings } from '../../lib/shipping';
 import { fetchShippingSettings } from '../../lib/shippingClient';
-import { COUNTRIES, getCountry } from '../../lib/countries';
 import type { UserProfile } from '../../types';
 
 const fmt = (n: number) =>
@@ -135,17 +134,16 @@ export function MarketplaceCartDrawer() {
     return Array.from(bySeller.values()).map((g) => {
       const subtotal = cartTotalHuf(g.items);
       const settings = shippingBySeller[g.sellerId];
-      const buyerCountry = delivery.country || 'HU';
-      const sellerCountry = settings?.country || 'HU';
-      const destination = buyerCountry === sellerCountry ? 'DOMESTIC' : 'EU';
+      const buyerCountry = 'HU';
+      const sellerCountry = 'HU';
+      const destination = 'DOMESTIC';
       const sharedMethods = sharedHandoverIds(g.items.map((i) => i.handoverMethods));
       const hasSharedHandover = sharedMethods.length > 0;
       const options = sharedMethods
         .map((id) => methodAvailability(settings, id, subtotal, destination))
         .filter((o) => o.offered);
 
-      const shipsToDestination = sellerShipsTo(settings, destination);
-      const isCountryMismatch = buyerCountry !== sellerCountry && (!shipsToDestination || options.length === 0);
+      const isCountryMismatch = false;
 
       return {
         ...g,
@@ -205,11 +203,7 @@ export function MarketplaceCartDrawer() {
     for (const group of groups) {
       const c = choiceFor(group);
       if (group.options.length === 0) {
-        if (group.isCountryMismatch) {
-          const sellerC = getCountry(group.sellerCountry).name;
-          return `${group.sellerName} only delivers domestically to ${sellerC} (${group.sellerCountry}). Switch your delivery country to ${sellerC} or remove their items.`;
-        }
-        return `The cards from ${group.sellerName} don't share a handover method - remove one to send the rest.`;
+        return `The cards from ${group.sellerName} don't share an enabled handover method - remove one to send the rest.`;
       }
       if (group.methods.length === 0) {
         return `Your order from ${group.sellerName} is below the minimum for their delivery options - add a card or two.`;
@@ -260,7 +254,7 @@ export function MarketplaceCartDrawer() {
               seller_id: group.sellerId,
               buyer_phone: ships ? delivery.phone.trim() : undefined,
               buyer_country: delivery.country || 'HU',
-              destination: (delivery.country || 'HU') === (shippingBySeller[group.sellerId]?.country || 'HU') ? 'DOMESTIC' : 'EU',
+              destination: 'DOMESTIC',
               preferred_handover: method,
               handover_details: formatHandoverDetails(method, delivery, c.custom) || undefined,
               message: c.message.trim() || undefined,
@@ -454,65 +448,13 @@ export function MarketplaceCartDrawer() {
                         Handover
                       </div>
                       {group.options.length === 0 ? (
-                        group.isCountryMismatch ? (
-                          <div className="p-3 rounded-xl border mb-3 text-xs space-y-2.5" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
-                            <div className="flex items-start gap-2">
-                              <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                              </svg>
-                              <div className="leading-relaxed">
-                                <div className="font-bold">Shipping country mismatch</div>
-                                <div className="text-[11px] mt-0.5 opacity-90">
-                                  <strong>{group.sellerName}</strong> only ships domestically within <strong>{getCountry(group.sellerCountry).name} ({group.sellerCountry})</strong>. Your delivery country is currently set to <strong>{getCountry(delivery.country).name} ({delivery.country || 'HU'})</strong>.
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = { ...delivery, country: group.sellerCountry };
-                                  setDelivery(updated);
-                                  saveDelivery(updated);
-                                }}
-                                className="px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:brightness-110 active:scale-95"
-                                style={{ background: 'var(--negative)', color: '#ffffff' }}
-                              >
-                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                                Switch delivery to {getCountry(group.sellerCountry).name} ({group.sellerCountry})
-                              </button>
-                              <div className="inline-flex items-center gap-1.5 text-[11px]">
-                                <span className="opacity-80">Or change:</span>
-                                <select
-                                  value={delivery.country || 'HU'}
-                                  onChange={(e) => {
-                                    const updated = { ...delivery, country: e.target.value };
-                                    setDelivery(updated);
-                                    saveDelivery(updated);
-                                  }}
-                                  className="rounded px-2 py-1 text-xs border font-medium cursor-pointer"
-                                  style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-                                >
-                                  {COUNTRIES.map((c) => (
-                                    <option key={c.code} value={c.code}>
-                                      {c.name} ({c.code})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-[11px] leading-relaxed p-2.5 rounded-lg border mb-2" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
-                            These cards were listed with different handover methods, so one request can't cover them all. Remove one to send the rest.
-                          </p>
-                        )
+                        <p className="text-[11px] leading-relaxed p-2.5 rounded-lg border mb-2" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
+                          {group.hasSharedHandover
+                            ? 'No enabled handover method meets the minimum order amount for this seller.'
+                            : "These cards were listed with different handover methods, so one request can't cover them all. Remove one to send the rest."}
+                        </p>
                       ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
                           {HANDOVER_METHODS.map((hm) => {
                             const opt = group.options.find((o) => o.id === hm.id);
                             if (!opt) return null;
@@ -604,24 +546,11 @@ export function MarketplaceCartDrawer() {
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                        Delivery Country
+                        Delivery Destination
                       </label>
-                      <select
-                        value={delivery.country || 'HU'}
-                        onChange={(e) => {
-                          const updated = { ...delivery, country: e.target.value };
-                          setDelivery(updated);
-                          saveDelivery(updated);
-                        }}
-                        className={`${inputCls} font-bold cursor-pointer`}
-                        style={inputStyle}
-                      >
-                        {COUNTRIES.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.name} ({c.localName}) {c.code === 'HU' ? '— Domestic' : '— EU'}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2 h-9 px-3 rounded-lg border text-xs font-semibold" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
+                        <span>Hungary (Belföld)</span>
+                      </div>
                     </div>
                     {needs('foxpost') && (
                       <div>
@@ -651,7 +580,10 @@ export function MarketplaceCartDrawer() {
                 )}
 
                 <div className="flex items-center justify-between mb-3 pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Total</span>
+                  <div>
+                    <span className="text-xs font-bold block" style={{ color: 'var(--text-secondary)' }}>Total</span>
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Settled in HUF</span>
+                  </div>
                   <span className="text-base font-black text-[var(--positive)]">{formatPrice(total)}</span>
                 </div>
 
@@ -660,6 +592,21 @@ export function MarketplaceCartDrawer() {
                     {errorMsg}
                   </div>
                 )}
+
+                {/* Multi-currency / Settlement notice */}
+                <div
+                  className="mb-2.5 p-2.5 rounded-lg border text-[10px] leading-relaxed flex items-start gap-2"
+                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-accent)' }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <div>
+                    <strong style={{ color: 'var(--text-secondary)' }}>Currency & Settlement:</strong> All transactions are settled in Hungarian Forint (HUF). EUR prices are strictly informational estimates; your bank or card provider may apply differing exchange rates or conversion fees.
+                  </div>
+                </div>
 
                 <div
                   className="mb-3 p-2.5 rounded-lg border text-[10px] leading-relaxed"

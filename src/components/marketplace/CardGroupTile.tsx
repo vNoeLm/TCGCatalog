@@ -3,6 +3,7 @@ import type { CardListingGroup } from '../../lib/marketplaceGrouping';
 import { cardThumbProps, gridThumbSize } from '../../lib/supabase';
 import { splitCardTitle, formatCleanCardNumber } from '../../lib/formatGameText';
 import { useCurrency } from '../../lib/currency';
+import { isOvernumbered, isAltArt } from '../../lib/cardVariants';
 
 interface CardGroupTileProps {
   group: CardListingGroup;
@@ -48,6 +49,39 @@ export const CardGroupTile = React.memo(function CardGroupTile({ group, onClick,
             </span>
           )}
         </div>
+
+        {/* Bottom Left Badges: ALT ART / ON */}
+        <div className="absolute bottom-1.5 left-1.5 flex flex-col items-start gap-1" style={{ zIndex: 3 }}>
+          {isAltArt(card) && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(219, 39, 119, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #f472b6",
+                boxShadow: "0 0 12px rgba(236, 72, 153, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              ALT ART
+            </span>
+          )}
+
+          {isOvernumbered(card) && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-black rounded-lg uppercase tracking-wider"
+              style={{
+                background: "rgba(99, 102, 241, 0.95)",
+                color: "#ffffff",
+                border: "1.5px solid #818cf8",
+                boxShadow: "0 0 12px rgba(99, 102, 241, 0.6)",
+                textShadow: "0 0 6px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              ON
+            </span>
+          )}
+        </div>
       </div>
 
       <div className={`${isSmall ? 'p-2.5' : 'p-3.5'} flex flex-col flex-grow`}>
@@ -64,9 +98,21 @@ export const CardGroupTile = React.memo(function CardGroupTile({ group, onClick,
         <p className={`${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`} style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
-        <div className={`flex justify-between font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`} style={{ color: 'var(--text-tertiary)' }}>
-          <span>{formatCleanCardNumber(card.card_number)}</span>
-          <span>{card.rarity}</span>
+        <div className={`flex justify-between items-center font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`} style={{ color: 'var(--text-tertiary)' }}>
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <span>{formatCleanCardNumber(card.card_number)}</span>
+            {isAltArt(card) && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-pink-300 bg-pink-950/60 border border-pink-500/40 shrink-0">
+                Alt Art
+              </span>
+            )}
+            {isOvernumbered(card) && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-indigo-300 bg-indigo-950/60 border border-indigo-500/40 shrink-0">
+                Overnumbered
+              </span>
+            )}
+          </div>
+          <span className="shrink-0">{card.rarity}</span>
         </div>
 
         <div className={`mt-auto ${isSmall ? 'pt-1.5' : 'pt-2'}`} style={{ borderTop: '1px solid var(--border-subtle)' }}>
