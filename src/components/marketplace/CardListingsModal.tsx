@@ -17,6 +17,23 @@ const fmtHuf = (n: number) =>
 
 const CONDITION_ORDER = ['Mint', 'Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
 
+function shortCondition(c?: string): string {
+  switch ((c || '').trim().toLowerCase()) {
+    case 'mint': return 'M';
+    case 'near mint': return 'NM';
+    case 'lightly played': return 'LP';
+    case 'moderately played': return 'MP';
+    case 'heavily played': return 'HP';
+    case 'damaged': return 'DMG';
+    default: return c || 'NM';
+  }
+}
+
+function formatSellerTierBadge(badge?: string): string {
+  if (!badge) return '';
+  return badge.replace(/\s*Active\s*/i, ' ').trim();
+}
+
 type ListingSort = 'price_asc' | 'price_desc' | 'condition' | 'quantity';
 
 // Seller | Description | Condition | Amount | Price | (View). On a phone the seller, price and View share
@@ -213,7 +230,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
       <div
         onClick={(e) => e.stopPropagation()}
         data-state={entered ? 'open' : 'closed'}
-        className="tv-modal-panel w-full max-w-6xl 2xl:max-w-7xl h-full max-h-[94vh] my-auto relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="tv-modal-panel w-full h-full max-w-none relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', willChange: 'transform, opacity' }}
       >
         <button
@@ -339,13 +356,21 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   {visible.map((l, i) => {
                     const onHold = l.status === 'On Hold' || l.status === 'Reserved';
                     const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
-                    const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
+                    const sellerTierBadge = !isOwner ? formatSellerTierBadge(l.seller_badge) : '';
+                    const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
+                    const photoCount = (l.inventory_images && l.inventory_images.length > 0)
+                      ? l.inventory_images.length
+                      : (((l as any).images && (l as any).images.length > 0)
+                      ? (l as any).images.length
+                      : (l.inventory_image ? 1 : 0));
+                    const description = getListingDescription(l.notes);
+
                     return (
                       <div
                         key={l.inventory_id}
                         onClick={() => onSelectListing(l.inventory_id)}
                         title="Click to view full photos and seller details"
-                        className={`listing-row grid grid-cols-[minmax(0,1fr)_auto] ${ROW_COLUMNS} items-center gap-x-2 @[720px]:gap-x-0 gap-y-2 px-3 py-3 sm:py-3.5 rounded-xl cursor-pointer transition-all hover:bg-[var(--bg-surface-2)]/80 group`}
+                        className="listing-row px-3 py-3 sm:py-3.5 rounded-xl cursor-pointer transition-all hover:bg-[var(--bg-surface-2)]/80 group"
                         style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}
                         role="button"
                         tabIndex={0}
@@ -356,150 +381,221 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                           }
                         }}
                       >
-                        {/* Seller Column */}
-                        <div
-                          className="seller-col order-1 min-w-0 px-1 sm:px-2 @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (l.seller_id) {
-                              window.location.href = `/user?id=${l.seller_id}`;
-                            }
-                          }}
-                        >
-                          <a
-                            href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-2 min-w-0 p-1.5 -m-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-raised)] transition-all cursor-pointer group/seller"
-                            title={`View ${rowSeller(l)}'s profile`}
-                          >
-                            {l.seller_avatar ? (
-                              <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
-                            ) : (
-                              <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
-                                {rowSeller(l)[0].toUpperCase()}
+                        {/* MOBILE VIEW (< 720px): 2 clean rows */}
+                        <div className="@[720px]:hidden flex flex-col gap-2 w-full">
+                          {/* Row 1: Profile + Tags in one line */}
+                          <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                            <div
+                              className="flex items-center gap-1.5 min-w-0 flex-1 cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (l.seller_id) {
+                                  window.location.href = `/user?id=${l.seller_id}`;
+                                }
+                              }}
+                            >
+                              {l.seller_avatar ? (
+                                <img src={l.seller_avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
+                              ) : (
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                                  {rowSeller(l)[0].toUpperCase()}
+                                </span>
+                              )}
+                              <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px] shrink-0" />
+                              <span className="text-xs sm:text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{rowSeller(l)}</span>
+                              {isOwner && (
+                                <span
+                                  className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
+                                  style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                  title="Platform Owner"
+                                >
+                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                                  </svg>
+                                  <span>Owner</span>
+                                </span>
+                              )}
+                              {sellerTierBadge && (
+                                <span
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center shrink-0"
+                                  style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                                >
+                                  {sellerTierBadge}
+                                </span>
+                              )}
+                            </div>
+                            {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
+                              <span className="text-[11px] font-bold inline-flex items-center gap-0.5 shrink-0 ml-auto" style={{ color: 'var(--text-accent)' }}>
+                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                </svg>
+                                <span>{l.seller_rating_avg.toFixed(1)}</span>
                               </span>
                             )}
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                                <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
-                                <span className="truncate">{rowSeller(l)}</span>
-                              </div>
-                              <div className="text-[11px] flex items-center gap-1.5 flex-wrap mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                                {isOwner && (
-                                  <span
-                                    className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
-                                    style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
-                                    title="Platform Owner"
-                                  >
-                                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-                                    </svg>
-                                    <span>Owner</span>
-                                  </span>
-                                )}
-                                {isVerifiedStore && (
-                                  <span
-                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
-                                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                                    title="Official Verified Store"
-                                  >
-                                    <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                      <polyline points="9 22 9 12 15 12 15 22" />
-                                    </svg>
-                                    <span>Verified Store</span>
-                                  </span>
-                                )}
-                                {!isOwner && !isVerifiedStore && l.seller_badge && <span className="truncate">{l.seller_badge}</span>}
-                                {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
-                                  <span className="font-bold inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--text-accent)' }}>
-                                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                                    </svg>
-                                    <span>{l.seller_rating_avg.toFixed(1)}</span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </a>
-                        </div>
-
-                        {/* Mobile Action Column: Price Stacked Above Add/Cart Controls */}
-                        <div className="order-2 @[720px]:hidden flex flex-col items-end justify-center gap-1 shrink-0">
-                          <div className="text-sm sm:text-base font-black text-[var(--positive)] whitespace-nowrap">
-                            {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
                           </div>
-                          {renderCartAction(l)}
-                        </div>
 
-                        {/* Description Column */}
-                        <div className="order-4 @[720px]:order-2 col-span-2 @[720px]:col-span-1 min-w-0 text-xs leading-relaxed @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)] @[720px]:text-center flex @[720px]:justify-center items-center">
-                          {(() => {
-                            const description = getListingDescription(l.notes);
-                            if (!description) {
-                              return <span className="hidden @[720px]:inline text-center block w-full" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>;
-                            }
-                            return (
-                              <span className="flex items-center @[720px]:justify-center gap-1.5 min-w-0 w-full text-center">
-                                <svg className="w-3 h-3 shrink-0 @[720px]:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }} aria-hidden="true">
-                                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                                </svg>
-                                <span
-                                  className="truncate block max-w-full @[720px]:text-center"
-                                  style={{ color: 'var(--text-secondary)' }}
-                                  title={description}
-                                >
-                                  {description}
-                                </span>
+                          {/* Row 2: Condition (NM) + Camera icon | Amount | Price | Add */}
+                          <div className="flex items-center justify-between gap-2 w-full pt-0.5">
+                            {/* Condition + badges (abbreviated NM, camera icon only) */}
+                            <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                              <span className="px-1.5 py-0.5 rounded-md text-[11px] font-black border uppercase tracking-wider" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
+                                {shortCondition(l.condition)}
                               </span>
-                            );
-                          })()}
-                        </div>
-
-                        {/* Condition Column */}
-                        {(() => {
-                          const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
-                          const photoCount = (l.inventory_images && l.inventory_images.length > 0)
-                            ? l.inventory_images.length
-                            : (((l as any).images && (l as any).images.length > 0)
-                            ? (l as any).images.length
-                            : (l.inventory_image ? 1 : 0));
-                          return (
-                            <div className="order-3 @[720px]:order-3 col-span-2 @[720px]:col-span-1 flex items-center gap-1.5 flex-wrap @[720px]:justify-center @[720px]:px-3 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
-                              {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
+                              {l.is_foil && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                                  Foil
+                                </span>
+                              )}
                               {hasPhotos && (
                                 <span
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border cursor-pointer shadow-sm hover:brightness-125 transition-all"
+                                  className="inline-flex items-center justify-center p-1 rounded-md border shadow-xs"
                                   style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.45)' }}
-                                  title={`${photoCount} real photo${photoCount > 1 ? 's' : ''} available. Click to view listing details and full photos.`}
+                                  title={`${photoCount} photo${photoCount > 1 ? 's' : ''} available`}
                                 >
-                                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
                                     <circle cx="12" cy="13" r="4" />
                                   </svg>
-                                  <span>{photoCount > 1 ? `${photoCount} Photos` : 'Photos'}</span>
                                 </span>
                               )}
-                              {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
-                              <span className="@[720px]:hidden text-xs font-semibold ml-auto" style={{ color: 'var(--text-tertiary)' }}>{leftFor(l)}&times;</span>
+                              {onHold && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                                  Hold
+                                </span>
+                              )}
                             </div>
-                          );
-                        })()}
 
-                        {/* Amount Column (Desktop) */}
-                        <div className="hidden @[720px]:block @[720px]:order-4 text-xs font-semibold text-center @[720px]:px-1.5 @[720px]:border-r @[720px]:border-[var(--border-subtle)]" style={{ color: 'var(--text-tertiary)' }}>
-                          {leftFor(l)}&times;
+                            {/* Amount */}
+                            <div className="text-xs font-semibold px-1" style={{ color: 'var(--text-tertiary)' }}>
+                              {leftFor(l)}&times;
+                            </div>
+
+                            {/* Price */}
+                            <div className="text-sm font-black text-[var(--positive)] whitespace-nowrap ml-auto pr-1">
+                              {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
+                            </div>
+
+                            {/* Add button / stepper */}
+                            <div className="shrink-0">
+                              {renderCartAction(l)}
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Price Column (Desktop) */}
-                        <div className="hidden @[720px]:block @[720px]:order-5 text-sm font-black text-[var(--positive)] text-center whitespace-nowrap @[720px]:px-2 @[720px]:border-r @[720px]:border-[var(--border-subtle)]">
-                          {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
-                        </div>
+                        {/* DESKTOP VIEW (>= 720px): Full 6-column grid */}
+                        <div className={`hidden @[720px]:grid ${ROW_COLUMNS} items-center gap-x-0 w-full`}>
+                          {/* Seller Column */}
+                          <div
+                            className="seller-col min-w-0 px-2 @[720px]:px-3 border-r"
+                            style={{ borderColor: 'var(--border-subtle)' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (l.seller_id) {
+                                window.location.href = `/user?id=${l.seller_id}`;
+                              }
+                            }}
+                          >
+                            <a
+                              href={l.seller_id ? `/user?id=${l.seller_id}` : undefined}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-2 min-w-0 p-1.5 -m-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-raised)] transition-all cursor-pointer group/seller"
+                              title={`View ${rowSeller(l)}'s profile`}
+                            >
+                              {l.seller_avatar ? (
+                                <img src={l.seller_avatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: 'var(--border)' }} />
+                              ) : (
+                                <span className="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>
+                                  {rowSeller(l)[0].toUpperCase()}
+                                </span>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                                  <CountryFlag countryCode={l.seller_country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
+                                  <span className="truncate">{rowSeller(l)}</span>
+                                </div>
+                                <div className="text-[11px] flex items-center gap-1.5 flex-wrap mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                  {isOwner && (
+                                    <span
+                                      className="text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-wider inline-flex items-center gap-1 shrink-0"
+                                      style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                      title="Platform Owner"
+                                    >
+                                      <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                                      </svg>
+                                      <span>Owner</span>
+                                    </span>
+                                  )}
+                                  {sellerTierBadge && (
+                                    <span
+                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center shrink-0"
+                                      style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                                    >
+                                      {sellerTierBadge}
+                                    </span>
+                                  )}
+                                  {l.seller_rating_avg != null && (l.seller_rating_count || 0) > 0 && (
+                                    <span className="font-bold inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--text-accent)' }}>
+                                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                      </svg>
+                                      <span>{l.seller_rating_avg.toFixed(1)}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </a>
+                          </div>
 
-                        {/* Add to Cart Column (Desktop) */}
-                        <div className="hidden @[720px]:flex @[720px]:order-6 @[720px]:pl-2 flex-col items-center justify-center gap-1">
-                          {renderCartAction(l)}
+                          {/* Description Column */}
+                          <div className="min-w-0 text-xs leading-relaxed px-3 border-r text-center flex justify-center items-center" style={{ borderColor: 'var(--border-subtle)' }}>
+                            {!description ? (
+                              <span className="text-center block w-full" style={{ color: 'var(--text-placeholder)' }} aria-label="No description">&mdash;</span>
+                            ) : (
+                              <span
+                                className="truncate block max-w-full text-center"
+                                style={{ color: 'var(--text-secondary)' }}
+                                title={description}
+                              >
+                                {description}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Condition Column */}
+                          <div className="flex items-center gap-1.5 flex-wrap justify-center px-3 border-r" style={{ borderColor: 'var(--border-subtle)' }}>
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>{l.condition || 'Near Mint'}</span>
+                            {l.is_foil && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">Foil</span>}
+                            {hasPhotos && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border cursor-pointer shadow-sm hover:brightness-125 transition-all"
+                                style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.45)' }}
+                                title={`${photoCount} real photo${photoCount > 1 ? 's' : ''} available. Click to view listing details and full photos.`}
+                              >
+                                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                                  <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <span>{photoCount > 1 ? `${photoCount} Photos` : 'Photos'}</span>
+                              </span>
+                            )}
+                            {onHold && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border" style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}>On hold</span>}
+                          </div>
+
+                          {/* Amount Column */}
+                          <div className="text-xs font-semibold text-center px-1.5 border-r" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
+                            {leftFor(l)}&times;
+                          </div>
+
+                          {/* Price Column */}
+                          <div className="text-sm font-black text-[var(--positive)] text-center whitespace-nowrap px-2 border-r" style={{ borderColor: 'var(--border-subtle)' }}>
+                            {l.price_huf ? formatPrice(l.price_huf) : 'N/A'}
+                          </div>
+
+                          {/* Add to Cart Column */}
+                          <div className="pl-2 flex flex-col items-center justify-center gap-1">
+                            {renderCartAction(l)}
+                          </div>
                         </div>
                       </div>
                     );
