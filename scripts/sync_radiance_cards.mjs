@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import fs from 'node:fs';
+import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
+import { isR2Configured, uploadToR2, existsInR2 } from './r2Client.mjs';
+
+const THUMB_VERSION = 'v1';
+const THUMB_WIDTHS = [240, 360, 480];
 
 const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'https://xtyfzkqubmzrsvduvzcl.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -69,13 +74,14 @@ async function main() {
   }
 
   const setId = setRow.id;
-  console.log(`Radiance set ID: ${setId}`);
+  console.log(`Radiance set ID: ${setId} (total_cards: ${radCards.length})`);
 
-  // 2. Download and upload card images to Supabase storage in batches
+  // 2. Download and upload card images to Cloudflare R2 and Supabase storage in batches
   console.log('Downloading and uploading card images...');
-  const BATCH_SIZE = 8;
+  const BATCH_SIZE = 6;
   let imageSuccess = 0;
   let imageFailures = 0;
+  let skippedExisting = 0;
 
   for (let i = 0; i < radCards.length; i += BATCH_SIZE) {
     const batch = radCards.slice(i, i + BATCH_SIZE);
@@ -84,6 +90,13 @@ async function main() {
       const imgUrl = card.image || `https://static.dotgg.gg/riftbound/cards/${card.id}.webp`;
 
       try {
+        const inR2 = isR2Configured ? await existsInR2(storagePath) : false;
+        if (inR2) {
+          skippedExisting++;
+          imageSuccess++;
+          return;
+        }
+
         const resp = await fetch(imgUrl);
         if (!resp.ok) {
           console.warn(`Could not download image for ${card.id} (${imgUrl}): ${resp.status}`);
@@ -92,6 +105,23 @@ async function main() {
         }
 
         const buf = Buffer.from(await resp.arrayBuffer());
+
+        if (isR2Configured) {
+          await uploadToR2(storagePath, buf, 'image/webp');
+          for (const width of THUMB_WIDTHS) {
+            const thumbKey = `thumbs/${THUMB_VERSION}/${width}/${storagePath}`;
+            try {
+              const thumbBuf = await sharp(buf)
+                .resize(width, null, { withoutEnlargement: true })
+                .webp({ quality: 76 })
+                .toBuffer();
+              await uploadToR2(thumbKey, thumbBuf, 'image/webp');
+            } catch (thErr) {
+              console.warn(`Thumbnail failed for ${card.id} (${width}w):`, thErr.message);
+            }
+          }
+        }
+
         const { error: upErr } = await supabase.storage
           .from('card-images')
           .upload(storagePath, buf, {
@@ -99,7 +129,7 @@ async function main() {
             upsert: true,
           });
 
-        if (upErr) {
+        if (upErr && !isR2Configured) {
           console.warn(`Storage upload failed for ${card.id}: ${upErr.message}`);
           imageFailures++;
         } else {
@@ -111,15 +141,15 @@ async function main() {
       }
     }));
 
-    process.stdout.write(`  Images: ${Math.min(i + BATCH_SIZE, radCards.length)}/${radCards.length} (Success: ${imageSuccess}, Failed: ${imageFailures})\r`);
+    process.stdout.write(`  Images: ${Math.min(i + BATCH_SIZE, radCards.length)}/${radCards.length} (Success: ${imageSuccess}, Failed: ${imageFailures}, Cached: ${skippedExisting})\r`);
   }
-  console.log(`\nImage upload completed: ${imageSuccess} uploaded, ${imageFailures} failed.`);
+  console.log(`\nImage upload completed: ${imageSuccess} ready (${skippedExisting} cached), ${imageFailures} failed.`);
 
   // 3. Upsert cards into database
   console.log('Upserting cards into database...');
   const cardRows = radCards.map((c) => {
-    const cardTypes = Array.isArray(c.type) ? c.type : (c.type ? [c.type] : ['Unit']);
-    const primaryType = cardTypes[0] || 'Unit';
+    const cardTypes = Array.isArray(c.type) ? c.type : (c.type ? [c.type] : []);
+    const primaryType = cardTypes[0] || (c.supertype === 'Token' ? 'Token' : 'Unit');
     const isGear = primaryType === 'Gear';
 
     let ability = c.effect || null;
