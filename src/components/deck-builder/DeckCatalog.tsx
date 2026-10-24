@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { CatalogCard } from '../../types';
 import type { DeckState } from './useDeckBuilder';
 import { getCardImageUrl, cardThumbProps } from '../../lib/supabase';
-import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
+import { findSearchableKeyword, cardHasKeyword, cardMatchesKeywords, cardMatchesSearchTag, SEARCHABLE_KEYWORDS } from '../../lib/keywordSearch';
 import { keywordSolidColor } from '../../lib/formatGameText';
 import { isAltArt, isOvernumbered, isSigned, isSp, isBaseSetCard, compareCardsByRarity } from '../../lib/cardVariants';
 import {
@@ -460,13 +460,15 @@ export function DeckCatalog({
 
       // 4. Search
       if (search) {
-        // A known keyword ("deflect", "xp") also matches cards carrying it in their text.
+        // A known keyword ("deflect", "xp") also matches cards carrying it in their text;
+        // typing a tag name ("seraphine", "akali", "piltover") also matches cards with that tag.
         const searchedKeyword = findSearchableKeyword(search);
         const q = search.toLowerCase();
         const nameMatch = card.name.toLowerCase().includes(q);
         const numberMatch = (card.card_number || '').toLowerCase().includes(q);
         const artistMatch = (card.artist || '').toLowerCase().includes(q);
-        if (!nameMatch && !numberMatch && !artistMatch && !(searchedKeyword && cardHasKeyword(card, searchedKeyword))) return false;
+        const tagMatch = cardMatchesSearchTag(card, search);
+        if (!nameMatch && !numberMatch && !artistMatch && !tagMatch && !(searchedKeyword && cardHasKeyword(card, searchedKeyword))) return false;
       }
 
       // 5. Type sub-filter

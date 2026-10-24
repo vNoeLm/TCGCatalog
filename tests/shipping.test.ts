@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeOption, methodAvailability, normalizeShipping, shippingOption, sellerShipsTo } from '../src/lib/shipping';
+import { describeOption, internationalRate, methodAvailability, normalizeShipping, sellerVisibleToCountry, shippingOption } from '../src/lib/shipping';
 import { getSellerTier } from '../src/lib/badges';
 
 // In person free, Foxpost 1500 Ft from a 5000 Ft order, Packeta 1400 Ft from 8000 Ft, Other off.
@@ -36,16 +36,28 @@ describe('cleaning stored settings', () => {
       foxpost: { enabled: 1, price_huf: '1499.6', min_order_huf: -50 },
       packeta: { enabled: true, price_huf: 5_000_000, min_order_huf: 'abc' },
       pigeon: { enabled: true, price_huf: 1, min_order_huf: 1 },
+      country: 'DE',
+      ships_to: 'WORLD',
     });
     expect(clean).toEqual({
-      country: 'HU',
-      ships_to: 'DOMESTIC',
-      ships_domestic: true,
-      ships_eu: false,
-      ships_world: false,
       foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
       packeta: { enabled: true, price_huf: 1_000_000, min_order_huf: 0 },
     });
+  });
+
+  it('keeps valid international destinations once each, with clean prices', () => {
+    const clean = normalizeShipping({
+      international: [
+        { country: 'sk', price_huf: '2500' },
+        { country: 'SK', price_huf: 9000 },
+        { country: 'XX', price_huf: 1000 },
+        { country: 'DE', price_huf: -5 },
+      ],
+    });
+    expect(clean.international).toEqual([
+      { country: 'SK', price_huf: 2500 },
+      { country: 'DE', price_huf: 0 },
+    ]);
   });
 
   it('anything that is not an object becomes no settings', () => {
@@ -65,31 +77,31 @@ describe('how an option is described', () => {
   });
 });
 
-describe('domestic hungary shipping', () => {
-  const domSettings = normalizeShipping({
-    foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 },
-    packeta: { enabled: true, price_huf: 1400, min_order_huf: 0 },
+describe('international destinations', () => {
+  const settings = normalizeShipping({
+    international: [
+      { country: 'SK', price_huf: 2500 },
+      { country: 'DE', price_huf: 10000 },
+    ],
   });
 
-  it('allows domestic orders with domestic prices', () => {
-    const foxDom = methodAvailability(domSettings, 'foxpost', 2000, 'DOMESTIC');
-    expect(foxDom.offered).toBe(true);
-    expect(foxDom.price).toBe(1500);
-
-    const packetaDom = methodAvailability(domSettings, 'packeta', 2000, 'DOMESTIC');
-    expect(packetaDom.offered).toBe(true);
-    expect(packetaDom.price).toBe(1400);
+  it('returns the price for a listed country and null otherwise', () => {
+    expect(internationalRate(settings, 'SK')).toBe(2500);
+    expect(internationalRate(settings, 'de')).toBe(10000);
+    expect(internationalRate(settings, 'AT')).toBeNull();
   });
 
-  it('sellerShipsTo allows domestic and rejects non-domestic', () => {
-    expect(sellerShipsTo(domSettings, 'DOMESTIC')).toBe(true);
-    expect(sellerShipsTo(domSettings, 'EU')).toBe(false);
-    expect(sellerShipsTo(domSettings, 'WORLD')).toBe(false);
+  it('domestic method availability stays independent of destinations', () => {
+    const dom = normalizeShipping({ foxpost: { enabled: true, price_huf: 1500, min_order_huf: 0 } });
+    expect(methodAvailability(dom, 'foxpost', 2000).price).toBe(1500);
+    expect(internationalRate(dom, 'SK')).toBeNull();
   });
 
-  it('disallows non-domestic destinations in methodAvailability', () => {
-    const foxEu = methodAvailability(domSettings, 'foxpost', 6000, 'EU');
-    expect(foxEu.offered).toBe(false);
+  it('scopes the marketplace to the seller country plus listed destinations', () => {
+    expect(sellerVisibleToCountry(settings, 'HU', 'HU')).toBe(true);
+    expect(sellerVisibleToCountry(settings, 'HU', 'DE')).toBe(true);
+    expect(sellerVisibleToCountry(settings, 'HU', 'AT')).toBe(false);
+    expect(sellerVisibleToCountry(settings, 'de', 'DE')).toBe(true);
   });
 });
 

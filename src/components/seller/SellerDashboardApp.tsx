@@ -6,7 +6,6 @@ import { getCurrentProfile, getCurrentUser } from '../../lib/auth';
 import { getCardImageUrl } from '../../lib/supabase';
 import { useSiteTheme } from '../../lib/theme';
 import { useCurrency } from '../../lib/currency';
-import { fetchShippingSettings } from '../../lib/shippingClient';
 import { ListCardModal } from '../marketplace/ListCardModal';
 import { ShippingSettingsPanel } from './ShippingSettingsPanel';
 import { CollectionSettingsPanel } from './CollectionSettingsPanel';
@@ -32,7 +31,6 @@ export function SellerDashboardApp() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { formatPrice, isHuf } = useCurrency();
-  const [sellerCountry, setSellerCountry] = useState<string>('HU');
 
   // Listings State
   const [listings, setListings] = useState<any[]>([]);
@@ -226,14 +224,6 @@ export function SellerDashboardApp() {
     getCurrentProfile().then(p => {
       setProfile(p);
       setLoading(false);
-      if (p) {
-        fetchShippingSettings([p.id]).then(settingsMap => {
-          const s = settingsMap[p.id];
-          if (s?.country) {
-            setSellerCountry(s.country.toUpperCase());
-          }
-        }).catch(() => {});
-      }
       if (p) {
         loadSellerListings(p.id);
         loadSellerSales(p.id);
@@ -684,9 +674,8 @@ export function SellerDashboardApp() {
     return activeListings.reduce((sum, item) => sum + ((item.price_huf || 0) * (item.quantity ?? 1)), 0);
   }, [activeListings]);
 
-  // Fetch the lowest active price per (card, foil/normal) across the whole platform,
-  // for every card this seller currently has listed — the `inventory` table's active
-  // rows are publicly readable, so this needs no new API route.
+  // Fetch the lowest active marketplace price per (card, foil/normal) across the whole
+  // platform for every card this seller currently has listed.
   useEffect(() => {
     const cardIds = [...new Set(activeListings.map(item => item.card_id).filter(Boolean))];
     if (cardIds.length === 0) {
@@ -695,7 +684,7 @@ export function SellerDashboardApp() {
     }
     let cancelled = false;
     supabase
-      .from('inventory')
+      .from('marketplace_listings')
       .select('card_id, is_foil, price_huf')
       .in('card_id', cardIds)
       .eq('status', 'In Stock')
@@ -779,8 +768,52 @@ export function SellerDashboardApp() {
 
   // Both tabs show a page at a time instead of every listing at once.
   const listingsPage = usePagination(filteredListings, 24, searchQuery);
-  const statsRows = useMemo(() => activeListings.slice().sort((a, b) => (b.views || 0) - (a.views || 0)), [activeListings]);
-  const statsPage = usePagination(statsRows, 20, '');
+  const [statsFilter, setStatsFilter] = useState<'all' | 'undercut' | 'demand' | 'stale'>('all');
+  const [statsSort, setStatsSort] = useState<'views' | 'clicks' | 'price' | 'undercut'>('views');
+
+  const statsSummary = useMemo(() => {
+    let views = 0;
+    let clicks = 0;
+    let highDemand = 0;
+    let stale = 0;
+    for (const item of activeListings) {
+      const v = item.views || 0;
+      const c = item.clicks || 0;
+      views += v;
+      clicks += c;
+      if ((demandByCard[item.card_id] || 0) >= 5) highDemand++;
+      const days = item.created_at ? (Date.now() - new Date(item.created_at).getTime()) / 86400000 : 0;
+      if (v === 0 && c === 0 && days > 30) stale++;
+    }
+    const avgCtr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
+    return { views, clicks, avgCtr, highDemand, stale };
+  }, [activeListings, demandByCard]);
+
+  const statsRows = useMemo(() => {
+    const filtered = activeListings.filter((item) => {
+      if (statsFilter === 'undercut') {
+        const lowest = getPlatformLowest(item);
+        return lowest !== null && item.price_huf > lowest;
+      }
+      if (statsFilter === 'demand') return (demandByCard[item.card_id] || 0) >= 5;
+      if (statsFilter === 'stale') {
+        const days = item.created_at ? (Date.now() - new Date(item.created_at).getTime()) / 86400000 : 0;
+        return (item.views || 0) === 0 && (item.clicks || 0) === 0 && days > 30;
+      }
+      return true;
+    });
+    return filtered.slice().sort((a, b) => {
+      if (statsSort === 'clicks') return (b.clicks || 0) - (a.clicks || 0);
+      if (statsSort === 'price') return (b.price_huf || 0) - (a.price_huf || 0);
+      if (statsSort === 'undercut') {
+        const diffA = getPlatformLowest(a) !== null ? a.price_huf - (getPlatformLowest(a) as number) : -1;
+        const diffB = getPlatformLowest(b) !== null ? b.price_huf - (getPlatformLowest(b) as number) : -1;
+        return diffB - diffA;
+      }
+      return (b.views || 0) - (a.views || 0);
+    });
+  }, [activeListings, statsFilter, statsSort, demandByCard, platformLowestByCard]);
+  const statsPage = usePagination(statsRows, 20, `${statsFilter}:${statsSort}`);
   const listingsTopRef = useRef<HTMLDivElement>(null);
   const statsTopRef = useRef<HTMLDivElement>(null);
 
@@ -995,116 +1028,6 @@ export function SellerDashboardApp() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* ─── KPI Row: 4 consolidated, actionable cards instead of 7 fragmented ones.
-          Rating already lives in the profile header above, so it isn't repeated here. ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {/* 1. Net Sales & Volume */}
-        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <InfoTip title="Net Sales & Volume" align="left">
-            <TipTerm term="Net sales">is the combined value of all your orders, with cancelled orders left out. Nothing else is subtracted: no fees or refunds are taken off.</TipTerm>
-            <TipTerm term="Orders">counts every order that is not cancelled, including ones still in progress.</TipTerm>
-            <TipTerm term="Cards sold">adds up the quantity on those orders.</TipTerm>
-            <TipTerm term="Avg order">is net sales divided by the number of orders.</TipTerm>
-          </InfoTip>
-          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Net Sales & Volume
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-[var(--positive)] truncate">
-            {formatPrice(totalRevenueHuf)} <span className="text-xs font-normal text-[var(--text-tertiary)]">({completedSalesCount} orders)</span>
-          </div>
-          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {itemsSold} cards sold · Avg order: {formatPrice(avgOrderValueHuf)}
-          </div>
-        </div>
-
-        {/* 2. Active Inventory */}
-        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <InfoTip title="Active Inventory" align="right">
-            <TipTerm term="Listings">is how many listings you have on sale right now: everything you have listed that is not sold yet, including cards on hold.</TipTerm>
-            <TipTerm term="Listed value">is each listing's price times its quantity, added up. It is what you would take in if everything sold at your asking prices.</TipTerm>
-          </InfoTip>
-          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.59 13.41L11 3.83V3H3v8l.83.83L13.41 20.6a2 2 0 002.83 0l4.35-4.35a2 2 0 000-2.84z" />
-                <circle cx="6.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Active Inventory
-            </span>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
-            {activeListings.length} <span className="text-xs font-normal text-[var(--text-tertiary)]">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
-          </div>
-          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            Listed Value: {formatPrice(totalListedValueHuf)}
-          </div>
-        </div>
-
-        {/* 3. Platform Price Health — how competitive this seller's prices are vs. everyone else's */}
-        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <InfoTip title="Platform Price Health" align="left">
-            <span className="block">The share of your active listings that are the cheapest, or tied for cheapest, of any seller's listing for that exact card. Foil and non-foil are compared separately.</span>
-            <span className="block">100% means nobody undercuts you. Lower means other sellers list the same card for less; the line below the number says how many. It also shows 100% when you have no listings yet.</span>
-          </InfoTip>
-          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: undercutListings.length > 0 ? 'rgba(251, 191, 36, 0.15)' : 'rgba(52, 211, 153, 0.15)', color: undercutListings.length > 0 ? '#fbbf24' : '#34d399' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20V10M18 20V4M6 20v-4" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Platform Price Health
-            </span>
-          </div>
-          <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-[var(--positive)]'}`}>
-            {priceHealthPct}% <span className="text-xs font-normal text-[var(--text-tertiary)]">Lowest Price</span>
-          </div>
-          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {activeListings.length === 0
-              ? 'No active listings yet'
-              : undercutListings.length > 0
-                ? `${undercutListings.length} card${undercutListings.length === 1 ? '' : 's'} undercut by other sellers`
-                : "You're the lowest (or tied) on everything!"}
-          </div>
-        </div>
-
-        {/* 4. Pipeline & Action Items */}
-        <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-          <InfoTip title="Pipeline & Action Items" align="right">
-            <span className="block">Buyer requests that are waiting on you.</span>
-            <TipTerm term="Pending">requests are buyers who asked to reserve a card and are waiting for you to accept or reject.</TipTerm>
-            <TipTerm term="On hold">are requests you accepted. The card stays reserved until you confirm the handover or release it.</TipTerm>
-            <span className="block">Manage both on the Holds tab.</span>
-          </InfoTip>
-          <div className="flex items-center gap-1.5 mb-1.5 pr-6">
-            <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: pendingOnlyCount > 0 ? 'rgba(244, 114, 182, 0.15)' : 'rgba(129, 140, 248, 0.15)', color: pendingOnlyCount > 0 ? '#f472b6' : '#818cf8' }}>
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Pipeline & Action Items
-            </span>
-          </div>
-          <div className={`text-lg sm:text-xl font-black truncate ${pendingOnlyCount > 0 ? 'text-pink-400' : 'text-indigo-300'}`}>
-            {pendingOnlyCount} <span className="text-xs font-normal text-[var(--text-tertiary)]">Pending</span>
-          </div>
-          <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
-            {pendingOnlyCount} request{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
           </div>
         </div>
       </div>
@@ -1472,7 +1395,8 @@ export function SellerDashboardApp() {
                             type="button"
                             onClick={() => handleListingStatusChange(item.inventory_id, 'Sold')}
                             disabled={updatingListingId === item.inventory_id}
-                            className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border-emerald-500/40 disabled:opacity-50"
+                            className="px-2 py-1 text-[10px] font-black rounded-lg border transition cursor-pointer disabled:opacity-50"
+                            style={{ background: 'var(--positive-muted)', color: 'var(--positive)', borderColor: 'var(--positive-border)' }}
                             title={'Mark as Sold'}
                           >
                             Sold
@@ -1497,17 +1421,7 @@ export function SellerDashboardApp() {
                         >
                           Relist
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleListingStatusChange(item.inventory_id, 'On Hold')}
-                          disabled={updatingListingId === item.inventory_id}
-                          className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 text-[var(--text-accent)] border-amber-500/30 disabled:opacity-50"
-                          title={'Put on hold'}
-                        >
-                          Hold
-                        </button>
-                      )}
+                      ) : null}
 
                       <button
                         type="button"
@@ -1520,7 +1434,8 @@ export function SellerDashboardApp() {
                         type="button"
                         onClick={() => handleUnlistCard(item.inventory_id)}
                         disabled={updatingListingId === item.inventory_id}
-                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-[var(--negative)] border-red-500/30 disabled:opacity-50"
+                        className="px-2 py-1 text-[10px] font-bold rounded-lg border transition cursor-pointer disabled:opacity-50"
+                        style={{ background: 'var(--negative-muted)', color: 'var(--negative)', borderColor: 'var(--negative-border)' }}
                       >
                         {updatingListingId === item.inventory_id ? '…' : ('Unlist')}
                       </button>
@@ -1932,8 +1847,166 @@ export function SellerDashboardApp() {
       {/* ─── TAB 2: ANALYTICS & POST CLICKS ─────────────────────────── */}
       {activeTab === 'analytics' && (
         <div className="space-y-6">
+          {/* ─── KPI Row: Moved to Stats page for a focused overview ─── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Net Sales & Volume */}
+            <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <InfoTip title="Net Sales & Volume" align="left">
+                <TipTerm term="Net sales">is the combined value of all your orders, with cancelled orders left out. Nothing else is subtracted: no fees or refunds are taken off.</TipTerm>
+                <TipTerm term="Orders">counts every order that is not cancelled, including ones still in progress.</TipTerm>
+                <TipTerm term="Cards sold">adds up the quantity on those orders.</TipTerm>
+                <TipTerm term="Avg order">is net sales divided by the number of orders.</TipTerm>
+              </InfoTip>
+              <div className="flex items-center gap-1.5 mb-1.5 pr-6">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399' }}>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                  </svg>
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  Net Sales & Volume
+                </span>
+              </div>
+              <div className="text-lg sm:text-xl font-black text-[var(--positive)] truncate">
+                {formatPrice(totalRevenueHuf)} <span className="text-xs font-normal text-[var(--text-tertiary)]">({completedSalesCount} orders)</span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                {itemsSold} cards sold · Avg order: {formatPrice(avgOrderValueHuf)}
+              </div>
+            </div>
+
+            {/* 2. Active Inventory */}
+            <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <InfoTip title="Active Inventory" align="right">
+                <TipTerm term="Listings">is how many listings you have on sale right now: everything you have listed that is not sold yet, including cards on hold.</TipTerm>
+                <TipTerm term="Listed value">is each listing's price times its quantity, added up. It is what you would take in if everything sold at your asking prices.</TipTerm>
+              </InfoTip>
+              <div className="flex items-center gap-1.5 mb-1.5 pr-6">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8' }}>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.59 13.41L11 3.83V3H3v8l.83.83L13.41 20.6a2 2 0 002.83 0l4.35-4.35a2 2 0 000-2.84z" />
+                    <circle cx="6.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                  </svg>
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  Active Inventory
+                </span>
+              </div>
+              <div className="text-lg sm:text-xl font-black text-indigo-400 truncate">
+                {activeListings.length} <span className="text-xs font-normal text-[var(--text-tertiary)]">{activeListings.length === 1 ? 'listing' : 'listings'}</span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                Listed Value: {formatPrice(totalListedValueHuf)}
+              </div>
+            </div>
+
+            {/* 3. Platform Price Health */}
+            <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <InfoTip title="Platform Price Health" align="left">
+                <span className="block">The share of your active listings that are the cheapest, or tied for cheapest, of any seller's listing for that exact card. Foil and non-foil are compared separately.</span>
+                <span className="block">100% means nobody undercuts you. Lower means other sellers list the same card for less; the line below the number says how many.</span>
+              </InfoTip>
+              <div className="flex items-center gap-1.5 mb-1.5 pr-6">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: undercutListings.length > 0 ? 'rgba(251, 191, 36, 0.15)' : 'rgba(52, 211, 153, 0.15)', color: undercutListings.length > 0 ? '#fbbf24' : '#34d399' }}>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20V10M18 20V4M6 20v-4" />
+                  </svg>
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  Platform Price Health
+                </span>
+              </div>
+              <div className={`text-lg sm:text-xl font-black truncate ${undercutListings.length > 0 ? 'text-amber-400' : 'text-[var(--positive)]'}`}>
+                {priceHealthPct}% <span className="text-xs font-normal text-[var(--text-tertiary)]">Lowest Price</span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                {activeListings.length === 0
+                  ? 'No active listings yet'
+                  : undercutListings.length > 0
+                    ? `${undercutListings.length} card${undercutListings.length === 1 ? '' : 's'} undercut by other sellers`
+                    : "You're the lowest (or tied) on everything!"}
+              </div>
+            </div>
+
+            {/* 4. Pipeline & Action Items */}
+            <div className="relative p-4 rounded-xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <InfoTip title="Pipeline & Action Items" align="right">
+                <span className="block">Buyer requests that are waiting on you.</span>
+                <TipTerm term="Pending">requests are buyers who asked to reserve a card and are waiting for you to accept or reject.</TipTerm>
+                <TipTerm term="On hold">are requests you accepted. The card stays reserved until you confirm the handover or release it.</TipTerm>
+                <span className="block">Manage both on the Holds tab.</span>
+              </InfoTip>
+              <div className="flex items-center gap-1.5 mb-1.5 pr-6">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: pendingOnlyCount > 0 ? 'rgba(244, 114, 182, 0.15)' : 'rgba(129, 140, 248, 0.15)', color: pendingOnlyCount > 0 ? '#f472b6' : '#818cf8' }}>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  Pipeline & Action Items
+                </span>
+              </div>
+              <div className={`text-lg sm:text-xl font-black truncate ${pendingOnlyCount > 0 ? 'text-pink-400' : 'text-indigo-300'}`}>
+                {pendingOnlyCount} <span className="text-xs font-normal text-[var(--text-tertiary)]">Pending</span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                {pendingOnlyCount} request{pendingOnlyCount === 1 ? '' : 's'} to review · {heldOnlyCount} on hold
+              </div>
+            </div>
+          </div>
+
+          {/* ─── Engagement Summary Strip ─── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Total Views</div>
+                <div className="text-base font-black text-cyan-400 mt-0.5">{statsSummary.views.toLocaleString()}</div>
+              </div>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(34, 211, 238, 0.12)', color: '#22d3ee' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Total Clicks</div>
+                <div className="text-base font-black text-pink-400 mt-0.5">{statsSummary.clicks.toLocaleString()}</div>
+              </div>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(244, 114, 182, 0.12)', color: '#f472b6' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                </svg>
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Average CTR</div>
+                <div className="text-base font-black text-[var(--positive)] mt-0.5">{statsSummary.avgCtr}%</div>
+              </div>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52, 211, 153, 0.12)', color: '#34d399' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl border flex items-center justify-between" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>High Demand Cards</div>
+                <div className="text-base font-black text-amber-400 mt-0.5">{statsSummary.highDemand}</div>
+              </div>
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(251, 191, 36, 0.12)', color: '#fbbf24' }}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </span>
+            </div>
+          </div>
+
           <div className="p-6 rounded-2xl border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 className="text-base font-black mb-1" style={{ color: 'var(--text-primary)' }}>
                   Listing Performance &amp; Price Competitiveness
@@ -1957,6 +2030,51 @@ export function SellerDashboardApp() {
                   <span>{matchingAllBusy ? 'Matching All...' : `Match Lowest on All (${undercutListings.length})`}</span>
                 </button>
               )}
+            </div>
+
+            {/* Filter pills & Sort bar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4 pb-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {([
+                  { id: 'all' as const, label: 'All Active', count: activeListings.length },
+                  { id: 'undercut' as const, label: 'Undercut', count: undercutListings.length },
+                  { id: 'demand' as const, label: 'High Demand', count: statsSummary.highDemand },
+                  { id: 'stale' as const, label: 'Stale (30d+)', count: statsSummary.stale },
+                ]).map((f) => {
+                  const active = statsFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setStatsFilter(f.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition inline-flex items-center gap-1.5"
+                      style={{
+                        background: active ? 'var(--accent-muted)' : 'var(--bg-surface-2)',
+                        borderColor: active ? 'var(--accent-border)' : 'var(--border)',
+                        color: active ? 'var(--text-accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span>{f.label}</span>
+                      <span className="text-[10px] opacity-80">({f.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold" style={{ color: 'var(--text-tertiary)' }}>Sort by:</span>
+                <select
+                  value={statsSort}
+                  onChange={(e) => setStatsSort(e.target.value as any)}
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold border outline-none cursor-pointer"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                >
+                  <option value="views">Most Views</option>
+                  <option value="clicks">Most Clicks</option>
+                  <option value="undercut">Largest Undercut Gap</option>
+                  <option value="price">Highest Price</option>
+                </select>
+              </div>
             </div>
 
             <div ref={statsTopRef} className="overflow-x-auto scroll-mt-24">
@@ -2144,15 +2262,9 @@ export function SellerDashboardApp() {
                       {sellerOrders.length} order{sellerOrders.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  {sellerCountry === 'HU' ? (
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      SZJA Personal Movable Exemption: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{totalRevenueHuf.toLocaleString()} / 600 000 Ft</span> ({(Math.min(100, (totalRevenueHuf / 600000) * 100)).toFixed(1)}% of annual Hungarian tax-free threshold)
-                    </div>
-                  ) : (
-                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      Total Sales Volume: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{formatPrice(totalRevenueHuf)}</span>
-                    </div>
-                  )}
+                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Total Sales Volume: <span className="font-mono font-bold" style={{ color: 'var(--text-secondary)' }}>{formatPrice(totalRevenueHuf)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -2381,7 +2493,7 @@ export function SellerDashboardApp() {
 
       {/* ─── TAB: SHIPPING OPTIONS ──────────────────────────────────── */}
       {activeTab === 'shipping' && profile && (
-        <ShippingSettingsPanel sellerId={profile.id} onToast={showToast} />
+        <ShippingSettingsPanel sellerId={profile.id} sellerCountry={profile.country || 'HU'} onToast={showToast} />
       )}
 
       {/* ─── TAB: COLLECTION SETTINGS ───────────────────────────────── */}

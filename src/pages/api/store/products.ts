@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
 import { STORE_CATEGORIES, STORE_PUBLIC_LAUNCH, STORE_STATUSES, STORE_VARIANT_KINDS, buildProductSlug } from '../../../lib/storeConstants';
 import { sanitizePlainText, sanitizeUrl } from '../../../lib/sanitize';
+import { dispatchBackInStockNotifications } from './stock-alerts';
 
 export const prerender = false;
 
@@ -71,10 +72,16 @@ function parseProductInput(body: any, mode: 'create' | 'update'): ParsedInput {
   }
   if (has('attributes')) {
     const a = body.attributes && typeof body.attributes === 'object' ? body.attributes : {};
+    const parsedReleaseAt = typeof a.release_at === 'string' && a.release_at.trim() && Number.isFinite(Date.parse(a.release_at.trim()))
+      ? new Date(Date.parse(a.release_at.trim())).toISOString()
+      : null;
     product.attributes = {
       ...(a.color ? { color: sanitizePlainText(a.color, 60) } : {}),
       ...(a.size ? { size: sanitizePlainText(a.size, 60) } : {}),
+      ...(a.subcategory ? { subcategory: sanitizePlainText(a.subcategory, 80) } : {}),
       ...(toInt(a.max_per_order) ? { max_per_order: toInt(a.max_per_order) } : {}),
+      ...(toInt(a.msrp_huf) ? { msrp_huf: toInt(a.msrp_huf) } : {}),
+      ...(parsedReleaseAt ? { release_at: parsedReleaseAt } : {}),
     };
   }
 
@@ -142,14 +149,32 @@ export const GET: APIRoute = async ({ request }) => {
     }
 
     const slug = new URL(request.url).searchParams.get('slug');
+    const nowMs = Date.now();
+    const isScheduledFuture = (p: any) => {
+      const rel = p?.attributes?.release_at;
+      return typeof rel === 'string' && rel.trim() !== '' && Date.parse(rel) > nowMs;
+    };
+    const isReleasedDraft = (p: any) => {
+      const rel = p?.attributes?.release_at;
+      return p?.status === 'draft' && typeof rel === 'string' && rel.trim() !== '' && Date.parse(rel) <= nowMs;
+    };
 
+    // Promote any timed-release draft whose release_at has passed
     let query = supabaseAdmin.from('store_products').select('*').is('deleted_at', null);
-    if (!isAdmin) query = query.in('status', PUBLIC_STATUSES);
+    if (!isAdmin) query = query.in('status', [...PUBLIC_STATUSES, 'draft']);
 
     if (slug) {
       const { data: product, error } = await query.eq('slug', slug).maybeSingle();
       if (error) return jsonResponse({ error: error.message }, 500);
       if (!product) return jsonResponse({ error: 'Product not found.' }, 404);
+      if (isReleasedDraft(product)) {
+        const nextStatus = (product.stock_quantity || 0) > 0 ? 'active' : 'out_of_stock';
+        product.status = nextStatus;
+        await supabaseAdmin.from('store_products').update({ status: nextStatus, updated_at: new Date().toISOString() }).eq('id', product.id);
+      }
+      if (!isAdmin && (product.status === 'draft' || isScheduledFuture(product))) {
+        return jsonResponse({ error: 'Product not found.' }, 404);
+      }
 
       let siblings: any[] = [];
       if (product.variant_group) {
@@ -161,7 +186,7 @@ export const GET: APIRoute = async ({ request }) => {
           .order('variant_label', { ascending: true });
         if (!isAdmin) sib = sib.in('status', PUBLIC_STATUSES);
         const { data } = await sib;
-        siblings = data || [];
+        siblings = (data || []).filter((s: any) => isAdmin || !isScheduledFuture(s));
       }
       const [withCost] = isAdmin ? await withPrivate([product]) : [product];
       return jsonResponse({ product: withCost, siblings, isAdmin });
@@ -176,7 +201,19 @@ export const GET: APIRoute = async ({ request }) => {
       return jsonResponse({ error: error.message }, 500);
     }
 
-    const products = isAdmin ? await withPrivate(data || []) : data || [];
+    const rawList = data || [];
+    for (const p of rawList) {
+      if (isReleasedDraft(p)) {
+        const nextStatus = (p.stock_quantity || 0) > 0 ? 'active' : 'out_of_stock';
+        p.status = nextStatus;
+        await supabaseAdmin.from('store_products').update({ status: nextStatus, updated_at: new Date().toISOString() }).eq('id', p.id);
+      }
+    }
+    const filteredList = isAdmin
+      ? rawList
+      : rawList.filter((p: any) => PUBLIC_STATUSES.includes(p.status) && !isScheduledFuture(p));
+
+    const products = isAdmin ? await withPrivate(filteredList) : filteredList;
     return jsonResponse({ products, isAdmin });
   } catch (err: any) {
     return jsonResponse({ error: err.message || 'Internal Server Error' }, 500);
@@ -238,6 +275,10 @@ export const PATCH: APIRoute = async ({ request }) => {
 
     const privError = await writePrivate(body.id, priv);
     if (privError) return jsonResponse({ error: privError.message }, 500);
+
+    if (data && (data.stock_quantity || 0) > 0 && data.status === 'active') {
+      dispatchBackInStockNotifications(data).catch(() => {});
+    }
 
     return jsonResponse({ success: true, product: { ...data, ...priv } });
   } catch (err: any) {

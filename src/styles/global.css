@@ -59,50 +59,48 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
-/* IVORY PARCHMENT: Warm off-white & rose — the light theme */
+/* IVORY PARCHMENT: Warm off-white page & soft pastel rose — the light theme */
 html[data-theme="light"] {
-  /* Backgrounds: warm parchment beige page so crisp white containers clearly stand out */
+  /* Page stays warm ivory; containers, buttons, and sub-surfaces use crisp clean white/neutral tones (not beige) */
   --bg-page:          #f3ede2;
-  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(244, 63, 94, 0.06) 0%, rgba(243, 237, 226, 0) 55%), #f3ede2;
+  --bg-page-gradient: radial-gradient(circle at 50% -10%, rgba(251, 113, 133, 0.06) 0%, rgba(243, 237, 226, 0) 55%), #f3ede2;
   --bg-surface:       #ffffff;
-  --bg-surface-2:     #ede6d8;
-  --bg-raised:        #e2d9c8;
+  --bg-surface-2:     #f8f9fb;
+  --bg-raised:        #f1f3f7;
   --bg-input:         #ffffff;
-  --bg-header:        rgba(255, 253, 248, 0.94);
+  --bg-header:        rgba(255, 255, 255, 0.95);
 
   /* Banner overlay in light mode: warm translucent veil so banner art stays clearly visible */
-  --banner-overlay:   linear-gradient(110deg, rgba(243, 237, 226, 0.62) 0%, rgba(243, 237, 226, 0.28) 52%, rgba(243, 237, 226, 0.38) 100%);
+  --banner-overlay:   linear-gradient(110deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.30) 52%, rgba(255, 255, 255, 0.42) 100%);
 
-  /* Borders: stronger neutral ink so cards, panels, and sub-containers are clearly defined */
-  --border:           rgba(24, 24, 27, 0.22);
-  --border-subtle:    rgba(24, 24, 27, 0.14);
-  --border-hover:     rgba(225, 29, 72, 0.55);
+  /* Borders: crisp neutral ink + soft rose hover border */
+  --border:           rgba(24, 24, 27, 0.16);
+  --border-subtle:    rgba(24, 24, 27, 0.10);
+  --border-hover:     rgba(244, 63, 94, 0.45);
 
-  /* Text: black ink throughout - grey on ivory is hard to read. Hierarchy comes from size and
-     weight instead. Only placeholders stay lighter, so an empty field doesn't look filled in. */
+  /* Text: black ink throughout */
   --text-primary:     #0a0a0a;
   --text-secondary:   #18181b;
   --text-tertiary:    #27272a;
   --text-muted:       #3f3f46;
-  --text-placeholder: #78716c;
-  /* Accent text is ink too: the accent colour is carried by fills and borders, never by small text. */
+  --text-placeholder: #71717a;
   --text-accent:      #0a0a0a;
   --text-on-accent:   #0a0a0a;
 
-  /* Accent: rose pink */
-  --accent:           #e11d48;
-  --accent-light:     #fb7185;
-  --accent-strong:    #fb7185;
+  /* Accent: soft light pastel rose instead of harsh hot pink */
+  --accent:           #f43f5e;
+  --accent-light:     #fecdd3;
+  --accent-strong:    #fecdd3;
   --positive:         #047857;
-  --positive-muted:   rgba(4, 120, 87, 0.12);
-  --positive-border:  rgba(4, 120, 87, 0.38);
+  --positive-muted:   rgba(4, 120, 87, 0.10);
+  --positive-border:  rgba(4, 120, 87, 0.32);
   --negative:         #b91c1c;
-  --negative-muted:   rgba(185, 28, 28, 0.12);
-  --negative-border:  rgba(185, 28, 28, 0.38);
-  /* Selected / active: a soft rose wash with a rose edge. */
-  --accent-muted:     rgba(244, 63, 94, 0.15);
-  --accent-border:    rgba(225, 29, 72, 0.50);
-  --accent-glow:      rgba(244, 63, 94, 0.24);
+  --negative-muted:   rgba(185, 28, 28, 0.10);
+  --negative-border:  rgba(185, 28, 28, 0.32);
+  /* Selected / active / hover wash: light pastel rose fill with delicate rose edge */
+  --accent-muted:     rgba(254, 205, 211, 0.55);
+  --accent-border:    rgba(251, 113, 133, 0.55);
+  --accent-glow:      rgba(251, 113, 133, 0.18);
 
   /* Brand Logo Gradient */
   --brand-gradient:   linear-gradient(90deg, #9f1239, #e11d48, #fb7185);
@@ -246,7 +244,10 @@ html[data-theme="light"] :is(.bg-zinc-800, .bg-zinc-900, .bg-slate-800, .bg-slat
 html[data-theme="light"] :is(.bg-zinc-950, .bg-slate-950) { background-color: var(--bg-input); }
 html[data-theme="light"] :is(.bg-zinc-800\/60, .bg-zinc-950\/60) { background-color: var(--bg-surface-2); }
 html[data-theme="light"] :is(.bg-black\/20, .bg-black\/30, .bg-black\/40, .bg-white\/5, .bg-white\/\[0\.03\]):not(.fixed):not(.inset-0) { background-color: var(--bg-surface-2); }
-html[data-theme="light"] :is(.hover\:bg-zinc-700:hover, .hover\:bg-zinc-900\/50:hover) { background-color: var(--bg-raised); }
+html[data-theme="light"] :is(.hover\:bg-zinc-700:hover, .hover\:bg-zinc-800:hover, .hover\:bg-zinc-900\/50:hover, .hover\:bg-white\/5:hover, .hover\:bg-white\/10:hover) {
+  background-color: var(--accent-muted) !important;
+  border-color: var(--border-hover) !important;
+}
 html[data-theme="light"] :is(.border-zinc-700, .border-zinc-800, .border-slate-700, .border-slate-800, .border-white\/5, .border-white\/10, .border-white\/15, .border-white\/20) { border-color: var(--border) !important; }
 html[data-theme="light"] .placeholder\:text-zinc-500::placeholder { color: var(--text-placeholder); }
 
@@ -271,8 +272,13 @@ a[href],
   button:not(:disabled):not(.group\/card):hover {
     filter: brightness(1.1);
   }
-  html[data-theme="light"] button:not(:disabled):not(.group\/card):hover {
-    filter: brightness(0.95);
+  html[data-theme="light"] button:not(:disabled):not(.group\/card):hover,
+  html[data-theme="light"] a[href].rounded-lg:hover,
+  html[data-theme="light"] a[href].rounded-xl:hover,
+  html[data-theme="light"] a[href].rounded-full:hover {
+    background-color: var(--accent-muted) !important;
+    border-color: var(--border-hover) !important;
+    box-shadow: 0 4px 14px var(--accent-glow);
   }
 
   /* Bordered buttons and standalone pills get clear border highlight + subtle lift */

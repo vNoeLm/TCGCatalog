@@ -12,6 +12,16 @@ import { cardKey, checkPrices, hasFoilVariant, norm, sameCard, type PriceCard } 
 /** Riftbound's game id at Cardmarket is 22. Public, no login; refreshed every night. */
 export const PRICE_GUIDE_URL = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_22.json';
 
+/** Cardmarket public price guide URLs by game slug. */
+export const PRICE_GUIDE_URLS_BY_GAME: Record<string, string> = {
+  mtg: 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json',
+  pokemon: 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json',
+  onepiece: 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_18.json',
+  lorcana: 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json',
+  starwars: 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_20.json',
+  riftbound: PRICE_GUIDE_URL,
+};
+
 /** One row of the guide (prices in euros; missing ones are null or 0). */
 export interface GuideRow {
   idProduct: number;
@@ -62,7 +72,12 @@ export interface CardmarketPlan {
   flagged: { card: PriceCard; notes: string[] }[];
 }
 
-export function planCardmarketPrices(cards: PriceCard[], links: CardmarketLink[], guide: GuideRow[]): CardmarketPlan {
+export function planCardmarketPrices(
+  cards: PriceCard[],
+  links: CardmarketLink[],
+  guide: GuideRow[],
+  targetGame = 'riftbound'
+): CardmarketPlan {
   const byKey = new Map<string, CardmarketLink>();
   for (const link of links) {
     const key = norm(link.id);
@@ -76,7 +91,7 @@ export function planCardmarketPrices(cards: PriceCard[], links: CardmarketLink[]
   const flagged: CardmarketPlan['flagged'] = [];
   let linked = 0;
   for (const card of cards) {
-    if (card.game !== 'riftbound') continue;
+    if (targetGame !== 'all' && card.game !== targetGame) continue;
     const link = byKey.get(cardKey(card));
     if (!link || !link.cmid || !sameCard(card.name, link.name)) continue;
     const row = byProduct.get(link.cmid);

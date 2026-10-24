@@ -14,7 +14,7 @@
  * they never answer, the seller can complete it after the waiting period.
  */
 
-export type HoldStatus = 'pending' | 'held' | 'handed_over' | 'buyer_received' | 'completed' | 'cancelled' | 'rejected';
+export type HoldStatus = 'pending' | 'held' | 'handed_over' | 'buyer_received' | 'completed' | 'cancelled' | 'rejected' | 'expired';
 
 export type HoldAction =
   | 'hold'              // seller accepts the request and reserves the card
@@ -31,6 +31,11 @@ export type HoldRole = 'seller' | 'buyer';
 /** How many days either party has to confirm or deny before the order auto-completes. */
 export const CONFIRM_TIMEOUT_DAYS = 3;
 export const BUYER_CONFIRM_DAYS = CONFIRM_TIMEOUT_DAYS;
+
+/** An unanswered pending request is released automatically after this long. */
+export const PENDING_HOLD_EXPIRY_HOURS = 48;
+/** Maximum number of pending (not yet accepted) requests one buyer can keep open. */
+export const MAX_PENDING_HOLDS_PER_BUYER = 5;
 
 /** Requests that still need someone to act. */
 export const OPEN_HOLD_STATUSES: readonly string[] = ['pending', 'held', 'handed_over', 'buyer_received'];

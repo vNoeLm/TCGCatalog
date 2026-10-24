@@ -60,7 +60,7 @@ const fmtDate24 = (iso: string | null | undefined) => {
 
 export function PriceUploadApp() {
   const [access, setAccess] = useState<Access>('checking');
-  const [activeTab, setActiveTab] = useState<MainTab>('marketplace');
+  const [activeTab, setActiveTab] = useState<MainTab>('store');
   const [siteSubTab, setSiteSubTab] = useState<SiteSubTab>('users');
   const [marketplaceSubTab, setMarketplaceSubTab] = useState<MarketplaceSubTab>('orders');
 
@@ -393,18 +393,6 @@ export function PriceUploadApp() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           {
-            key: 'marketplace' as const,
-            label: 'Marketplace',
-            desc: `${orders.length} orders · ${holds.length} holds · ${listings.length} listings`,
-            icon: (
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-            ),
-          },
-          {
             key: 'store' as const,
             label: 'Store Admin',
             desc: 'Catalogue, stock & analytics',
@@ -413,6 +401,18 @@ export function PriceUploadApp() {
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
                 <path d="M3 6h18" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            ),
+          },
+          {
+            key: 'marketplace' as const,
+            label: 'Marketplace',
+            desc: `${orders.length} orders · ${holds.length} holds · ${listings.length} listings`,
+            icon: (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
             ),
           },
@@ -468,7 +468,7 @@ export function PriceUploadApp() {
         <StoreAdminApp embedded={true} />
       )}
 
-      {/* TAB 2: SITE ADMIN */}
+      {/* TAB 3: SITE ADMIN */}
       {activeTab === 'site' && (
         <div className="space-y-4">
           {/* Subtabs for Site Admin */}
@@ -920,7 +920,7 @@ export function PriceUploadApp() {
         </div>
       )}
 
-      {/* TAB 3: MARKETPLACE */}
+      {/* TAB 2: MARKETPLACE */}
       {activeTab === 'marketplace' && (
         <div className="space-y-4">
           {/* Subtabs for Marketplace */}

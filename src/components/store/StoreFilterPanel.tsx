@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { StoreProduct } from '../../types';
-import { STORE_CATEGORIES, STORE_GAMES } from '../../lib/storeConstants';
+import { STORE_CATEGORIES, STORE_GAMES, STORE_SUBCATEGORIES_BY_CATEGORY } from '../../lib/storeConstants';
 import { EMPTY_STORE_FILTERS, activeFilterCount, facetCounts, type StoreFilters } from '../../lib/storeProducts';
 
 interface StoreFilterPanelProps {
@@ -87,15 +87,50 @@ const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x
 /**
  * Faceted filters for the shop. Each facet's counts ignore its own selection (but respect every other
  * one), so ticking a brand does not make the other brands vanish - you can still add a second one.
+ * Selecting a specific Game or Category surfaces granular sub-filters (e.g. Packs, Displays, Vault,
+ * Starter Decks for TCGs; Playmat / Tube / Size / Color for supplies).
  */
 export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPanelProps) {
   const set = (patch: Partial<StoreFilters>) => onChange({ ...filters, ...patch });
   const categories = facetCounts(products, filters, 'category');
+  const rawSubcategories = facetCounts(products, filters, 'subcategories');
   const brands = facetCounts(products, filters, 'brands');
   const games = facetCounts(products, filters, 'games');
   const sizes = facetCounts(products, filters, 'sizes');
+  const colors = facetCounts(products, filters, 'colors');
   const active = activeFilterCount(filters);
   const inputStyle = { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' };
+
+  const selectedSubcategories = filters.subcategories || [];
+  const selectedColors = filters.colors || [];
+
+  // Build subcategory entries: when a specific category or game is selected, include standard subcategories
+  // for that category (or sealed TCG subcategories when a game is selected) so shoppers always see
+  // Packs / Displays / Vault / Starter Decks / Playmat / Toploader options.
+  const subcategoryEntries: [string, number][] = (() => {
+    const map = new Map<string, number>(rawSubcategories);
+    const presetCat = filters.category !== 'all' ? filters.category : (filters.games.length > 0 ? 'sealed' : null);
+    if (presetCat && STORE_SUBCATEGORIES_BY_CATEGORY[presetCat]) {
+      for (const preset of STORE_SUBCATEGORIES_BY_CATEGORY[presetCat]) {
+        if (!map.has(preset)) map.set(preset, 0);
+      }
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  })();
+
+  const sizeSectionTitle =
+    filters.category === 'deck_boxes' ? 'Deck Box Size / Capacity' :
+    filters.category === 'playmats' ? 'Playmat Size' :
+    filters.category === 'protection' ? 'Thickness / Size' :
+    filters.category === 'sleeves' ? 'Sleeve Size' :
+    'Size / Capacity';
+
+  const subcatSectionTitle =
+    filters.games.length === 1
+      ? `${gameName(filters.games[0])} Product Type`
+      : filters.category !== 'all'
+      ? `${categoryName(filters.category)} Type`
+      : 'Product Type';
 
   return (
     <div className="pt-3">
@@ -112,6 +147,15 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
         </div>
       )}
 
+      <Section title="Game">
+        <CheckList
+          entries={games.filter(([v]) => v !== 'universal')}
+          selected={filters.games}
+          label={(v) => gameName(v)}
+          onToggle={(v) => set({ games: toggle(filters.games, v) })}
+        />
+      </Section>
+
       <Section title="Category">
         <div className="flex flex-col gap-0.5">
           {[['all', products.length] as [string, number], ...categories].map(([id, count]) => {
@@ -120,7 +164,7 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
               <button
                 key={id}
                 type="button"
-                onClick={() => set({ category: id })}
+                onClick={() => set({ category: id, subcategories: [] })}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left cursor-pointer transition border"
                 style={
                   selected
@@ -136,17 +180,30 @@ export function StoreFilterPanel({ products, filters, onChange }: StoreFilterPan
         </div>
       </Section>
 
+      {(subcategoryEntries.length > 0 || selectedSubcategories.length > 0) && (
+        <Section title={subcatSectionTitle}>
+          <CheckList
+            entries={subcategoryEntries}
+            selected={selectedSubcategories}
+            label={(v) => v}
+            onToggle={(v) => set({ subcategories: toggle(selectedSubcategories, v) })}
+          />
+        </Section>
+      )}
+
       <Section title="Brand">
         <CheckList entries={brands} selected={filters.brands} label={(v) => v} onToggle={(v) => set({ brands: toggle(filters.brands, v) })} />
       </Section>
 
-      <Section title="Game">
-        <CheckList entries={games.filter(([v]) => v !== 'universal')} selected={filters.games} label={(v) => gameName(v)} onToggle={(v) => set({ games: toggle(filters.games, v) })} />
-      </Section>
-
       {(sizes.length > 0 || filters.sizes.length > 0) && (
-        <Section title="Size">
+        <Section title={sizeSectionTitle}>
           <CheckList entries={sizes} selected={filters.sizes} label={(v) => v} onToggle={(v) => set({ sizes: toggle(filters.sizes, v) })} />
+        </Section>
+      )}
+
+      {(colors.length > 0 || selectedColors.length > 0) && (
+        <Section title="Color">
+          <CheckList entries={colors} selected={selectedColors} label={(v) => v} onToggle={(v) => set({ colors: toggle(selectedColors, v) })} />
         </Section>
       )}
 

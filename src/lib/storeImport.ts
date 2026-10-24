@@ -26,7 +26,7 @@ export interface ImportPlanItem {
 
 const clean = (v: unknown, max: number) => sanitizePlainText(v, max);
 
-const NUMERIC_FIELDS = ['price_huf', 'original_price_huf', 'cost_price_huf', 'stock_quantity'] as const;
+const NUMERIC_FIELDS = ['price_huf', 'original_price_huf', 'cost_price_huf', 'msrp_huf', 'stock_quantity'] as const;
 const CATEGORY_IDS = new Set<string>(STORE_CATEGORIES.map((c) => c.id));
 const STATUS_IDS = new Set<string>(STORE_STATUSES);
 const KIND_IDS = new Set<string>(STORE_VARIANT_KINDS.map((k) => k.id));
@@ -116,10 +116,19 @@ export function planImport(
       product.images = urls;
     }
 
-    if (merged.color !== undefined || merged.size !== undefined) {
+    if (
+      merged.color !== undefined ||
+      merged.size !== undefined ||
+      merged.subcategory !== undefined ||
+      merged.msrp_huf !== undefined ||
+      merged.release_at !== undefined
+    ) {
       const attributes = { ...(found?.attributes || {}) };
       if (merged.color !== undefined) attributes.color = clean(merged.color, 60);
       if (merged.size !== undefined) attributes.size = clean(merged.size, 60);
+      if (merged.subcategory !== undefined) attributes.subcategory = clean(merged.subcategory, 80);
+      if (merged.msrp_huf !== undefined) attributes.msrp_huf = merged.msrp_huf;
+      if (merged.release_at !== undefined) attributes.release_at = clean(merged.release_at, 60);
       product.attributes = attributes;
     }
 

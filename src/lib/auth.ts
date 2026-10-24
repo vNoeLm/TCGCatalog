@@ -10,13 +10,14 @@ export async function signInWithEmail(email: string, password: string) {
   return { data, error };
 }
 
-export async function signUpWithEmail(email: string, password: string, displayName?: string) {
+export async function signUpWithEmail(email: string, password: string, displayName?: string, country = 'HU') {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: displayName || splitEmail(email),
+        country: (country || 'HU').toUpperCase(),
       },
     },
   });
@@ -108,19 +109,33 @@ async function loadProfile(user: AuthUser): Promise<UserProfile> {
   let dbRole: UserProfile['role'] | null = null;
   let dbDisplayName: string | null = null;
   let dbAvatarUrl: string | null = null;
+  let dbCountry: string | null = null;
   let dbIsAdmin = false;
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
-      .select('role, display_name, avatar_url, is_admin')
+      .select('role, display_name, avatar_url, is_admin, country')
       .eq('id', user.id)
       .maybeSingle();
+
+    // Before the country migration the select fails as a whole; retry without it so role and
+    // display name still load.
+    if (error) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('role, display_name, avatar_url, is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+      data = fallback.data as typeof data;
+      error = fallback.error;
+    }
 
     if (!error && data) {
       dbRole = data.role as UserProfile['role'];
       dbDisplayName = data.display_name;
       dbAvatarUrl = data.avatar_url;
+      dbCountry = (data as any).country || null;
       dbIsAdmin = Boolean(data.is_admin);
     }
   } catch (e) {
@@ -149,6 +164,7 @@ async function loadProfile(user: AuthUser): Promise<UserProfile> {
     display_name: dbDisplayName || (user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || splitEmail(user.email || 'User')),
     avatar_url: dbAvatarUrl || (user.user_metadata?.avatar_url || user.user_metadata?.picture || null),
     banner_url: user.user_metadata?.banner_url || null,
+    country: (dbCountry || user.user_metadata?.country || 'HU').toUpperCase(),
     role,
     is_admin: isPlatformAdmin,
     is_owner: isPlatformOwner,
@@ -209,6 +225,9 @@ export async function updateProfile(updates: Partial<UserProfile>) {
   if (updates.banner_url !== undefined) {
     authData.banner_url = updates.banner_url;
   }
+  if (updates.country !== undefined) {
+    authData.country = updates.country;
+  }
 
   // 1. Update public.profiles + auth.users + user_banners via server API
   const { data: sessionData } = await supabase.auth.getSession();
@@ -225,6 +244,7 @@ export async function updateProfile(updates: Partial<UserProfile>) {
           display_name: updates.display_name,
           avatar_url: updates.avatar_url,
           banner_url: updates.banner_url,
+          country: updates.country,
         }),
       });
     } catch {}

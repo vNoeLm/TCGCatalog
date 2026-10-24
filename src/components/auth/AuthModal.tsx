@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { signInWithEmail, signUpWithEmail } from '../../lib/auth';
+import { COUNTRIES } from '../../lib/countries';
 
 interface AuthModalProps {
   initialMode?: 'signin' | 'signup';
@@ -21,6 +22,7 @@ export function AuthModal({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [country, setCountry] = useState('HU');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function AuthModal({
           else if (onClose) onClose();
         }
       } else {
-        const { data, error } = await signUpWithEmail(email.trim(), password, displayName.trim());
+        const { data, error } = await signUpWithEmail(email.trim(), password, displayName.trim(), country);
         if (error) {
           setErrorMsg(error.message);
         } else {
@@ -150,6 +152,28 @@ export function AuthModal({
               placeholder="e.g. MasterRifter"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition"
             />
+          </div>
+        )}
+
+        {mode === 'signup' && (
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
+              Country / Region
+            </label>
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600 transition cursor-pointer"
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} ({c.localName})
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Your local marketplace and the country shown on your listings.
+            </p>
           </div>
         )}
 

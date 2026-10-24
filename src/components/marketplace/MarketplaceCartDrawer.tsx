@@ -14,7 +14,6 @@ import {
 } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
 import {
-  HANDOVER_METHODS,
   handoverMethod,
   sharedHandoverIds,
   missingDeliveryFields,
@@ -24,8 +23,9 @@ import {
   type HandoverMethodId,
 } from '../../lib/handover';
 import { AuthModal } from '../auth/AuthModal';
-import { methodAvailability, sellerShipsTo, type MethodAvailability, type ShippingSettings } from '../../lib/shipping';
+import { methodAvailability, internationalRate, type MethodAvailability, type ShippingSettings } from '../../lib/shipping';
 import { fetchShippingSettings } from '../../lib/shippingClient';
+import { getCountry } from '../../lib/countries';
 import type { UserProfile } from '../../types';
 
 const fmt = (n: number) =>
@@ -55,6 +55,7 @@ const KIND_HINT: Record<string, string> = {
   locker: 'Parcel locker',
   address: 'Home delivery',
   custom: 'Describe it',
+  international: 'Cross-border delivery',
 };
 
 interface SellerGroup {
@@ -121,6 +122,12 @@ export function MarketplaceCartDrawer() {
     };
   }, []);
 
+  useEffect(() => {
+    // The country the buyer is in comes from their profile; it decides domestic vs international
+    // handover and is sent with the request for the seller's records.
+    setDelivery((d) => ({ ...d, country: (profile?.country || 'HU').toUpperCase() }));
+  }, [profile?.country]);
+
   const groups: SellerGroup[] = useMemo(() => {
     const bySeller = new Map<string, Pick<SellerGroup, 'sellerId' | 'sellerName' | 'items'>>();
     cart.forEach((item) => {
@@ -131,19 +138,32 @@ export function MarketplaceCartDrawer() {
       }
       g.items.push(item);
     });
+    const buyerCountry = (profile?.country || 'HU').toUpperCase();
     return Array.from(bySeller.values()).map((g) => {
       const subtotal = cartTotalHuf(g.items);
       const settings = shippingBySeller[g.sellerId];
-      const buyerCountry = 'HU';
-      const sellerCountry = 'HU';
-      const destination = 'DOMESTIC';
+      const sellerCountry = (g.items[0]?.sellerCountry || 'HU').toUpperCase();
+      const crossBorder = buyerCountry !== sellerCountry;
       const sharedMethods = sharedHandoverIds(g.items.map((i) => i.handoverMethods));
-      const hasSharedHandover = sharedMethods.length > 0;
-      const options = sharedMethods
-        .map((id) => methodAvailability(settings, id, subtotal, destination))
-        .filter((o) => o.offered);
 
-      const isCountryMismatch = false;
+      // Domestic orders use the seller's own handover methods; cross-border orders use the
+      // seller's price for the buyer's country, delivered by an arranged courier.
+      let options: MethodAvailability[];
+      if (crossBorder) {
+        const rate = internationalRate(settings, buyerCountry);
+        options = rate === null
+          ? []
+          : [{ id: 'international', offered: true, price: rate, min: 0, short: 0 }];
+      } else {
+        const builtInOptions = sharedMethods
+          .map((id) => methodAvailability(settings, id, subtotal))
+          .filter((o) => o.offered);
+        const customOptions = (settings?.custom_methods || [])
+          .filter((cm) => cm.enabled)
+          .map((cm) => methodAvailability(settings, cm.id, subtotal))
+          .filter((o) => o.offered);
+        options = [...builtInOptions, ...customOptions];
+      }
 
       return {
         ...g,
@@ -151,11 +171,11 @@ export function MarketplaceCartDrawer() {
         options,
         methods: options.filter((o) => o.short === 0).map((o) => o.id),
         sellerCountry,
-        isCountryMismatch,
-        hasSharedHandover,
+        isCountryMismatch: crossBorder && options.length === 0,
+        hasSharedHandover: !crossBorder && sharedMethods.length > 0,
       };
     });
-  }, [cart, shippingBySeller, delivery.country]);
+  }, [cart, shippingBySeller, profile?.country]);
 
   const sellerKey = groups.map((g) => g.sellerId).join(',');
   useEffect(() => {
@@ -209,8 +229,12 @@ export function MarketplaceCartDrawer() {
         return `Your order from ${group.sellerName} is below the minimum for their delivery options - add a card or two.`;
       }
       if (!c.method) return `Choose how to get the cards from ${group.sellerName}.`;
-      if (handoverMethod(c.method)?.kind === 'custom' && !c.custom.trim()) {
+      const hm = handoverMethod(c.method);
+      if (hm?.kind === 'custom' && !c.custom.trim()) {
         return `Describe how you want to arrange the handover with ${group.sellerName}.`;
+      }
+      if (hm?.id.startsWith('custom:') && hm?.kind === 'locker' && !c.custom.trim()) {
+        return `Enter the ${hm.label} locker or pickup point for ${group.sellerName}.`;
       }
       const missing = missingDeliveryFields(c.method, delivery);
       if (missing && missing.length > 0) return `Add your ${missing.join(', ')} for ${handoverMethod(c.method)?.label}.`;
@@ -253,8 +277,7 @@ export function MarketplaceCartDrawer() {
             body: JSON.stringify({
               seller_id: group.sellerId,
               buyer_phone: ships ? delivery.phone.trim() : undefined,
-              buyer_country: delivery.country || 'HU',
-              destination: 'DOMESTIC',
+              buyer_country: (profile?.country || delivery.country || 'HU').toUpperCase(),
               preferred_handover: method,
               handover_details: formatHandoverDetails(method, delivery, c.custom) || undefined,
               message: c.message.trim() || undefined,
@@ -295,10 +318,12 @@ export function MarketplaceCartDrawer() {
     }
   };
 
+  const isOnStorePage = typeof window !== 'undefined' && window.location.pathname.startsWith('/store');
+
   return (
     <>
-      {/* Floating cart button */}
-      {!open && cart.length > 0 && (
+      {/* Floating cart button (hidden on /store so it never clashes with the Store cart) */}
+      {!open && cart.length > 0 && !isOnStorePage && (
         <button
           type="button"
           key={bumpKey}
@@ -449,15 +474,17 @@ export function MarketplaceCartDrawer() {
                       </div>
                       {group.options.length === 0 ? (
                         <p className="text-[11px] leading-relaxed p-2.5 rounded-lg border mb-2" style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}>
-                          {group.hasSharedHandover
-                            ? 'No enabled handover method meets the minimum order amount for this seller.'
-                            : "These cards were listed with different handover methods, so one request can't cover them all. Remove one to send the rest."}
+                          {group.isCountryMismatch
+                            ? `This seller doesn't ship to ${getCountry(profile?.country || 'HU').name}.`
+                            : group.hasSharedHandover
+                              ? 'No enabled handover method meets the minimum order amount for this seller.'
+                              : "These cards were listed with different handover methods, so one request can't cover them all. Remove one to send the rest."}
                         </p>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
-                          {HANDOVER_METHODS.map((hm) => {
-                            const opt = group.options.find((o) => o.id === hm.id);
-                            if (!opt) return null;
+                          {group.options.map((opt) => {
+                            const hm = handoverMethod(opt.id);
+                            if (!hm) return null;
                             const active = c.method === hm.id;
                             const locked = opt.short > 0;
                             return (
@@ -478,7 +505,7 @@ export function MarketplaceCartDrawer() {
                                   {opt.price > 0 ? formatPrice(opt.price) : 'Free'}
                                 </span>
                                 <span className="block text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                                  {locked ? `Add ${fmt(opt.short)} more` : KIND_HINT[hm.kind]}
+                                  {locked ? `Add ${fmt(opt.short)} more` : hm.id === 'international' ? 'Cross-border delivery' : KIND_HINT[hm.kind]}
                                 </span>
                               </button>
                             );
@@ -506,8 +533,18 @@ export function MarketplaceCartDrawer() {
                       )}
                       {(m?.kind === 'locker' || m?.kind === 'address') && (
                         <p className="text-[11px] leading-relaxed mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                          Ships to the {m.kind === 'address' ? 'address' : m.id === 'foxpost' ? 'Foxpost locker' : 'Packeta pickup point'} in your delivery details below.
+                          Ships to the {m.kind === 'address' ? 'address' : m.id === 'foxpost' ? 'Foxpost locker' : m.id === 'packeta' ? 'Packeta pickup point' : `${m.label} locker / pickup point`} in your delivery details below.
                         </p>
+                      )}
+                      {m?.id.startsWith('custom:') && m?.kind === 'locker' && (
+                        <input
+                          type="text"
+                          value={c.custom}
+                          onChange={(e) => setChoice(group, { custom: e.target.value })}
+                          placeholder={`${m.label} locker name or pickup point address *`}
+                          className={`${inputCls} mb-2`}
+                          style={inputStyle}
+                        />
                       )}
                       {m?.kind === 'custom' && (
                         <textarea
@@ -549,7 +586,7 @@ export function MarketplaceCartDrawer() {
                         Delivery Destination
                       </label>
                       <div className="flex items-center gap-2 h-9 px-3 rounded-lg border text-xs font-semibold" style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}>
-                        <span>Hungary (Belföld)</span>
+                        <span>{getCountry(profile?.country || 'HU').name} ({getCountry(profile?.country || 'HU').localName})</span>
                       </div>
                     </div>
                     {needs('foxpost') && (
@@ -613,7 +650,7 @@ export function MarketplaceCartDrawer() {
                   style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
                 >
                   <strong style={{ color: 'var(--text-secondary)' }}>Peer-to-peer trade (Magánszemélyek közötti adásvétel):</strong>{' '}
-                  Unless marked as a Verified Store, sellers are private individuals (<em>magánszemélyek</em>). Your purchase contract is formed directly with the seller, and statutory EU/Hungarian consumer rights (such as the 14-day right of withdrawal / <em>14 napos elállási jog</em>) do not apply to private sales.{' '}
+                  Marketplace sellers are private individuals (<em>magánszemélyek</em>) unless they identify themselves as a business seller. Your purchase contract is formed directly with the seller, and statutory EU/Hungarian consumer rights (such as the 14-day right of withdrawal / <em>14 napos elállási jog</em>) do not apply to private sales.{' '}
                   <a href="/legal/terms" className="underline font-semibold" style={{ color: 'var(--text-secondary)' }}>
                     Terms (ÁSZF)
                   </a>

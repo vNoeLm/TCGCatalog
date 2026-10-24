@@ -11,6 +11,7 @@ import { StoreAnalyticsTab } from './StoreAnalyticsTab';
 import { StoreWithdrawalsTab, type StoreWithdrawal } from './StoreWithdrawalsTab';
 import { storeApi, useStoreAuth } from './storeClient';
 import type { StoreTaxonomies } from '../../pages/api/store/taxonomies';
+import type { ProductRequestEntry } from '../../pages/api/store/product-requests';
 
 type StatusTab = 'all' | 'active' | 'low_stock' | 'out_of_stock' | 'draft';
 
@@ -65,13 +66,15 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
   const [game, setGame] = useState('all');
   const [lowOnly, setLowOnly] = useState(false);
 
-  // View mode switcher: products catalogue vs stock analytics vs withdrawals
-  const [viewMode, setViewMode] = useState<'products' | 'analytics' | 'withdrawals'>('products');
+  // View mode switcher: products catalogue vs stock analytics vs withdrawals vs product requests
+  const [viewMode, setViewMode] = useState<'products' | 'analytics' | 'withdrawals' | 'requests'>('products');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [withdrawals, setWithdrawals] = useState<StoreWithdrawal[]>([]);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
   const [updatingWithdrawalId, setUpdatingWithdrawalId] = useState<string | null>(null);
+  const [productRequests, setProductRequests] = useState<ProductRequestEntry[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   const [form, setForm] = useState<null | { product: StoreProduct | null; template: Partial<StoreProduct> | null }>(null);
   const [importing, setImporting] = useState(false);
@@ -147,13 +150,47 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
     }
   }, []);
 
+  const loadProductRequests = useCallback(async () => {
+    setLoadingRequests(true);
+    try {
+      const res = await storeApi<{ requests?: ProductRequestEntry[] }>('/api/store/product-requests');
+      if (res.ok && res.data.requests) {
+        setProductRequests(res.data.requests);
+      }
+    } catch (e) {
+      console.error('Failed to load product requests:', e);
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, []);
+
+  const updateProductRequestStatus = async (id: string, status: ProductRequestEntry['status']) => {
+    const res = await storeApi('/api/store/product-requests', {
+      method: 'PATCH',
+      body: JSON.stringify({ id, status }),
+    });
+    if (res.ok) {
+      setProductRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    }
+  };
+
+  const deleteProductRequest = async (id: string) => {
+    const res = await storeApi(`/api/store/product-requests?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      setProductRequests((prev) => prev.filter((r) => r.id !== id));
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && isAdmin) {
       load();
       loadTaxonomies();
       loadWithdrawals();
+      loadProductRequests();
     }
-  }, [authLoading, isAdmin, load, loadTaxonomies, loadWithdrawals]);
+  }, [authLoading, isAdmin, load, loadTaxonomies, loadWithdrawals, loadProductRequests]);
 
   const counts = useMemo(
     () => ({
@@ -375,17 +412,42 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('requests');
+                  if (productRequests.length === 0) loadProductRequests();
+                }}
+                className="px-2.5 py-1 rounded-md text-xs font-bold cursor-pointer transition flex items-center gap-1.5"
+                style={viewMode === 'requests' ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' } : { color: 'var(--text-secondary)' }}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>Product Requests ({productRequests.length})</span>
+                {productRequests.filter((r) => r.status === 'open').length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                )}
+              </button>
             </div>
           </div>
           <h1 className="text-xl sm:text-2xl font-black mt-1" style={{ color: 'var(--text-primary)' }}>
-            {viewMode === 'products' ? 'Store products' : viewMode === 'analytics' ? 'Stock & Sales Analytics' : 'Consumer Withdrawals (Elállási jog)'}
+            {viewMode === 'products'
+              ? 'Store products'
+              : viewMode === 'analytics'
+                ? 'Stock & Sales Analytics'
+                : viewMode === 'withdrawals'
+                  ? 'Consumer Withdrawals (Elállási jog)'
+                  : 'Customer Product Requests'}
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {viewMode === 'withdrawals' ? (
-              <>{withdrawals.length} withdrawal notices · <span style={{ color: '#f59e0b' }}>{withdrawals.filter((w) => w.status === 'pending').length} pending</span></>
+              <>{withdrawals.length} withdrawal notices · <span style={{ color: 'var(--text-primary)' }}>{withdrawals.filter((w) => w.status === 'pending').length} pending</span></>
+            ) : viewMode === 'requests' ? (
+              <>{productRequests.length} customer requests · <span style={{ color: 'var(--text-primary)' }}>{productRequests.filter((r) => r.status === 'open').length} open</span></>
             ) : (
               <>{products.length} products, {totalUnits} units in stock{(lowCount > 0 || outCount > 0) && (
-                <>, <span style={{ color: '#f59e0b' }}>{lowCount} low, {outCount} out of stock</span></>
+                <>, <span style={{ color: 'var(--text-primary)' }}>{lowCount} low, {outCount} out of stock</span></>
               )}</>
             )}
           </p>
@@ -442,6 +504,101 @@ export function StoreAdminApp({ embedded = false }: { embedded?: boolean } = {})
           onUpdateStatus={updateWithdrawalStatus}
           updatingId={updatingWithdrawalId}
         />
+      ) : viewMode === 'requests' ? (
+        <div className="p-5 rounded-2xl border space-y-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>
+                Submitted Product Requests
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Products requested by visitors via the footer &quot;Request a Product&quot; modal.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadProductRequests}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer"
+              style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            >
+              {loadingRequests ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {productRequests.length === 0 ? (
+            <div className="py-12 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+              No product requests submitted yet.
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+              {productRequests.map((req) => (
+                <div key={req.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                        {req.product_name}
+                      </span>
+                      {req.game_or_brand && (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md border"
+                          style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                        >
+                          {req.game_or_brand}
+                        </span>
+                      )}
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider"
+                        style={
+                          req.status === 'fulfilled'
+                            ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
+                            : req.status === 'reviewed'
+                              ? { background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-primary)' }
+                              : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                        }
+                      >
+                        {req.status}
+                      </span>
+                    </div>
+                    {req.notes && (
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {req.notes}
+                      </p>
+                    )}
+                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      Submitted {new Date(req.created_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(['open', 'reviewed', 'fulfilled'] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => updateProductRequestStatus(req.id, st)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold border capitalize cursor-pointer"
+                        style={
+                          req.status === st
+                            ? { background: 'var(--accent-strong)', borderColor: 'var(--accent-border)', color: 'var(--text-on-accent, #000)' }
+                            : { background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+                        }
+                      >
+                        {st}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => deleteProductRequest(req.id)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer"
+                      style={{ background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <>
           {/* Toolbar */}

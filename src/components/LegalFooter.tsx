@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CONTACT_EMAIL, DISCORD_USERNAME, LEGAL_PAGES, HELP_PAGES } from '../lib/site';
 import { TcgLogo } from './TcgLogo';
 
-type FooterLink = { label: string; href?: string };
+type FooterLink = { label: string; href?: string; action?: 'request_product' };
 
 /** Footer link columns. A link without href is a page that doesn't exist yet ("Soon"). */
 const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
@@ -31,6 +31,7 @@ const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: 'How buying works' },
       { label: 'FAQ' },
+      { label: 'Request a Product', action: 'request_product' },
       { label: 'Contact us', href: `mailto:${CONTACT_EMAIL}` },
     ],
   },
@@ -71,6 +72,46 @@ const iconBox = 'w-8 h-8 rounded-lg border flex items-center justify-center tran
 export function LegalFooter() {
   // Discord has no link for a person, only a username - so the button copies it.
   const [copied, setCopied] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [reqProductName, setReqProductName] = useState('');
+  const [reqGameOrBrand, setReqGameOrBrand] = useState('');
+  const [reqEmail, setReqEmail] = useState('');
+  const [reqNotes, setReqNotes] = useState('');
+  const [reqSubmitting, setReqSubmitting] = useState(false);
+  const [reqStatus, setReqStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const submitProductRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reqProductName.trim()) return;
+    setReqSubmitting(true);
+    setReqStatus(null);
+    try {
+      const res = await fetch('/api/store/product-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_name: reqProductName.trim(),
+          game_or_brand: reqGameOrBrand.trim(),
+          email: reqEmail.trim(),
+          notes: reqNotes.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setReqStatus({ ok: true, msg: 'Thank you! Your product request has been sent to our store team.' });
+        setReqProductName('');
+        setReqGameOrBrand('');
+        setReqNotes('');
+      } else {
+        setReqStatus({ ok: false, msg: data.error || 'Could not submit request.' });
+      }
+    } catch {
+      setReqStatus({ ok: false, msg: 'Network error submitting request.' });
+    } finally {
+      setReqSubmitting(false);
+    }
+  };
+
   const copyDiscord = async () => {
     try {
       await navigator.clipboard.writeText(DISCORD_USERNAME);
@@ -143,7 +184,18 @@ export function LegalFooter() {
               <ul className="flex flex-col gap-1.5">
                 {col.links.map((link) => (
                   <li key={link.label} className="text-xs">
-                    {link.href ? (
+                    {link.action === 'request_product' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReqStatus(null);
+                          setRequestModalOpen(true);
+                        }}
+                        className="hover:text-[var(--text-primary)] hover:underline underline-offset-2 transition cursor-pointer text-left"
+                      >
+                        {link.label}
+                      </button>
+                    ) : link.href ? (
                       <a href={link.href} className="hover:text-[var(--text-primary)] hover:underline underline-offset-2 transition">{link.label}</a>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 opacity-70" aria-disabled="true">
@@ -186,6 +238,106 @@ export function LegalFooter() {
           </p>
         </div>
       </div>
+
+      {requestModalOpen && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={() => !reqSubmitting && setRequestModalOpen(false)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Request a Product"
+            className="relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl space-y-4"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-black" style={{ color: 'var(--text-primary)' }}>Request a Product</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Looking for a booster box, playmat, sleeve or deck box we don&apos;t carry yet? Let us know!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRequestModalOpen(false)}
+                aria-label="Close"
+                className="p-1.5 rounded-lg border cursor-pointer hover:bg-[var(--bg-raised)]"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {reqStatus && (
+              <div
+                className="p-3 rounded-xl border text-xs font-medium"
+                style={
+                  reqStatus.ok
+                    ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
+                    : { background: 'var(--negative-muted)', borderColor: 'var(--negative-border)', color: 'var(--negative)' }
+                }
+              >
+                {reqStatus.msg}
+              </div>
+            )}
+
+            <form onSubmit={submitProductRequest} className="space-y-3">
+              <label className="block">
+                <span className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>Product name *</span>
+                <input
+                  required
+                  value={reqProductName}
+                  onChange={(e) => setReqProductName(e.target.value)}
+                  placeholder="e.g. Ultimate Guard Katana Sleeves Red (100)"
+                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>Game or Brand (optional)</span>
+                <input
+                  value={reqGameOrBrand}
+                  onChange={(e) => setReqGameOrBrand(e.target.value)}
+                  placeholder="e.g. Riftbound, One Piece, Dragon Shield..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>Notes / Quantity desired (optional)</span>
+                <textarea
+                  rows={2}
+                  value={reqNotes}
+                  onChange={(e) => setReqNotes(e.target.value)}
+                  placeholder="Any specific color, edition, or quantity..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                />
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRequestModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer hover:bg-[var(--bg-raised)]"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={reqSubmitting}
+                  className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                >
+                  {reqSubmitting ? 'Sending...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </footer>
   );
 }

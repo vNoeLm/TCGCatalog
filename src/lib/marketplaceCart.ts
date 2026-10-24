@@ -14,6 +14,8 @@ export interface MarketplaceCartItem {
   maxQuantity: number;
   isFoil: boolean;
   condition: string;
+  /** The seller's country, so checkout can choose domestic vs international handover. */
+  sellerCountry?: string;
   /** The handover methods the seller listed this card with. Missing on items added before this
    * was stored - treated as every method (see lib/handover.ts). */
   handoverMethods?: string[];

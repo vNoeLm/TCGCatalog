@@ -3,17 +3,12 @@ import { isUnreleasedSet } from '../../../lib/cardPreview';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getSellerTier } from '../../../lib/badges';
 import {
-  extractSellerId,
   listingSignature,
   cleanListingDescription,
-  getCopiesFromCollection,
-  withListingNotes,
-  copiesToReturn,
 } from '../../../lib/sellerNotes';
-import { listingCollectionLinks, collectionKey as collectionKeyOf } from '../../../lib/sellerNotes';
-import { adjustNamedCollectionCard } from '../../../lib/collectionsServer';
-import { ALL_HANDOVER_IDS } from '../../../lib/handover';
+import { normalizeShipping, sellerVisibleToCountry } from '../../../lib/shipping';
 import { adjustSellerCollection } from '../../../lib/collectionServer';
+import { findSearchableKeyword, keywordOrClauses, tagOrClauses } from '../../../lib/keywordSearch';
 
 export const prerender = false;
 
@@ -52,6 +47,9 @@ export const GET: APIRoute = async ({ url }) => {
     const foil = url.searchParams.get('foil');
     const sellerId = url.searchParams.get('seller_id') || '';
     const sellerNameQuery = url.searchParams.get('seller')?.trim().toLowerCase() || '';
+    // Which country's marketplace is being browsed. Sellers in that country, plus sellers who
+    // listed it as an international destination, are visible; the rest are filtered out below.
+    const viewerCountry = (url.searchParams.get('viewer_country') || 'HU').toUpperCase();
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
     // The grouped "cards" marketplace view needs every active listing at once to compute
     // per-card lowest/average prices, hence the higher ceiling.
@@ -125,7 +123,16 @@ export const GET: APIRoute = async ({ url }) => {
     }
     if (search) {
       const safeTerm = search.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); const like = '"%' + safeTerm + '%"';
-      mktQuery = mktQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
+      const clauses = [`name.ilike.${like}`, `card_number.ilike.${like}`, `artist.ilike.${like}`, ...tagOrClauses(search)];
+      const searchedKeyword = findSearchableKeyword(search);
+      if (searchedKeyword) clauses.push(...keywordOrClauses(searchedKeyword));
+      mktQuery = mktQuery.or(clauses.join(','), { foreignTable: 'cards' });
+    }
+    const tagsParam = url.searchParams.get('tags') || '';
+    const filterTags = tagsParam ? tagsParam.split(',').filter(Boolean) : [];
+    if (filterTags.length > 0) {
+      const tagQuery = filterTags.map(t => `tags.cs.["${t.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`).join(',');
+      mktQuery = mktQuery.or(tagQuery, { foreignTable: 'cards' });
     }
     if (set) {
       mktQuery = mktQuery.eq('cards.sets.name', set);
@@ -150,95 +157,9 @@ export const GET: APIRoute = async ({ url }) => {
       mktQuery = mktQuery.eq('is_foil', true);
     }
 
-    const mktRes = await mktQuery;
-    let rawSourceRows: any[] = [];
-    let isNativeMarketplace = false;
-
-    if (!mktRes.error && Array.isArray(mktRes.data) && mktRes.data.length > 0) {
-      rawSourceRows = mktRes.data;
-      isNativeMarketplace = true;
-    } else {
-      let invQuery = supabaseAdmin
-        .from('inventory')
-        .select(`
-          id,
-          card_id,
-          condition,
-          is_foil,
-          price_huf,
-          status,
-          notes,
-          quantity,
-          created_at,
-          updated_at,
-          cards!inner (
-            id,
-            card_number,
-            name,
-            rarity,
-            card_type,
-            cost,
-            image_path,
-            subtype,
-            text,
-            game,
-            energy,
-            might,
-            domain,
-            tags,
-            ability,
-            artist,
-            market_price_eur,
-            market_price_foil_eur,
-            sets (
-              id,
-              name,
-              code,
-              release_date
-            )
-          ),
-          inventory_images (
-            id,
-            image_path,
-            display_order
-          )
-        `);
-
-      if (sellerId) {
-        if (statusParam && statusParam !== 'all') {
-          if (statusParam === 'on_hold' || statusParam === 'On Hold' || statusParam === 'Reserved') {
-            invQuery = invQuery.in('status', ['Reserved', 'On Hold']);
-          } else if (statusParam === 'in_stock') {
-            invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
-          } else {
-            invQuery = invQuery.eq('status', statusParam);
-          }
-        }
-      } else {
-        invQuery = invQuery.eq('status', 'In Stock').gt('quantity', 0);
-      }
-
-      if (game && game !== 'all') invQuery = invQuery.eq('cards.game', game);
-      if (search) {
-        const safeTerm = search.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); const like = '"%' + safeTerm + '%"';
-        invQuery = invQuery.or(`name.ilike.${like},card_number.ilike.${like},artist.ilike.${like}`, { foreignTable: 'cards' });
-      }
-      if (set) invQuery = invQuery.eq('cards.sets.name', set);
-      if (rarities.length > 0) invQuery = invQuery.in('cards.rarity', rarities);
-      if (type) {
-        if (type === 'Champion') invQuery = invQuery.eq('cards.subtype', 'Champion');
-        else if (type === 'Signature Spell') invQuery = invQuery.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-        else invQuery = invQuery.eq('cards.card_type', type);
-      }
-      if (domains.length > 0) {
-        const orQuery = domains.map(d => `domain.ilike.%${d}%`).join(',');
-        invQuery = invQuery.or(orQuery, { foreignTable: 'cards' });
-      }
-      if (foil === 'true') invQuery = invQuery.eq('is_foil', true);
-
-      const invRes = await invQuery;
-      rawSourceRows = invRes.data || [];
-    }
+    const { data: mktData, error: mktError } = await mktQuery;
+    if (mktError) throw mktError;
+    const rawSourceRows: any[] = mktData || [];
 
     const invRows = rawSourceRows.filter((r: any) => !isUnreleasedSet(r.cards?.sets?.release_date));
 
@@ -246,7 +167,7 @@ export const GET: APIRoute = async ({ url }) => {
     const sellerIds = new Set<string>();
 
     invRows.forEach((r: any) => {
-      const sId = isNativeMarketplace ? r.seller_id : extractSellerId(r.notes);
+      const sId = r.seller_id;
       if (sId) sellerIds.add(sId);
     });
 
@@ -254,10 +175,10 @@ export const GET: APIRoute = async ({ url }) => {
     sellerIds.add(OWNER_ID);
 
     // These queries run together concurrently
-    const [{ data: profileRows }, { data: reviewRows }, { data: storeOrdersRow }, { data: shippingRows }] = await Promise.all([
+    const [{ data: profileData, error: profileError }, { data: reviewRows }, { data: storeOrdersRow }, { data: shippingRows }] = await Promise.all([
       supabaseAdmin
         .from('profiles')
-        .select('id, display_name, avatar_url, role, is_admin')
+        .select('id, display_name, avatar_url, role, is_admin, country')
         .in('id', Array.from(sellerIds)),
       sellerRatingRows(Array.from(sellerIds)),
       supabaseAdmin
@@ -270,6 +191,17 @@ export const GET: APIRoute = async ({ url }) => {
         .select('seller_id, options')
         .in('seller_id', Array.from(sellerIds)),
     ]);
+
+    // Before the country migration is applied the select above errors as a whole; fall back to
+    // the profile fields that already existed so names and avatars keep working.
+    let profileRows = profileData;
+    if (profileError) {
+      const fallback = await supabaseAdmin
+        .from('profiles')
+        .select('id, display_name, avatar_url, role, is_admin')
+        .in('id', Array.from(sellerIds));
+      profileRows = (fallback.data || []) as typeof profileRows;
+    }
 
     const profileMap = new Map((profileRows || []).map(p => [p.id, p]));
     const shippingMap = new Map((shippingRows || []).map((r: any) => [r.seller_id, r.options || {}]));
@@ -309,9 +241,9 @@ export const GET: APIRoute = async ({ url }) => {
     const EUR_TO_HUF = 400;
     const allFormatted: any[] = [];
 
-    // Format listings (supporting both native marketplace_listings and legacy inventory)
+    // Format native marketplace_listings rows
     invRows.forEach((row: any) => {
-      const sId = (isNativeMarketplace ? row.seller_id : extractSellerId(row.notes)) || OWNER_ID;
+      const sId = row.seller_id || OWNER_ID;
       if (sellerId && sId !== sellerId) return;
 
       const prof = profileMap.get(sId);
@@ -326,41 +258,16 @@ export const GET: APIRoute = async ({ url }) => {
       const isOwner = sId === OWNER_ID || prof?.role === 'owner';
       const sellerTier = getSellerTier(salesCount, avgRating, isOwner);
 
-      let views = 0;
-      let clicks = 0;
-      let handoverMethods = ['personal', 'foxpost', 'packeta', 'other'];
-
-      if (isNativeMarketplace) {
-        views = typeof row.views === 'number' ? row.views : 0;
-        clicks = typeof row.clicks === 'number' ? row.clicks : 0;
-        if (Array.isArray(row.handover_methods) && row.handover_methods.length > 0) {
-          handoverMethods = row.handover_methods;
-        }
-      } else {
-        try {
-          if (row.notes && row.notes.startsWith('{')) {
-            const parsed = JSON.parse(row.notes);
-            views = typeof parsed.views === 'number' ? parsed.views : 0;
-            clicks = typeof parsed.clicks === 'number' ? parsed.clicks : 0;
-            if (Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
-              handoverMethods = parsed.handover_methods;
-            }
-          }
-        } catch (e) {}
-      }
+      let views = typeof row.views === 'number' ? row.views : 0;
+      let clicks = typeof row.clicks === 'number' ? row.clicks : 0;
+      let handoverMethods = Array.isArray(row.handover_methods) && row.handover_methods.length > 0
+        ? row.handover_methods
+        : ['personal', 'foxpost', 'packeta', 'other'];
 
       const cardObj = row.cards;
-      let invImgs: any[] = [];
-      let firstCustomPhoto: string | null = null;
-
-      if (isNativeMarketplace) {
-        const photoUrls: string[] = Array.isArray(row.images) ? row.images : [];
-        invImgs = photoUrls.map((p: string, idx: number) => ({ id: `img_${row.id}_${idx}`, image_path: p, display_order: idx + 1 }));
-        firstCustomPhoto = photoUrls[0] || null;
-      } else {
-        invImgs = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-        firstCustomPhoto = invImgs.length > 0 ? invImgs[0].image_path : null;
-      }
+      const photoUrls: string[] = Array.isArray(row.images) ? row.images : [];
+      const invImgs: any[] = photoUrls.map((p: string, idx: number) => ({ id: `img_${row.id}_${idx}`, image_path: p, display_order: idx + 1 }));
+      const firstCustomPhoto: string | null = photoUrls[0] || null;
 
       const displayStatus = (row.status === 'Reserved' || row.status === 'On Hold') ? 'On Hold' : row.status;
 
@@ -371,7 +278,7 @@ export const GET: APIRoute = async ({ url }) => {
         price_huf: row.price_huf,
         status: displayStatus,
         handover_methods: handoverMethods,
-        notes: isNativeMarketplace ? row.description : row.notes,
+        notes: row.description,
         is_bulk: false,
         quantity: row.quantity,
         views,
@@ -409,10 +316,8 @@ export const GET: APIRoute = async ({ url }) => {
         seller_id: sId,
         seller_name: resolvedSellerName,
         seller_avatar: prof?.avatar_url || null,
-        seller_country: (shippingMap.get(sId) as any)?.country || 'HU',
-        seller_ships_to: (shippingMap.get(sId) as any)?.ships_to || 'EU',
+        seller_country: ((prof as any)?.country || 'HU').toUpperCase(),
         seller_role: isOwner ? 'owner' : (prof?.role || (prof?.is_admin ? 'admin' : 'user')),
-        is_verified_store: isOwner || Boolean((prof as any)?.is_verified_store),
         seller_rating_avg: avgRating,
         seller_rating_count: reviewCount,
         is_marketplace_listing: true,
@@ -423,10 +328,20 @@ export const GET: APIRoute = async ({ url }) => {
     // Sort by created_at descending
     allFormatted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+    // Country-scoped marketplace: a seller is visible if they are in the viewer's country, or if
+    // they listed that country as an international destination. Opening one seller directly
+    // (?seller_id=) is never scoped, so a shared profile link still shows their listings.
+    const scoped = sellerId
+      ? allFormatted
+      : allFormatted.filter((item) => {
+          const settings = normalizeShipping(shippingMap.get(item.seller_id));
+          return sellerVisibleToCountry(settings, item.seller_country || 'HU', viewerCountry);
+        });
+
     // Apply pagination
-    const totalCount = allFormatted.length;
+    const totalCount = scoped.length;
     const startIndex = (page - 1) * pageSize;
-    const paginated = allFormatted.slice(startIndex, startIndex + pageSize);
+    const paginated = scoped.slice(startIndex, startIndex + pageSize);
 
     return new Response(JSON.stringify({
       success: true,
@@ -508,16 +423,6 @@ export const POST: APIRoute = async ({ request }) => {
       ? handover_methods
       : ['personal', 'foxpost', 'packeta', 'other'];
 
-    const notesPayload = JSON.stringify({
-      source: 'marketplace',
-      seller_id: user.id,
-      handover_methods: safeHandoverMethods,
-      views: 0,
-      clicks: 0,
-      listed_at: new Date().toISOString(),
-      ...(description ? { user_notes: description } : {}),
-    });
-
     // Merge into this seller's existing listing in marketplace_listings
     const { data: dupeCandidates } = await supabaseAdmin
       .from('marketplace_listings')
@@ -566,8 +471,14 @@ export const POST: APIRoute = async ({ request }) => {
 
     if (mktErr) {
       console.error('Failed to create marketplace listing:', mktErr);
-      return new Response(JSON.stringify({ success: false, error: mktErr.message }), {
-        status: 500,
+      const missingTable = mktErr.code === 'PGRST205' || mktErr.code === '42P01' || /schema cache/i.test(mktErr.message || '');
+      return new Response(JSON.stringify({
+        success: false,
+        error: missingTable
+          ? 'Marketplace storage is not set up yet. Run supabase/migrations/20261024010000_marketplace_listings_setup.sql in the Supabase SQL editor, then try again.'
+          : mktErr.message,
+      }), {
+        status: missingTable ? 503 : 500,
         headers: JSON_HEADERS,
       });
     }
@@ -641,56 +552,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       return new Response(JSON.stringify({
         success: true,
         listing_id: listingId,
-      }), {
-        status: 200,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // 2. Fallback to legacy inventory table
-    const { data: invRow } = await supabaseAdmin
-      .from('inventory')
-      .select('id, notes, card_id, is_foil, quantity')
-      .eq('id', listingId)
-      .maybeSingle();
-
-    if (invRow) {
-      const sellerId = extractSellerId(invRow.notes);
-      if (sellerId !== user.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
-          status: 403,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      // Delete inventory_images first (or cascade)
-      await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
-      await supabaseAdmin.from('inventory').delete().eq('id', listingId);
-
-      const links = listingCollectionLinks(invRow.notes);
-      let returned = 0;
-      let namedDelta = 0;
-      if (links.alwaysListId) {
-        // An always-list collection's copies ARE the listing: taking it down takes them out.
-        namedDelta = await adjustNamedCollectionCard(
-          sellerId!, links.alwaysListId, collectionKeyOf(invRow.card_id, Boolean(invRow.is_foil)), -(Number(invRow.quantity) || 0)
-        );
-      } else {
-        // Whatever was still unsold on this listing goes back into the collection it came from.
-        // Only copies that came out of the collection when listed go back into it.
-        const { giveBack } = copiesToReturn(getCopiesFromCollection(invRow.notes), Number(invRow.quantity) || 0, 0);
-        const back = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack, links.sourceId);
-        if (links.sourceId) namedDelta = back;
-        else returned = back;
-      }
-
-      // `collection_delta` is what Personal really changed by, so the browser can mirror it exactly.
-      return new Response(JSON.stringify({
-        success: true,
-        unlisted_id: listingId,
-        collection_delta: returned,
-        named_collection_id: links.alwaysListId || links.sourceId || null,
-        named_collection_delta: namedDelta,
       }), {
         status: 200,
         headers: JSON_HEADERS,
@@ -786,131 +647,6 @@ export const PATCH: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({
         success: true,
         listing: updated,
-      }), {
-        status: 200,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    // 2. Fallback to legacy inventory table
-    const { data: invRow } = await supabaseAdmin
-      .from('inventory')
-      .select('id, notes, status, quantity, price_huf, card_id, is_foil')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (invRow) {
-      const sellerId = extractSellerId(invRow.notes);
-      if (sellerId !== user.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden: not your listing.' }), {
-          status: 403,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      // Only an explicit quantity edit moves copies between the listing and the
-      // collection; a status change alone (e.g. marking Sold) never does, since
-      // those copies were already taken out of the collection when first listed.
-      const explicitQuantity = typeof quantity === 'number' ? quantity : null;
-
-      const updates: any = {};
-      if (typeof price_huf === 'number') updates.price_huf = price_huf;
-      if (explicitQuantity !== null) updates.quantity = explicitQuantity;
-      if (status) {
-        // Map 'On Hold' to 'Reserved' for database check constraint safety
-        const dbStatus = (status === 'On Hold' || status === 'Reserved') ? 'Reserved' : status;
-        updates.status = dbStatus;
-        if (dbStatus === 'Sold') updates.quantity = 0;
-        else if (dbStatus === 'In Stock' && invRow.quantity <= 0) updates.quantity = 1;
-      }
-      if (condition) updates.condition = condition;
-
-      // Copies only go back to the collection if they came out of it, and a smaller listing
-      // settles that up front; a bigger one is settled after the collection has been asked.
-      const quantityBefore = Number(invRow.quantity) || 0;
-      const lentBefore = getCopiesFromCollection(invRow.notes);
-      // A listing made by an always-list collection is that collection's stock: its quantity and
-      // the collection's count move together. One listed from a named collection by Quick List
-      // gives copies back to that collection, not Personal.
-      const links = listingCollectionLinks(invRow.notes);
-      let notesPatch: Record<string, unknown> = {};
-      let giveBack = 0;
-      if (!links.alwaysListId && explicitQuantity !== null && explicitQuantity < quantityBefore) {
-        const settled = copiesToReturn(lentBefore, quantityBefore, explicitQuantity);
-        giveBack = settled.giveBack;
-        notesPatch.from_collection = settled.remaining;
-      }
-      if (typeof body.description === 'string') notesPatch.user_notes = cleanListingDescription(body.description);
-      if (Array.isArray(body.handover_methods)) {
-        const methods = body.handover_methods.filter((m: unknown) => typeof m === 'string' && (ALL_HANDOVER_IDS as string[]).includes(m));
-        if (methods.length === 0) {
-          return new Response(JSON.stringify({ success: false, error: 'Offer at least one handover method.' }), {
-            status: 400,
-            headers: JSON_HEADERS,
-          });
-        }
-        notesPatch.handover_methods = methods;
-      }
-      if (Object.keys(notesPatch).length > 0) updates.notes = withListingNotes(invRow.notes, notesPatch);
-
-      const { data: updated, error: updateErr } = await supabaseAdmin
-        .from('inventory')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateErr) {
-        return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      // Photos: the list sent replaces the listing's photos.
-      if (Array.isArray(body.images)) {
-        const photos = body.images.filter((u: unknown) => typeof u === 'string' && u.trim().length > 0).slice(0, 8);
-        await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', id);
-        if (photos.length) {
-          await supabaseAdmin.from('inventory_images').insert(
-            photos.map((url: string, index: number) => ({ inventory_id: id, image_path: url, display_order: index + 1 }))
-          );
-        }
-      }
-
-      // `collection_delta` is only for Personal (the browser mirrors it); named collections are
-      // re-read from the server, so the change there is reported separately.
-      let collectionDelta = 0;
-      let namedCollectionDelta = 0;
-      const quantityAfter = typeof updates.quantity === 'number' ? updates.quantity : quantityBefore;
-      if (links.alwaysListId) {
-        if (quantityAfter !== quantityBefore) {
-          namedCollectionDelta = await adjustNamedCollectionCard(
-            sellerId!, links.alwaysListId, collectionKeyOf(invRow.card_id, Boolean(invRow.is_foil)), quantityAfter - quantityBefore
-          );
-        }
-      } else if (giveBack > 0) {
-        const returned = await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), giveBack, links.sourceId);
-        if (links.sourceId) namedCollectionDelta = returned;
-        else collectionDelta = returned;
-      } else if (explicitQuantity !== null && explicitQuantity > quantityBefore) {
-        const taken = -(await adjustSellerCollection(sellerId, invRow.card_id, Boolean(invRow.is_foil), -(explicitQuantity - quantityBefore), links.sourceId));
-        if (links.sourceId) namedCollectionDelta = -taken;
-        else collectionDelta = -taken;
-        if (taken > 0) {
-          await supabaseAdmin
-            .from('inventory')
-            .update({ notes: withListingNotes(updated.notes, { from_collection: Math.min(lentBefore, quantityBefore) + taken }) })
-            .eq('id', id);
-        }
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        listing: updated,
-        collection_delta: collectionDelta,
-        named_collection_id: links.alwaysListId || links.sourceId || null,
-        named_collection_delta: namedCollectionDelta,
       }), {
         status: 200,
         headers: JSON_HEADERS,

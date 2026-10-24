@@ -4,7 +4,7 @@ import { fetchCardDetail, fetchCardOnly, clearStoreCache, clearApiCache, getDisp
 import { getCardImageUrl, supabase } from '../lib/supabase';
 import { getCurrentProfile } from '../lib/auth';
 import { fetchSellerRatingSummary } from '../lib/reviews';
-import { getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag } from '../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../lib/badges';
 import { useSiteTheme } from '../lib/theme';
 import { parseDomains, getEnergyBadgeStyle } from '../lib/domainColors';
 
@@ -29,7 +29,7 @@ import { HANDOVER_METHODS, listingHandoverIds } from '../lib/handover';
 import { describeOption, shippingOption, type ShippingSettings } from '../lib/shipping';
 import { fetchShippingSettings } from '../lib/shippingClient';
 import { CountryFlag } from './CountryFlag';
-import { describeShippingScope } from '../lib/countries';
+import { getCountry } from '../lib/countries';
 import { ListCardModal } from './marketplace/ListCardModal';
 import { SellerReviewsModal } from './marketplace/SellerReviewsModal';
 import { AuthModal } from './auth/AuthModal';
@@ -77,6 +77,9 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  // Existing buyer/seller thread with this listing's seller, if there is one. Messaging is only
+  // available between people who already have a conversation (a hold request creates it).
+  const [sellerConversationId, setSellerConversationId] = useState<string | null>(null);
   const [moveToast, setMoveToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
   const moveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showLocalToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -423,6 +426,36 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     }
   }, [inventoryId, cardId]);
 
+  useEffect(() => {
+    if (!data?.seller_id) {
+      setSellerConversationId(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const me = authData?.user;
+      if (cancelled) return;
+      if (!me || me.id === data.seller_id) {
+        setSellerConversationId(null);
+        return;
+      }
+
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(buyer_id.eq.${me.id},seller_id.eq.${data.seller_id}),and(buyer_id.eq.${data.seller_id},seller_id.eq.${me.id})`)
+        .maybeSingle();
+
+      if (!cancelled) setSellerConversationId(conversation?.id || null);
+    })().catch(() => {
+      if (!cancelled) setSellerConversationId(null);
+    });
+
+    return () => { cancelled = true; };
+  }, [data?.seller_id]);
+
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
       <span style={{ color:'var(--accent-light)' }}>Loading…</span>
@@ -460,6 +493,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
     isFoil: Boolean(data.is_foil),
     condition: data.condition || 'Near Mint',
     handoverMethods: data.handover_methods,
+    sellerCountry: data.seller_country || 'HU',
   });
 
   // Strictly only the actual user who created this listing is considered the seller
@@ -770,7 +804,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-4 h-3 rounded-[2px]" />
+                        <CountryFlag countryCode={data?.seller_country || 'HU'} className="w-4 h-3 rounded-[2px]" />
                         {data?.seller_id ? (
                           <a
                             href={`/user?id=${data.seller_id}`}
@@ -787,14 +821,10 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         )}
                         {(() => {
                           const isOwner = Boolean(sellerSummary?.is_owner || sellerSummary?.role === 'owner' || data?.seller_role === 'owner' || data?.seller_id === OWNER_ID);
-                          const isVerifiedStore = isOwner || Boolean((sellerSummary as any)?.is_verified_store || (data as any)?.is_verified_store || (sellerSummary as any)?.badge === 'Verified Store' || data?.seller_badge === 'Verified Store');
                           const tier = getSellerTier(sellerSummary?.sales_count || data?.seller_sales_count || 0, sellerSummary?.rating_avg ?? null, isOwner, isLightTheme);
                           return (
                             <>
                               {isOwner && <SiteOwnerTag />}
-                              {isVerifiedStore && (
-                                <VerifiedStoreTag className="text-[10px] px-2 py-0.5" />
-                              )}
                               <span
                                 className="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 border"
                                 style={tier.badgeStyle}
@@ -829,19 +859,19 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         <span>•</span>
                         <span className="inline-flex items-center gap-1 text-[11px]">
                           <span>Ships from</span>
-                          <CountryFlag countryCode={data?.seller_country || sellerShipping?.country || 'HU'} className="w-3 h-2 rounded-[2px]" />
-                          <span>({describeShippingScope(data?.seller_ships_to || sellerShipping?.ships_to, data?.seller_country || sellerShipping?.country)})</span>
+                          <CountryFlag countryCode={data?.seller_country || 'HU'} className="w-3 h-2 rounded-[2px]" />
+                          <span>({getCountry(data?.seller_country).name}{sellerShipping?.international?.length ? ` · also ships to ${sellerShipping.international.length} ${sellerShipping.international.length === 1 ? 'country' : 'countries'}` : ''})</span>
                         </span>
                       </div>
                     </div>
                   </div>
-                  {data?.seller_id && (
+                  {data?.seller_id && !isSeller && sellerConversationId && (
                     <a
-                      href={`/messages?user_id=${data.seller_id}`}
+                      href={`/messages?conversation_id=${sellerConversationId}`}
                       onClick={(e) => e.stopPropagation()}
                       className="px-2.5 py-1.5 rounded-lg border text-xs font-semibold shrink-0 transition hover:brightness-110 flex items-center gap-1.5"
                       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
-                      title="Send message to seller"
+                      title="Open your conversation with this seller"
                     >
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -913,7 +943,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         if (inCart === 0) addToCart(cartItemForListing());
                         openCart();
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                      className="inline-flex items-center gap-2 rounded-xl h-10 px-5 text-xs sm:text-sm font-black shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                       style={{
                         background: 'var(--accent-gradient, linear-gradient(135deg, #f59e0b 0%, #d97706 100%))',
                         color: 'var(--accent-contrast, #000000)',
@@ -978,7 +1008,7 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                         if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
                         justAddedTimer.current = setTimeout(() => setJustAdded(false), 1400);
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl h-10 px-4 text-xs sm:text-sm font-bold border transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       style={
                         justAdded
                           ? { background: 'var(--positive-muted)', borderColor: 'var(--positive-border)', color: 'var(--positive)' }
@@ -1002,59 +1032,29 @@ export function CardDetail({ inventoryId, cardId, onClose }: { inventoryId?: str
                     </button>
                   )}
 
-                  {/* Seller Quick Action Controls */}
-                  {isSeller && (
+                  {/* Seller Quick Action Controls: hold/release and relist only. A sale completed
+                      outside the site is handled by unlisting, so there is no manual "Confirm Sale". */}
+                  {isSeller && (data.status === 'On Hold' || data.status === 'Reserved' || data.status === 'Sold') && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {data.status === 'In Stock' && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleSellerChangeStatus('On Hold')}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 transition cursor-pointer" style={{ color: 'var(--text-accent)' }}
-                            title={'Manually put on hold'}
-                          >
-                            Put on Hold
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleSellerChangeStatus('Sold')}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
-                            title={'Confirm sale'}
-                          >
-                            Confirm Sale
-                          </button>
-                        </>
-                      )}
                       {(data.status === 'On Hold' || data.status === 'Reserved') && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleSellerChangeStatus('In Stock')}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 transition cursor-pointer" style={{ color: 'var(--text-primary)' }}
-                            title={'Release hold back to available'}
-                          >
-                            Release Hold
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isUpdatingStatus}
-                            onClick={() => handleSellerChangeStatus('Sold')}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[var(--positive)] border border-emerald-500/40 transition cursor-pointer"
-                            title={'Confirm sale'}
-                          >
-                            Confirm Sale
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          disabled={isUpdatingStatus}
+                          onClick={() => handleSellerChangeStatus('In Stock')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer hover:brightness-110 disabled:opacity-50"
+                          style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                          title={'Release hold back to available'}
+                        >
+                          Release Hold
+                        </button>
                       )}
                       {data.status === 'Sold' && (
                         <button
                           type="button"
                           disabled={isUpdatingStatus}
                           onClick={() => handleSellerChangeStatus('In Stock')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 border transition cursor-pointer" style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 border transition cursor-pointer disabled:opacity-50"
+                          style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                           title={'Relist as in stock'}
                         >
                           Relist

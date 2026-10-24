@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StoreProduct } from '../../types';
 import { STORE_CATEGORIES, STORE_GAMES, STORE_PUBLIC_LAUNCH, STORE_VARIANT_KINDS } from '../../lib/storeConstants';
 import { useCurrency } from '../../lib/currency';
-import { gameOf, isSoldOut } from '../../lib/storeProducts';
+import { gameOf, isScheduledForFuture, isSoldOut, msrpOf, releaseAtOf, subcategoryOf } from '../../lib/storeProducts';
+import { addToStoreCart, effectiveMaxQuantity, useStoreCart } from '../../lib/storeCart';
+import { StoreCartDrawer } from './StoreCartDrawer';
+import { StoreProductForm } from './StoreProductForm';
 import { StoreClosed, StoreSpinner } from './StoreStates';
 import { storeApi, useStoreAuth } from './storeClient';
 
@@ -26,6 +29,7 @@ function Spec({ label, value }: { label: string; value: string | null | undefine
 export function StoreProductApp() {
   const { loading: authLoading, isAdmin } = useStoreAuth();
   const { formatPrice } = useCurrency();
+  const { totalItems: cartCount } = useStoreCart();
   const [product, setProduct] = useState<StoreProduct | null>(null);
   const [siblings, setSiblings] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +39,19 @@ export function StoreProductApp() {
   const [canExpandDesc, setCanExpandDesc] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // Admin inline edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Quantity stepper & Store Cart drawer
+  const [qty, setQty] = useState(1);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartFeedback, setCartFeedback] = useState<string | null>(null);
+
+  // Back-in-stock email notification subscription
+  const [alertEmail, setAlertEmail] = useState('');
+  const [alertSubmitting, setAlertSubmitting] = useState(false);
+  const [alertStatus, setAlertStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
     setExpandedDesc(false);
@@ -117,7 +134,12 @@ export function StoreProductApp() {
     return () => window.removeEventListener('popstate', onPop);
   }, [siblings, load]);
 
-  useEffect(() => setImageIndex(0), [product?.id]);
+  useEffect(() => {
+    setImageIndex(0);
+    setQty(1);
+    setCartFeedback(null);
+    setAlertStatus(null);
+  }, [product?.id]);
 
   useEffect(() => {
     if (product) document.title = `${product.name} | Store | TCG XChange`;
@@ -147,42 +169,135 @@ export function StoreProductApp() {
   const soldOut = isSoldOut(product);
   const onSale = Boolean(product.original_price_huf && product.original_price_huf > product.price_huf);
   const category = STORE_CATEGORIES.find((c) => c.id === product.category)?.label || product.category;
+  const subcat = subcategoryOf(product);
+  const msrpHuf = msrpOf(product);
+  const scheduled = isScheduledForFuture(product);
+  const releaseAt = releaseAtOf(product);
   const game = gameOf(product);
   const isRealGame = Boolean(product.game && product.game !== 'universal');
   const gameLabel = isRealGame ? (STORE_GAMES.find((g) => g.id === product.game)?.name || product.game) : null;
   const hasBrand = Boolean(product.brand && product.brand.trim() && product.brand !== 'None' && product.brand !== 'Default' && product.brand !== 'Other');
   const kind = STORE_VARIANT_KINDS.find((k) => k.id === (product.variant_kind || 'other'))?.label || 'Option';
   const hasVariants = siblings.length > 1 && Boolean(product.variant_group);
-  const margin = isAdmin && product.cost_price_huf ? product.price_huf - product.cost_price_huf : null;
-  const marginPercent = (margin !== null && product.price_huf > 0) ? Math.round((margin / product.price_huf) * 100) : null;
   const maxPerOrder = product.attributes?.max_per_order ? Number(product.attributes.max_per_order) : null;
+  const maxOrderable = effectiveMaxQuantity(product.stock_quantity, maxPerOrder);
+
+  const handleAddToCart = () => {
+    const res = addToStoreCart(product, qty);
+    if (res.added > 0) {
+      setCartFeedback(
+        res.cappedByLimit
+          ? `Added to cart (capped at max ${maxOrderable} per order).`
+          : `Added ${res.added} to store cart.`
+      );
+      setCartOpen(true);
+    } else if (res.cappedByLimit) {
+      setCartFeedback(`You already have the maximum allowed (${maxOrderable}) in your cart.`);
+      setCartOpen(true);
+    }
+  };
+
+  const handleSubscribeBackInStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!alertEmail.trim()) return;
+    setAlertSubmitting(true);
+    setAlertStatus(null);
+    try {
+      const res = await fetch('/api/store/stock-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: alertEmail.trim(),
+          product_id: product.id,
+          product_name: product.name,
+          product_slug: product.slug,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAlertStatus({
+          ok: true,
+          msg: data.alreadySubscribed
+            ? 'You are already subscribed for back-in-stock alerts on this product.'
+            : 'We will email you as soon as this product is back in stock!',
+        });
+        setAlertEmail('');
+      } else {
+        setAlertStatus({ ok: false, msg: data.error || 'Could not subscribe.' });
+      }
+    } catch {
+      setAlertStatus({ ok: false, msg: 'Network error subscribing to alert.' });
+    } finally {
+      setAlertSubmitting(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs mb-5 flex-wrap" style={{ color: 'var(--text-muted)' }}>
-        <a href="/store" className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>Store</a>
-        <span>/</span>
-        <a href={`/store?category=${encodeURIComponent(product.category)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-          {category}
-        </a>
-        {isRealGame && gameLabel && (
-          <>
-            <span>/</span>
-            <a href={`/store?category=${encodeURIComponent(product.category)}&game=${encodeURIComponent(product.game!)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
-              {gameLabel}
-            </a>
-          </>
-        )}
-        {hasBrand && (
-          <>
-            <span>/</span>
-            <a href={`/store?brand=${encodeURIComponent(product.brand)}`} className="hover:underline cursor-pointer font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {product.brand}
-            </a>
-          </>
-        )}
-      </nav>
+      <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+          <a href="/store" className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>Store</a>
+          <span>/</span>
+          <a href={`/store?category=${encodeURIComponent(product.category)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+            {category}
+          </a>
+          {subcat && (
+            <>
+              <span>/</span>
+              <a href={`/store?category=${encodeURIComponent(product.category)}&subcategory=${encodeURIComponent(subcat)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                {subcat}
+              </a>
+            </>
+          )}
+          {isRealGame && gameLabel && (
+            <>
+              <span>/</span>
+              <a href={`/store?category=${encodeURIComponent(product.category)}&game=${encodeURIComponent(product.game!)}`} className="hover:underline cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                {gameLabel}
+              </a>
+            </>
+          )}
+          {hasBrand && (
+            <>
+              <span>/</span>
+              <a href={`/store?brand=${encodeURIComponent(product.brand)}`} className="hover:underline cursor-pointer font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {product.brand}
+              </a>
+            </>
+          )}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition hover:brightness-110"
+              style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              <span>Edit product</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition hover:border-[var(--border-hover)]"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+          >
+            <svg className="w-3.5 h-3.5" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <circle cx="9" cy="21" r="1" />
+              <circle cx="20" cy="21" r="1" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+            <span>Cart ({cartCount})</span>
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10">
         {/* Gallery */}
@@ -194,7 +309,7 @@ export function StoreProductApp() {
             title={images.length > 0 ? 'Click to view fullscreen' : undefined}
           >
             {images[imageIndex] ? (
-              <img src={images[imageIndex]} alt={product.name} className={`w-full h-full object-contain p-4 transition duration-300 ${soldOut ? 'opacity-60' : ''}`} />
+              <img src={images[imageIndex]} alt={product.name} className="w-full h-full object-contain p-4 transition duration-300" />
             ) : (
               <svg className="w-16 h-16 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -255,17 +370,25 @@ export function StoreProductApp() {
 
         {/* Details */}
         <div className="min-w-0">
-          {product.status === 'draft' && (
-            <div className="mb-4 p-3 rounded-xl border flex items-center justify-between gap-3 text-xs" style={{ background: 'rgba(234, 179, 8, 0.15)', borderColor: 'rgba(234, 179, 8, 0.4)', color: '#f59e0b' }}>
+          {(product.status === 'draft' || scheduled) && (
+            <div className="mb-4 p-3 rounded-xl border flex items-center justify-between gap-3 text-xs flex-wrap" style={{ background: 'rgba(234, 179, 8, 0.15)', borderColor: 'rgba(234, 179, 8, 0.45)', color: 'var(--text-primary)' }}>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider text-black bg-amber-400">
-                  DRAFT
+                  {scheduled ? 'SCHEDULED' : 'DRAFT'}
                 </span>
-                <span className="font-bold">Admin preview only · Hidden from shoppers</span>
+                <span className="font-bold">
+                  {scheduled && releaseAt
+                    ? `Timed release: goes live on ${new Date(releaseAt).toLocaleString()}`
+                    : 'Admin preview only · Hidden from shoppers'}
+                </span>
               </div>
-              <a href="/admin?tab=store" className="underline font-bold hover:opacity-80 cursor-pointer">
-                Edit in store admin
-              </a>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(true)}
+                className="underline font-bold hover:opacity-80 cursor-pointer"
+              >
+                Edit now
+              </button>
             </div>
           )}
           {hasBrand && (
@@ -273,9 +396,14 @@ export function StoreProductApp() {
           )}
           <h1 className="text-2xl sm:text-3xl font-black leading-tight mb-3" style={{ color: 'var(--text-primary)' }}>{product.name}</h1>
 
-          <div className="flex items-baseline gap-3 mb-2">
+          <div className="flex items-baseline gap-3 mb-2 flex-wrap">
             <span className="text-3xl font-black text-[var(--positive)]">{formatPrice(product.price_huf)}</span>
             {onSale && <span className="text-base line-through" style={{ color: 'var(--text-placeholder)' }}>{formatPrice(product.original_price_huf!)}</span>}
+            {msrpHuf && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-md border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+                MSRP: {formatPrice(msrpHuf)}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -283,19 +411,19 @@ export function StoreProductApp() {
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
               style={
                 soldOut
-                  ? { borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }
+                  ? { borderColor: 'var(--negative-border)', background: 'var(--negative-muted)', color: 'var(--negative)' }
                   : product.stock_quantity <= 3
-                  ? { borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }
-                  : { borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.1)', color: '#10b981' }
+                  ? { borderColor: 'rgba(217, 119, 6, 0.45)', background: 'rgba(245, 158, 11, 0.16)', color: 'var(--text-primary)' }
+                  : { borderColor: 'var(--positive-border)', background: 'var(--positive-muted)', color: 'var(--positive)' }
               }
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: soldOut ? 'var(--negative)' : product.stock_quantity <= 3 ? '#d97706' : 'var(--positive)' }} />
               {soldOut ? 'Out of stock' : `${product.stock_quantity} in stock`}
             </span>
             {maxPerOrder && (
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
-                style={{ borderColor: 'rgba(234, 179, 8, 0.4)', background: 'rgba(234, 179, 8, 0.15)', color: '#f59e0b' }}
+                style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-muted)', color: 'var(--text-primary)' }}
               >
                 Limit: Max {maxPerOrder} per customer
               </span>
@@ -336,14 +464,117 @@ export function StoreProductApp() {
             </div>
           )}
 
-          <button
-            type="button"
-            disabled
-            className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed"
-            style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-          >
-            Checkout opens at launch
-          </button>
+          {!soldOut && maxOrderable > 0 ? (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div
+                  className="inline-flex items-center rounded-xl border overflow-hidden"
+                  style={{ borderColor: 'var(--border)', background: 'var(--bg-surface-2)' }}
+                  aria-label="Quantity selector"
+                >
+                  <button
+                    type="button"
+                    disabled={qty <= 1}
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="w-10 h-11 flex items-center justify-center text-sm font-black cursor-pointer hover:bg-[var(--bg-raised)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ color: 'var(--text-primary)' }}
+                    aria-label="Decrease quantity"
+                  >
+                    -
+                  </button>
+                  <span className="px-4 text-sm font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={qty >= maxOrderable}
+                    onClick={() => setQty((q) => Math.min(maxOrderable, q + 1))}
+                    className="w-10 h-11 flex items-center justify-center text-sm font-black cursor-pointer hover:bg-[var(--bg-raised)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ color: 'var(--text-primary)' }}
+                    title={
+                      qty >= maxOrderable
+                        ? maxPerOrder && maxOrderable === maxPerOrder
+                          ? `Limited to maximum ${maxPerOrder} per customer`
+                          : `Maximum ${product.stock_quantity} in stock`
+                        : 'Increase quantity'
+                    }
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="flex-1 sm:flex-initial px-6 py-3 rounded-xl text-sm font-bold cursor-pointer transition hover:brightness-110 shadow-sm"
+                  style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                >
+                  Add to Store Cart
+                </button>
+              </div>
+              {cartFeedback && (
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-accent)' }}>
+                  {cartFeedback}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <button
+                type="button"
+                disabled
+                className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed"
+                style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+              >
+                Currently Out of Stock
+              </button>
+
+              {/* Back-in-Stock Email Notification Subscription Box */}
+              <div className="p-4 rounded-2xl border space-y-2.5" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                    Notify me when back in stock
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Enter your email to receive an automatic alert as soon as new inventory arrives.
+                </p>
+                {alertStatus && (
+                  <p
+                    className="text-xs font-semibold"
+                    style={{ color: alertStatus.ok ? 'var(--positive)' : 'var(--negative)' }}
+                  >
+                    {alertStatus.msg}
+                  </p>
+                )}
+                <form onSubmit={handleSubscribeBackInStock} className="flex gap-2 flex-wrap sm:flex-nowrap">
+                  <input
+                    type="email"
+                    required
+                    value={alertEmail}
+                    onChange={(e) => setAlertEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    aria-label="Email for back-in-stock notification"
+                    className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={alertSubmitting}
+                    className="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 disabled:opacity-50"
+                    style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+                  >
+                    {alertSubmitting ? 'Saving...' : 'Notify me'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
           {product.description && (
             <div className="mt-6">
@@ -369,8 +600,10 @@ export function StoreProductApp() {
 
           <dl className="mt-6">
             <Spec label="Category" value={category} />
+            {subcat && <Spec label="Product type" value={subcat} />}
             {isRealGame && gameLabel && <Spec label="Game" value={gameLabel} />}
             {hasBrand && <Spec label="Brand" value={product.brand} />}
+            {msrpHuf && <Spec label="MSRP" value={formatPrice(msrpHuf)} />}
             <Spec label="Stock" value={soldOut ? '0 units (out of stock)' : `${product.stock_quantity} units available`} />
             {maxPerOrder && <Spec label="Order limit" value={`Max ${maxPerOrder} per customer`} />}
             <Spec label="Size" value={product.attributes?.size} />
@@ -381,6 +614,21 @@ export function StoreProductApp() {
 
         </div>
       </div>
+
+      <StoreCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} onOpen={() => setCartOpen(true)} />
+
+      {isAdmin && editModalOpen && (
+        <StoreProductForm
+          product={product}
+          existingGroups={product.variant_group ? [product.variant_group] : []}
+          existingBrands={product.brand ? [product.brand] : []}
+          onClose={() => setEditModalOpen(false)}
+          onSaved={() => {
+            setEditModalOpen(false);
+            load(product.slug);
+          }}
+        />
+      )}
 
       {/* Lightbox Fullscreen Modal */}
       {lightboxOpen && images[imageIndex] && (

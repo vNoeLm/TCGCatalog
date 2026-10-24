@@ -444,29 +444,6 @@ export function SiteOwnerTag({ className = '' }: { className?: string }) {
 }
 
 /**
- * Official Verified Store badge that follows active theme colors dynamically.
- */
-export function VerifiedStoreTag({ className = '', iconClassName = 'w-3 h-3' }: { className?: string; iconClassName?: string }) {
-  return (
-    <span
-      className={`font-bold rounded border inline-flex items-center gap-1 shrink-0 shadow-sm backdrop-blur-md ${className}`}
-      style={{
-        background: 'var(--accent-muted)',
-        borderColor: 'var(--accent-border)',
-        color: 'var(--text-accent)',
-      }}
-      title="Official Verified Store"
-    >
-      <svg className={`${iconClassName} shrink-0`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-      <span>Verified Store</span>
-    </span>
-  );
-}
-
-/**
  * Renders an inline SVG icon for badge tiers without Unicode emojis.
  */
 export function BadgeIconSvg({ iconType, className = 'w-4 h-4' }: { iconType?: BadgeIconType; className?: string }) {

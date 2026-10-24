@@ -6,6 +6,7 @@ import { persistOrderItemsSnapshot } from '../../lib/orderItems';
 import type { Order } from '../../types';
 import { getRequestUser, jsonResponse } from '../../lib/requestAuth';
 import { sanitizePlainText } from '../../lib/sanitize';
+import { notifyOwnerStoreOrder } from '../../lib/emailNotifications';
 
 export const prerender = false;
 
@@ -133,80 +134,24 @@ async function restockOrderItems(items: any[]) {
   if (!Array.isArray(items)) return;
   for (const it of items) {
     const qty = typeof it.quantity === 'number' && it.quantity > 0 ? it.quantity : 1;
+    if (!it.inventory_id) continue;
 
-    // 1. If explicit inventory_id is stored
-    if (it.inventory_id) {
-      try {
-        const { data: invRow } = await supabaseAdmin
-          .from('inventory')
-          .select('id, quantity, status')
-          .eq('id', it.inventory_id)
-          .maybeSingle();
+    try {
+      const { data: product } = await supabaseAdmin
+        .from('store_products')
+        .select('id, stock_quantity, status')
+        .eq('id', it.inventory_id)
+        .maybeSingle();
 
-        if (invRow) {
-          const newQty = (typeof invRow.quantity === 'number' ? invRow.quantity : 0) + qty;
-          await supabaseAdmin
-            .from('inventory')
-            .update({ quantity: newQty, status: 'In Stock' })
-            .eq('id', it.inventory_id);
-          continue;
-        }
-
-        const { data: ucRow } = await supabaseAdmin
-          .from('user_cards')
-          .select('id, for_sale_copies')
-          .eq('id', it.inventory_id)
-          .maybeSingle();
-
-        if (ucRow) {
-          const newForSale = (typeof ucRow.for_sale_copies === 'number' ? ucRow.for_sale_copies : 0) + qty;
-          await supabaseAdmin
-            .from('user_cards')
-            .update({ for_sale_copies: newForSale, is_listed_in_store: true })
-            .eq('id', it.inventory_id);
-          continue;
-        }
-      } catch (err) {
-        console.warn('Error restocking by inventory_id:', it.inventory_id, err);
+      if (product) {
+        const newQty = (typeof product.stock_quantity === 'number' ? product.stock_quantity : 0) + qty;
+        await supabaseAdmin
+          .from('store_products')
+          .update({ stock_quantity: newQty, status: product.status === 'archived' ? 'archived' : 'active' })
+          .eq('id', it.inventory_id);
       }
-    }
-
-    // 2. Fallback matching by card_id
-    if (it.card_id) {
-      try {
-        const { data: invMatches } = await supabaseAdmin
-          .from('inventory')
-          .select('id, quantity')
-          .eq('card_id', it.card_id)
-          .limit(1);
-
-        if (invMatches && invMatches.length > 0) {
-          const row = invMatches[0];
-          const newQty = (typeof row.quantity === 'number' ? row.quantity : 0) + qty;
-          await supabaseAdmin
-            .from('inventory')
-            .update({ quantity: newQty, status: 'In Stock' })
-            .eq('id', row.id);
-          continue;
-        }
-
-        const { data: ucMatches } = await supabaseAdmin
-          .from('user_cards')
-          .select('id, for_sale_copies')
-          .eq('card_id', it.card_id)
-          .limit(1);
-
-        if (ucMatches && ucMatches.length > 0) {
-          const row = ucMatches[0];
-          const newForSale = (typeof row.for_sale_copies === 'number' ? row.for_sale_copies : 0) + qty;
-          await supabaseAdmin
-            .from('user_cards')
-            .update({ for_sale_copies: newForSale, is_listed_in_store: true })
-            .eq('id', row.id);
-        }
-      } catch (err) {
-        console.warn('Error restocking by card_id:', it.card_id, err);
-      }
+    } catch (err) {
+      console.warn('Error restocking store product:', it.inventory_id, err);
     }
   }
 }
@@ -284,64 +229,77 @@ export const POST: APIRoute = async ({ request }) => {
         return jsonResponse({ success: false, error: 'No valid items in order.' }, 400);
       }
 
-      // 1. Fetch real product prices and available stock from database
-      const invIds = itemRequests.map(it => it.inventory_id);
-      const { data: invRows, error: invErr } = await supabaseAdmin
-        .from('inventory')
-        .select(`
-          id, price_huf, quantity, status, condition, is_foil, notes,
-          cards ( id, name, card_number, image_path, sets ( name ) )
-        `)
-        .in('id', invIds);
+      // 1. Fetch real Store product prices and available stock from store_products.
+      const productIds = itemRequests.map(it => it.inventory_id);
+      const { data: productRows, error: productErr } = await supabaseAdmin
+        .from('store_products')
+        .select('id, name, brand, sku, price_huf, stock_quantity, status, images, attributes')
+        .in('id', productIds);
 
-      if (invErr || !invRows) {
-        return jsonResponse({ success: false, error: 'Failed to verify inventory items.' }, 500);
+      if (productErr || !productRows) {
+        return jsonResponse({ success: false, error: 'Failed to verify store products.' }, 500);
       }
 
-      const invMap = new Map<string, any>(invRows.map((r: any) => [r.id, r]));
+      const productMap = new Map<string, any>(productRows.map((r: any) => [r.id, r]));
+      const qtyByProductId = new Map<string, number>();
+      for (const reqIt of itemRequests) {
+        qtyByProductId.set(reqIt.inventory_id, (qtyByProductId.get(reqIt.inventory_id) || 0) + reqIt.quantity);
+      }
+
       const verifiedItems: any[] = [];
       let calculatedSubtotalHuf = 0;
 
       for (const reqIt of itemRequests) {
-        const inv = invMap.get(reqIt.inventory_id);
-        if (!inv) {
+        const product = productMap.get(reqIt.inventory_id);
+        if (!product) {
           return jsonResponse({ success: false, error: `Product item ${reqIt.inventory_id} no longer exists.` }, 404);
         }
-        if (inv.status === 'Sold' || (typeof inv.quantity === 'number' && inv.quantity < reqIt.quantity)) {
-          return jsonResponse({ success: false, error: `Item ${inv.cards?.name || 'card'} is out of stock or does not have enough copies.` }, 409);
+        const releaseAt = product.attributes?.release_at;
+        if (typeof releaseAt === 'string' && releaseAt.trim() && Date.parse(releaseAt) > Date.now()) {
+          return jsonResponse({ success: false, error: `Item "${product.name || 'product'}" has not been released yet.` }, 409);
+        }
+        const maxPerOrder = Number(product.attributes?.max_per_order);
+        const totalRequestedForProduct = qtyByProductId.get(reqIt.inventory_id) || reqIt.quantity;
+        if (Number.isFinite(maxPerOrder) && maxPerOrder > 0 && totalRequestedForProduct > maxPerOrder) {
+          return jsonResponse({
+            success: false,
+            error: `Item "${product.name || 'product'}" is limited to maximum ${maxPerOrder} per order.`,
+          }, 400);
+        }
+        if (product.status !== 'active' || (typeof product.stock_quantity === 'number' && product.stock_quantity < totalRequestedForProduct)) {
+          return jsonResponse({ success: false, error: `Item ${product.name || 'product'} is out of stock or does not have enough copies.` }, 409);
         }
 
-        // CRITICAL: DYNAMIC SERVER PRICE VERIFICATION
-        // Price is read strictly from inv.price_huf in DB, ignoring any client-sent price!
-        const verifiedPriceHuf = Math.max(0, Math.round(Number(inv.price_huf) || 0));
+        // Price is read strictly from the database, ignoring any client-sent price.
+        const verifiedPriceHuf = Math.max(0, Math.round(Number(product.price_huf) || 0));
         calculatedSubtotalHuf += (verifiedPriceHuf * reqIt.quantity);
 
+        const images = Array.isArray(product.images) ? product.images : [];
         verifiedItems.push({
-          inventory_id: inv.id,
-          card_id: inv.cards?.id || '',
-          card_name: inv.cards?.name || 'TCG Item',
-          card_number: inv.cards?.card_number || '',
-          set_name: inv.cards?.sets?.name || '',
-          condition: inv.condition || 'Near Mint',
-          is_foil: Boolean(inv.is_foil),
+          inventory_id: product.id,
+          card_id: '',
+          card_name: product.name || 'Store Product',
+          card_number: product.sku || '',
+          set_name: product.brand || '',
+          condition: 'Sealed',
+          is_foil: false,
           price_huf: verifiedPriceHuf, // DATABASE TRUTH
           quantity: reqIt.quantity,
-          image_path: inv.cards?.image_path || '',
+          image_path: images[0] || '',
         });
       }
 
       const shippingHuf = Math.max(0, parseInt(String(body.shipping_huf || body.shippingHuf || 0), 10) || 0);
       const totalHuf = calculatedSubtotalHuf + shippingHuf;
 
-      // 2. Decrement inventory atomically in database
+      // 2. Decrement Store stock in the database.
       for (const reqIt of itemRequests) {
-        const inv = invMap.get(reqIt.inventory_id)!;
-        const remaining = Math.max(0, (Number(inv.quantity) || 1) - reqIt.quantity);
-        const nextStatus = remaining > 0 ? (inv.status || 'In Stock') : 'Sold';
+        const product = productMap.get(reqIt.inventory_id)!;
+        const remaining = Math.max(0, (Number(product.stock_quantity) || 0) - reqIt.quantity);
         await supabaseAdmin
-          .from('inventory')
-          .update({ quantity: remaining, status: nextStatus, updated_at: new Date().toISOString() })
-          .eq('id', inv.id);
+          .from('store_products')
+          .update({ stock_quantity: remaining, status: remaining > 0 ? 'active' : 'out_of_stock', updated_at: new Date().toISOString() })
+          .eq('id', product.id);
       }
 
       // 3. Assemble verified order
@@ -377,6 +335,14 @@ export const POST: APIRoute = async ({ request }) => {
       await saveStoredOrders(updated, client, newOrder);
 
       await persistOrderItemsSnapshot(orderId, orderNumber, verifiedItems);
+      notifyOwnerStoreOrder({
+        orderNumber,
+        customerName: shippingName,
+        customerEmail: contactEmail || caller?.user?.email || 'guest',
+        totalHuf,
+        shippingMethod: shippingAddress || 'Standard Delivery',
+        itemCount: verifiedItems.reduce((sum, i) => sum + i.quantity, 0),
+      }).catch(() => {});
       await logOrderEvent({
         orderNumber,
         orderId,

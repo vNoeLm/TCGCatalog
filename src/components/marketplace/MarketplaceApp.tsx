@@ -18,6 +18,9 @@ import { FilterSidebar } from '../FilterSidebar';
 import { ListCardModal } from './ListCardModal';
 import { matchesCardVariants, compareCardsByRarity } from '../../lib/cardVariants';
 import { gridSizeClasses } from '../../lib/gridSize';
+import { getCurrentProfile, onSignedInUserChange } from '../../lib/auth';
+import { useCart } from '../../lib/useCart';
+import { cartItemCount, CART_OPEN_EVENT } from '../../lib/marketplaceCart';
 import type { InventoryCard, FilterState } from '../../types';
 import {
   SETS, RARITIES, TYPES, DOMAINS, TAGS,
@@ -50,6 +53,8 @@ const DEFAULT_FILTERS: FilterState = {
 
 export function MarketplaceApp() {
   const { theme } = useSiteTheme();
+  const mktCart = useCart();
+  const mktCartCount = cartItemCount(mktCart);
   const [showFilters, setShowFilters] = useState(false);
 
   // Filters State driven by global game
@@ -72,6 +77,8 @@ export function MarketplaceApp() {
   // "cards" groups every listing of a card into one tile (Cardmarket-style); "listings" shows
   // each listing separately. Left unset it follows whether the view is scoped to one seller.
   const [viewOverride, setViewOverride] = useState<'cards' | 'listings' | null>(null);
+  // Country whose marketplace is shown: the signed-in user's profile country, HU for guests.
+  const [viewerCountry, setViewerCountry] = useState('HU');
   // Both overlays live in the URL - ?card= for a card's listings, ?listing= for one listing - so
   // Back closes the top one and either can be shared as a link.
   const [selectedGroupCardId, openGroup, closeGroup] = useUrlOverlay('card');
@@ -165,8 +172,10 @@ export function MarketplaceApp() {
       if (filters.rarities && filters.rarities.length > 0) params.set('rarities', filters.rarities.join(','));
       if (filters.type) params.set('type', filters.type);
       if (filters.domains && filters.domains.length > 0) params.set('domains', filters.domains.join(','));
+      if (filters.tags && filters.tags.length > 0) params.set('tags', filters.tags.join(','));
       if (filters.foilFilter) params.set('foil', 'true');
       if (filters.sellerId) params.set('seller_id', filters.sellerId);
+      params.set('viewer_country', viewerCountry);
       params.set('status', 'in_stock');
       params.set('pageSize', '500');
 
@@ -190,6 +199,15 @@ export function MarketplaceApp() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadCountry = () => getCurrentProfile().then(p => setViewerCountry((p?.country || 'HU').toUpperCase())).catch(() => {});
+    loadCountry();
+    return onSignedInUserChange((session) => {
+      if (session) loadCountry();
+      else setViewerCountry('HU');
+    });
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -216,7 +234,7 @@ export function MarketplaceApp() {
       window.removeEventListener('tcg-marketplace-changed', handleMarketplaceChange);
       window.removeEventListener(EVENTS.STORE_INVENTORY_CHANGE, handleMarketplaceChange);
     };
-  }, [filters, searchQuery, sellerSearch]);
+  }, [filters, searchQuery, sellerSearch, viewerCountry]);
 
   // Lock body scroll when detail modal open
   useEffect(() => {
@@ -562,8 +580,22 @@ export function MarketplaceApp() {
             </div>
             </div>
 
-            {/* Actions: Quick Shop + List Card for Sale */}
+            {/* Actions: Cart + Quick Shop + List Card for Sale */}
             <div className="grid grid-cols-2 lg:flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent(CART_OPEN_EVENT))}
+                className="px-3.5 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1.5 border"
+                style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                title="Open Marketplace Cart"
+              >
+                <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                <span>Cart ({mktCartCount})</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setIsQuickShopOpen(true)}

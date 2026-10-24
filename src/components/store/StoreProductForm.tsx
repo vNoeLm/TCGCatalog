@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreProduct, StoreProductCategory, StoreProductStatus, StoreVariantKind } from '../../types';
-import { STORE_BRANDS, STORE_CATEGORIES, STORE_GAMES, STORE_VARIANT_KINDS } from '../../lib/storeConstants';
+import { STORE_BRANDS, STORE_CATEGORIES, STORE_GAMES, STORE_SUBCATEGORIES_BY_CATEGORY, STORE_VARIANT_KINDS } from '../../lib/storeConstants';
+import { subcategoryOf } from '../../lib/storeProducts';
 import { storeApi } from './storeClient';
 
 interface StoreProductFormProps {
@@ -62,10 +63,21 @@ export function StoreProductForm({
   const [ean, setEan] = useState(product ? src.ean ?? '' : '');
   const [price, setPrice] = useState(src.price_huf !== undefined ? String(src.price_huf) : '');
   const [originalPrice, setOriginalPrice] = useState(src.original_price_huf ? String(src.original_price_huf) : '');
+  const [msrp, setMsrp] = useState(src.attributes?.msrp_huf ? String(src.attributes.msrp_huf) : '');
   const [stock, setStock] = useState(product ? String(src.stock_quantity ?? 0) : '0');
   const [maxPerOrder, setMaxPerOrder] = useState(src.attributes?.max_per_order ? String(src.attributes.max_per_order) : '');
   const [status, setStatus] = useState<StoreProductStatus>(product ? src.status ?? 'draft' : 'draft');
+  const [releaseAt, setReleaseAt] = useState(() => {
+    const raw = src.attributes?.release_at;
+    if (typeof raw === 'string' && raw.trim() && Number.isFinite(Date.parse(raw))) {
+      const d = new Date(Date.parse(raw));
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return '';
+  });
   const [cost, setCost] = useState(src.cost_price_huf ? String(src.cost_price_huf) : '');
+  const [subcategory, setSubcategory] = useState(src.attributes?.subcategory ?? (src.name ? subcategoryOf(src as StoreProduct) ?? '' : ''));
   const [color, setColor] = useState(product ? src.attributes?.color ?? '' : '');
   const [size, setSize] = useState(src.attributes?.size ?? '');
   const [variantGroup, setVariantGroup] = useState(src.variant_group ?? '');
@@ -163,7 +175,10 @@ export function StoreProductForm({
       attributes: {
         color: color.trim(),
         size: size.trim(),
+        ...(subcategory.trim() ? { subcategory: subcategory.trim() } : {}),
         ...(maxPerOrder.trim() ? { max_per_order: Math.max(1, parseInt(maxPerOrder, 10) || 1) } : {}),
+        ...(msrp.trim() ? { msrp_huf: Math.max(0, parseInt(msrp, 10) || 0) } : {}),
+        ...(releaseAt.trim() && Number.isFinite(Date.parse(releaseAt)) ? { release_at: new Date(Date.parse(releaseAt)).toISOString() } : {}),
       },
       variant_group: variantGroup.trim() || null,
       variant_label: variantGroup.trim() ? variantLabel.trim() : null,
@@ -305,17 +320,20 @@ export function StoreProductForm({
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               <Field label="Price (HUF) *">
                 <input required type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} style={inputStyle} placeholder="4290" />
               </Field>
               <Field label="Old price">
                 <input type="number" min={0} value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} className={inputClass} style={inputStyle} placeholder="4590" />
               </Field>
+              <Field label="MSRP (HUF)" hint="Shown in product specs">
+                <input type="number" min={0} value={msrp} onChange={(e) => setMsrp(e.target.value)} className={inputClass} style={inputStyle} placeholder="4990" />
+              </Field>
               <Field label="Stock *">
                 <input required type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} className={inputClass} style={inputStyle} />
               </Field>
-              <Field label="Max/order" hint="Anti-scalping limit per customer">
+              <Field label="Max/order" hint="Anti-scalping limit">
                 <input type="number" min={1} value={maxPerOrder} onChange={(e) => setMaxPerOrder(e.target.value)} className={inputClass} style={inputStyle} placeholder="e.g. 2" />
               </Field>
               <Field label="Status">
@@ -324,6 +342,45 @@ export function StoreProductForm({
                   <option value="active">Active (visible)</option>
                   <option value="out_of_stock">Out of stock</option>
                 </select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl border" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
+              <Field label="Timed product release (optional)" hint="Stays hidden as Draft until this date & time, then automatically becomes active.">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={releaseAt}
+                    onChange={(e) => setReleaseAt(e.target.value)}
+                    className={`${inputClass} flex-1`}
+                    style={inputStyle}
+                  />
+                  {releaseAt && (
+                    <button
+                      type="button"
+                      onClick={() => setReleaseAt('')}
+                      className="px-2.5 py-2 rounded-xl border text-xs font-bold cursor-pointer shrink-0 hover:bg-[var(--bg-raised)]"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </Field>
+              <Field label="Product type / Subcategory" hint="Used for specific Store filters (e.g. Booster Pack, Booster Display, Vault, Starter Deck, Playmat)">
+                <input
+                  list="store-subcategories"
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                  placeholder="e.g. Booster Display, Booster Pack, Vault, Starter Deck..."
+                />
+                <datalist id="store-subcategories">
+                  {(STORE_SUBCATEGORIES_BY_CATEGORY[categorySelect] || []).map((sub) => (
+                    <option key={sub} value={sub} />
+                  ))}
+                </datalist>
               </Field>
             </div>
 

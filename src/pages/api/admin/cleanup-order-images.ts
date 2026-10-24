@@ -120,18 +120,32 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // 4. Fetch all active inventory/listing photos to ensure we NEVER delete an image currently listed
-    const { data: activeImages } = await supabaseAdmin
-      .from('inventory_images')
-      .select('image_path');
-
+    // 4. Fetch all active listing photos so an image still in use is never deleted.
     const activePathsSet = new Set<string>();
-    if (activeImages) {
-      activeImages.forEach((row: any) => {
-        const p = extractStoragePath(row.image_path);
-        if (p) activePathsSet.add(p);
-      });
-    }
+
+    const { data: activeListings } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('images');
+    (activeListings || []).forEach((row: any) => {
+      if (Array.isArray(row.images)) {
+        row.images.forEach((url: string) => {
+          const p = extractStoragePath(url);
+          if (p) activePathsSet.add(p);
+        });
+      }
+    });
+
+    const { data: storeProducts } = await supabaseAdmin
+      .from('store_products')
+      .select('images');
+    (storeProducts || []).forEach((row: any) => {
+      if (Array.isArray(row.images)) {
+        row.images.forEach((url: string) => {
+          const p = extractStoragePath(url);
+          if (p) activePathsSet.add(p);
+        });
+      }
+    });
 
     // 5. Filter out active paths, keep only paths safe to delete
     const pathsToDelete: string[] = [];

@@ -15,7 +15,10 @@ async function requireAdmin(request: Request) {
   return caller;
 }
 
-// POST: Add photos to an inventory card (or create inventory row if needed)
+const imagesOf = (row: any): string[] =>
+  Array.isArray(row?.images) ? row.images.filter((u: unknown): u is string => typeof u === 'string' && u.length > 0) : [];
+
+// POST: append condition photos to a marketplace listing (or create one for the admin).
 export const POST: APIRoute = async ({ request }) => {
   try {
     const caller = await requireAdmin(request);
@@ -36,92 +39,79 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    let targetInvId = inventory_id;
+    let targetId = inventory_id;
+    let existing: any = null;
 
-    // Check if inventory record exists
-    if (targetInvId) {
-      const { data: existing } = await supabaseAdmin
-        .from('inventory')
-        .select('id')
-        .eq('id', targetInvId)
+    if (targetId) {
+      const { data } = await supabaseAdmin
+        .from('marketplace_listings')
+        .select('id, images')
+        .eq('id', targetId)
         .maybeSingle();
-
-      if (!existing) targetInvId = null;
+      existing = data;
     }
 
-    // If not existing, create inventory record
-    if (!targetInvId) {
+    if (!existing) {
       if (!card_id) {
-        return new Response(JSON.stringify({ success: false, error: 'card_id is required to create inventory listing.' }), {
+        return new Response(JSON.stringify({ success: false, error: 'card_id is required to create a listing.' }), {
           status: 400,
           headers: JSON_HEADERS,
         });
       }
 
-      const { data: newInv, error: newInvErr } = await supabaseAdmin
-        .from('inventory')
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('marketplace_listings')
         .insert({
+          seller_id: caller.user.id,
           card_id,
           condition: condition || 'Near Mint',
           is_foil: Boolean(is_foil),
-          price_huf: typeof price_huf === 'number' ? price_huf : null,
+          price_huf: typeof price_huf === 'number' ? price_huf : 1,
           quantity: Math.max(1, parseInt(String(quantity), 10) || 1),
           status: 'In Stock',
-          notes: 'Showcase / Condition Listing',
+          images: [],
         })
-        .select('id')
+        .select('id, images')
         .single();
 
-      if (newInvErr) {
-        console.error('Failed to create inventory row:', newInvErr);
-        return new Response(JSON.stringify({ success: false, error: newInvErr.message }), {
+      if (createErr) {
+        console.error('Failed to create marketplace listing:', createErr);
+        return new Response(JSON.stringify({ success: false, error: createErr.message }), {
           status: 500,
           headers: JSON_HEADERS,
         });
       }
-      targetInvId = newInv.id;
+      existing = created;
+      targetId = created.id;
     }
 
-    // Get current maximum display_order
-    const { data: currentImgs } = await supabaseAdmin
-      .from('inventory_images')
-      .select('display_order')
-      .eq('inventory_id', targetInvId)
-      .order('display_order', { ascending: false })
-      .limit(1);
+    const incoming = image_urls.filter((u: unknown): u is string => typeof u === 'string' && u.length > 0);
+    const merged = Array.from(new Set([...imagesOf(existing), ...incoming])).slice(0, 8);
 
-    const baseOrder = currentImgs?.[0]?.display_order || 0;
+    const { error: updateErr } = await supabaseAdmin
+      .from('marketplace_listings')
+      .update({ images: merged, updated_at: new Date().toISOString() })
+      .eq('id', targetId);
 
-    // Insert new images
-    const newRecords = image_urls.map((url: string, index: number) => ({
-      inventory_id: targetInvId,
-      image_path: url,
-      display_order: baseOrder + index + 1,
-    }));
-
-    const { data: inserted, error: insertErr } = await supabaseAdmin
-      .from('inventory_images')
-      .insert(newRecords)
-      .select('id, inventory_id, image_path, display_order');
-
-    if (insertErr) {
-      console.error('Failed to insert inventory_images:', insertErr);
-      return new Response(JSON.stringify({ success: false, error: insertErr.message }), {
+    if (updateErr) {
+      console.error('Failed to save marketplace listing photos:', updateErr);
+      return new Response(JSON.stringify({ success: false, error: updateErr.message }), {
         status: 500,
         headers: JSON_HEADERS,
       });
     }
 
+    const added = incoming.filter((url, index) => incoming.indexOf(url) === index && merged.includes(url));
     return new Response(JSON.stringify({
       success: true,
-      inventory_id: targetInvId,
-      images: inserted || newRecords,
+      inventory_id: targetId,
+      images: added.map((image_path, index) => ({ id: `img_${targetId}_${Date.now()}_${index}`, inventory_id: targetId, image_path, display_order: index + 1 })),
     }), {
       status: 200,
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
-    console.error('Inventory images POST error:', err);
+    console.error('Listing images POST error:', err);
     return new Response(JSON.stringify({ success: false, error: err.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,
@@ -129,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 };
 
-// DELETE: Delete a photo from an inventory card
+// DELETE: remove one photo from a marketplace listing.
 export const DELETE: APIRoute = async ({ request, url }) => {
   try {
     const caller = await requireAdmin(request);
@@ -151,11 +141,23 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       });
     }
 
+    const { data: row } = await supabaseAdmin
+      .from('marketplace_listings')
+      .select('images')
+      .eq('id', inventoryId)
+      .maybeSingle();
+    if (!row) {
+      return new Response(JSON.stringify({ success: false, error: 'Listing not found.' }), {
+        status: 404,
+        headers: JSON_HEADERS,
+      });
+    }
+
+    const merged = imagesOf(row).filter((url) => url !== imagePath);
     const { error: delErr } = await supabaseAdmin
-      .from('inventory_images')
-      .delete()
-      .eq('inventory_id', inventoryId)
-      .eq('image_path', imagePath);
+      .from('marketplace_listings')
+      .update({ images: merged, updated_at: new Date().toISOString() })
+      .eq('id', inventoryId);
 
     if (delErr) {
       return new Response(JSON.stringify({ success: false, error: delErr.message }), {
@@ -169,7 +171,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
-    console.error('Inventory images DELETE error:', err);
+    console.error('Listing images DELETE error:', err);
     return new Response(JSON.stringify({ success: false, error: err.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,
@@ -177,7 +179,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   }
 };
 
-// PATCH: Update inventory item fields (price, condition, quantity)
+// PATCH: update a marketplace listing's price, condition or quantity.
 export const PATCH: APIRoute = async ({ request }) => {
   try {
     const caller = await requireAdmin(request);
@@ -209,7 +211,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (typeof quantity !== 'undefined') updatePayload.quantity = Math.max(1, parseInt(String(quantity), 10) || 1);
 
     const { error: updateErr } = await supabaseAdmin
-      .from('inventory')
+      .from('marketplace_listings')
       .update(updatePayload)
       .eq('id', inventory_id);
 
@@ -225,7 +227,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       headers: JSON_HEADERS,
     });
   } catch (err: any) {
-    console.error('Inventory images PATCH error:', err);
+    console.error('Listing images PATCH error:', err);
     return new Response(JSON.stringify({ success: false, error: err.message || 'Server error' }), {
       status: 500,
       headers: JSON_HEADERS,

@@ -303,51 +303,31 @@ export async function createOrder(params: CreateOrderParams): Promise<{ success:
       updated_at: now,
     };
 
-    // ── 1. Decrement Inventory in Database for all items ──
+    // ── 1. Decrement Store stock in the database for all items ──
     for (const deduction of inventoryDeductions) {
       if (!deduction.inventoryId) continue;
       try {
-        const { data: invRow } = await supabase
-          .from('inventory')
-          .select('id, quantity, status')
+        const { data: product } = await supabase
+          .from('store_products')
+          .select('id, stock_quantity, status')
           .eq('id', deduction.inventoryId)
           .maybeSingle();
 
-        if (invRow) {
-          const currentQty = typeof invRow.quantity === 'number' ? invRow.quantity : 1;
+        if (product) {
+          const currentQty = typeof product.stock_quantity === 'number' ? product.stock_quantity : 1;
           const remainingQty = Math.max(0, currentQty - deduction.quantity);
-          const nextStatus = remainingQty <= 0 ? 'Sold' : 'In Stock';
 
           await supabase
-            .from('inventory')
+            .from('store_products')
             .update({
-              quantity: remainingQty,
-              status: nextStatus,
+              stock_quantity: remainingQty,
+              status: remainingQty > 0 ? 'active' : 'out_of_stock',
+              updated_at: new Date().toISOString(),
             })
             .eq('id', deduction.inventoryId);
-        } else {
-          // If in user_cards surplus
-          const { data: ucRow } = await supabase
-            .from('user_cards')
-            .select('id, for_sale_copies')
-            .eq('id', deduction.inventoryId)
-            .maybeSingle();
-
-          if (ucRow) {
-            const currentForSale = typeof ucRow.for_sale_copies === 'number' ? ucRow.for_sale_copies : 1;
-            const remainingForSale = Math.max(0, currentForSale - deduction.quantity);
-            await supabase
-              .from('user_cards')
-              .update({
-                for_sale_copies: remainingForSale,
-                is_listed_in_store: remainingForSale > 0,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', deduction.inventoryId);
-          }
         }
       } catch (invErr) {
-        console.warn('Could not decrement inventory item:', deduction.inventoryId, invErr);
+        console.warn('Could not decrement store product:', deduction.inventoryId, invErr);
       }
     }
 

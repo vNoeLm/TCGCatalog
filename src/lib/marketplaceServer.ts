@@ -32,7 +32,8 @@ export async function hasMarketplaceTable(): Promise<boolean> {
   if (isMarketplaceTableReady !== null) return isMarketplaceTableReady;
   try {
     const { error } = await supabaseAdmin.from(MARKETPLACE_TABLE).select('id').limit(1);
-    isMarketplaceTableReady = !error || error.code !== '42P01'; // 42P01 is table does not exist
+    // 42P01 = table does not exist; PGRST205 = table missing from PostgREST's schema cache.
+    isMarketplaceTableReady = !error || (error.code !== '42P01' && error.code !== 'PGRST205');
     return isMarketplaceTableReady;
   } catch {
     isMarketplaceTableReady = false;

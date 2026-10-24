@@ -30,7 +30,7 @@ describe('hold flow', () => {
   });
 
   it('finished requests allow nothing', () => {
-    for (const status of ['completed', 'cancelled', 'rejected']) {
+    for (const status of ['completed', 'cancelled', 'rejected', 'expired']) {
       expect(allowedHoldActions(status, 'seller', HANDED_OVER_AT, at(100))).toEqual([]);
       expect(allowedHoldActions(status, 'buyer', HANDED_OVER_AT, at(100))).toEqual([]);
     }

@@ -7,6 +7,7 @@ import { fetchReviewsWrittenBy, fetchReputation } from '../../lib/reviews';
 import { RateTradeModal } from '../reviews/RateTradeModal';
 import { BuyerHolds } from './BuyerHolds';
 import { AvatarBannerModal, BannerContainerBackground } from './AvatarBannerModal';
+import { ProfileQrModal } from './ProfileQrModal';
 import { Stars } from '../reviews/ReviewParts';
 import type { UserProfile, Order, TradeReview } from '../../types';
 import { AuthModal } from '../auth/AuthModal';
@@ -27,8 +28,10 @@ const THEME_SWATCHES: { mode: ThemeMode; name: string; hex: string[] }[] = [
   { mode: 'light', name: 'Ivory Parchment', hex: ['#f3ede2', '#fb7185'] },
   { mode: 'custom', name: 'Custom Studio', hex: ['#a855f7', '#06b6d4'] },
 ];
-import { getCollectorTier, getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag, type CollectorTier } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { GAMES } from '../../lib/constants';
+import { COUNTRIES, getCountry } from '../../lib/countries';
+import { CountryFlag } from '../CountryFlag';
 import { useCurrency, type Currency } from '../../lib/currency';
 import { fetchMyDecks, setDeckVisibility, deletePublishedDeck, type PublicDeckSummary } from '../../lib/publicDecks';
 
@@ -39,9 +42,11 @@ export function ProfileApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [country, setCountry] = useState('HU');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -370,7 +375,6 @@ export function ProfileApp() {
   }, []);
 
   const isOwner = Boolean(profile?.role === 'owner' || profile?.email === 'vnoel05@gmail.com' || profile?.email === 'support@tcgxchange.net');
-  const isVerifiedStore = isOwner || Boolean((profile as any)?.is_verified_store || profile?.role === 'owner');
   const isLightTheme = effectiveTheme === 'light';
   // The same rating the public profile uses, so the seller badge here matches what others see.
   const [sellerRatingAvg, setSellerRatingAvg] = useState<number | null>(null);
@@ -381,16 +385,6 @@ export function ProfileApp() {
     return getSellerTier(sellerSalesCount, sellerRatingAvg, isOwner, isLightTheme);
   }, [sellerSalesCount, sellerRatingAvg, isOwner, isLightTheme]);
 
-  const collectorTiersByGame = useMemo(() => {
-    const out: Record<string, CollectorTier> = {};
-    for (const g of GAMES) {
-      if (!g.active) continue;
-      const st = statsByGame[g.id] || { owned: 0, total: 1, weightedPercentage: 0 };
-      out[g.id] = getCollectorTier(st.owned, st.total, g.id, isLightTheme, st.weightedPercentage);
-    }
-    return out;
-  }, [statsByGame, isLightTheme]);
-
   const handleSaveProfile = async () => {
     if (!profile) return;
     const trimmed = displayName.trim();
@@ -400,13 +394,13 @@ export function ProfileApp() {
     }
     setSaving(true);
     try {
-      const { error } = await updateProfile({ display_name: trimmed });
+      const { error } = await updateProfile({ display_name: trimmed, country });
       if (error) {
         showToast(`Failed to update: ${error.message}`);
       } else {
-        setProfile(prev => prev ? { ...prev, display_name: trimmed } : null);
+        setProfile(prev => prev ? { ...prev, display_name: trimmed, country } : null);
         setIsEditing(false);
-        showToast('Profile name updated successfully!');
+        showToast('Profile updated successfully!');
       }
     } catch (e: any) {
       showToast(`Error: ${e?.message || 'Failed to update profile'}`);
@@ -943,6 +937,7 @@ export function ProfileApp() {
                           if (e.key === 'Escape') {
                             setIsEditing(false);
                             setDisplayName(profile.display_name || '');
+                            setCountry(profile.country || 'HU');
                           }
                         }}
                         autoFocus
@@ -954,6 +949,26 @@ export function ProfileApp() {
                           color: 'var(--text-primary)',
                         }}
                       />
+                      <select
+                        value={country}
+                        onChange={(e) => setCountry(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveProfile();
+                        }}
+                        aria-label="Country / Region"
+                        className="px-2 py-1.5 rounded-xl text-xs font-bold outline-none border cursor-pointer"
+                        style={{
+                          background: 'var(--bg-input)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--text-primary)',
+                        }}
+                      >
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
                       <button
                         onClick={handleSaveProfile}
                         disabled={saving || !displayName.trim()}
@@ -970,6 +985,7 @@ export function ProfileApp() {
                         onClick={() => {
                           setIsEditing(false);
                           setDisplayName(profile.display_name || '');
+                          setCountry(profile.country || 'HU');
                         }}
                         className="px-2.5 py-1.5 text-xs font-semibold cursor-pointer rounded-xl transition"
                         style={{ color: 'var(--text-secondary)' }}
@@ -985,6 +1001,7 @@ export function ProfileApp() {
                       <button
                         onClick={() => {
                           setDisplayName(profile.display_name || '');
+                          setCountry(profile.country || 'HU');
                           setIsEditing(true);
                         }}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer border"
@@ -1024,6 +1041,10 @@ export function ProfileApp() {
                 <div className="text-xs sm:text-sm font-mono mt-1 break-all" style={{ color: 'var(--text-tertiary)' }}>
                   {profile.email}
                 </div>
+                <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                  <CountryFlag countryCode={profile.country || 'HU'} className="w-3.5 h-2.5 rounded-[2px]" />
+                  <span>{getCountry(profile.country).name}</span>
+                </div>
               </div>
 
               {/* Horizontal divider line under email on phone */}
@@ -1031,7 +1052,7 @@ export function ProfileApp() {
 
               {/* Tags: col-span-2 takes 100% width on phone, row 2 under name & email on desktop */}
               <div className="col-span-2 sm:col-start-2 sm:row-start-2 w-full flex items-center justify-start gap-1.5 sm:gap-2 flex-wrap">
-                {profile.is_admin || profile.role === 'admin' ? (
+                {(profile.is_admin || profile.role === 'admin') && (
                   <span
                     className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-0.5 rounded-md border shadow-sm backdrop-blur-md"
                     style={{
@@ -1045,26 +1066,9 @@ export function ProfileApp() {
                     </svg>
                     <span>Admin</span>
                   </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-md border backdrop-blur-md"
-                    style={{
-                      background: 'var(--bg-surface-2)',
-                      borderColor: 'var(--border-subtle)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span>Collector</span>
-                  </span>
                 )}
 
                 {isOwner && <SiteOwnerTag className="!text-[11px] !px-2.5 backdrop-blur-md" />}
-                {isVerifiedStore && (
-                  <VerifiedStoreTag className="!text-[11px] !px-2.5 !py-0.5" />
-                )}
 
                 {/* Upgraded Seller Badge */}
                 <a
@@ -1094,6 +1098,25 @@ export function ProfileApp() {
                 </svg>
                 <span>View public profile</span>
               </a>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(true)}
+                className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border backdrop-blur-md hover:brightness-110 active:scale-95"
+                style={{
+                  background: 'var(--bg-surface-2)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+                title="Show QR code for in-person trade binder sharing"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <path d="M14 14h3v3h-3zM18 18h3v3h-3z" />
+                </svg>
+                <span>Share QR</span>
+              </button>
               <a
                 href="/seller"
                 className="w-full sm:flex-1 lg:flex-none lg:w-auto px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border backdrop-blur-md hover:brightness-110 active:scale-95"
@@ -1592,6 +1615,13 @@ export function ProfileApp() {
       />
 
       {/* Toast Notification */}
+      {showQrModal && profile && (
+        <ProfileQrModal
+          userId={profile.id}
+          displayName={profile.display_name || 'Collector'}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
       {toastAnim.rendered && toastMessageRef.current && (
         <div
           data-state={toastAnim.state}

@@ -1,23 +1,40 @@
-import { HANDOVER_METHODS, type HandoverMethodId } from './handover';
+import { HANDOVER_METHODS, buildCustomHandoverId, type HandoverMethodId } from './handover';
+import { COUNTRY_MAP } from './countries';
 
 export interface ShippingOption {
   enabled: boolean;
   price_huf: number;
   min_order_huf: number;
-  eu_enabled?: boolean;
-  price_eu_huf?: number;
-  min_order_eu_huf?: number;
 }
 
-export type ShippingDestination = 'DOMESTIC' | 'EU' | 'WORLD';
+/** One optional international destination: the seller ships there for this price. */
+export interface InternationalDestination {
+  country: string;
+  price_huf: number;
+}
 
-export type ShippingSettings = Partial<Record<HandoverMethodId, ShippingOption>> & {
-  country?: string;
-  ships_to?: 'DOMESTIC' | 'EU' | 'WORLD';
-  ships_domestic?: boolean;
-  ships_eu?: boolean;
-  ships_world?: boolean;
+/** Seller-defined custom shipping method (e.g. MPL, Posta Ajánlott, GLS, DPD, etc.). */
+export interface CustomShippingMethod {
+  id: HandoverMethodId;
+  label: string;
+  kind: 'address' | 'locker' | 'custom';
+  enabled: boolean;
+  price_huf: number;
+  min_order_huf: number;
+}
+
+/** The four built-in methods sold domestically; `international` is priced per destination instead. */
+export type DomesticHandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'other' | 'gls' | 'posta' | 'dhl';
+
+/**
+ * A seller's handover options. The domestic methods carry a price and minimum order; the
+ * optional `international` list adds destination countries at a per-country price; `custom_methods`
+ * lets sellers add any custom courier or postal option without requiring a built-in preset.
+ */
+export type ShippingSettings = Partial<Record<DomesticHandoverMethodId, ShippingOption>> & {
   in_person_location?: string;
+  international?: InternationalDestination[];
+  custom_methods?: CustomShippingMethod[];
 };
 
 const MAX_HUF = 1_000_000;
@@ -31,13 +48,44 @@ export function normalizeShipping(raw: unknown): ShippingSettings {
   const out: ShippingSettings = {};
   if (!raw || typeof raw !== 'object') return out;
   const obj = raw as Record<string, any>;
-  out.country = 'HU';
-  out.ships_to = 'DOMESTIC';
-  out.ships_domestic = true;
-  out.ships_eu = false;
-  out.ships_world = false;
   if (typeof obj.in_person_location === 'string' && obj.in_person_location.trim()) {
     out.in_person_location = obj.in_person_location.trim().slice(0, 150);
+  }
+  if (Array.isArray(obj.international)) {
+    const seen = new Set<string>();
+    out.international = obj.international
+      .map((d: any) => ({
+        country: String(d?.country || '').toUpperCase(),
+        price_huf: huf(d?.price_huf),
+      }))
+      .filter((d: InternationalDestination) => {
+        if (!COUNTRY_MAP.has(d.country) || seen.has(d.country)) return false;
+        seen.add(d.country);
+        return true;
+      });
+  }
+  if (Array.isArray(obj.custom_methods)) {
+    const seenIds = new Set<string>();
+    out.custom_methods = obj.custom_methods
+      .slice(0, 12)
+      .map((cm: any): CustomShippingMethod | null => {
+        const label = String(cm?.label || '').trim().slice(0, 60);
+        if (!label) return null;
+        const kind: 'address' | 'locker' | 'custom' =
+          cm?.kind === 'locker' || cm?.kind === 'custom' ? cm.kind : 'address';
+        const id = buildCustomHandoverId(kind, label);
+        if (seenIds.has(id)) return null;
+        seenIds.add(id);
+        return {
+          id,
+          label,
+          kind,
+          enabled: cm?.enabled !== false,
+          price_huf: huf(cm?.price_huf),
+          min_order_huf: huf(cm?.min_order_huf),
+        };
+      })
+      .filter((cm): cm is CustomShippingMethod => Boolean(cm));
   }
   for (const m of HANDOVER_METHODS) {
     const o = obj[m.id];
@@ -47,21 +95,42 @@ export function normalizeShipping(raw: unknown): ShippingSettings {
       price_huf: huf(o.price_huf),
       min_order_huf: huf(o.min_order_huf),
     };
-    out[m.id] = opt;
+    out[m.id as DomesticHandoverMethodId] = opt;
   }
   return out;
 }
 
-/** Checks if a seller ships to a given destination scope (Hungary domestic only). */
-export function sellerShipsTo(settings: ShippingSettings | null | undefined, destination: ShippingDestination = 'DOMESTIC'): boolean {
-  if (destination === 'DOMESTIC') return true;
-  return false;
+/** Looks up what a seller charges for one domestic or custom method (defaults: free, no minimum). */
+export function shippingOption(settings: ShippingSettings | null | undefined, id: HandoverMethodId): ShippingOption {
+  if (!settings || Object.keys(settings).length === 0) {
+    if (typeof id === 'string' && id.startsWith('custom:')) {
+      return { enabled: false, price_huf: 0, min_order_huf: 0 };
+    }
+    return { enabled: true, price_huf: 0, min_order_huf: 0 };
+  }
+  if (typeof id === 'string' && id.startsWith('custom:')) {
+    const cm = settings.custom_methods?.find((m) => m.id === id);
+    if (!cm) return { enabled: false, price_huf: 0, min_order_huf: 0 };
+    return { enabled: cm.enabled, price_huf: cm.price_huf, min_order_huf: cm.min_order_huf };
+  }
+  return settings[id as DomesticHandoverMethodId] || { enabled: false, price_huf: 0, min_order_huf: 0 };
 }
 
-/** Looks up what a seller charges for one method (or the defaults: free, no minimum). */
-export function shippingOption(settings: ShippingSettings | null | undefined, id: HandoverMethodId): ShippingOption {
-  if (!settings || Object.keys(settings).length === 0) return { enabled: true, price_huf: 0, min_order_huf: 0 };
-  return settings[id] || { enabled: false, price_huf: 0, min_order_huf: 0 };
+/** The seller's price for delivering to a country abroad, or null if they don't ship there. */
+export function internationalRate(settings: ShippingSettings | null | undefined, buyerCountry: string): number | null {
+  const code = buyerCountry.toUpperCase();
+  const entry = settings?.international?.find((d) => d.country === code);
+  return entry ? entry.price_huf : null;
+}
+
+/** Whether a listing should be visible in a given country's marketplace. */
+export function sellerVisibleToCountry(
+  settings: ShippingSettings | null | undefined,
+  sellerCountry: string,
+  viewerCountry: string
+): boolean {
+  if (sellerCountry.toUpperCase() === viewerCountry.toUpperCase()) return true;
+  return internationalRate(settings, viewerCountry) !== null;
 }
 
 export interface MethodAvailability {
@@ -72,20 +141,14 @@ export interface MethodAvailability {
   short: number;
 }
 
-/** Works out if an order meets a method's minimum, and if not, by how much (Domestic Hungary). */
+/** Works out if an order meets a domestic method's minimum, and if not, by how much. */
 export function methodAvailability(
   settings: ShippingSettings | null | undefined,
   id: HandoverMethodId,
-  subtotal: number,
-  destination: ShippingDestination = 'DOMESTIC'
+  subtotal: number
 ): MethodAvailability {
   const o = shippingOption(settings, id);
-  const isDomestic = destination === 'DOMESTIC';
-  const offered = o.enabled && isDomestic;
-  const price = o.price_huf;
-  const min = o.min_order_huf;
-
-  return { id, offered, price, min, short: Math.max(0, min - subtotal) };
+  return { id, offered: o.enabled, price: o.price_huf, min: o.min_order_huf, short: Math.max(0, o.min_order_huf - subtotal) };
 }
 
 export const fmtHuf = (n: number) =>
@@ -93,7 +156,7 @@ export const fmtHuf = (n: number) =>
 
 /** "Free", "1 500 Ft", "1 500 Ft · from 5 000 Ft" */
 export function describeOption(
-  o: { price: number; min: number; price_eu?: number; min_eu?: number },
+  o: { price: number; min: number },
   formatter?: (n: number) => string
 ): string {
   const fmt = formatter || fmtHuf;

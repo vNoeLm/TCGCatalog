@@ -40,12 +40,12 @@ export const GET: APIRoute = async ({ url }) => {
       .order('recorded_at', { ascending: true })
       .limit(500);
 
-    // Every listing this card has ever had, so a sale can be traced back to the card.
-    const { data: rows } = await supabaseAdmin.from('inventory').select('id').eq('card_id', cardId);
-    const inventoryIds = new Set((rows || []).map((r: any) => r.id));
+    // Every marketplace listing this card has ever had, so a sale can be traced back to it.
+    const { data: rows } = await supabaseAdmin.from('marketplace_listings').select('id').eq('card_id', cardId);
+    const listingIds = new Set((rows || []).map((r: any) => r.id));
 
     const sales: { at: string; price_huf: number; quantity: number; is_foil: boolean }[] = [];
-    if (inventoryIds.size > 0) {
+    if (listingIds.size > 0) {
       const { data: ordersRow } = await supabaseAdmin.from('settings').select('value').eq('key', 'store_orders').maybeSingle();
       let orders: any[] = [];
       try {
@@ -58,7 +58,7 @@ export const GET: APIRoute = async ({ url }) => {
         if (order?.status === 'Cancelled' || !Array.isArray(order?.items)) continue;
         for (const item of order.items) {
           const price = Number(item?.price_huf);
-          if (!inventoryIds.has(item?.inventory_id) || !(price > 0)) continue;
+          if (!listingIds.has(item?.inventory_id) || !(price > 0)) continue;
           sales.push({
             at: order.created_at,
             price_huf: price,

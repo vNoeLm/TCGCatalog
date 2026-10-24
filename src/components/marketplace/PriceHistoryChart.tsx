@@ -143,6 +143,8 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
   const { currency, formatPrice, eurHufRate } = useCurrency();
   const [hover, setHover] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const windowDays = RANGES.find((r) => r.id === range)?.days ?? null;
+  // A year of data puts many more points on the same width; smaller dots keep the trend visible.
+  const pointScale = range === '1y' ? 0.62 : 1;
 
   const chart = useMemo(() => {
     if (!series || (series.market.length === 0 && series.sold.length === 0)) return null;
@@ -274,7 +276,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
               {chart.tail && <path d={chart.tail} fill="none" stroke={MARKET_COLOR} strokeWidth={large ? 3 : 2.5} strokeLinejoin="round" strokeLinecap="round" />}
               {series!.market.map((m, i) => (
                 <g key={`m${i}`}>
-                  <circle cx={chart.x(m.t)} cy={chart.y(m.huf)} r={large ? 4.5 : 3.5} fill={MARKET_COLOR} />
+                  <circle cx={chart.x(m.t)} cy={chart.y(m.huf)} r={(large ? 4.5 : 3.5) * pointScale} fill={MARKET_COLOR} />
                   <circle
                     cx={chart.x(m.t)} cy={chart.y(m.huf)} r="12" fill="transparent"
                     onMouseEnter={() => setHover({
@@ -287,7 +289,7 @@ function ChartView({ data, failed, series, range, setRange, twoFinishes, foil, s
               {chart.soldPath && <path d={chart.soldPath} fill="none" stroke={SOLD_COLOR} strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />}
               {series!.sold.map((s, i) => (
                 <g key={`s${i}`}>
-                  <circle cx={chart.x(s.t)} cy={chart.y(s.huf)} r={large ? 6 : 5} fill={SOLD_COLOR} stroke="var(--bg-surface)" strokeWidth="1.5" />
+                  <circle cx={chart.x(s.t)} cy={chart.y(s.huf)} r={(large ? 6 : 5) * pointScale} fill={SOLD_COLOR} stroke="var(--bg-surface)" strokeWidth="1.5" />
                   <circle
                     cx={chart.x(s.t)} cy={chart.y(s.huf)} r="13" fill="transparent"
                     onMouseEnter={() => setHover({

@@ -1,3 +1,5 @@
+import { TAGS } from './constants';
+
 /**
  * Keyword search for Riftbound cards. These are the bracketed keywords that actually
  * appear in card text in the database (counted by scanning every card), plus "XP", which
@@ -23,6 +25,48 @@ export function keywordOrClauses(keyword: string): string[] {
   // "[Empower" also covers "[Empowered]"; the bracket keeps "Level" or "Tank" from
   // matching ordinary prose like "level" or "tank".
   return [`ability.ilike.%[${keyword}%`, `text.ilike.%[${keyword}%`, `effect.ilike.%[${keyword}%`];
+}
+
+function normalizeTagToken(s: string): string {
+  return s.toLowerCase().replace(/['’.]/g, '').trim();
+}
+
+/**
+ * Match a search query against known Riftbound tags (e.g. "seraphine", "akali", "kaisa", "piltover").
+ * Exact matches work for any length (e.g. "Vi"); substring matches require at least 3 characters.
+ */
+export function findMatchingTags(query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const qNorm = normalizeTagToken(q);
+  return TAGS.filter(tag => {
+    const tLower = tag.toLowerCase();
+    const tNorm = normalizeTagToken(tag);
+    if (tLower === q || (qNorm.length >= 2 && tNorm === qNorm)) return true;
+    if (q.length >= 3 && (tLower.includes(q) || (qNorm.length >= 3 && tNorm.includes(qNorm)))) return true;
+    return false;
+  });
+}
+
+/** PostgREST `or` clauses matching any tag matched by `query`. */
+export function tagOrClauses(query: string): string[] {
+  return findMatchingTags(query).map(t => `tags.cs.["${t.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`);
+}
+
+/** Client-side check whether a card's `tags` array matches the search query. */
+export function cardMatchesSearchTag(card: { tags?: string[] | null }, query: string): boolean {
+  if (!Array.isArray(card.tags) || card.tags.length === 0) return false;
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  const qNorm = normalizeTagToken(q);
+  return card.tags.some(rawTag => {
+    const tag = String(rawTag || '');
+    const tLower = tag.toLowerCase();
+    const tNorm = normalizeTagToken(tag);
+    if (tLower === q || (qNorm.length >= 2 && tNorm === qNorm)) return true;
+    if (q.length >= 3 && (tLower.includes(q) || (qNorm.length >= 3 && tNorm.includes(qNorm)))) return true;
+    return false;
+  });
 }
 
 export function cardMatchesKeywords(

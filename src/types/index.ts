@@ -63,8 +63,6 @@ export interface InventoryCard {
   seller_sales_count?: number;
   seller_items_sold?: number;
   seller_country?: string;
-  seller_ships_to?: string;
-  is_verified_store?: boolean;
 }
 
 export interface CatalogCard {
@@ -136,6 +134,8 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
   banner_url?: string | null;
+  /** ISO 3166-1 alpha-2 country the user is based in (defaults to HU). */
+  country?: string | null;
   role: UserRole;
   is_admin: boolean;
   is_owner?: boolean;

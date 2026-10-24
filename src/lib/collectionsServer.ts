@@ -96,19 +96,7 @@ async function listingsOf(collectionId: string): Promise<Map<string, ListingRow>
     }
   } catch {}
 
-  // 2. Check legacy inventory as fallback
-  try {
-    const { data } = await supabaseAdmin
-      .from('inventory')
-      .select('id, card_id, is_foil, quantity, price_huf, condition, status, notes')
-      .like('notes', `%"collection_id":"${collectionId}"%`);
-    for (const row of (data || []) as ListingRow[]) {
-      const key = row.is_foil ? `${row.card_id}_foil` : row.card_id;
-      const existing = map.get(key);
-      if (!existing || (existing.status === 'Archived' && row.status !== 'Archived')) map.set(key, row);
-    }
-  } catch {}
-
+  // 2. The marketplace table is the only listing backend; legacy inventory rows are gone.
   return map;
 }
 
@@ -135,14 +123,11 @@ async function reservedByListing(sellerId: string, listingIds: string[]): Promis
   return reserved;
 }
 
-/** Takes a listing off the marketplace for good: deleted, or archived if a past hold points at it. */
+/** Takes a listing off the marketplace for good. */
 async function retireListing(id: string): Promise<void> {
   try {
     await supabaseAdmin.from('marketplace_listings').delete().eq('id', id);
   } catch {}
-  await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', id);
-  const { error } = await supabaseAdmin.from('inventory').delete().eq('id', id);
-  if (error) await supabaseAdmin.from('inventory').update({ quantity: 0, status: 'Archived' }).eq('id', id);
 }
 
 export interface SyncResult {
@@ -204,49 +189,37 @@ export async function syncAlwaysList(
     if (listing) {
       if (available > 0) {
         if (recalculatePrices) {
-          let nextNotes = listing.notes;
-          try {
-            const parsedNotes = JSON.parse(listing.notes || '{}');
-            parsedNotes.handover_methods = defaults.handover_methods;
-            nextNotes = JSON.stringify(parsedNotes);
-          } catch {}
           await supabaseAdmin
-            .from('inventory')
+            .from('marketplace_listings')
             .update({
               quantity: available,
               status: 'In Stock',
               price_huf: targetPrice,
               condition: defaults.condition,
-              notes: nextNotes,
+              handover_methods: defaults.handover_methods,
             })
             .eq('id', listing.id);
         } else if (listing.quantity !== available || listing.status !== 'In Stock') {
-          await supabaseAdmin.from('inventory').update({ quantity: available, status: 'In Stock' }).eq('id', listing.id);
+          await supabaseAdmin.from('marketplace_listings').update({ quantity: available, status: 'In Stock' }).eq('id', listing.id);
         }
         listed += available;
         cardsListed += 1;
       } else if (held > 0) {
-        if (listing.quantity !== 0) await supabaseAdmin.from('inventory').update({ quantity: 0, status: 'Reserved' }).eq('id', listing.id);
+        if (listing.quantity !== 0) await supabaseAdmin.from('marketplace_listings').update({ quantity: 0, status: 'Reserved' }).eq('id', listing.id);
       } else if (listing.status !== 'Archived' || listing.quantity !== 0) {
         await retireListing(listing.id);
       }
     } else if (available > 0) {
       toInsert.push({
+        seller_id: sellerId,
         card_id: cardId,
         condition: defaults.condition,
         is_foil: isFoil,
         price_huf: targetPrice,
         quantity: available,
         status: 'In Stock',
-        notes: JSON.stringify({
-          source: 'collection',
-          seller_id: sellerId,
-          collection_id: coll.id,
-          handover_methods: defaults.handover_methods,
-          views: 0,
-          clicks: 0,
-          listed_at: new Date().toISOString(),
-        }),
+        handover_methods: defaults.handover_methods,
+        collection_id: coll.id,
       });
       listed += available;
       cardsListed += 1;
@@ -255,7 +228,7 @@ export async function syncAlwaysList(
 
   if (toInsert.length) {
     for (let i = 0; i < toInsert.length; i += 200) {
-      await supabaseAdmin.from('inventory').insert(toInsert.slice(i, i + 200));
+      await supabaseAdmin.from('marketplace_listings').insert(toInsert.slice(i, i + 200));
     }
   }
   if (Object.keys(clamped).length) await saveCollectionCards(sellerId, coll.id, cards);
@@ -271,7 +244,7 @@ export async function unlistCollection(sellerId: string, collectionId: string): 
     if (held > 0) {
       // Nothing more goes on sale; the copies buyers hold stay linked, so a completed sale still
       // takes them out of the collection.
-      if (listing.quantity !== 0) await supabaseAdmin.from('inventory').update({ quantity: 0, status: 'Reserved' }).eq('id', listing.id);
+      if (listing.quantity !== 0) await supabaseAdmin.from('marketplace_listings').update({ quantity: 0, status: 'Reserved' }).eq('id', listing.id);
     } else if (listing.status !== 'Archived') {
       await retireListing(listing.id);
     }

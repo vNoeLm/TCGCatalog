@@ -7,9 +7,10 @@ import { splitCardTitle, formatCleanCardNumber } from "../lib/formatGameText";
 import { isOvernumbered, isSigned, isAltArt } from "../lib/cardVariants";
 import { CountryFlag } from "./CountryFlag";
 import { OWNER_ID } from "../lib/constants";
-import { VerifiedStoreTag, formatSellerTierBadge } from "../lib/badges";
+import { formatSellerTierBadge } from "../lib/badges";
 import { addToCart, cartQuantityFor } from '../lib/marketplaceCart';
 import { useCart } from '../lib/useCart';
+import { useCurrentUserId } from '../lib/useCurrentUserId';
 
 interface CardItemProps {
   card: InventoryCard;
@@ -31,13 +32,15 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
   const isSmall = gridSize === 'small';
   const { formatPrice } = useCurrency();
   const cart = useCart();
+  const currentUserId = useCurrentUserId();
+  const isOwnListing = Boolean(currentUserId && card.seller_id === currentUserId);
   const inCart = card.inventory_id ? cartQuantityFor(cart, card.inventory_id) : 0;
   const left = Math.max(0, (Number(card.quantity) || 1) - inCart);
   const [justAdded, setJustAdded] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (left <= 0 || !card.inventory_id) return;
+    if (isOwnListing || left <= 0 || !card.inventory_id) return;
     addToCart({
       inventoryId: card.inventory_id,
       sellerId: card.seller_id || '',
@@ -51,6 +54,7 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
       isFoil: Boolean(card.is_foil),
       condition: card.condition || 'Near Mint',
       handoverMethods: (card as any).handover_methods,
+      sellerCountry: card.seller_country || 'HU',
     });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
@@ -239,23 +243,15 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
         {/* Card Title */}
         {(() => {
           const { main, sub } = splitCardTitle(card.name);
-          if (sub) {
-            return (
-              <div className="text-center my-0.5">
-                <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>
-                  {main}
-                </h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>
-                  {sub}
-                </p>
-              </div>
-            );
-          }
           return (
             <div className="text-center my-0.5">
               <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>
                 {main}
               </h3>
+              {/* Reserve the subtitle line so every tile's set/number rows line up. */}
+              <p className="text-[10px] font-bold uppercase tracking-widest truncate min-h-[12px] leading-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                {sub || ''}
+              </p>
             </div>
           );
         })()}
@@ -278,10 +274,9 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
           </span>
         </div>
 
-        {/* Seller Info (centered, 2-line layout for perfect balance and verified store badge) */}
+        {/* Seller Info (centered, 2-line layout for perfect balance) */}
         {(() => {
           const isOwner = card.seller_id === OWNER_ID || card.seller_role === 'owner' || card.seller_badge === 'Owner';
-          const isVerifiedStore = !isOwner && Boolean(card.is_verified_store || card.seller_badge === 'Verified Store');
           const sellerTierBadge = formatSellerTierBadge(card.seller_badge, card.seller_tier) || (isOwner ? 'Tier 1 Seller' : '');
 
           return (
@@ -322,7 +317,7 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                 )}
               </a>
 
-              {/* Bottom row: Badges (Owner, Verified Store, Tier X, etc.) */}
+              {/* Bottom row: Badges (Owner, Tier X, etc.) */}
               <div className="flex items-center justify-center gap-1 flex-wrap w-full">
                 {isOwner && (
                   <span
@@ -336,13 +331,10 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                     <span>Owner</span>
                   </span>
                 )}
-                {isVerifiedStore && (
-                  <VerifiedStoreTag className="text-[8px] px-1.5 py-0.5" iconClassName="w-2.5 h-2.5" />
-                )}
                 {sellerTierBadge && (
                   <span
                     className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 inline-flex items-center gap-0.5"
-                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                    style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
                     title={sellerTierBadge}
                   >
                     <span>{sellerTierBadge}</span>
@@ -381,7 +373,19 @@ export const CardItem = React.memo(function CardItem({ card, onClick, gridSize =
                 : card.status}
             </span>
           </div>
-          {card.status === 'In Stock' && left > 0 ? (
+          {isOwnListing ? (
+            <span
+              className={`${isSmall ? 'text-[10px] px-2 py-1' : 'text-xs px-2.5 py-1'} font-bold rounded-lg border inline-flex items-center whitespace-nowrap`}
+              style={{
+                background: 'var(--bg-raised)',
+                color: 'var(--text-tertiary)',
+                borderColor: 'var(--border)',
+              }}
+              title="This is your own listing"
+            >
+              {isSmall ? 'Yours' : 'Your listing'}
+            </span>
+          ) : card.status === 'In Stock' && left > 0 ? (
             <button
               type="button"
               onClick={handleAddToCart}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { StoreProduct } from '../../types';
 import { STORE_CATEGORIES, STORE_GAMES, STORE_PUBLIC_LAUNCH } from '../../lib/storeConstants';
 import { useCurrency } from '../../lib/currency';
@@ -8,23 +8,45 @@ import {
   activeFilterCount,
   applyStoreFilters,
   gameOf,
+  isPubliclyVisibleProduct,
+  isScheduledForFuture,
   isSoldOut,
+  releaseAtOf,
   sortStoreProducts,
+  subcategoryOf,
   variantCounts,
   type StoreFilters,
   type StoreSort,
 } from '../../lib/storeProducts';
+import { addToStoreCart, useStoreCart } from '../../lib/storeCart';
+import { StoreCartDrawer } from './StoreCartDrawer';
 import { StoreFilterPanel } from './StoreFilterPanel';
+import { StoreProductForm } from './StoreProductForm';
 import { StoreClosed, StoreSpinner } from './StoreStates';
 import { storeApi, useStoreAuth } from './storeClient';
 
 export const productHref = (p: Pick<StoreProduct, 'slug'>) => `/store/product?slug=${encodeURIComponent(p.slug)}`;
 
-function ProductCard({ product, optionCount }: { product: StoreProduct; optionCount: number }) {
+function ProductCard({
+  product,
+  optionCount,
+  isAdmin,
+  onEdit,
+  onAddToCart,
+}: {
+  product: StoreProduct;
+  optionCount: number;
+  isAdmin?: boolean;
+  onEdit?: (product: StoreProduct) => void;
+  onAddToCart?: (product: StoreProduct) => void;
+}) {
   const { formatPrice } = useCurrency();
   const soldOut = isSoldOut(product);
   const onSale = Boolean(product.original_price_huf && product.original_price_huf > product.price_huf);
   const category = STORE_CATEGORIES.find((c) => c.id === product.category)?.label || product.category;
+  const subcat = subcategoryOf(product);
+  const scheduled = isScheduledForFuture(product);
+  const releaseAt = releaseAtOf(product);
   const game = gameOf(product);
   const isUniversal = !game || game === 'universal';
   const gameDef = !isUniversal ? STORE_GAMES.find((g) => g.id === game) : null;
@@ -43,7 +65,7 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
   return (
     <a
       href={productHref(product)}
-      className="group flex flex-col rounded-2xl border overflow-hidden transition-all hover:border-[var(--border-hover)] hover:shadow-lg"
+      className="group relative flex flex-col rounded-2xl border overflow-hidden transition-all hover:border-[var(--border-hover)] hover:shadow-lg"
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
     >
       <div className="relative aspect-square w-full overflow-hidden border-b" style={{ background: 'var(--bg-surface-2)', borderColor: 'var(--border-subtle)' }}>
@@ -52,7 +74,7 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
             src={product.images[0]}
             alt={product.name}
             loading="lazy"
-            className={`w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105 ${soldOut ? 'opacity-50' : ''}`}
+            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -65,16 +87,47 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
         )}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start">
           {onSale && (
-            <span className="text-[10px] font-black px-2 py-0.5 rounded-md" style={{ background: 'var(--negative)', color: '#fff' }}>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs" style={{ background: 'var(--negative)', color: '#fff' }}>
               SALE
             </span>
           )}
           {soldOut && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{ background: 'rgba(15,23,42,0.85)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-md border shadow-xs backdrop-blur-md"
+              style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+            >
               Sold out
             </span>
           )}
+          {isAdmin && (product.status === 'draft' || scheduled) && (
+            <span
+              className="text-[10px] font-black px-2 py-0.5 rounded-md"
+              style={{ background: '#f59e0b', color: '#000' }}
+              title={scheduled && releaseAt ? `Scheduled release: ${new Date(releaseAt).toLocaleString()}` : 'Draft (hidden from shoppers)'}
+            >
+              {scheduled ? 'SCHEDULED' : 'DRAFT'}
+            </span>
+          )}
         </div>
+        {isAdmin && onEdit && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit(product);
+            }}
+            title="Edit product (Admin)"
+            className="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer shadow-md transition hover:scale-105"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }}
+          >
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            <span>Edit</span>
+          </button>
+        )}
       </div>
 
       <div className="p-3.5 flex flex-col flex-1">
@@ -98,22 +151,43 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
               {optionCount} options
             </span>
           )}
-          {Boolean(product.attributes?.max_per_order) && (
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded border"
-              style={{ background: 'var(--accent-muted)', borderColor: 'var(--accent-border)', color: 'var(--text-accent)' }}
-              title={`Limited to max ${product.attributes.max_per_order} units per customer`}
-            >
-              Limit {product.attributes.max_per_order}/order
+          {!product.variant_label && (
+            <span className="text-[10px]" style={{ color: 'var(--text-placeholder)' }}>
+              {subcat || category}
             </span>
           )}
-          {!product.variant_label && !product.attributes?.max_per_order && <span className="text-[10px]" style={{ color: 'var(--text-placeholder)' }}>{category}</span>}
         </div>
-        <div className="mt-auto flex items-baseline gap-2">
-          <span className="text-base font-black text-[var(--positive)]">{formatPrice(product.price_huf)}</span>
-          {onSale && (
-            <span className="text-xs line-through" style={{ color: 'var(--text-placeholder)' }}>
-              {formatPrice(product.original_price_huf!)}
+        <div className="mt-auto pt-2 flex items-center justify-between gap-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex flex-col">
+            <span className="text-base font-black text-[var(--positive)] leading-none">{formatPrice(product.price_huf)}</span>
+            {onSale && (
+              <span className="text-[11px] line-through mt-0.5" style={{ color: 'var(--text-placeholder)' }}>
+                {formatPrice(product.original_price_huf!)}
+              </span>
+            )}
+          </div>
+          {!soldOut ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToCart?.(product);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition shadow-xs hover:brightness-110 active:scale-95 shrink-0 flex items-center gap-1.5"
+              style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}
+              title="Add 1 to cart"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              <span>Buy</span>
+            </button>
+          ) : (
+            <span className="text-[11px] font-semibold" style={{ color: 'var(--text-placeholder)' }}>
+              Out of stock
             </span>
           )}
         </div>
@@ -125,19 +199,26 @@ function ProductCard({ product, optionCount }: { product: StoreProduct; optionCo
 /** The customer-facing shop at /store. Hidden from everyone but admins until STORE_PUBLIC_LAUNCH is true. */
 export function StoreShopApp() {
   const { loading: authLoading, isAdmin } = useStoreAuth();
+  const { totalItems: cartCount } = useStoreCart();
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
+  const [showAdminDrafts, setShowAdminDrafts] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+
   const [filters, setFilters] = useState<StoreFilters>(() => {
     if (typeof window === 'undefined') return EMPTY_STORE_FILTERS;
     const p = new URLSearchParams(window.location.search);
     const cat = p.get('category');
+    const sub = p.get('subcategory');
     const brand = p.get('brand');
     const game = p.get('game');
     const q = p.get('q') || p.get('search');
     return {
       ...EMPTY_STORE_FILTERS,
       category: cat || 'all',
+      subcategories: sub ? [sub] : [],
       brands: brand ? [brand] : [],
       games: game ? [game] : [],
       search: q || '',
@@ -151,25 +232,41 @@ export function StoreShopApp() {
   // Reset page when filters or sort change
   useEffect(() => {
     setPage(1);
-  }, [filters, sort]);
+  }, [filters, sort, showAdminDrafts]);
 
   const canView = STORE_PUBLIC_LAUNCH || isAdmin;
 
-  useEffect(() => {
-    if (authLoading || !canView) return;
-    let cancelled = false;
+  const loadProducts = useCallback(() => {
     storeApi<{ products?: StoreProduct[]; error?: string }>('/api/store/products').then((res) => {
-      if (cancelled) return;
       if (res.ok) setProducts(res.data.products || []);
       else setError(res.data.error || 'Could not load the store.');
       setLoading(false);
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, canView]);
+  }, []);
 
-  const publicProducts = useMemo(() => products.filter((p) => p.status !== 'draft'), [products]);
+  useEffect(() => {
+    if (authLoading || !canView) return;
+    loadProducts();
+  }, [authLoading, canView, loadProducts]);
+
+  const publicProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        if (isAdmin && showAdminDrafts) return p.status !== 'archived';
+        return isPubliclyVisibleProduct(p);
+      }),
+    [products, isAdmin, showAdminDrafts]
+  );
+
+  const existingGroups = useMemo(
+    () => [...new Set(products.map((p) => p.variant_group).filter((g): g is string => Boolean(g)))].sort(),
+    [products]
+  );
+  const existingBrands = useMemo(
+    () => [...new Set(products.map((p) => p.brand).filter((b): b is string => Boolean(b) && b !== 'None'))].sort(),
+    [products]
+  );
+
   const visible = useMemo(() => sortStoreProducts(applyStoreFilters(publicProducts, filters), sort), [publicProducts, filters, sort]);
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const paginatedVisible = useMemo(() => {
@@ -187,8 +284,8 @@ export function StoreShopApp() {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
-      <div className="flex items-center gap-2 sm:gap-3 mb-6">
-        {/* Mobile Filters Trigger (on the left, replacing the redundant Store title) */}
+      <div className="flex items-center gap-2 sm:gap-3 mb-6 flex-wrap sm:flex-nowrap">
+        {/* Mobile Filters Trigger */}
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -223,7 +320,7 @@ export function StoreShopApp() {
           )}
         </div>
 
-        {/* Search input with min-w-0 so it gracefully flexes without causing horizontal overflow */}
+        {/* Search input + Sort + Cart + Admin quick controls */}
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <input
             type="search"
@@ -246,6 +343,42 @@ export function StoreShopApp() {
             <option value="price_desc">Price: high to low</option>
             <option value="name">Name A-Z</option>
           </select>
+
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border cursor-pointer shrink-0 transition hover:border-[var(--border-hover)]"
+            style={{ background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            aria-label="Open store cart"
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-accent)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="21" r="1" />
+              <circle cx="20" cy="21" r="1" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+            <span className="hidden sm:inline">Cart</span>
+            {cartCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black" style={{ background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)' }}>
+                {cartCount}
+              </span>
+            )}
+          </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowAdminDrafts((v) => !v)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border cursor-pointer shrink-0 transition"
+              style={
+                showAdminDrafts
+                  ? { background: 'var(--accent-muted)', borderColor: 'var(--accent)', color: 'var(--text-accent)' }
+                  : { background: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }
+              }
+              title="Toggle visibility of draft & scheduled release products"
+            >
+              <span>{showAdminDrafts ? 'Showing drafts' : 'Show drafts'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -290,7 +423,17 @@ export function StoreShopApp() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {paginatedVisible.map((p) => (
-                  <ProductCard key={p.id} product={p} optionCount={p.variant_group ? optionCounts.get(p.variant_group) || 1 : 1} />
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    optionCount={p.variant_group ? optionCounts.get(p.variant_group) || 1 : 1}
+                    isAdmin={isAdmin}
+                    onEdit={(prod) => setEditingProduct(prod)}
+                    onAddToCart={(prod) => {
+                      addToStoreCart(prod, 1);
+                      setCartOpen(true);
+                    }}
+                  />
                 ))}
               </div>
 
@@ -311,7 +454,7 @@ export function StoreShopApp() {
                     </button>
                     {Array.from({ length: totalPages }).map((_, idx) => {
                       const pNum = idx + 1;
-                      const active = pNum === page;
+                      const isPageActive = pNum === page;
                       return (
                         <button
                           key={pNum}
@@ -319,7 +462,7 @@ export function StoreShopApp() {
                           onClick={() => { setPage(pNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                           className="w-8 h-8 rounded-lg border text-xs font-bold cursor-pointer transition"
                           style={
-                            active
+                            isPageActive
                               ? { background: 'var(--accent-strong)', color: 'var(--text-on-accent, #000)', borderColor: 'var(--accent-strong)' }
                               : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }
                           }
@@ -348,12 +491,27 @@ export function StoreShopApp() {
       <FilterDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="Filter Store"
         activeCount={active}
-        applyLabel={`View ${visible.length} ${visible.length === 1 ? 'product' : 'products'}`}
+        title="Store Filters"
+        applyLabel={`Show ${visible.length} Products`}
       >
         {panel}
       </FilterDrawer>
+
+      <StoreCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} onOpen={() => setCartOpen(true)} />
+
+      {isAdmin && editingProduct && (
+        <StoreProductForm
+          product={editingProduct}
+          existingGroups={existingGroups}
+          existingBrands={existingBrands}
+          onClose={() => setEditingProduct(null)}
+          onSaved={() => {
+            setEditingProduct(null);
+            loadProducts();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
-import { extractSellerId } from '../../../lib/sellerNotes';
 import { OWNER_ID } from '../../../lib/constants';
 
 export const prerender = false;
@@ -30,8 +29,8 @@ export const GET: APIRoute = async ({ request }) => {
       supabaseAdmin.auth.admin.listUsers({ perPage: 250 }),
       supabaseAdmin.from('profiles').select('id, display_name, avatar_url, role, is_admin, is_banned, created_at'),
       supabaseAdmin
-        .from('inventory')
-        .select('id, notes, card_id, condition, is_foil, quantity, price_huf, status, created_at, cards(name, card_number, game, image_path, sets(name, code))')
+        .from('marketplace_listings')
+        .select('id, seller_id, card_id, condition, is_foil, quantity, price_huf, status, created_at, cards(name, card_number, game, image_path, sets(name, code))')
         .order('created_at', { ascending: false })
         .limit(500),
       supabaseAdmin.from('public_decks').select('id, user_id, name, created_at').order('created_at', { ascending: false }).limit(200),
@@ -48,7 +47,7 @@ export const GET: APIRoute = async ({ request }) => {
 
     const activeListingsCount = new Map<string, number>();
     for (const item of inventoryRes.data || []) {
-      const sellerId = extractSellerId(item.notes) || OWNER_ID;
+      const sellerId = item.seller_id;
       if (item.status !== 'Sold' && (item.quantity ?? 0) > 0 && sellerId) {
         activeListingsCount.set(sellerId, (activeListingsCount.get(sellerId) || 0) + 1);
       }
@@ -208,7 +207,7 @@ export const GET: APIRoute = async ({ request }) => {
       .map((i: any) => {
         const card = Array.isArray(i.cards) ? i.cards[0] : i.cards;
         const setObj = Array.isArray(card?.sets) ? card.sets[0] : card?.sets;
-        const sellerId = extractSellerId(i.notes) || OWNER_ID;
+        const sellerId = i.seller_id || OWNER_ID;
         return {
           id: i.id,
           user_id: sellerId,
@@ -301,25 +300,13 @@ export const POST: APIRoute = async ({ request }) => {
       const { error } = await supabaseAdmin.from('profiles').update({ is_banned: banned }).eq('id', userId);
       if (error) throw error;
 
-      // If banning user, unlist their active marketplace listings and inventory immediately
+      // If banning user, unlist their active marketplace listings immediately
       if (banned) {
         await Promise.allSettled([
           supabaseAdmin
             .from('marketplace_listings')
             .update({ status: 'Sold', quantity: 0, updated_at: new Date().toISOString() })
             .eq('seller_id', userId),
-          (async () => {
-            const { data: invRows } = await supabaseAdmin.from('inventory').select('id, notes, status');
-            const matchingIds = (invRows || [])
-              .filter((r: any) => (extractSellerId(r.notes) || OWNER_ID) === userId && r.status !== 'Sold')
-              .map((r: any) => r.id);
-            if (matchingIds.length > 0) {
-              await supabaseAdmin
-                .from('inventory')
-                .update({ status: 'Sold', quantity: 0 })
-                .in('id', matchingIds);
-            }
-          })(),
         ]);
       }
 
@@ -351,17 +338,9 @@ export const POST: APIRoute = async ({ request }) => {
         return jsonResponse({ success: false, error: 'You cannot delete your own owner account.' }, 400);
       }
 
-      const { data: invRows } = await supabaseAdmin.from('inventory').select('id, notes');
-      const userInvIds = (invRows || [])
-        .filter((r: any) => extractSellerId(r.notes) === userId)
-        .map((r: any) => r.id);
-
       // Clean up related records before deleting auth user
       await Promise.allSettled([
         supabaseAdmin.from('marketplace_listings').delete().eq('seller_id', userId),
-        userInvIds.length > 0
-          ? supabaseAdmin.from('inventory').delete().in('id', userInvIds)
-          : Promise.resolve(),
         supabaseAdmin.from('user_collections').delete().eq('user_id', userId),
         supabaseAdmin.from('card_collections').delete().eq('user_id', userId),
         supabaseAdmin.from('public_decks').delete().eq('user_id', userId),
@@ -559,10 +538,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (action === 'delete_listing') {
       const listingId = String(body.listing_id || '');
       if (!listingId) return jsonResponse({ success: false, error: 'listing_id required' }, 400);
-      try {
-        await supabaseAdmin.from('inventory_images').delete().eq('inventory_id', listingId);
-      } catch {}
-      const { error } = await supabaseAdmin.from('inventory').delete().eq('id', listingId);
+      const { error } = await supabaseAdmin.from('marketplace_listings').delete().eq('id', listingId);
       if (error) throw error;
       return jsonResponse({ success: true, deleted_listing_id: listingId });
     }

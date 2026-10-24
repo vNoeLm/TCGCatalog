@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { cardThumbProps, supabase } from '../../lib/supabase';
 import { fetchSellerRatingSummary, fetchReputation } from '../../lib/reviews';
 import { ReputationBreakdown, ReviewCard, Stars } from '../reviews/ReviewParts';
-import { getSellerTier, BadgeIconSvg, SiteOwnerTag, VerifiedStoreTag } from '../../lib/badges';
+import { getSellerTier, BadgeIconSvg, SiteOwnerTag } from '../../lib/badges';
 import { BannerContainerBackground } from './AvatarBannerModal';
 import { useSiteTheme } from '../../lib/theme';
 import { fetchPublicDecksForUser, type PublicDeckSummary } from '../../lib/publicDecks';
 import { STORAGE_KEYS, EVENTS } from '../../lib/constants';
 import { getCurrentUser, getCurrentProfile } from '../../lib/auth';
 import { ReportModal } from '../common/ReportModal';
+import { ProfileQrModal } from './ProfileQrModal';
 import type { SellerProfileSummary, UserReputation } from '../../types';
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -31,6 +32,7 @@ export function PublicProfileApp() {
   const [isMe, setIsMe] = useState(false);
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id');
     if (id) getCurrentUser().then(u => setIsMe(Boolean(u && u.id === id)));
@@ -114,7 +116,6 @@ export function PublicProfileApp() {
   }
 
   const isOwner = Boolean(summary.is_owner || summary.role === 'owner');
-  const isVerifiedStore = isOwner || Boolean((summary as any)?.is_verified_store || summary.role === 'owner');
   const tier = getSellerTier(summary.sales_count || 0, summary.rating_avg, isOwner, isLightTheme);
   const displayName = summary.display_name || 'Collector';
   const memberSince = summary.created_at
@@ -174,9 +175,6 @@ export function PublicProfileApp() {
                   {displayName}
                 </h1>
                 {isOwner && <SiteOwnerTag />}
-                {isVerifiedStore && (
-                  <VerifiedStoreTag className="text-[10px] px-2 py-0.5 !rounded-full" />
-                )}
                 <span
                   className="text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider inline-flex items-center gap-1"
                   style={tier.badgeStyle}
@@ -246,8 +244,23 @@ export function PublicProfileApp() {
             </div>
           </div>
 
-          {!isMe && (
-            <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowQrModal(true)}
+              className="h-8 px-3 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 cursor-pointer transition"
+              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              title="Show QR code for in-person trade sharing"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <path d="M14 14h3v3h-3zM18 18h3v3h-3z" />
+              </svg>
+              <span>Share QR</span>
+            </button>
+            {!isMe && (
               <button
                 type="button"
                 onClick={() => setShowReportModal(true)}
@@ -261,8 +274,8 @@ export function PublicProfileApp() {
                 </svg>
                 <span>Report profile</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -469,6 +482,13 @@ export function PublicProfileApp() {
         targetName={displayName}
         targetLink={typeof window !== 'undefined' ? window.location.href : `/user?id=${userId}`}
       />
+      {showQrModal && userId && (
+        <ProfileQrModal
+          userId={userId}
+          displayName={displayName}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
     </div>
   );
 }

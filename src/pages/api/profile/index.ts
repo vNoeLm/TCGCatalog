@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { supabaseAdmin } from '../../../lib/supabaseServer';
 import { getRequestUser, jsonResponse } from '../../../lib/requestAuth';
 import { sanitizePlainText, sanitizeUrl, verifyImageMagicBytes } from '../../../lib/sanitize';
+import { COUNTRY_MAP } from '../../../lib/countries';
 
 export const prerender = false;
 
@@ -64,15 +65,24 @@ export const GET: APIRoute = async ({ url }) => {
   const userId = url.searchParams.get('id')?.trim();
   if (!userId) return jsonResponse({ success: false, error: 'Missing id' }, 400);
 
-  const [{ data: profile }, banners, badgesMap] = await Promise.all([
-    supabaseAdmin
+  let { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('id, display_name, avatar_url, role, is_admin, country')
+    .eq('id', userId)
+    .maybeSingle();
+
+  // Before the country migration is applied the select above fails; everything else on the
+  // profile still needs to load, so retry without that column.
+  if (!profile) {
+    const fallback = await supabaseAdmin
       .from('profiles')
       .select('id, display_name, avatar_url, role, is_admin')
       .eq('id', userId)
-      .maybeSingle(),
-    loadBannersMap(),
-    loadDisplayedBadgesMap(),
-  ]);
+      .maybeSingle();
+    profile = fallback.data as typeof profile;
+  }
+
+  const [banners, badgesMap] = await Promise.all([loadBannersMap(), loadDisplayedBadgesMap()]);
 
   let rawBanner: string | null = banners[userId] || null;
   if (!rawBanner) {
@@ -93,6 +103,7 @@ export const GET: APIRoute = async ({ url }) => {
     id: userId,
     display_name: profile?.display_name || null,
     avatar_url: profile?.avatar_url || null,
+    country: (profile as any)?.country || 'HU',
     banner_url: rawBanner,
     banner_blur: parseBlur(rawBanner),
     displayed_badges: displayedBadges,
@@ -126,6 +137,15 @@ export const PATCH: APIRoute = async ({ request }) => {
     const avatarUrl = body.avatar_url ? sanitizeUrl(body.avatar_url) : null;
     profilePatch.avatar_url = avatarUrl;
     metaPatch.avatar_url = avatarUrl;
+  }
+
+  if (body.country !== undefined) {
+    const country = String(body.country || '').trim().toUpperCase();
+    if (!COUNTRY_MAP.has(country)) {
+      return jsonResponse({ success: false, error: 'Choose a valid country.' }, 400);
+    }
+    profilePatch.country = country;
+    metaPatch.country = country;
   }
 
   if (body.banner_url !== undefined) {
@@ -168,6 +188,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     success: true,
     display_name: profilePatch.display_name ?? metaPatch.display_name ?? null,
     avatar_url: profilePatch.avatar_url !== undefined ? profilePatch.avatar_url : (metaPatch.avatar_url ?? null),
+    country: profilePatch.country ?? metaPatch.country ?? null,
     banner_url: metaPatch.banner_url ?? null,
     displayed_badges: metaPatch.displayed_badges ?? undefined,
   });

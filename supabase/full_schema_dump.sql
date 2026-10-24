@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     display_name VARCHAR(100),
     avatar_url TEXT,
     role public.user_role NOT NULL DEFAULT 'user'::public.user_role,
+    country CHAR(2) NOT NULL DEFAULT 'HU',
     is_admin BOOLEAN NOT NULL DEFAULT false,
     is_banned BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
@@ -138,43 +139,7 @@ BEFORE UPDATE ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_escalation();
 
 -- ------------------------------------------------------------------------------
--- 4. B2C STORE INVENTORY (PLATFORM OWNED STOCK & SEALED PRODUCTS)
--- ------------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS public.inventory (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    card_id UUID NOT NULL REFERENCES public.cards(id) ON DELETE CASCADE,
-    condition VARCHAR(50) NOT NULL DEFAULT 'Near Mint',
-    is_foil BOOLEAN NOT NULL DEFAULT false,
-    price_huf INTEGER NOT NULL CHECK (price_huf >= 0),
-    quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity >= 0),
-    status VARCHAR(50) NOT NULL DEFAULT 'In Stock',
-    notes TEXT,
-    is_archived BOOLEAN NOT NULL DEFAULT false,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
-CREATE INDEX IF NOT EXISTS idx_inventory_card_id ON public.inventory(card_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_status ON public.inventory(status);
-CREATE INDEX IF NOT EXISTS idx_inventory_archived ON public.inventory(is_archived);
-CREATE INDEX IF NOT EXISTS idx_inventory_card_price_active 
-ON public.inventory(card_id, price_huf) 
-WHERE is_archived = false AND status = 'In Stock' AND quantity > 0;
-
-CREATE TABLE IF NOT EXISTS public.inventory_images (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    inventory_id UUID NOT NULL REFERENCES public.inventory(id) ON DELETE CASCADE,
-    image_path TEXT NOT NULL,
-    display_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
-CREATE INDEX IF NOT EXISTS idx_inventory_images_inv_id ON public.inventory_images(inventory_id);
-
--- ------------------------------------------------------------------------------
--- 5. P2P MARKETPLACE LISTINGS (COMMUNITY SELLERS)
+-- 4. P2P MARKETPLACE LISTINGS (COMMUNITY SELLERS)
 -- ------------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.marketplace_listings (
@@ -238,7 +203,7 @@ CREATE TABLE IF NOT EXISTS public.order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id VARCHAR(100),
     order_number VARCHAR(100) NOT NULL REFERENCES public.orders(order_number) ON UPDATE CASCADE ON DELETE CASCADE,
-    inventory_id UUID REFERENCES public.inventory(id) ON DELETE SET NULL,
+    inventory_id UUID,
     card_id UUID REFERENCES public.cards(id) ON DELETE SET NULL,
     card_name VARCHAR(200) NOT NULL,
     card_number VARCHAR(50),
@@ -290,7 +255,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_pair ON public.conversations
 CREATE TABLE IF NOT EXISTS public.hold_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     listing_id UUID REFERENCES public.marketplace_listings(id) ON DELETE SET NULL,
-    inventory_id UUID REFERENCES public.inventory(id) ON DELETE SET NULL,
+    inventory_id UUID,
     seller_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     buyer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     buyer_name VARCHAR(150) NOT NULL,
@@ -463,23 +428,7 @@ CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authen
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
--- 2. B2C Store Inventory (Admin managed, public read in-stock)
-ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public read store inventory" ON public.inventory FOR SELECT
-USING (is_archived = false AND status = 'In Stock' AND quantity > 0);
-
-CREATE POLICY "Admins manage store inventory" ON public.inventory FOR ALL TO authenticated
-USING (public.is_admin_or_owner())
-WITH CHECK (public.is_admin_or_owner());
-
--- 3. B2C Store Inventory Images
-ALTER TABLE public.inventory_images ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public read store inventory images" ON public.inventory_images FOR SELECT USING (true);
-CREATE POLICY "Admins manage store inventory images" ON public.inventory_images FOR ALL TO authenticated
-USING (public.is_admin_or_owner())
-WITH CHECK (public.is_admin_or_owner());
-
--- 4. P2P Marketplace Listings (Sellers manage own, public read active)
+-- 2. P2P Marketplace Listings (Sellers manage own, public read active)
 ALTER TABLE public.marketplace_listings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public read active marketplace listings" ON public.marketplace_listings FOR SELECT

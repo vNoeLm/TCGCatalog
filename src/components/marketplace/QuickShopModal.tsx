@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWishlists, wishlistWantText } from '../../lib/wishlists';
 import { useExitTransition } from '../../lib/useExitTransition';
 import { supabase, cardThumbProps } from '../../lib/supabase';
+import { getCurrentProfile } from '../../lib/auth';
 import { addManyToCart, CART_OPEN_EVENT } from '../../lib/marketplaceCart';
 import { parseWantList, planPurchase, CONDITION_ORDER, type ShopPlan, type ShopStrategy } from '../../lib/quickShop';
 import type { InventoryCard } from '../../types';
@@ -82,9 +83,11 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
 
     setLoading(true);
     try {
+      const buyerProfile = await getCurrentProfile().catch(() => null);
+      const viewerCountry = (buyerProfile?.country || 'HU').toUpperCase();
       const [{ data: sessionData }, res] = await Promise.all([
         supabase.auth.getSession(),
-        fetch(`/api/marketplace/listings?game=${encodeURIComponent(game)}&status=in_stock&pageSize=500`),
+        fetch(`/api/marketplace/listings?game=${encodeURIComponent(game)}&status=in_stock&pageSize=500&viewer_country=${encodeURIComponent(viewerCountry)}`),
       ]);
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Could not load marketplace listings.');
@@ -121,6 +124,7 @@ export function QuickShopModal({ isOpen, onClose, game, initialText = '' }: Quic
         isFoil: Boolean(listing.is_foil),
         condition: listing.condition || 'Near Mint',
         handoverMethods: listing.handover_methods,
+        sellerCountry: listing.seller_country || 'HU',
       }))
     );
     addManyToCart(items);

@@ -206,7 +206,7 @@ export function planPriceImport(
   allCards: PriceCard[],
   usdEur: number,
   /** The dollar-to-euro rate used by the last upload, if known. */
-  previousUsdEur: number | null = null
+  previousUsdEur: number | null = null, targetGame = 'riftbound'
 ): PricePlan {
   const compareRate = previousUsdEur && previousUsdEur > 0 ? previousUsdEur : usdEur;
   const inEuros = (dollars: number | null, rate: number) => (dollars !== null ? Math.round(dollars * rate * 100) / 100 : null);
@@ -218,7 +218,7 @@ export function planPriceImport(
     if (!existing || (/oversized/i.test(existing.name) && !/oversized/i.test(row.name))) byKey.set(k, row);
   }
 
-  const riftbound = allCards.filter((c) => c.game === 'riftbound');
+  const riftbound = allCards.filter((c) => targetGame === 'all' || c.game === targetGame);
   const matched: PriceUpdate[] = [];
   const flagged: PricePlan['flagged'] = [];
   const unmatched: PriceCard[] = [];

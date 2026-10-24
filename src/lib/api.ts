@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { isUnreleasedSet } from './cardPreview';
 import type { FilterState, InventoryCard, CatalogCard } from '../types';
-import { findSearchableKeyword, keywordOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
+import { findSearchableKeyword, keywordOrClauses, tagOrClauses, SEARCHABLE_KEYWORDS } from './keywordSearch';
 import {
   OWNER_ID, DOMAINS, RARITIES,
   MTG_RARITIES,
@@ -14,7 +14,7 @@ import {
 export const PAGE_SIZE = 36;
 export const STORE_PAGE_SIZE = 100;
 
-// ─── Helper: Clean Condition Notes (Hide Raw System JSON) ─────────
+// --- Helper: Clean Condition Notes (Hide Raw System JSON) ---
 export function getDisplayConditionNotes(notes: string | null | undefined): string | null {
   if (!notes || typeof notes !== 'string') return null;
   const trimmed = notes.trim();
@@ -37,10 +37,10 @@ export function getDisplayConditionNotes(notes: string | null | undefined): stri
   return trimmed;
 }
 
-// ─── Caching Layer (Memory + SessionStorage) ──────────────────────
+// --- Caching Layer (Memory + SessionStorage) ---
 // Card data changes (sets added or removed, release dates, the price sync) are noticed on their
 // own - see ensureFreshCache. Bump this only when the shape of what's cached changes in the code.
-const CACHE_VERSION = 'v30';
+const CACHE_VERSION = 'v31';
 const DATA_VERSION_KEY = 'tcg_card_data_version';
 /** How long a page load waits for the freshness check before using the cache anyway. */
 const DATA_VERSION_TIMEOUT_MS = 1500;
@@ -183,7 +183,7 @@ export async function fetchCardsCatalog(
     // Quoted, so commas, dots and brackets in the search ("Azir, Ascendant", "Akali (Promo)") stay
     // part of the value - unquoted, the or() filter read them as separators and found nothing.
     const like = `"%${textSearch.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`;
-    const clauses = [`name.ilike.${like}`, `card_number.ilike.${like}`, `artist.ilike.${like}`];
+    const clauses = [`name.ilike.${like}`, `card_number.ilike.${like}`, `artist.ilike.${like}`, ...tagOrClauses(textSearch)];
     // Typing a known keyword ("deflect", "xp") also finds cards with that keyword in their text.
     const searchedKeyword = findSearchableKeyword(textSearch);
     if (searchedKeyword) clauses.push(...keywordOrClauses(searchedKeyword));
@@ -360,247 +360,7 @@ export async function fetchCardsCatalog(
   return result;
 }
 
-export async function fetchOwnerStoreInventory(
-  _filters: FilterState,
-  _searchQuery: string,
-  _page: number = 1,
-  _bypassCache = false
-): Promise<{ data: InventoryCard[]; count: number | null }> {
-  // Deprecated: user_cards table is retired. All marketplace & store listings are in public.inventory.
-  return { data: [], count: 0 };
-}
-
-export async function fetchLegacyInventory(
-  filters: FilterState,
-  searchQuery: string,
-  page: number = 1,
-  bypassCache = false
-): Promise<{ data: InventoryCard[]; count: number | null }> {
-  const cacheKey = `legacy_inv_${JSON.stringify(filters)}_${searchQuery.trim().toLowerCase()}_p${page}`;
-  if (!bypassCache) {
-    await ensureFreshCache();
-    const cached = getCached<{ data: InventoryCard[]; count: number | null }>(cacheKey);
-    if (cached) return cached;
-  }
-
-  let query = supabase
-    .from('inventory')
-    .select(`
-      id, condition, is_foil, price_huf, status, notes, is_bulk, quantity,
-      cards!inner (
-        id, card_number, name, rarity, card_type, cost, image_path, subtype, text,
-        game, energy, might, domain, tags, ability, artist,
-        sets!inner (
-          id, name, code
-        )
-      ),
-      inventory_images ( image_path, display_order )
-    `, { count: 'exact' })
-    .or('notes.is.null,notes.not.ilike.*marketplace*');
-
-  if (searchQuery.trim() !== '') {
-    query = query.or(`name.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%`, { foreignTable: 'cards' });
-  }
-
-  // Category filter (singles vs sealed products)
-  if (filters.category === 'sealed') {
-    query = query.or('card_type.eq.Sealed,rarity.eq.Sealed', { foreignTable: 'cards' });
-    if (filters.sealedTypes && filters.sealedTypes.length > 0) {
-      const typeOr = filters.sealedTypes.map(st => `subtype.ilike.%${st}%,name.ilike.%${st}%`).join(',');
-      query = query.or(typeOr, { foreignTable: 'cards' });
-    }
-  } else if (filters.category === 'singles') {
-    query = query.neq('cards.card_type', 'Sealed').neq('cards.rarity', 'Sealed');
-  }
-
-  // Multi-game filter
-  const targetGame = (filters.game && filters.game !== 'all') ? filters.game : 'riftbound';
-  query = query.eq('cards.game', targetGame);
-
-  if (filters.set) {
-    query = query.eq('cards.sets.name', filters.set);
-  }
-  if (filters.rarities && filters.rarities.length > 0) {
-    const allowedRarities =
-      targetGame === 'mtg' ? MTG_RARITIES :
-      targetGame === 'onepiece' ? ONEPIECE_RARITIES :
-      targetGame === 'lorcana' ? LORCANA_RARITIES :
-      targetGame === 'starwars' ? STARWARS_RARITIES :
-      targetGame === 'fab' ? FAB_RARITIES :
-      RARITIES;
-    const cleanRarities = filters.rarities.filter(r => allowedRarities.includes(r));
-    if (cleanRarities.length > 0) {
-      query = query.in('cards.rarity', cleanRarities);
-    }
-  }
-  if (filters.type) {
-    if (targetGame === 'riftbound') {
-      if (filters.type === 'Champion') {
-        query = query.eq('cards.subtype', 'Champion');
-      } else if (filters.type === 'Signature Spell') {
-        query = query.eq('cards.card_type', 'Spell').ilike('cards.subtype', '%Signature%');
-      } else if (filters.type === 'Token') {
-        query = query.or('card_type.eq.Token,subtype.ilike.%Token%', { foreignTable: 'cards' });
-      } else {
-        query = query.eq('cards.card_type', filters.type);
-      }
-    } else {
-      query = query.eq('cards.card_type', filters.type);
-    }
-  }
-  if (filters.domains && filters.domains.length > 0) {
-    const allowedDomains =
-      targetGame === 'onepiece' ? ONEPIECE_COLORS :
-      targetGame === 'lorcana' ? LORCANA_INKS :
-      targetGame === 'starwars' ? STARWARS_ASPECTS :
-      targetGame === 'fab' ? FAB_CLASSES :
-      DOMAINS;
-    const cleanDomains = filters.domains.filter(d => allowedDomains.includes(d));
-    if (cleanDomains.length > 0) {
-      const orQuery = cleanDomains.map(c => `domain.ilike.%${c}%`).join(',');
-      query = query.or(orQuery, { foreignTable: 'cards' });
-    }
-  }
-  if (filters.costMin > 1) {
-    query = query.gte('cards.cost', filters.costMin);
-  }
-  if (filters.costMax < 10) {
-    query = query.lte('cards.cost', filters.costMax);
-  }
-
-  if (filters.foilFilter) {
-    query = query.eq('is_foil', true);
-  }
-
-  if (filters.signedFilter === 'only') {
-    query = query.or('subtype.eq.Signed,card_number.ilike.%*%,card_number.ilike.%★%,card_number.ilike.%STAR%,tags.cs.["Star"],tags.cs.["Signed"]', { foreignTable: 'cards' });
-  } else if (filters.signedFilter === 'none') {
-    query = query
-      .not('subtype', 'eq', 'Signed')
-      .not('card_number', 'ilike', '%*%')
-      .not('card_number', 'ilike', '%★%')
-      .not('card_number', 'ilike', '%STAR%');
-  }
-
-  if (filters.altArtFilter === 'only') {
-    query = query.or('subtype.ilike.%alt%,subtype.ilike.%alternate%,card_number.ilike.%a/%,card_number.ilike.%b/%,card_number.ilike.%-R%a%,card_number.ilike.%-R%b%,card_number.ilike.%-SP%', { foreignTable: 'cards' });
-  } else if (filters.altArtFilter === 'none') {
-    query = query.not('subtype', 'ilike', '%alt%').not('subtype', 'ilike', '%alternate%').not('card_number', 'ilike', '%a/%').not('card_number', 'ilike', '%b/%').not('card_number', 'ilike', '%-R%a%').not('card_number', 'ilike', '%-R%b%').not('card_number', 'ilike', '%-SP%');
-  }
-
-  if (filters.spFilter === 'only') {
-    query = query.or('card_number.ilike.%-SP%,card_number.ilike.%SP/%,subtype.ilike.%SP%,tags.cs.["SP"]', { foreignTable: 'cards' });
-  } else if (filters.spFilter === 'none') {
-    query = query.not('card_number', 'ilike', '%-SP%').not('card_number', 'ilike', '%SP/%').not('subtype', 'ilike', '%SP%');
-  }
-
-  if (filters.baseSetFilter === 'only') {
-    query = query
-      .not('subtype', 'eq', 'Signed')
-      .not('card_number', 'ilike', '%*%')
-      .not('card_number', 'ilike', '%★%')
-      .not('card_number', 'ilike', '%STAR%')
-      .not('subtype', 'ilike', '%alt%')
-      .not('subtype', 'ilike', '%alternate%')
-      .not('card_number', 'ilike', '%a/%')
-      .not('card_number', 'ilike', '%b/%')
-      .not('card_number', 'ilike', '%-SP%')
-      .not('card_number', 'ilike', '%SP/%')
-      .not('cards.card_type', 'eq', 'Token');
-  }
-
-  if (filters.tags && filters.tags.length > 0) {
-    const tagQuery = filters.tags.map(t => `tags.cs.["${t}"]`).join(',');
-    query = query.or(tagQuery, { foreignTable: 'cards' });
-  }
-
-  // Stock status filter
-  if (filters.stockStatus && filters.stockStatus !== 'Any') {
-    query = query.eq('status', filters.stockStatus);
-  } else {
-    // Default store display: only in-stock items
-    query = query.eq('status', 'In Stock');
-  }
-
-  // Pagination
-  const pageSize = STORE_PAGE_SIZE;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  query = query.range(from, to).order('created_at', { ascending: false });
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    console.error('Error fetching inventory:', error);
-    return { data: [], count: 0 };
-  }
-
-  const mappedData: InventoryCard[] = (data || [])
-    .filter((row: any) => {
-      const notesStr = String(row.notes || '');
-      return !notesStr.includes('marketplace');
-    })
-    .map((row: any) => {
-    const invImages: any[] = (row.inventory_images || []).slice().sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-    const firstCustomPhoto = invImages.length > 0 ? invImages[0].image_path : null;
-
-    return {
-      inventory_id: row.id,
-      condition: row.condition,
-      is_foil: row.is_foil,
-      price_huf: row.price_huf,
-      status: row.status,
-      notes: row.notes,
-      is_bulk: row.is_bulk,
-      quantity: row.quantity,
-      card_id: row.cards.id,
-      card_number: row.cards.card_number,
-      name: row.cards.name,
-      rarity: row.cards.rarity,
-      card_type: row.cards.card_type,
-      cost: row.cards.cost,
-      image_path: firstCustomPhoto || row.cards.image_path,
-      inventory_image: firstCustomPhoto,
-      inventory_images: invImages,
-      subtype: row.cards.subtype,
-      text: row.cards.text,
-      game: row.cards.game,
-      metadata: row.cards.metadata || {},
-      energy: row.cards.energy,
-      might: row.cards.might,
-      domain: row.cards.domain,
-      tags: row.cards.tags,
-      ability: row.cards.ability,
-      artist: row.cards.artist,
-      market_price_eur: row.cards.market_price_eur ?? null,
-      market_price_foil_eur: row.cards.market_price_foil_eur ?? null,
-      last_price_updated_at: row.cards.last_price_updated_at ?? null,
-      set_id: row.cards.sets.id,
-      set_name: row.cards.sets.name,
-      set_code: row.cards.sets.code,
-      sets: row.cards.sets,
-      seller_id: 'd47ca466-6520-46ec-aff2-718732f1baf7',
-      seller_name: 'Noel :3',
-      seller_avatar: null,
-      seller_role: 'owner',
-    };
-  });
-
-  const result = { data: mappedData, count };
-  setCached(cacheKey, result);
-  return result;
-}
-
-export async function fetchInventory(
-  filters: FilterState,
-  searchQuery: string,
-  page: number = 1,
-  bypassCache = false
-): Promise<{ data: InventoryCard[]; count: number | null }> {
-  return fetchLegacyInventory(filters, searchQuery, page, bypassCache);
-}
-
-// ─── Public: Card Detail (product page) ───────────────────────────
+// --- Public: Card Detail (product page) ---
 export async function fetchCardDetail(inventoryId: string, bypassCache = false) {
   const cacheKey = `card_detail_inv_${inventoryId}`;
   if (!bypassCache) {
@@ -609,55 +369,65 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     if (cached) return cached;
   }
 
-  // Query inventory table
-  const { data, error } = await supabase
-    .from('inventory')
+  // P2P listings live in marketplace_listings. Store products use their own store_products
+  // backend and never resolve through this function.
+  const { data: mktRow } = await supabase
+    .from('marketplace_listings')
     .select(`
-      id, condition, is_foil, price_huf, status, notes, is_bulk, quantity,
+      id, seller_id, card_id, condition, is_foil, price_huf, status, quantity,
+      description, handover_methods, images, collection_id, created_at, updated_at,
       cards (
         *,
         sets ( name, code )
-      ),
-      inventory_images ( image_path, display_order )
+      )
     `)
     .eq('id', inventoryId)
-    .single();
-  if (error) throw error;
+    .maybeSingle();
 
-  let sellerId = OWNER_ID;
-  let handoverMethods: string[] = ['personal', 'foxpost', 'packeta', 'other'];
-  if (data.notes) {
-    try {
-      if (typeof data.notes === 'string' && data.notes.startsWith('{')) {
-        const parsed = JSON.parse(data.notes);
-        if (parsed && typeof parsed.seller_id === 'string' && parsed.seller_id) {
-          sellerId = parsed.seller_id;
-        }
-        if (parsed && Array.isArray(parsed.handover_methods) && parsed.handover_methods.length > 0) {
-          handoverMethods = parsed.handover_methods;
-        }
-      } else if (typeof data.notes === 'string') {
-        if (data.notes.startsWith('marketplace:')) sellerId = data.notes.replace('marketplace:', '').trim();
-        else if (data.notes.startsWith('seller:')) sellerId = data.notes.replace('seller:', '').trim();
-      }
-    } catch (e) {}
-  }
+  if (!mktRow) throw new Error('Item not found.');
+
+  const photos = Array.isArray((mktRow as any).images)
+    ? ((mktRow as any).images as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0)
+    : [];
+  const data: any = {
+    ...mktRow,
+    notes: (mktRow as any).description ?? null,
+    is_bulk: false,
+    inventory_images: photos.map((image_path, display_order) => ({ image_path, display_order })),
+  };
+
+  const sellerId = (data as any).seller_id || OWNER_ID;
+  const handoverMethods: string[] = Array.isArray((data as any).handover_methods) && (data as any).handover_methods.length > 0
+    ? (data as any).handover_methods
+    : ['personal', 'foxpost', 'packeta', 'other'];
 
   let sellerName = sellerId === OWNER_ID ? 'Noel :3' : 'Community Seller';
   let sellerAvatar = null;
   let sellerRole = sellerId === OWNER_ID ? 'owner' : 'user';
+  let sellerCountry = 'HU';
 
   try {
-    const { data: prof } = await supabase
+    let { data: prof } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, role, is_admin')
+      .select('id, display_name, avatar_url, role, is_admin, country')
       .eq('id', sellerId)
       .maybeSingle();
+
+    // Country column not migrated yet: retry without it rather than losing the whole profile.
+    if (!prof) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, role, is_admin')
+        .eq('id', sellerId)
+        .maybeSingle();
+      prof = fallback.data as typeof prof;
+    }
 
     if (prof) {
       sellerName = prof.display_name || (prof.role === 'owner' ? 'Noel :3' : 'Community Seller');
       sellerAvatar = prof.avatar_url || null;
       sellerRole = prof.role || (prof.is_admin ? 'admin' : 'user');
+      sellerCountry = ((prof as any).country || 'HU').toUpperCase();
     }
   } catch (err) {}
 
@@ -671,6 +441,7 @@ export async function fetchCardDetail(inventoryId: string, bypassCache = false) 
     seller_name: sellerName,
     seller_avatar: sellerAvatar,
     seller_role: sellerRole,
+    seller_country: sellerCountry,
   };
   setCached(cacheKey, enriched);
   return enriched;

@@ -8,7 +8,7 @@ export interface StoreCategoryDef {
 }
 
 export const STORE_CATEGORIES: StoreCategoryDef[] = [
-  { id: 'sealed', label: 'Sealed TCG', description: 'Booster Boxes, Packs, Bundles & Starter Decks' },
+  { id: 'sealed', label: 'Sealed TCG', description: 'Booster Boxes, Packs, Vaults, Bundles & Starter Decks' },
   { id: 'sleeves', label: 'Card Sleeves', description: 'Standard, Japanese, Outer & Inner Perfect Fit' },
   { id: 'deck_boxes', label: 'Deck Boxes', description: 'Boulder, Sidewinder, Flip n Tray & Deck Cases' },
   { id: 'binders', label: 'Binders & Albums', description: 'Zipfolios, 9-pocket, 12-pocket & Pocket Pages' },
@@ -19,6 +19,18 @@ export const STORE_CATEGORIES: StoreCategoryDef[] = [
   { id: 'accessories', label: 'Accessories', description: 'Dividers, bands, cleaning supplies & other accessories' },
   { id: 'other', label: 'Other', description: 'Miscellaneous TCG supplies & collectibles' },
 ];
+
+export const STORE_SUBCATEGORIES_BY_CATEGORY: Record<string, string[]> = {
+  sealed: ['Booster Display', 'Booster Pack', 'Vault', 'Starter Deck', 'Bundle'],
+  sleeves: ['Standard Sleeves', 'Japanese Sleeves', 'Inner / Perfect Fit', 'Outer Sleeves', 'Art Sleeves'],
+  deck_boxes: ['Deck Box (80+)', 'Deck Box (100+)', 'Double Deck Box (133+)', 'Storage Deck Case (200+)'],
+  binders: ['9-Pocket Binder', '12-Pocket Binder', '4-Pocket Binder', 'Pocket Pages'],
+  playmats: ['Playmat', 'Playmat Tube', '2-Player Playmat'],
+  protection: ['Toploader', 'Magnetic One-Touch', 'Semi-Rigid / Card Saver', 'Team Bags', 'Display Stand'],
+  storage: ['Card Storage Box', 'Mass Storage / Hive', 'Dividers'],
+  dice: ['Dice Set', 'Counters & Tokens', 'Life Pad / Tracker'],
+  accessories: ['Dividers', 'Bands & Straps', 'Cleaning & Care'],
+};
 
 export const STORE_BRANDS = [
   'Ultimate Guard',

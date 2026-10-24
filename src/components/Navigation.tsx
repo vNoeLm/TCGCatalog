@@ -82,10 +82,10 @@ export function Navigation({ currentPath }: NavigationProps) {
     return (
       <a
         href={href}
-        className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+        className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition whitespace-nowrap ${
           active
-            ? 'font-bold shadow-sm'
-            : 'text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--bg-raised)]'
+            ? 'font-bold shadow-sm border-[var(--accent-border)]'
+            : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--accent-muted)] hover:border-[var(--border-hover)]'
         }`}
         style={
           active
@@ -117,10 +117,10 @@ export function Navigation({ currentPath }: NavigationProps) {
         {userProfile && (
           <a
             href="/messages"
-            className={`relative text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+            className={`relative text-xs font-semibold px-3 py-1.5 rounded-lg border transition whitespace-nowrap ${
               isActive('/messages')
-                ? 'font-bold shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--bg-raised)]'
+                ? 'font-bold shadow-sm border-[var(--accent-border)]'
+                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-accent)] hover:bg-[var(--accent-muted)] hover:border-[var(--border-hover)]'
             }`}
             style={
               isActive('/messages')
@@ -165,7 +165,7 @@ export function Navigation({ currentPath }: NavigationProps) {
             <div>
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full text-xs font-bold transition cursor-pointer shadow-sm border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-raised)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
+                className="flex items-center gap-2 py-1 pl-1.5 pr-2.5 rounded-full text-xs font-bold transition cursor-pointer shadow-sm border bg-[var(--bg-surface-2)] border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--accent-muted)] hover:border-[var(--border-hover)] hover:text-[var(--text-accent)]"
               >
                 {userProfile.avatar_url ? (
                   <img

@@ -41,6 +41,15 @@ async function main() {
     return;
   }
 
+  // The base set ends at the highest numbered non-showcase card (167 for Radiance); the
+  // showcase cards above that number are overnumbered ("181/167"), exactly like the other sets.
+  const baseSetSize = Math.max(
+    0,
+    ...radCards
+      .filter((c) => /^RAD-\d+$/.test(c.id) && c.rarity !== 'Showcase')
+      .map((c) => parseInt(c.id.slice(4), 10) || 0)
+  );
+
   // 1. Ensure Radiance set exists in the database
   console.log('Upserting Radiance set in database...');
   const { data: setRow, error: setErr } = await supabase
@@ -131,7 +140,7 @@ async function main() {
 
     return {
       set_id: setId,
-      card_number: c.id,
+      card_number: /^RAD-\d+$/.test(c.id) && baseSetSize > 0 ? `${c.id}/${baseSetSize}` : c.id,
       name: c.name,
       rarity: c.rarity || 'Common',
       card_type: primaryType,

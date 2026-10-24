@@ -27,6 +27,9 @@ export interface ImportFields {
   variant_kind: StoreVariantKind;
   color: string;
   size: string;
+  subcategory: string;
+  msrp_huf: number;
+  release_at: string;
   supplier: string;
 }
 
@@ -65,6 +68,9 @@ const HEADER_ALIASES: Record<keyof ImportFields, string[]> = {
   variant_kind: ['variantkind', 'varianttype', 'optiontype'],
   color: ['color', 'colour', 'szin'],
   size: ['size', 'meret'],
+  subcategory: ['subcategory', 'alkategoria', 'subtype', 'altipus'],
+  msrp_huf: ['msrphuf', 'rrphuf', 'ajanlottar', 'ajanlottfogyasztoiar', 'listaar', 'recommendedprice'],
+  release_at: ['releaseat', 'releasedate', 'megjelenes', 'launchdate'],
   supplier: ['supplier', 'distributor', 'vendor', 'szallito', 'forgalmazo'],
 };
 
@@ -183,7 +189,7 @@ export function resolveGame(raw: string): string | null | undefined {
   return game ? game.id : undefined;
 }
 
-const INT_FIELDS: (keyof ImportFields)[] = ['price_huf', 'original_price_huf', 'cost_price_huf', 'stock_quantity'];
+const INT_FIELDS: (keyof ImportFields)[] = ['price_huf', 'original_price_huf', 'cost_price_huf', 'msrp_huf', 'stock_quantity'];
 
 export function rowsFromCsv(text: string): CsvParseResult {
   const table = parseCsvText(text);
@@ -198,7 +204,14 @@ export function rowsFromCsv(text: string): CsvParseResult {
   }
 
   const headers = table[0];
-  const columnField: (keyof ImportFields | null)[] = headers.map((h) => ALIAS_TO_FIELD.get(normalizeHeader(h)) ?? null);
+  const normalizedHeaders = headers.map(normalizeHeader);
+  const hasExplicitPriceCol = normalizedHeaders.some((nh) =>
+    ['price', 'pricehuf', 'retailprice', 'sellingprice', 'ar', 'fogyasztoiar', 'eladasiar', 'bruttoar'].includes(nh)
+  );
+  const columnField: (keyof ImportFields | null)[] = normalizedHeaders.map((nh) => {
+    if (hasExplicitPriceCol && (nh === 'msrp' || nh === 'rrp')) return 'msrp_huf';
+    return ALIAS_TO_FIELD.get(nh) ?? null;
+  });
   const mappedColumns = [...new Set(columnField.filter((f): f is keyof ImportFields => f !== null))];
   const unknownColumns = headers.filter((_, i) => columnField[i] === null && headers[i].trim() !== '');
 

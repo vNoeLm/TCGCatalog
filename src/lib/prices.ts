@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { DEFAULT_EUR_TO_HUF } from './priceSuggestion';
-import { extractSellerId } from './sellerNotes';
 
 let eurToHufRequest: Promise<number> | null = null;
 
@@ -30,8 +29,8 @@ export function getEurToHuf(): Promise<number> {
  */
 export async function fetchSiteListingPrices(cardId: string, isFoil: boolean, excludeSellerId?: string | null): Promise<number[]> {
   const { data, error } = await supabase
-    .from('inventory')
-    .select('price_huf, notes')
+    .from('marketplace_listings')
+    .select('price_huf, seller_id')
     .eq('card_id', cardId)
     .eq('is_foil', isFoil)
     .eq('status', 'In Stock')
@@ -40,7 +39,7 @@ export async function fetchSiteListingPrices(cardId: string, isFoil: boolean, ex
   if (error || !data) return [];
 
   return data
-    .filter((row: any) => !excludeSellerId || extractSellerId(row.notes) !== excludeSellerId)
+    .filter((row: any) => !excludeSellerId || row.seller_id !== excludeSellerId)
     .map((row: any) => Number(row.price_huf))
     .filter((price: number) => Number.isFinite(price) && price > 0);
 }
@@ -53,7 +52,7 @@ export async function fetchAllSitePrices(): Promise<Map<string, number[]>> {
   const byCard = new Map<string, number[]>();
 
   const { data } = await supabase
-    .from('inventory')
+    .from('marketplace_listings')
     .select('card_id, is_foil, price_huf')
     .eq('status', 'In Stock')
     .gt('quantity', 0)

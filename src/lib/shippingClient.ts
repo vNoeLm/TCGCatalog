@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 import { normalizeShipping, type ShippingSettings } from './shipping';
 
 /** Browser-side reads and writes of seller shipping options (see lib/shipping.ts). */
-
 const cache = new Map<string, Promise<ShippingSettings | null>>();
 
 /** Each seller's options; a seller who never set any maps to null (= everything free). */

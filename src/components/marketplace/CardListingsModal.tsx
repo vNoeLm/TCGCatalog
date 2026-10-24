@@ -9,6 +9,7 @@ import { useCurrency } from '../../lib/currency';
 import { PriceHistoryChart } from './PriceHistoryChart';
 import { cartQuantityFor, addToCart, removeFromCart, updateCartItemQuantity } from '../../lib/marketplaceCart';
 import { useCart } from '../../lib/useCart';
+import { useCurrentUserId } from '../../lib/useCurrentUserId';
 import { CountryFlag } from '../CountryFlag';
 import { OWNER_ID } from '../../lib/constants';
 import { formatSellerTierBadge } from '../../lib/badges';
@@ -59,6 +60,8 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
   const { main, sub } = splitCardTitle(card.name);
 
   const cart = useCart();
+  const currentUserId = useCurrentUserId();
+  const isOwnListing = (l: InventoryCard) => Boolean(currentUserId && l.seller_id === currentUserId);
   const inCartFor = (l: InventoryCard) => cartQuantityFor(cart, l.inventory_id);
   const leftFor = (l: InventoryCard) => Math.max(0, (l.quantity || 0) - inCartFor(l));
 
@@ -93,7 +96,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
 
   const handleAddToCart = (e: React.MouseEvent, l: InventoryCard) => {
     e.stopPropagation();
-    if (leftFor(l) <= 0) return;
+    if (isOwnListing(l) || leftFor(l) <= 0) return;
     addToCart({
       inventoryId: l.inventory_id,
       sellerId: l.seller_id || '',
@@ -107,6 +110,7 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
       isFoil: Boolean(l.is_foil),
       condition: l.condition || 'Near Mint',
       handoverMethods: (l as any).handover_methods,
+      sellerCountry: l.seller_country || 'HU',
     });
     setAddedId(l.inventory_id);
     setTimeout(() => {
@@ -123,6 +127,18 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
   }, []);
 
   const renderCartAction = (l: InventoryCard) => {
+    // A seller cannot buy their own copy: the price row shows a muted note instead of Add.
+    if (isOwnListing(l)) {
+      return (
+        <span
+          className="inline-flex items-center justify-center w-[82px] py-1.5 rounded-lg text-[10px] font-bold border cursor-default"
+          style={{ background: 'var(--bg-raised)', color: 'var(--text-tertiary)', borderColor: 'var(--border)' }}
+          title="This is your own listing"
+        >
+          Your listing
+        </span>
+      );
+    }
     if (inCartFor(l) > 0) {
       return (
         <div className="flex flex-col items-center gap-1">
@@ -284,16 +300,6 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         {card.set_name} &middot; {formatCleanCardNumber(card.card_number)} &middot; {card.rarity}
                       </span>
-                      {isAltArt(card) && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-pink-300 bg-pink-950/60 border border-pink-500/40 shrink-0">
-                          Alt Art
-                        </span>
-                      )}
-                      {isOvernumbered(card) && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-indigo-300 bg-indigo-950/60 border border-indigo-500/40 shrink-0">
-                          Overnumbered
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -328,8 +334,10 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
               </div>
             </div>
 
-            {/* Price History Chart - cleanly positioned without excess dead whitespace */}
-            <div className="flex-1 min-w-0 max-w-4xl p-2 sm:p-4 flex flex-col justify-center">
+            {/* Price History Chart - cleanly positioned without excess dead whitespace.
+                The extra right padding keeps the chart's expand button out from under this
+                modal's close button, which floats in the panel's top-right corner. */}
+            <div className="flex-1 min-w-0 max-w-4xl p-2 sm:p-4 lg:pr-14 flex flex-col justify-center">
               <PriceHistoryChart
                 cardId={group.card_id}
                 card={{ id: group.card_id, rarity: card.rarity, is_foil: foilOnly, game: card.game }}
@@ -391,7 +399,6 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                   {visible.map((l, i) => {
                     const onHold = l.status === 'On Hold' || l.status === 'Reserved';
                     const isOwner = l.seller_id === OWNER_ID || l.seller_role === 'owner' || l.seller_badge === 'Owner';
-                    const isVerifiedStore = isOwner || Boolean((l as any).is_verified_store || l.seller_badge === 'Verified Store');
                     const sellerTierBadge = formatSellerTierBadge(l.seller_badge, l.seller_tier) || (isOwner ? 'Tier 1 Seller' : '');
                     const hasPhotos = Boolean((l.inventory_images && l.inventory_images.length > 0) || l.inventory_image || ((l as any).images && (l as any).images.length > 0));
                     const photoCount = (l.inventory_images && l.inventory_images.length > 0)
@@ -451,23 +458,11 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                                   <span>Owner</span>
                                 </span>
                               )}
-                              {isVerifiedStore && (
-                                <span
-                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
-                                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                                  title="Official Verified Store"
-                                >
-                                  <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                    <polyline points="9 22 9 12 15 12 15 22" />
-                                  </svg>
-                                  <span>Verified Store</span>
-                                </span>
-                              )}
                               {sellerTierBadge && (
                                 <span
                                   className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center shrink-0"
-                                  style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                                  style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                  title={`${sellerTierBadge} — earned from completed marketplace sales`}
                                 >
                                   {sellerTierBadge}
                                 </span>
@@ -575,23 +570,11 @@ export function CardListingsModal({ group, onClose, onSelectListing }: CardListi
                                       <span>Owner</span>
                                     </span>
                                   )}
-                                  {isVerifiedStore && (
-                                    <span
-                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 shrink-0"
-                                      style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.35)' }}
-                                      title="Official Verified Store"
-                                    >
-                                      <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                        <polyline points="9 22 9 12 15 12 15 22" />
-                                      </svg>
-                                      <span>Verified Store</span>
-                                    </span>
-                                  )}
                                   {sellerTierBadge && (
                                     <span
                                       className="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center shrink-0"
-                                      style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                                      style={{ background: 'var(--accent-muted)', color: 'var(--text-accent)', borderColor: 'var(--accent-border)' }}
+                                      title={`${sellerTierBadge} — earned from completed marketplace sales`}
                                     >
                                       {sellerTierBadge}
                                     </span>

@@ -50,6 +50,7 @@ export const HOLD_STATUS_LABEL: Record<string, string> = {
   completed: 'Completed',
   cancelled: 'Cancelled',
   rejected: 'Rejected',
+  expired: 'Expired',
 };
 
 export function holdStepText(
@@ -57,6 +58,9 @@ export function holdStepText(
   role: HoldRole,
   actions: HoldAction[],
 ): string {
+  if (h.status === 'expired') {
+    return 'This hold request expired because the seller did not respond in time. The cards were released.';
+  }
   const deadline = sellerCanCompleteFrom(h.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   if (role === 'buyer') {
     if (h.status === 'pending') return 'Waiting for the seller to accept your hold.';

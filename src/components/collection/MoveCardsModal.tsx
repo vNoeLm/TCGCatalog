@@ -155,7 +155,7 @@ export function MoveCardsModal({
           </div>
 
           <label className="flex flex-col gap-1">
-            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{mode === 'exact' ? "Move from ${nameOf(fromId)}" : "Keep in ${nameOf(fromId)}"}</span>
+            <span className={labelCls} style={{ color: 'var(--text-tertiary)' }}>{mode === 'exact' ? `Move from ${nameOf(fromId)}` : `Keep in ${nameOf(fromId)}`}</span>
             <div className="flex items-center gap-2">
               <input
                 type="number"

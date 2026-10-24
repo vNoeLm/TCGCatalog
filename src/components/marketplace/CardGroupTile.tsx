@@ -85,32 +85,17 @@ export const CardGroupTile = React.memo(function CardGroupTile({ group, onClick,
       </div>
 
       <div className={`${isSmall ? 'p-2.5' : 'p-3.5'} flex flex-col flex-grow`}>
-        {sub ? (
-          <div className="text-center my-0.5">
-            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>{main}</h3>
-            <p className="text-[10px] font-bold uppercase tracking-widest truncate" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
-          </div>
-        ) : (
-          <div className="text-center my-0.5">
-            <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>{main}</h3>
-          </div>
-        )}
+        <div className="text-center my-0.5">
+          <h3 className={`${isSmall ? 'text-xs' : 'text-sm'} font-black leading-tight uppercase tracking-tight truncate`} style={{ color: 'var(--text-primary)' }}>{main}</h3>
+          {/* Always reserve the subtitle line so single- and two-line names keep the same height. */}
+          <p className="text-[10px] font-bold uppercase tracking-widest truncate min-h-[12px] leading-[12px]" style={{ color: 'var(--text-tertiary)' }}>{sub || ''}</p>
+        </div>
         <p className={`${isSmall ? 'text-[10px] my-1' : 'text-[11px] mt-1 mb-1.5'} font-medium truncate`} style={{ color: 'var(--text-secondary)' }}>
           {card.set_name || (card.card_type === 'Rune' ? 'Basic Rune' : '')}
         </p>
         <div className={`flex justify-between items-center font-mono ${isSmall ? 'text-[10px] mb-1' : 'text-[11px] mb-2'}`} style={{ color: 'var(--text-tertiary)' }}>
           <div className="flex items-center gap-1.5 min-w-0 truncate">
             <span>{formatCleanCardNumber(card.card_number)}</span>
-            {isAltArt(card) && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-pink-300 bg-pink-950/60 border border-pink-500/40 shrink-0">
-                Alt Art
-              </span>
-            )}
-            {isOvernumbered(card) && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider text-indigo-300 bg-indigo-950/60 border border-indigo-500/40 shrink-0">
-                Overnumbered
-              </span>
-            )}
           </div>
           <span className="shrink-0">{card.rarity}</span>
         </div>

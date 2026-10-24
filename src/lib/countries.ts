@@ -48,18 +48,3 @@ export function getCountry(code?: string | null): CountryInfo {
     isEU: false,
   };
 }
-
-export type ShippingScope = 'DOMESTIC' | 'EU' | 'WORLD';
-
-export const SHIPPING_SCOPES: { id: ShippingScope; label: string; desc: string }[] = [
-  { id: 'DOMESTIC', label: 'Domestic only', desc: 'Ships only within your home country' },
-  { id: 'EU', label: 'European Union (EU)', desc: 'Ships to all EU member states' },
-  { id: 'WORLD', label: 'Worldwide', desc: 'Ships internationally to any destination' },
-];
-
-export function describeShippingScope(scope: ShippingScope | string | undefined, countryCode = 'HU'): string {
-  const c = getCountry(countryCode);
-  if (scope === 'DOMESTIC') return `Only within ${c.name}`;
-  if (scope === 'WORLD') return 'Worldwide shipping';
-  return 'Ships to all EU countries';
-}

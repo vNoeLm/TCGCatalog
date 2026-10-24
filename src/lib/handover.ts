@@ -1,10 +1,20 @@
 /**
  * How a marketplace card gets from seller to buyer. Sellers pick which of these they offer per
- * listing (ListCardModal); buyers choose one of those at checkout. Shared by the cart drawer and
- * the hold-request API so both agree on what each method needs.
+ * listing (ListCardModal) or define their own custom shipping options in Seller Hub; buyers choose
+ * one at checkout. Shared by the cart drawer and the hold-request API so both agree on what each
+ * method needs.
  */
 
-export type HandoverMethodId = 'personal' | 'foxpost' | 'packeta' | 'gls' | 'posta' | 'dhl' | 'other';
+export type HandoverMethodId =
+  | 'personal'
+  | 'foxpost'
+  | 'packeta'
+  | 'gls'
+  | 'posta'
+  | 'dhl'
+  | 'other'
+  | 'international'
+  | `custom:${string}`;
 
 /** What the buyer has to provide for a method. */
 export type HandoverKind = 'personal' | 'locker' | 'address' | 'custom';
@@ -26,15 +36,33 @@ export const HANDOVER_METHODS: HandoverMethod[] = [
 
 export const ALL_HANDOVER_IDS: HandoverMethodId[] = HANDOVER_METHODS.map((m) => m.id);
 
+export function buildCustomHandoverId(kind: 'address' | 'locker' | 'custom', label: string): HandoverMethodId {
+  const cleanLabel = label.replace(/:/g, ' - ').trim().slice(0, 60) || 'Custom Shipping';
+  return `custom:${kind}:${cleanLabel}`;
+}
+
 export function handoverMethod(id: string | null | undefined): HandoverMethod | undefined {
+  if (!id || typeof id !== 'string') return undefined;
   // 'pickup' is what older requests stored for in-person.
   const normalized = id === 'pickup' ? 'personal' : id;
   const found = HANDOVER_METHODS.find((m) => m.id === normalized);
   if (found) return found;
+  // Cross-border delivery is offered from the seller's per-country rates, not from the
+  // domestic method list, but it behaves like an address delivery.
+  if (normalized === 'international') return { id: 'international', label: 'International shipping', kind: 'address' };
   // Backward compatibility for legacy listings/requests with legacy couriers:
   if (normalized === 'gls') return { id: 'gls', label: 'GLS Courier', kind: 'address' };
   if (normalized === 'posta') return { id: 'posta', label: 'Posta', kind: 'address' };
   if (normalized === 'dhl') return { id: 'dhl', label: 'DHL Express', kind: 'address' };
+  // Seller-defined custom shipping method encoded as `custom:<kind>:<label>`
+  if (normalized.startsWith('custom:')) {
+    const parts = normalized.split(':');
+    const rawKind = parts[1];
+    const label = parts.slice(2).join(':').trim() || 'Custom Shipping';
+    const kind: HandoverKind =
+      rawKind === 'address' || rawKind === 'locker' || rawKind === 'custom' ? rawKind : 'address';
+    return { id: normalized as HandoverMethodId, label, kind };
+  }
   return undefined;
 }
 
@@ -107,9 +135,12 @@ export function formatHandoverDetails(methodId: string, d: DeliveryDetails, cust
   if (!m || m.kind === 'personal') return '';
   if (m.kind === 'custom') return customText.trim();
   const lines = [`Recipient: ${d.recipientName.trim()}`, `Phone: ${d.phone.trim()}`];
-  if (d.country && d.country !== 'HU') lines.push(`Country: ${d.country.trim()}`);
+  if (d.country && (d.country !== 'HU' || m.id === 'international')) lines.push(`Country: ${d.country.trim()}`);
   if (m.id === 'foxpost') lines.push(`Foxpost locker: ${d.foxpostLocker.trim()}`);
   if (m.id === 'packeta') lines.push(`Packeta pickup point: ${d.packetaPoint.trim()}`);
+  if (m.id.startsWith('custom:') && m.kind === 'locker' && customText.trim()) {
+    lines.push(`${m.label} point/locker: ${customText.trim()}`);
+  }
   if (m.kind === 'address') lines.push(`Address: ${d.postalCode.trim()} ${d.city.trim()}, ${d.street.trim()}`);
   return lines.join('\n');
 }
